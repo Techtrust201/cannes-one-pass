@@ -30,6 +30,26 @@ enum HistoryAction {
   DELETED
 }
 
+enum VehicleType {
+  PETIT
+  MOYEN
+  GRAND
+  TRES_GRAND
+}
+
+enum CountryRegion {
+  FRANCE
+  ESPAGNE
+  ITALIE
+  ALLEMAGNE
+  BELGIQUE
+  SUISSE
+  ROYAUME_UNI
+  PAYS_BAS
+  PORTUGAL
+  AUTRE
+}
+
 model Accreditation {
   id          String               @id @default(uuid())
   createdAt   DateTime             @default(now())
@@ -59,8 +79,15 @@ model Vehicle {
   date            String
   time            String
   city            String
-  unloading       String   @db.Text
+  unloading       String       @db.Text
   kms             String?
+  
+  // Nouveaux champs pour le bilan carbone
+  vehicleType     VehicleType?
+  country         CountryRegion?
+  estimatedKms    Int          @default(0)
+  arrivalDate     DateTime?
+  departureDate   DateTime?
 
   accreditation   Accreditation @relation(fields: [accreditationId], references: [id], onDelete: Cascade)
   accreditationId String

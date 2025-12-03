@@ -1,0 +1,287 @@
+"use client";
+
+import { formatNumber, getMonthAbbr, TYPE_COLORS } from "@/lib/carbonData";
+import type { DateRange } from "@/app/logisticien/carbon/page";
+import type { CarbonData } from "@/hooks/useCarbonData";
+import SafeResponsiveBar from "./charts/SafeResponsiveBar";
+
+interface BatonsTabProps {
+  data: CarbonData;
+  dateRange: DateRange;
+  searchQuery: string;
+}
+
+// Fonction pour préparer les données mensuelles pour les graphiques
+function prepareMonthlyVehicleData(monthlyData: any[]) {
+  return monthlyData.map((month) => ({
+    month: getMonthAbbr(month.monthIndex),
+    year: month.year,
+    value: month.nbVehicules,
+  }));
+}
+
+function prepareMonthlyTypeData(monthlyData: any[]) {
+  return monthlyData.map((month) => ({
+    month: month.month,
+    "<10m3": month.typeBreakdown["<10m3"],
+    "10-15m3": month.typeBreakdown["10-15m3"],
+    "15-20m3": month.typeBreakdown["15-20m3"],
+    ">20m3": month.typeBreakdown[">20m3"],
+  }));
+}
+
+function InfoBanner() {
+  return (
+    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+      <p className="text-sm text-blue-800">
+        <span className="font-bold">•</span> Affiche les résultats des 12 mois
+        précédant l'année de la seconde date sélectionnée. (Ex 11/12/23 →
+        25/03/25 va afficher les résultats de Mars 2024 à Mars 2025).
+      </p>
+    </div>
+  );
+}
+
+function MonthlyVehicleChart({ data }: { data: CarbonData }) {
+  const monthlyVehicleData = prepareMonthlyVehicleData(data.monthly);
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+      <h2 className="text-lg font-semibold text-gray-900 mb-4">NB véhicules</h2>
+
+      <div className="flex gap-6">
+        {/* Graphique */}
+        <div className="flex-1 h-80">
+          <SafeResponsiveBar
+            data={monthlyVehicleData}
+            keys={["value"]}
+            indexBy="month"
+            margin={{ top: 20, right: 20, bottom: 60, left: 60 }}
+            padding={0.3}
+            valueScale={{ type: "linear" }}
+            indexScale={{ type: "band", round: true }}
+            colors={["#3B82F6"]}
+            borderColor={{
+              from: "color",
+              modifiers: [["darker", 1.6]],
+            }}
+            axisTop={null}
+            axisRight={null}
+            axisBottom={{
+              tickSize: 5,
+              tickPadding: 5,
+              tickRotation: -30,
+              legend: "",
+              legendPosition: "middle",
+              legendOffset: 32,
+            }}
+            axisLeft={{
+              tickSize: 5,
+              tickPadding: 5,
+              tickRotation: 0,
+              legend: "",
+              legendPosition: "middle",
+              legendOffset: -40,
+              format: (value) => formatNumber(value),
+            }}
+            labelSkipWidth={12}
+            labelSkipHeight={12}
+            labelTextColor={{
+              from: "color",
+              modifiers: [["darker", 1.6]],
+            }}
+            tooltip={({ indexValue, value }) => (
+              <div className="bg-white px-3 py-2 rounded shadow-lg border text-xs">
+                <strong>{indexValue} 2025</strong>
+                <br />
+                {formatNumber(value as number)} véhicules
+              </div>
+            )}
+            animate={true}
+            motionConfig="wobbly"
+          />
+        </div>
+
+        {/* Colonne des valeurs */}
+        <div className="w-32 bg-gray-50 rounded-lg p-3">
+          <h3 className="text-xs font-semibold text-gray-700 mb-3">Valeurs</h3>
+          <div className="space-y-2">
+            {monthlyVehicleData.map((item, index) => (
+              <div
+                key={`monthly-${index}-${item.value}`}
+                className="flex justify-between text-xs"
+              >
+                <span className="text-gray-600">
+                  {item.month} {item.year}
+                </span>
+                <span className="font-mono text-gray-900">
+                  {formatNumber(item.value)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TypeChart({ data }: { data: CarbonData }) {
+  const monthlyTypeData = prepareMonthlyTypeData(data.monthly);
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 p-6">
+      <h2 className="text-lg font-semibold text-gray-900 mb-4">Type</h2>
+
+      {/* Barres groupées pour vue d'ensemble */}
+      <div className="h-80 mb-8">
+        <SafeResponsiveBar
+          data={monthlyTypeData}
+          keys={Object.keys(TYPE_COLORS)}
+          indexBy="month"
+          margin={{ top: 20, right: 130, bottom: 60, left: 60 }}
+          padding={0.3}
+          valueScale={{ type: "linear" }}
+          indexScale={{ type: "band", round: true }}
+          colors={(d) => TYPE_COLORS[d.id as keyof typeof TYPE_COLORS]}
+          borderColor={{
+            from: "color",
+            modifiers: [["darker", 1.6]],
+          }}
+          axisTop={null}
+          axisRight={null}
+          axisBottom={{
+            tickSize: 5,
+            tickPadding: 5,
+            tickRotation: -30,
+            legend: "",
+            legendPosition: "middle",
+            legendOffset: 32,
+          }}
+          axisLeft={{
+            tickSize: 5,
+            tickPadding: 5,
+            tickRotation: 0,
+            legend: "",
+            legendPosition: "middle",
+            legendOffset: -40,
+            format: (value) => formatNumber(value),
+          }}
+          labelSkipWidth={12}
+          labelSkipHeight={12}
+          labelTextColor={{
+            from: "color",
+            modifiers: [["darker", 1.6]],
+          }}
+          legends={[
+            {
+              dataFrom: "keys",
+              anchor: "bottom-right",
+              direction: "column",
+              justify: false,
+              translateX: 120,
+              translateY: 0,
+              itemsSpacing: 2,
+              itemWidth: 100,
+              itemHeight: 20,
+              itemDirection: "left-to-right",
+              itemOpacity: 0.85,
+              symbolSize: 20,
+              effects: [
+                {
+                  on: "hover",
+                  style: {
+                    itemOpacity: 1,
+                  },
+                },
+              ],
+            },
+          ]}
+          tooltip={({ id, indexValue, value, color }) => (
+            <div className="bg-white px-3 py-2 rounded shadow-lg border text-xs">
+              <div className="flex items-center gap-2">
+                <div
+                  className="w-3 h-3 rounded"
+                  style={{ backgroundColor: color }}
+                ></div>
+                <strong>{id}</strong>
+              </div>
+              <div>{indexValue}</div>
+              <div>{formatNumber(value)} véhicules</div>
+            </div>
+          )}
+          animate={true}
+          motionConfig="wobbly"
+        />
+      </div>
+
+      {/* Petits multiples - 12 mini-cartes */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {monthlyTypeData.map((monthData, index) => (
+          <div
+            key={`type-month-${index}-${monthData.year}-${monthData.monthIndex}`}
+            className="bg-gray-50 rounded-lg p-4 border border-gray-200"
+          >
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">
+              {monthData.month}
+            </h3>
+            <div className="space-y-2">
+              {Object.keys(TYPE_COLORS).map((type) => {
+                const value = monthData[
+                  type as keyof typeof monthData
+                ] as number;
+                const maxValue = Math.max(
+                  ...Object.keys(TYPE_COLORS).map(
+                    (t) => monthData[t as keyof typeof monthData] as number
+                  )
+                );
+                // 🔧 FIX: Éviter division par 0 qui donne NaN = 100%
+                const percentage = maxValue > 0 ? (value / maxValue) * 100 : 0;
+
+                return (
+                  <div key={type} className="flex items-center gap-2">
+                    <div
+                      className="w-2 h-2 rounded-full"
+                      style={{
+                        backgroundColor:
+                          TYPE_COLORS[type as keyof typeof TYPE_COLORS],
+                      }}
+                    ></div>
+                    <span className="text-xs text-gray-600 flex-1">{type}</span>
+                    <div className="flex items-center gap-2 flex-1">
+                      <div className="flex-1 bg-gray-200 rounded-full h-2">
+                        <div
+                          className="h-2 rounded-full transition-all duration-300"
+                          style={{
+                            backgroundColor:
+                              TYPE_COLORS[type as keyof typeof TYPE_COLORS],
+                            width: `${percentage}%`,
+                          }}
+                        ></div>
+                      </div>
+                      <span className="text-xs font-mono text-gray-900 w-12 text-right">
+                        {formatNumber(value)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function BatonsTab({
+  data,
+  dateRange,
+  searchQuery,
+}: BatonsTabProps) {
+  return (
+    <div>
+      <InfoBanner />
+      <MonthlyVehicleChart data={data} />
+      <TypeChart data={data} />
+    </div>
+  );
+}

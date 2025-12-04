@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import NodeGeocoder from "node-geocoder";
 
 // Coordonnées exactes du Palais des Festivals de Cannes
 const PALAIS_COORDINATES = {
@@ -9,12 +8,8 @@ const PALAIS_COORDINATES = {
     "Palais des festivals et des congrès de Cannes, 1 Bd de la Croisette, 06400 Cannes",
 };
 
-// Configuration du géocodeur (OpenStreetMap gratuit et fiable)
-const geocoder = NodeGeocoder({
-  provider: "openstreetmap",
-  httpAdapter: "https",
-  formatter: null,
-});
+// API Nominatim d'OpenStreetMap (gratuite et fiable)
+const NOMINATIM_API_URL = "https://nominatim.openstreetmap.org/search";
 
 // Fonction pour calculer la distance routière réelle (formule de Haversine + facteur routier adaptatif)
 function calculateRoadDistance(
@@ -275,14 +270,29 @@ async function geocodeCity(cityName: string): Promise<{
 
   try {
     console.log(`🔍 Géocodage de "${cityName}"...`);
-    const results = await geocoder.geocode(cityName);
+
+    // Appel direct à l'API Nominatim d'OpenStreetMap
+    const encodedCity = encodeURIComponent(cityName);
+    const url = `${NOMINATIM_API_URL}?q=${encodedCity}&format=json&limit=1&addressdetails=1`;
+
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "PalaisDesFestivals/1.0", // Requis par Nominatim
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const results = await response.json();
 
     if (results && results.length > 0) {
       const location = results[0];
-      const lat = location.latitude;
-      const lng = location.longitude;
+      const lat = parseFloat(location.lat);
+      const lng = parseFloat(location.lon);
 
-      if (lat && lng) {
+      if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
         const distance = calculateRoadDistance(
           lat,
           lng,
@@ -290,7 +300,7 @@ async function geocodeCity(cityName: string): Promise<{
           PALAIS_COORDINATES.lng
         );
         const country = deduceCountryFromCity(cityName);
-        const fullName = location.formattedAddress || cityName;
+        const fullName = location.display_name || cityName;
 
         const result = {
           lat,

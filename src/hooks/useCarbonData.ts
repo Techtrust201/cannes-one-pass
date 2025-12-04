@@ -147,6 +147,7 @@ export function useCarbonData(
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateRange.start, dateRange.end, debouncedSearchQuery]);
 
   return {

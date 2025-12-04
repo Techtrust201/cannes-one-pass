@@ -3,19 +3,18 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { formatNumber } from "@/lib/carbonData";
-import type { DateRange } from "@/app/logisticien/carbon/page";
 import type { CarbonData, CarbonDataEntry } from "@/hooks/useCarbonData";
 
 interface ListeTabProps {
   data: CarbonData;
-  dateRange: DateRange;
-  searchQuery: string;
+  dateRange: unknown;
+  searchQuery: unknown;
 }
 
 // Utiliser CarbonDataEntry directement
 
 // Fonction pour grouper les données par mois
-function groupDataByMonth(monthlyData: any[]): {
+function groupDataByMonth(monthlyData: CarbonData["monthly"]): {
   [key: string]: CarbonDataEntry[];
 } {
   const grouped: { [key: string]: CarbonDataEntry[] } = {};
@@ -32,7 +31,7 @@ function InfoBanner() {
     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
       <p className="text-sm text-blue-800">
         <span className="font-bold">•</span> Affiche les résultats des 12 mois
-        précédant l'année de la seconde date sélectionnée. (Ex 11/12/23 →
+        précédant l&apos;année de la seconde date sélectionnée. (Ex 11/12/23 →
         25/03/25 va afficher les résultats de Mars 2024 à Mars 2025).
       </p>
     </div>
@@ -151,11 +150,7 @@ function MonthlyAccordion({
   );
 }
 
-export default function ListeTab({
-  data,
-  dateRange,
-  searchQuery,
-}: ListeTabProps) {
+export default function ListeTab({ data }: ListeTabProps) {
   const monthlyDetailedData = groupDataByMonth(data.monthly);
 
   return (

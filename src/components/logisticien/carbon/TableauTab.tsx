@@ -3,14 +3,13 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp, ArrowUpDown } from "lucide-react";
 import { formatNumber } from "@/lib/carbonData";
-import type { DateRange } from "@/app/logisticien/carbon/page";
 import type { CarbonData, AggregatedData } from "@/hooks/useCarbonData";
 import FilterInstructions from "./FilterInstructions";
 
 interface TableauTabProps {
   data: CarbonData;
-  dateRange: DateRange;
-  searchQuery: string;
+  dateRange: unknown;
+  searchQuery: unknown;
 }
 
 interface SectionProps {
@@ -184,11 +183,7 @@ function AggregatedSection({ title, data, defaultOpen = true }: SectionProps) {
   );
 }
 
-export default function TableauTab({
-  data,
-  dateRange,
-  searchQuery,
-}: TableauTabProps) {
+export default function TableauTab({ data }: TableauTabProps) {
   return (
     <div className="space-y-6">
       <FilterInstructions />

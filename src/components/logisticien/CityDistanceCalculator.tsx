@@ -15,14 +15,12 @@ export default function CityDistanceCalculator({
   className = ""
 }: CityDistanceCalculatorProps) {
   const [distance, setDistance] = useState<number | null>(null);
-  const [country, setCountry] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const calculateDistance = async () => {
     if (!city.trim()) {
       setDistance(null);
-      setCountry("");
       return;
     }
 
@@ -35,7 +33,6 @@ export default function CityDistanceCalculator({
 
       if (data.success) {
         setDistance(data.data.distance);
-        setCountry(data.data.country);
         onDistanceCalculated(data.data.distance, data.data.country);
         
         if (!data.data.found) {
@@ -44,13 +41,11 @@ export default function CityDistanceCalculator({
       } else {
         setError(data.error || "Erreur lors du calcul");
         setDistance(null);
-        setCountry("");
       }
     } catch (err) {
       console.error("Erreur calcul distance:", err);
       setError("Erreur de connexion");
       setDistance(null);
-      setCountry("");
     } finally {
       setLoading(false);
     }
@@ -62,6 +57,7 @@ export default function CityDistanceCalculator({
     }, 1000); // Attendre 1s après la dernière saisie
 
     return () => clearTimeout(debounceTimer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [city]);
 
   if (!city.trim()) return null;

@@ -1,8 +1,15 @@
 #!/usr/bin/env tsx
 
 import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 
-const prisma = new PrismaClient();
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  throw new Error("DATABASE_URL environment variable is not set");
+}
+
+const adapter = new PrismaPg({ connectionString });
+const prisma = new PrismaClient({ adapter });
 
 // Fonction pour calculer la distance routière avec la nouvelle logique
 async function calculateDistanceForCity(city: string): Promise<number> {

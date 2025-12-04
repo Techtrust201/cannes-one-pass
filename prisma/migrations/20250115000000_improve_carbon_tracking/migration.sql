@@ -1,19 +1,43 @@
 -- Améliorer le suivi carbone
 -- Ajouter des champs pour un meilleur bilan carbone
 
--- Ajouter enum pour les types de véhicules standardisés
-CREATE TYPE "VehicleType" AS ENUM ('PETIT', 'MOYEN', 'GRAND', 'TRES_GRAND');
+-- Ajouter enum pour les types de véhicules standardisés (si n'existe pas déjà)
+DO $$ BEGIN
+    CREATE TYPE "VehicleType" AS ENUM ('PETIT', 'MOYEN', 'GRAND', 'TRES_GRAND');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
--- Ajouter enum pour les pays/régions
-CREATE TYPE "CountryRegion" AS ENUM ('FRANCE', 'ESPAGNE', 'ITALIE', 'ALLEMAGNE', 'BELGIQUE', 'SUISSE', 'ROYAUME_UNI', 'PAYS_BAS', 'PORTUGAL', 'AUTRE');
+-- Ajouter enum pour les pays/régions (si n'existe pas déjà)
+DO $$ BEGIN
+    CREATE TYPE "CountryRegion" AS ENUM ('FRANCE', 'ESPAGNE', 'ITALIE', 'ALLEMAGNE', 'BELGIQUE', 'SUISSE', 'ROYAUME_UNI', 'PAYS_BAS', 'PORTUGAL', 'AUTRE');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
--- Ajouter des colonnes à la table Vehicle
-ALTER TABLE "Vehicle" 
-ADD COLUMN "vehicleType" "VehicleType",
-ADD COLUMN "country" "CountryRegion",
-ADD COLUMN "estimatedKms" INTEGER DEFAULT 0,
-ADD COLUMN "arrivalDate" TIMESTAMP(3),
-ADD COLUMN "departureDate" TIMESTAMP(3);
+-- Ajouter des colonnes à la table Vehicle (si elles n'existent pas déjà)
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Vehicle' AND column_name = 'vehicleType') THEN
+        ALTER TABLE "Vehicle" ADD COLUMN "vehicleType" "VehicleType";
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Vehicle' AND column_name = 'country') THEN
+        ALTER TABLE "Vehicle" ADD COLUMN "country" "CountryRegion";
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Vehicle' AND column_name = 'estimatedKms') THEN
+        ALTER TABLE "Vehicle" ADD COLUMN "estimatedKms" INTEGER DEFAULT 0;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Vehicle' AND column_name = 'arrivalDate') THEN
+        ALTER TABLE "Vehicle" ADD COLUMN "arrivalDate" TIMESTAMP(3);
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Vehicle' AND column_name = 'departureDate') THEN
+        ALTER TABLE "Vehicle" ADD COLUMN "departureDate" TIMESTAMP(3);
+    END IF;
+END $$;
 
 -- Migrer les données existantes
 UPDATE "Vehicle" 

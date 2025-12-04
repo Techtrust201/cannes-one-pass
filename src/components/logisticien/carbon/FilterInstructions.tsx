@@ -27,14 +27,14 @@ export default function FilterInstructions() {
           <div className="space-y-2">
             <p>
               <strong>
-                Pas possible d'appliquer + de 1 filtre à la fois !
+                Pas possible d&apos;appliquer + de 1 filtre à la fois !
               </strong>
             </p>
             <div className="text-xs space-y-1">
-              <p>Si j'active le filtre Km</p>
+              <p>Si j&apos;active le filtre Km</p>
               <p>puis clique sur le filtre Emissions</p>
               <p>alors je désactive le filtre KM</p>
-              <p>et j'active le filtre Emissions</p>
+              <p>et j&apos;active le filtre Emissions</p>
             </div>
           </div>
         </div>

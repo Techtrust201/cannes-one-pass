@@ -2,31 +2,36 @@
 
 import { useState, useEffect } from "react";
 
+interface BarDataPoint {
+  [key: string]: string | number;
+}
+
 interface SafeResponsiveBarProps {
-  data: any[];
+  data: BarDataPoint[];
   keys: string[];
   indexBy: string;
-  margin?: any;
+  margin?: { top?: number; right?: number; bottom?: number; left?: number };
   padding?: number;
-  valueScale?: any;
-  indexScale?: any;
-  colors?: any;
-  borderColor?: any;
-  axisTop?: any;
-  axisRight?: any;
-  axisBottom?: any;
-  axisLeft?: any;
+  valueScale?: Record<string, unknown>;
+  indexScale?: Record<string, unknown>;
+  colors?: string[] | ((datum: BarDataPoint) => string) | Record<string, unknown>;
+  borderColor?: string | ((datum: BarDataPoint) => string) | Record<string, unknown>;
+  axisTop?: Record<string, unknown> | null;
+  axisRight?: Record<string, unknown> | null;
+  axisBottom?: Record<string, unknown> | null;
+  axisLeft?: Record<string, unknown> | null;
   labelSkipWidth?: number;
   labelSkipHeight?: number;
-  labelTextColor?: any;
-  legends?: any[];
-  tooltip?: (data: any) => React.ReactNode;
+  labelTextColor?: string | ((datum: BarDataPoint) => string) | Record<string, unknown>;
+  legends?: Array<Record<string, unknown>>;
+  tooltip?: (data: BarDataPoint) => React.ReactNode;
   animate?: boolean;
   motionConfig?: string;
+  [key: string]: unknown; // Permettre toutes les autres props de Nivo
 }
 
 export default function SafeResponsiveBar(props: SafeResponsiveBarProps) {
-  const [ResponsiveBar, setResponsiveBar] = useState<any>(null);
+  const [ResponsiveBar, setResponsiveBar] = useState<React.ComponentType<Record<string, unknown>> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,7 +39,7 @@ export default function SafeResponsiveBar(props: SafeResponsiveBarProps) {
     const loadChart = async () => {
       try {
         const nivoModule = await import("@nivo/bar");
-        setResponsiveBar(() => nivoModule.ResponsiveBar);
+        setResponsiveBar(() => nivoModule.ResponsiveBar as React.ComponentType<Record<string, unknown>>);
         setError(null);
       } catch (err) {
         console.error("Erreur chargement ResponsiveBar:", err);
@@ -63,7 +68,7 @@ export default function SafeResponsiveBar(props: SafeResponsiveBarProps) {
     );
   }
 
-  return <ResponsiveBar {...props} />;
+  return <ResponsiveBar {...(props as unknown as Record<string, unknown>)} />;
 }
 
 

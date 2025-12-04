@@ -88,7 +88,7 @@ export default function CarbonHeader({
           )}
           {searchQuery && !isSearching && (
             <div className="absolute top-full left-0 mt-1 text-xs text-gray-500 bg-white px-2 py-1 rounded shadow-sm border">
-              🔍 Recherche active: "{searchQuery}"
+              🔍 Recherche active: &quot;{searchQuery}&quot;
             </div>
           )}
         </div>

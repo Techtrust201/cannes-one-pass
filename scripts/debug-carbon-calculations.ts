@@ -1,8 +1,15 @@
 #!/usr/bin/env tsx
 
 import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 
-const prisma = new PrismaClient();
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  throw new Error("DATABASE_URL environment variable is not set");
+}
+
+const adapter = new PrismaPg({ connectionString });
+const prisma = new PrismaClient({ adapter });
 
 async function debugCarbonCalculations() {
   console.log("🔍 === DIAGNOSTIC DES CALCULS CARBONE ===\n");
@@ -168,8 +175,8 @@ async function debugCarbonCalculations() {
         event: acc.event,
         plate: vehicle.plate,
         city: vehicle.city || "Non renseignée",
-        kms: vehicle.kms,
-        estimatedKms: (vehicle as any).estimatedKms,
+        kms: vehicle.kms || undefined,
+        estimatedKms: (vehicle as { estimatedKms?: number }).estimatedKms,
         calculatedDistance,
         distanceSource,
         vehicleType,

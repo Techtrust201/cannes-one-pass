@@ -228,7 +228,7 @@ export async function GET(req: NextRequest) {
         // 1. CALCUL DU TYPE DE VÉHICULE
         // Utiliser les nouveaux champs en priorité, puis fallback sur le champ "size"
         const vehicleType = mapVehicleTypeToSize(
-          (vehicle as any).vehicleType,
+          vehicle.vehicleType || null,
           vehicle.size
         );
 
@@ -237,11 +237,8 @@ export async function GET(req: NextRequest) {
         let distanceSource = "non renseignée";
 
         // Priorité 1: estimatedKms (nouveau champ calculé)
-        if (
-          (vehicle as any).estimatedKms &&
-          (vehicle as any).estimatedKms > 0
-        ) {
-          km = (vehicle as any).estimatedKms;
+        if (vehicle.estimatedKms && vehicle.estimatedKms > 0) {
+          km = vehicle.estimatedKms;
           distanceSource = "calculée automatiquement";
           vehiclesWithDistance++;
         }
@@ -302,15 +299,15 @@ export async function GET(req: NextRequest) {
 
         // 4. DÉTERMINATION DU PAYS D'ORIGINE
         const origine = mapCountryToFrench(
-          (vehicle as any).country,
+          vehicle.country || null,
           vehicle.city
         );
 
         // 5. GESTION DES DATES
         let dateFormatted =
           vehicle.date || new Date().toISOString().split("T")[0];
-        if ((vehicle as any).arrivalDate) {
-          dateFormatted = new Date((vehicle as any).arrivalDate)
+        if (vehicle.arrivalDate) {
+          dateFormatted = new Date(vehicle.arrivalDate)
             .toISOString()
             .split("T")[0];
         }
@@ -407,9 +404,23 @@ function calculateAggregation(
 function calculateMonthlyData(data: CarbonDataEntry[], endDateStr: string) {
   console.log(`🗓️  Calcul données mensuelles pour ${data.length} véhicules`);
   const endDate = parseDate(endDateStr);
-  
+
   // 🔧 FIX: Générer TOUS les 12 mois précédant la date de fin (règle métier)
-  const months: any[] = [];
+  interface MonthlyDataResult {
+    month: string;
+    monthIndex: number;
+    year: number;
+    nbVehicules: number;
+    typeBreakdown: {
+      "<10m3": number;
+      "10-15m3": number;
+      "15-20m3": number;
+      ">20m3": number;
+    };
+    data: CarbonDataEntry[];
+    uniqueKey: string;
+  }
+  const months: MonthlyDataResult[] = [];
   const processedMonths = new Set<string>(); // Éviter les doublons
 
   for (let i = 11; i >= 0; i--) {
@@ -420,10 +431,10 @@ function calculateMonthlyData(data: CarbonDataEntry[], endDateStr: string) {
       month: "long",
       year: "numeric",
     }).format(monthDate);
-    
+
     // Créer une clé unique pour éviter les doublons
     const uniqueKey = `${monthDate.getFullYear()}-${monthDate.getMonth().toString().padStart(2, "0")}`;
-    
+
     // Skip si déjà traité
     if (processedMonths.has(uniqueKey)) {
       continue;
@@ -459,6 +470,8 @@ function calculateMonthlyData(data: CarbonDataEntry[], endDateStr: string) {
     });
   }
 
-  console.log(`🎯 Généré ${months.length} mois (tous les 12 mois de la période)`);
+  console.log(
+    `🎯 Généré ${months.length} mois (tous les 12 mois de la période)`
+  );
   return months;
 }

@@ -1,14 +1,13 @@
 "use client";
 
 import { formatNumber, TYPE_COLORS } from "@/lib/carbonData";
-import type { DateRange } from "@/app/logisticien/carbon/page";
 import type { CarbonData, AggregatedData } from "@/hooks/useCarbonData";
 import SafeResponsivePie from "./charts/SafeResponsivePie";
 
 interface CamembertTabProps {
   data: CarbonData;
-  dateRange: DateRange;
-  searchQuery: string;
+  dateRange: unknown;
+  searchQuery: unknown;
 }
 
 interface DonutChartProps {
@@ -75,14 +74,18 @@ function DonutChart({ title, data, metric, colors }: DonutChartProps) {
           }}
           enableArcLinkLabels={false}
           enableArcLabels={false}
-          tooltip={({ datum }) => (
-            <div className="bg-white px-3 py-2 rounded shadow-lg border text-xs">
-              <strong>{datum.label}</strong>
-              <br />
-              {formatNumber(datum.value)} –{" "}
-              {Math.round((datum.value / total) * 100)}%
-            </div>
-          )}
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          tooltip={({ datum }: any) => {
+            if (!datum) return null;
+            return (
+              <div className="bg-white px-3 py-2 rounded shadow-lg border text-xs">
+                <strong>{datum.label}</strong>
+                <br />
+                {formatNumber(datum.value)} –{" "}
+                {Math.round((datum.value / total) * 100)}%
+              </div>
+            );
+          }}
           animate={true}
           motionConfig="wobbly"
         />
@@ -153,11 +156,7 @@ function CamembertSection({
   );
 }
 
-export default function CamembertTab({
-  data,
-  dateRange,
-  searchQuery,
-}: CamembertTabProps) {
+export default function CamembertTab({ data }: CamembertTabProps) {
   return (
     <div className="space-y-8">
       <CamembertSection title="Pays" data={data.aggregations.pays} />

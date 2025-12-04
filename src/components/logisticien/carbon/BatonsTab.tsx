@@ -1,18 +1,17 @@
 "use client";
 
 import { formatNumber, getMonthAbbr, TYPE_COLORS } from "@/lib/carbonData";
-import type { DateRange } from "@/app/logisticien/carbon/page";
-import type { CarbonData } from "@/hooks/useCarbonData";
+import type { CarbonData, MonthlyData } from "@/hooks/useCarbonData";
 import SafeResponsiveBar from "./charts/SafeResponsiveBar";
 
 interface BatonsTabProps {
   data: CarbonData;
-  dateRange: DateRange;
-  searchQuery: string;
+  dateRange: unknown;
+  searchQuery: unknown;
 }
 
 // Fonction pour préparer les données mensuelles pour les graphiques
-function prepareMonthlyVehicleData(monthlyData: any[]) {
+function prepareMonthlyVehicleData(monthlyData: MonthlyData[]) {
   return monthlyData.map((month) => ({
     month: getMonthAbbr(month.monthIndex),
     year: month.year,
@@ -20,9 +19,11 @@ function prepareMonthlyVehicleData(monthlyData: any[]) {
   }));
 }
 
-function prepareMonthlyTypeData(monthlyData: any[]) {
+function prepareMonthlyTypeData(monthlyData: MonthlyData[]) {
   return monthlyData.map((month) => ({
     month: month.month,
+    year: month.year,
+    monthIndex: month.monthIndex,
     "<10m3": month.typeBreakdown["<10m3"],
     "10-15m3": month.typeBreakdown["10-15m3"],
     "15-20m3": month.typeBreakdown["15-20m3"],
@@ -35,7 +36,7 @@ function InfoBanner() {
     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
       <p className="text-sm text-blue-800">
         <span className="font-bold">•</span> Affiche les résultats des 12 mois
-        précédant l'année de la seconde date sélectionnée. (Ex 11/12/23 →
+        précédant l&apos;année de la seconde date sélectionnée. (Ex 11/12/23 →
         25/03/25 va afficher les résultats de Mars 2024 à Mars 2025).
       </p>
     </div>
@@ -81,7 +82,7 @@ function MonthlyVehicleChart({ data }: { data: CarbonData }) {
               legend: "",
               legendPosition: "middle",
               legendOffset: -40,
-              format: (value) => formatNumber(value),
+              format: (value: string | number) => formatNumber(value as number),
             }}
             labelSkipWidth={12}
             labelSkipHeight={12}
@@ -89,7 +90,7 @@ function MonthlyVehicleChart({ data }: { data: CarbonData }) {
               from: "color",
               modifiers: [["darker", 1.6]],
             }}
-            tooltip={({ indexValue, value }) => (
+            tooltip={({ indexValue, value }: any) => ( // eslint-disable-line @typescript-eslint/no-explicit-any
               <div className="bg-white px-3 py-2 rounded shadow-lg border text-xs">
                 <strong>{indexValue} 2025</strong>
                 <br />
@@ -163,7 +164,7 @@ function TypeChart({ data }: { data: CarbonData }) {
             legend: "",
             legendPosition: "middle",
             legendOffset: -40,
-            format: (value) => formatNumber(value),
+            format: (value: string | number) => formatNumber(value as number),
           }}
           labelSkipWidth={12}
           labelSkipHeight={12}
@@ -195,17 +196,17 @@ function TypeChart({ data }: { data: CarbonData }) {
               ],
             },
           ]}
-          tooltip={({ id, indexValue, value, color }) => (
+          tooltip={({ id, indexValue, value, color }: any) => ( // eslint-disable-line @typescript-eslint/no-explicit-any
             <div className="bg-white px-3 py-2 rounded shadow-lg border text-xs">
               <div className="flex items-center gap-2">
                 <div
                   className="w-3 h-3 rounded"
-                  style={{ backgroundColor: color }}
+                  style={{ backgroundColor: String(color) }}
                 ></div>
                 <strong>{id}</strong>
               </div>
               <div>{indexValue}</div>
-              <div>{formatNumber(value)} véhicules</div>
+              <div>{formatNumber(value as number)} véhicules</div>
             </div>
           )}
           animate={true}
@@ -272,11 +273,7 @@ function TypeChart({ data }: { data: CarbonData }) {
   );
 }
 
-export default function BatonsTab({
-  data,
-  dateRange,
-  searchQuery,
-}: BatonsTabProps) {
+export default function BatonsTab({ data }: BatonsTabProps) {
   return (
     <div>
       <InfoBanner />

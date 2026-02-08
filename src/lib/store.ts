@@ -1,4 +1,4 @@
-import type { Accreditation, Vehicle } from "@/types";
+import type { Accreditation, Vehicle, Zone } from "@/types";
 import prisma from "@/lib/prisma";
 
 export async function readAccreditations(): Promise<Accreditation[]> {
@@ -6,11 +6,10 @@ export async function readAccreditations(): Promise<Accreditation[]> {
     include: { vehicles: true },
   });
 
-  // Adaptation vers la forme attendue par le front (stepOneData, stepThreeData…)
   return rows.map(
     (a): Accreditation => ({
       id: a.id,
-      createdAt: a.createdAt, // On garde le type Date pour correspondre au type attendu
+      createdAt: a.createdAt,
       company: a.company,
       stand: a.stand,
       unloading: a.unloading,
@@ -20,11 +19,12 @@ export async function readAccreditations(): Promise<Accreditation[]> {
       status: a.status as Accreditation["status"],
       entryAt: a.entryAt ?? undefined,
       exitAt: a.exitAt ?? undefined,
+      currentZone: (a.currentZone as Zone) ?? null,
       vehicles: a.vehicles.map(
         (v): Vehicle => ({
           id: v.id,
           plate: v.plate,
-          size: (v.size as Vehicle["size"]) || "",
+          size: v.size || "",
           phoneCode: v.phoneCode,
           phoneNumber: v.phoneNumber,
           date: v.date,
@@ -38,6 +38,10 @@ export async function readAccreditations(): Promise<Accreditation[]> {
                 ? [v.unloading]
                 : [],
           kms: v.kms || undefined,
+          vehicleType: v.vehicleType as Vehicle["vehicleType"] ?? undefined,
+          emptyWeight: v.emptyWeight ?? undefined,
+          maxWeight: v.maxWeight ?? undefined,
+          currentWeight: v.currentWeight ?? undefined,
         })
       ),
     })

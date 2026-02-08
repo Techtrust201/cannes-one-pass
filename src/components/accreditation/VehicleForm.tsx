@@ -4,6 +4,8 @@ import type { Vehicle } from "@/types";
 import CityAutocomplete from "@/components/CityAutocomplete";
 import Image from "next/image";
 import { Checkbox } from "@/components/ui/checkbox";
+import { getVehicleWeightLimits, getVehicleTypeLabel, getAllVehicleTypes } from "@/lib/vehicle-utils";
+import type { VehicleType } from "@/types";
 
 interface Props {
   data: Vehicle;
@@ -11,31 +13,13 @@ interface Props {
   onValidityChange: (v: boolean) => void;
 }
 
-const SIZE_OPTIONS = [
-  {
-    value: "-10",
-    label: "- de 10 m3",
-    icon: "/accreditation/pict_page2/Vector (6).svg",
-  },
-  {
-    value: "10-14",
-    label: "10 m3 - 14 m3",
-    icon: "/accreditation/pict_page2/Vector (7).svg",
-  },
-  {
-    value: "15-20",
-    label: "15 m3 - 20 m3",
-    icon: "/accreditation/pict_page2/Vector (8).svg",
-  },
-  {
-    value: "+20",
-    label: "+ de 20 m3",
-    icon: "/accreditation/pict_page2/Vector (9).svg",
-  },
-];
+const VEHICLE_TYPE_OPTIONS = getAllVehicleTypes().map((vt) => ({
+  value: vt,
+  label: getVehicleTypeLabel(vt),
+  limits: getVehicleWeightLimits(vt),
+}));
 
 export default function VehicleForm({ data, update, onValidityChange }: Props) {
-  // const uid = useId();
   const valid =
     (data.plate ?? "").trim() &&
     (data.size ?? "").trim() &&
@@ -45,11 +29,23 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
     Array.isArray(data.unloading) &&
     data.unloading.length > 0;
 
-  // onValidityChange est stable du point de vue logique ;
-  // l'omettre des dépendances évite que le hook se déclenche à chaque nouveau render
-  // car StepTwo recrée une nouvelle fonction à chaque fois.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => onValidityChange(!!valid), [valid]);
+
+  // Auto-set weight limits when vehicle type changes
+  const handleVehicleTypeChange = (vt: string) => {
+    if (vt && getAllVehicleTypes().includes(vt as VehicleType)) {
+      const limits = getVehicleWeightLimits(vt as VehicleType);
+      update({
+        size: vt,
+        vehicleType: vt as VehicleType,
+        emptyWeight: limits.emptyWeight,
+        maxWeight: limits.maxWeight,
+      });
+    } else {
+      update({ size: vt, vehicleType: undefined, emptyWeight: undefined, maxWeight: undefined, currentWeight: undefined });
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -75,7 +71,7 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
             }`}
           />
         </div>
-        {/* Taille */}
+        {/* Type de véhicule */}
         <div className="flex-1 min-w-[180px]">
           <label className="text-sm font-semibold flex items-center gap-1 mb-1">
             <Image
@@ -83,27 +79,56 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
               width={16}
               height={16}
               className="w-4 h-4"
-              alt="Taille du véhicule"
+              alt="Type de véhicule"
             />{" "}
-            Taille du véhicule
+            Type de véhicule
           </label>
           <select
             value={data.size ?? ""}
-            onChange={(e) =>
-              update({ size: e.target.value as Vehicle["size"] })
-            }
+            onChange={(e) => handleVehicleTypeChange(e.target.value)}
             className={`w-full rounded-md px-3 py-1.5 text-sm shadow-sm bg-white focus:ring-primary focus:border-primary ${
               !data.size ? "border-red-500" : "border-gray-300"
             }`}
           >
-            <option value="">Choisir une taille</option>
-            {SIZE_OPTIONS.map((o) => (
+            <option value="">Choisir un type</option>
+            {VEHICLE_TYPE_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
-                {o.label}
+                {o.label} ({o.limits.emptyWeight}t - {o.limits.maxWeight}t)
               </option>
             ))}
           </select>
         </div>
+        {/* Poids actuel */}
+        {data.vehicleType && (
+          <div className="flex-1 min-w-[180px]">
+            <label className="text-sm font-semibold flex items-center gap-1 mb-1">
+              Poids actuel (tonnes)
+              <span className="font-normal text-xs text-gray-500">
+                ({data.emptyWeight}t - {data.maxWeight}t)
+              </span>
+            </label>
+            <input
+              type="number"
+              value={data.currentWeight ?? ""}
+              onChange={(e) => update({ currentWeight: e.target.value ? Number(e.target.value) : undefined })}
+              min={data.emptyWeight}
+              max={data.maxWeight}
+              placeholder={`${data.emptyWeight} - ${data.maxWeight}`}
+              className={`w-full rounded-md px-3 py-1.5 text-sm shadow-sm focus:ring-primary focus:border-primary ${
+                data.currentWeight != null &&
+                (data.currentWeight < (data.emptyWeight ?? 0) || data.currentWeight > (data.maxWeight ?? 100))
+                  ? "border-red-500"
+                  : "border-gray-300"
+              }`}
+            />
+            {data.currentWeight != null &&
+              (data.currentWeight < (data.emptyWeight ?? 0) || data.currentWeight > (data.maxWeight ?? 100)) && (
+                <p className="text-xs text-red-500 mt-1">
+                  Le poids doit être entre {data.emptyWeight}t et {data.maxWeight}t
+                </p>
+              )}
+          </div>
+        )}
         {/* Téléphone */}
         <div className="flex-1 min-w-[180px]">
           <label className="text-sm font-semibold flex items-center gap-1 mb-1">
@@ -215,7 +240,6 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
             }`}
           />
         </div>
-        {/* Km supprimé */}
       </div>
 
       {/* Unloading */}

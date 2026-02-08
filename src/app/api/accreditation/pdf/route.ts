@@ -50,6 +50,23 @@ export async function POST(req: NextRequest) {
     const pdfDoc = await PDFDocument.create();
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
+    let page = pdfDoc.addPage();
+    const height = page.getSize().height;
+    const width = page.getSize().width;
+    let y = page.getSize().height - 50;
+
+    // Marge de sécurité minimale avant de créer une nouvelle page
+    const MIN_Y = 100;
+    const SECTION_SPACING = 30;
+
+    // Helper: vérifie si on doit créer une nouvelle page
+    const ensureSpace = (requiredHeight: number): void => {
+      if (y - requiredHeight < MIN_Y) {
+        page = pdfDoc.addPage();
+        y = height - 50;
+      }
+    };
+
     const drawText = (
       page: unknown, // PDFPage type not exported by pdf-lib
       text: string,
@@ -58,6 +75,8 @@ export async function POST(req: NextRequest) {
       size = 12,
       options: { color?: [number, number, number] } = {}
     ) => {
+      // Vérifier que y est valide avant de dessiner
+      if (y < MIN_Y) return;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (page as any).drawText(text, {
         x,
@@ -68,7 +87,7 @@ export async function POST(req: NextRequest) {
       });
     };
 
-    // Helper: retourne le nouveau y après dessin du texte wrap.
+    // Helper: retourne le nouveau y après dessin du texte wrap avec vérification de page
     const drawWrapped = (
       page: unknown, // PDFPage type not exported by pdf-lib
       text: string,
@@ -77,33 +96,46 @@ export async function POST(req: NextRequest) {
       maxWidth: number,
       size = 12,
       options: { color?: [number, number, number] } = {}
-    ) => {
+    ): number => {
       const words = text.split(" ");
       let line = "";
       const lineHeight = size + 4;
+      let currentY = y;
+
       for (let i = 0; i < words.length; i += 1) {
         const w = words[i];
         const test = line ? `${line} ${w}` : w;
         const testWidth = font.widthOfTextAtSize(test, size);
+        
         if (testWidth > maxWidth) {
-          drawText(page, line, x, y, size, options);
-          y -= lineHeight;
+          // Vérifier l'espace avant de dessiner
+          if (currentY < MIN_Y) {
+            // Créer nouvelle page si nécessaire
+            page = pdfDoc.addPage();
+            currentY = height - 50;
+          }
+          if (line) {
+            drawText(page, line, x, currentY, size, options);
+            currentY -= lineHeight;
+          }
           line = w;
         } else {
           line = test;
         }
       }
+      
       if (line) {
-        drawText(page, line, x, y, size, options);
-        y -= lineHeight;
+        // Vérifier l'espace avant de dessiner la dernière ligne
+        if (currentY < MIN_Y) {
+          page = pdfDoc.addPage();
+          currentY = height - 50;
+        }
+        drawText(page, line, x, currentY, size, options);
+        currentY -= lineHeight;
       }
-      return y;
+      
+      return currentY;
     };
-
-    let page = pdfDoc.addPage();
-    const height = page.getSize().height;
-    const width = page.getSize().width;
-    let y = page.getSize().height - 50;
 
     // === HEADER ===
     const todayStr = new Intl.DateTimeFormat("fr-FR", {
@@ -132,6 +164,7 @@ export async function POST(req: NextRequest) {
     });
 
     // === INFOS GÉNÉRALES ===
+    ensureSpace(200); // Vérifier l'espace pour cette section
     y = height - 130;
     drawText(page, "Informations Générales de la Demande", 50, y, 14, {
       color: [0, 0, 0],
@@ -145,12 +178,18 @@ export async function POST(req: NextRequest) {
     const VALUE_MAX_WIDTH = width - VALUE_X - 120; // on réserve 100px à droite pour le QR code
     const LINE_HEIGHT = 16;
     function addLabelVal(label: string, val: string) {
+      // Vérifier l'espace avant d'ajouter une ligne
+      ensureSpace(LINE_HEIGHT * 3); // Au moins 3 lignes d'espace
       drawText(page, `${label} :`, LABEL_X, y, 12, {
         color: [0.15, 0.15, 0.15],
       });
       y = drawWrapped(page, val, VALUE_X, y, VALUE_MAX_WIDTH, 12, {
         color: [0, 0, 0],
       });
+      // Mettre à jour y global si une nouvelle page a été créée
+      if (y < MIN_Y) {
+        y = height - 50;
+      }
     }
 
     addLabelVal("Nom de l'entreprise", company);
@@ -175,6 +214,7 @@ export async function POST(req: NextRequest) {
     addLabelVal("Déchargement par", unloadingLabel);
 
     // Statut
+    ensureSpace(LINE_HEIGHT);
     drawText(page, "Statut Actuel :", LABEL_X, y, 12, {
       color: [0.15, 0.15, 0.15],
     });
@@ -201,34 +241,39 @@ export async function POST(req: NextRequest) {
     );
 
     // séparation 2
+    ensureSpace(SECTION_SPACING);
     y -= 10;
-    page.drawLine({
-      start: { x: 50, y },
-      end: { x: width - 50, y },
-      thickness: 1,
-      color: rgb(0.9, 0.9, 0.9),
-      dashArray: [3, 3],
-    });
+    if (y >= MIN_Y) {
+      page.drawLine({
+        start: { x: 50, y },
+        end: { x: width - 50, y },
+        thickness: 1,
+        color: rgb(0.9, 0.9, 0.9),
+        dashArray: [3, 3],
+      });
+    }
     y -= 25;
 
     // === DÉTAILS VÉHICULES ===
+    ensureSpace(200); // Vérifier l'espace pour cette section
     drawText(page, "Détails des Véhicules Accrédités", 50, y, 14, {
       color: [0, 0, 0],
     });
     y -= 25;
 
     for (let i = 0; i < vehicles.length; i += 1) {
-      if (y < 180) {
-        page = pdfDoc.addPage();
-        y = page.getSize().height - 50;
-        // Redessiner le header de section si besoin
+      // Vérifier l'espace pour un véhicule complet (au moins 200px)
+      ensureSpace(200);
+      
+      // Si on a créé une nouvelle page, redessiner le header
+      if (y >= height - 100) {
         drawText(page, "Détails des Véhicules Accrédités", 50, y, 14, {
           color: [0, 0, 0],
         });
         y -= 25;
       }
       const v = vehicles[i];
-      const boxTop = y;
+      let boxTop = y;
       const PADDING = 12;
       let yBox = y - PADDING;
 
@@ -238,6 +283,12 @@ export async function POST(req: NextRequest) {
       yBox -= LINE_HEIGHT;
 
       function addLabelValBox(label: string, val: string) {
+        // Vérifier l'espace avant d'ajouter une ligne dans la box
+        if (yBox < MIN_Y + PADDING) {
+          page = pdfDoc.addPage();
+          yBox = height - 50 - PADDING;
+          boxTop = yBox + PADDING;
+        }
         drawText(page, `${label} :`, LABEL_X + PADDING, yBox, 12, {
           color: [0.15, 0.15, 0.15],
         });
@@ -250,6 +301,11 @@ export async function POST(req: NextRequest) {
           12,
           { color: [0, 0, 0] }
         );
+        // Mettre à jour y global si une nouvelle page a été créée
+        if (yBox < MIN_Y) {
+          yBox = height - 50 - PADDING;
+          boxTop = yBox + PADDING;
+        }
       }
       addLabelValBox("Plaque", v.plate);
       addLabelValBox("Taille du véhicule", v.size);
@@ -284,34 +340,44 @@ export async function POST(req: NextRequest) {
         addLabelValBox("Km parcourus", v.kms);
       }
       yBox -= PADDING;
-      // Encadré avec padding
-      const boxBottom = yBox;
-      page.drawRectangle({
-        x: LABEL_X - PADDING,
-        y: boxBottom,
-        width: width - LABEL_X - 100 + PADDING * 2,
-        height: boxTop - boxBottom + PADDING * 2,
-        borderColor: rgb(0.8, 0.8, 0.8),
-        borderWidth: 1,
-      });
-      y = boxBottom - 30; // espace entre véhicules
+      // Encadré avec padding (seulement si on est sur la même page)
+      const boxBottom = Math.max(yBox, MIN_Y);
+      if (boxBottom < boxTop && boxBottom >= MIN_Y) {
+        page.drawRectangle({
+          x: LABEL_X - PADDING,
+          y: boxBottom,
+          width: width - LABEL_X - 100 + PADDING * 2,
+          height: boxTop - boxBottom + PADDING * 2,
+          borderColor: rgb(0.8, 0.8, 0.8),
+          borderWidth: 1,
+        });
+      }
+      y = Math.max(boxBottom - 30, MIN_Y); // espace entre véhicules
+      if (y < MIN_Y) {
+        y = height - 50;
+      }
     }
 
     // === MESSAGE & CONSENTEMENT ===
+    ensureSpace(150); // Vérifier l'espace pour cette section
     y -= 10;
-    page.drawLine({
-      start: { x: 50, y },
-      end: { x: width - 50, y },
-      thickness: 1,
-      color: rgb(0.9, 0.9, 0.9),
-      dashArray: [3, 3],
-    });
+    if (y >= MIN_Y) {
+      page.drawLine({
+        start: { x: 50, y },
+        end: { x: width - 50, y },
+        thickness: 1,
+        color: rgb(0.9, 0.9, 0.9),
+        dashArray: [3, 3],
+      });
+    }
     y -= 25;
 
+    ensureSpace(100);
     drawText(page, "Message et Conditions", 50, y, 14, { color: [0, 0, 0] });
     y -= 25;
 
     // message d'intervention
+    ensureSpace(100);
     drawText(page, "Message d'intervention :", LABEL_X, y, 12, {
       color: [0.15, 0.15, 0.15],
     });
@@ -339,24 +405,57 @@ export async function POST(req: NextRequest) {
       const PADDING_Y = 10;
       const PADDING_X = 8;
       const msgHeight = lines.length * 15 + PADDING_Y * 2;
-      // Rectangle avec padding
-      page.drawRectangle({
-        x: LABEL_X - 4,
-        y: y - msgHeight + PADDING_Y,
-        width: width - LABEL_X - 100 + 8,
-        height: msgHeight,
-        color: rgb(1, 1, 0.9),
-        opacity: 0.3,
-        borderColor: rgb(0.9, 0.9, 0.7),
-        borderWidth: 1,
-      });
-      let yMsg = y - PADDING_Y;
-      for (const line of lines) {
-        drawText(page, line, LABEL_X + PADDING_X, yMsg, 11);
-        yMsg -= 15;
+      
+      // Vérifier l'espace pour le message
+      ensureSpace(msgHeight + 20);
+      
+      // Rectangle avec padding (seulement si on a assez d'espace)
+      if (y - msgHeight >= MIN_Y) {
+        page.drawRectangle({
+          x: LABEL_X - 4,
+          y: y - msgHeight + PADDING_Y,
+          width: width - LABEL_X - 100 + 8,
+          height: msgHeight,
+          color: rgb(1, 1, 0.9),
+          opacity: 0.3,
+          borderColor: rgb(0.9, 0.9, 0.7),
+          borderWidth: 1,
+        });
+        let yMsg = y - PADDING_Y;
+        for (const line of lines) {
+          if (yMsg >= MIN_Y) {
+            drawText(page, line, LABEL_X + PADDING_X, yMsg, 11);
+          }
+          yMsg -= 15;
+        }
+        y = y - msgHeight - 10;
+      } else {
+        // Si pas assez d'espace, créer nouvelle page et redessiner
+        page = pdfDoc.addPage();
+        y = height - 50;
+        drawText(page, "Message d'intervention :", LABEL_X, y, 12, {
+          color: [0.15, 0.15, 0.15],
+        });
+        y -= LINE_HEIGHT;
+        page.drawRectangle({
+          x: LABEL_X - 4,
+          y: y - msgHeight + PADDING_Y,
+          width: width - LABEL_X - 100 + 8,
+          height: msgHeight,
+          color: rgb(1, 1, 0.9),
+          opacity: 0.3,
+          borderColor: rgb(0.9, 0.9, 0.7),
+          borderWidth: 1,
+        });
+        let yMsg = y - PADDING_Y;
+        for (const line of lines) {
+          drawText(page, line, LABEL_X + PADDING_X, yMsg, 11);
+          yMsg -= 15;
+        }
+        y = y - msgHeight - 10;
       }
-      y = y - msgHeight - 10;
     } else {
+      ensureSpace(LINE_HEIGHT);
       drawText(page, "Aucun message.", LABEL_X, y, 11, {
         color: [0.4, 0.4, 0.4],
       });
@@ -364,6 +463,7 @@ export async function POST(req: NextRequest) {
     }
 
     // consentement
+    ensureSpace(50);
     const consentPrefix = consent ? "[X]" : "[ ]";
     drawText(
       page,
@@ -375,13 +475,16 @@ export async function POST(req: NextRequest) {
     y -= 25;
 
     // rappel validité
+    ensureSpace(30);
     const noteLines = [
       "Cette accréditation est valable pour une durée de 24 heures à compter de l'heure d'entrée validée.",
       "Veuillez présenter ce document à l'entrée du site.",
     ];
     noteLines.forEach((l) => {
-      drawText(page, l, LABEL_X, y, 9);
-      y -= 12;
+      if (y >= MIN_Y) {
+        drawText(page, l, LABEL_X, y, 9);
+        y -= 12;
+      }
     });
 
     // QR code global (id)

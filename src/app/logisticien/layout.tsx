@@ -123,7 +123,7 @@ export default function LogisticienLayout({
             <ul className="mt-2 pl-5 space-y-1 text-sm">
               <li>
                 <Link
-                  href="#"
+                  href="/logisticien/scanner/plaque"
                   className="flex items-center gap-2 px-2 py-1 rounded hover:bg-white/10"
                   onClick={() => setSidebarOpen(false)}
                 >
@@ -138,7 +138,7 @@ export default function LogisticienLayout({
               </li>
               <li>
                 <Link
-                  href="#"
+                  href="/logisticien/scanner/qr"
                   className="flex items-center gap-2 px-2 py-1 rounded hover:bg-white/10"
                   onClick={() => setSidebarOpen(false)}
                 >

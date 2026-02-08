@@ -9,7 +9,8 @@ import {
   AlertTriangle,
   Send,
 } from "lucide-react";
-import type { Vehicle } from "@/types";
+import type { Vehicle, Zone } from "@/types";
+import { getAllZones, getZoneLabel, isFinalDestination } from "@/lib/zone-utils";
 
 interface Props {
   data: {
@@ -22,11 +23,19 @@ interface Props {
     consent: boolean;
   };
   onReset: () => void;
+  onClearForm: () => void;
+  onHasSavedChange: (hasSaved: boolean) => void;
 }
 
-export default function StepFourLog({ data, onReset }: Props) {
+export default function StepFourLog({
+  data,
+  onReset,
+  onClearForm,
+  onHasSavedChange,
+}: Props) {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
+  const [selectedZone, setSelectedZone] = useState<Zone | "">("");
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showSendModal, setShowSendModal] = useState(false);
   const [hasSaved, setHasSaved] = useState(false);
@@ -47,10 +56,12 @@ export default function StepFourLog({ data, onReset }: Props) {
         body: JSON.stringify({
           ...data,
           status: "ATTENTE",
+          currentZone: selectedZone || null,
         }),
       });
       if (!saveRes.ok) throw new Error("Erreur enregistrement");
       setHasSaved(true);
+      onHasSavedChange(true);
       setSuccess(true);
       setInfoMsg(
         "Accréditation enregistrée et approuvée. Le PDF a été généré."
@@ -58,6 +69,8 @@ export default function StepFourLog({ data, onReset }: Props) {
       setTimeout(() => {
         setShowSaveModal(false);
         setSuccess(false);
+        // Vider les champs mais rester sur step 4
+        onClearForm();
       }, 1200);
     } catch (err) {
       console.error(err);
@@ -107,6 +120,7 @@ export default function StepFourLog({ data, onReset }: Props) {
         body: JSON.stringify({
           ...data,
           status: "NOUVEAU",
+          currentZone: null, // Le chauffeur n'a pas de zone — l'agent la choisira
         }),
       });
       if (!saveRes.ok) throw new Error("Erreur enregistrement");
@@ -118,6 +132,10 @@ export default function StepFourLog({ data, onReset }: Props) {
       });
       setInfoMsg("E-mail envoyé au destinataire. PDF généré.");
       setShowSendModal(false);
+      // Vider les champs mais rester sur step 4
+      setTimeout(() => {
+        onClearForm();
+      }, 500);
     } catch (err) {
       console.error(err);
       setInfoMsg("Erreur lors de l'envoi de l'e-mail.");
@@ -132,6 +150,35 @@ export default function StepFourLog({ data, onReset }: Props) {
       return;
     }
     setShowSaveModal(true);
+  }
+
+  async function handleNewRequest() {
+    if (!hasSaved) {
+      // Si pas encore enregistré, enregistrer d'abord
+      try {
+        setLoading(true);
+        const saveRes = await fetch("/api/accreditations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...data,
+            status: "ATTENTE",
+            currentZone: selectedZone || null,
+          }),
+        });
+        if (!saveRes.ok) throw new Error("Erreur enregistrement");
+        setHasSaved(true);
+        onHasSavedChange(true);
+      } catch (err) {
+        console.error(err);
+        setInfoMsg("Erreur lors de l'enregistrement.");
+        return;
+      } finally {
+        setLoading(false);
+      }
+    }
+    // Puis réinitialiser et revenir au step 1
+    onReset();
   }
 
   return (
@@ -178,6 +225,33 @@ export default function StepFourLog({ data, onReset }: Props) {
           </div>
         )}
 
+        {/* Zone d'attente */}
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-semibold text-gray-700" htmlFor="zoneSelect">
+            Zone d&apos;attente du véhicule
+          </label>
+          <select
+            id="zoneSelect"
+            value={selectedZone}
+            onChange={(e) => setSelectedZone(e.target.value as Zone | "")}
+            className="h-11 rounded-xl border border-gray-300 px-3 text-sm font-medium focus:ring-2 focus:ring-[#4F587E] focus:border-[#4F587E] transition bg-white"
+            disabled={hasSaved}
+          >
+            <option value="">-- Choisir une zone --</option>
+            {getAllZones().map((zone) => (
+              <option key={zone} value={zone}>
+                {getZoneLabel(zone)}
+                {isFinalDestination(zone) ? " (destination finale)" : ""}
+              </option>
+            ))}
+          </select>
+          {!selectedZone && !hasSaved && (
+            <p className="text-xs text-orange-600 mt-0.5">
+              Obligatoire pour enregistrer l&apos;accréditation
+            </p>
+          )}
+        </div>
+
         {/* Email */}
         <div className="flex flex-col gap-1">
           <label className="text-sm font-medium" htmlFor="destEmail">
@@ -206,11 +280,11 @@ export default function StepFourLog({ data, onReset }: Props) {
           </button>
           <button
             onClick={handleSaveClick}
-            disabled={loading || hasSaved}
+            disabled={loading || hasSaved || !selectedZone}
             className={`flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-base shadow transition-all duration-150
               ${hasSaved ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-primary text-white hover:bg-primary-dark"}
               disabled:opacity-60`}
-            aria-disabled={hasSaved}
+            aria-disabled={hasSaved || !selectedZone}
           >
             <PlusCircle size={20} />
             {hasSaved
@@ -222,8 +296,9 @@ export default function StepFourLog({ data, onReset }: Props) {
           {/* Nouveau bouton après enregistrement */}
           {hasSaved && (
             <button
-              onClick={onReset}
-              className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-base bg-white text-gray-700 border border-gray-300 shadow hover:bg-gray-100 transition-all duration-150 mt-2"
+              onClick={handleNewRequest}
+              disabled={loading}
+              className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-base bg-white text-gray-700 border border-gray-300 shadow hover:bg-gray-100 transition-all duration-150 mt-2 disabled:opacity-60"
             >
               <PlusCircle size={20} />
               Nouvelle accréditation

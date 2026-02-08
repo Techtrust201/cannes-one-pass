@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
-import type { AccreditationStatus } from "@/types";
+// AccreditationStatus used for type inference in status handling
 import {
   addHistoryEntry,
   createStatusChangeEntry,
@@ -49,7 +49,7 @@ export async function PATCH(
   if (!acc) return new Response("Not found", { status: 404 });
 
   const body = await req.json();
-  const { status, company, stand, unloading, event, message, vehicles } = body;
+  const { status, company, stand, unloading, event, message, vehicles, currentZone } = body;
 
   if (
     !status ||
@@ -60,27 +60,78 @@ export async function PATCH(
     return new Response("Invalid status", { status: 400 });
   }
 
-  const updates: Partial<{
-    status: AccreditationStatus;
-    entryAt?: Date;
-    exitAt?: Date;
-    company?: string;
-    stand?: string;
-    unloading?: string;
-    event?: string;
-    message?: string;
-  }> = { status, company, stand, unloading, event, message };
+  const VALID_ZONES = ["LA_BOCCA", "PALAIS_DES_FESTIVALS", "PANTIERO", "MACE"];
+  if (currentZone !== undefined && currentZone !== null && !VALID_ZONES.includes(currentZone)) {
+    return new Response("Invalid zone", { status: 400 });
+  }
+
+  const updates: Record<string, unknown> = { status, company, stand, unloading, event, message };
+
+  // Mise à jour de la zone si fournie
+  if (currentZone !== undefined) {
+    updates.currentZone = currentZone;
+  }
 
   if (status === "ENTREE" && !acc.entryAt) updates.entryAt = new Date();
-  if (status === "SORTIE" && !acc.exitAt) updates.exitAt = new Date();
+  if (status === "SORTIE") updates.exitAt = new Date();
 
   await prisma.accreditation.update({
     where: { id: accreditationId },
     data: updates,
   });
 
+  // Créer un ZoneMovement si une zone est assignée pour la première fois (validation NOUVEAU → ATTENTE)
+  const effectiveZone = currentZone ?? acc.currentZone;
+  if (currentZone && currentZone !== acc.currentZone && !acc.currentZone) {
+    await prisma.zoneMovement.create({
+      data: {
+        accreditationId,
+        toZone: currentZone,
+        action: "ENTRY",
+        fromZone: null,
+      },
+    });
+  }
+
+  // Créer un ZoneMovement si changement de statut vers ENTREE ou SORTIE
+  if (status !== acc.status && effectiveZone) {
+    if (status === "ENTREE") {
+      await prisma.zoneMovement.create({
+        data: {
+          accreditationId,
+          toZone: effectiveZone,
+          action: "ENTRY",
+        },
+      });
+    } else if (status === "SORTIE") {
+      await prisma.zoneMovement.create({
+        data: {
+          accreditationId,
+          fromZone: effectiveZone,
+          toZone: effectiveZone,
+          action: "EXIT",
+        },
+      });
+    }
+  }
+
   // Enregistrer l'historique des changements
   const changes: Promise<boolean>[] = [];
+
+  // Changement de zone
+  if (currentZone && currentZone !== acc.currentZone) {
+    changes.push(
+      addHistoryEntry(
+        createInfoUpdatedEntry(
+          accreditationId,
+          "currentZone",
+          acc.currentZone ?? "",
+          currentZone,
+          "system"
+        )
+      )
+    );
+  }
 
   // Changement de statut
   if (status !== acc.status) {

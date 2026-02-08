@@ -5,7 +5,7 @@ import type { Vehicle } from "@/types";
 
 interface Props {
   data: Vehicle;
-  update: (v: Vehicle) => void;
+  update: (v: Partial<Vehicle>) => void;
   onValidityChange: (v: boolean) => void;
 }
 
@@ -17,7 +17,7 @@ export default function StepTwo({ data, update, onValidityChange }: Props) {
       !didInit.current &&
       (!Array.isArray(data.unloading) || data.unloading.length === 0)
     ) {
-      update({ ...data, unloading: ["rear"] });
+      update({ unloading: ["rear"] });
       didInit.current = true;
     }
   }, [data, update]);

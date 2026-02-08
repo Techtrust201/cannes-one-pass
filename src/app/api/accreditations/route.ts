@@ -43,7 +43,6 @@ export async function POST(req: NextRequest) {
           !v.phoneCode ||
           !v.phoneNumber ||
           !v.date ||
-          !v.time ||
           !v.city ||
           !v.unloading
       )
@@ -52,6 +51,7 @@ export async function POST(req: NextRequest) {
         status: 400,
       });
     }
+    const currentZone = raw.currentZone ?? null;
     const created = await prisma.accreditation.create({
       data: {
         company,
@@ -61,19 +61,34 @@ export async function POST(req: NextRequest) {
         message: message ?? "",
         consent: consent ?? true,
         status: raw.status ?? "ATTENTE",
+        currentZone: currentZone,
         vehicles: {
-          create: vehicles.map((v) => ({
-            plate: v.plate,
-            size: v.size,
-            phoneCode: v.phoneCode,
-            phoneNumber: v.phoneNumber,
-            date: v.date,
-            time: v.time,
-            city: v.city,
+          create: vehicles.map((v: Record<string, unknown>) => ({
+            plate: v.plate as string,
+            size: v.size as string,
+            phoneCode: v.phoneCode as string,
+            phoneNumber: v.phoneNumber as string,
+            date: v.date as string,
+            time: (v.time as string) ?? "",
+            city: v.city as string,
             unloading: JSON.stringify(v.unloading),
-            kms: v.kms ?? "",
+            kms: (v.kms as string) ?? "",
+            vehicleType: (v.vehicleType as "PORTEUR" | "PORTEUR_ARTICULE" | "SEMI_REMORQUE") ?? null,
+            emptyWeight: v.emptyWeight != null ? Number(v.emptyWeight) : null,
+            maxWeight: v.maxWeight != null ? Number(v.maxWeight) : null,
+            currentWeight: v.currentWeight != null ? Number(v.currentWeight) : null,
           })),
         },
+        ...(currentZone
+          ? {
+              zoneMovements: {
+                create: {
+                  toZone: currentZone,
+                  action: "ENTRY",
+                },
+              },
+            }
+          : {}),
       },
       include: { vehicles: true },
     });

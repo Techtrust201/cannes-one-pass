@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { Bell, X } from "lucide-react";
+import { useAccreditationStream } from "@/hooks/useAccreditationStream";
+import type { StreamEvent } from "@/hooks/useAccreditationStream";
 
 interface Notification {
   id: string;
-  type: "status_change" | "new_accreditation" | "vehicle_update";
+  type: "status_change" | "zone_transfer" | "zone_change" | "created" | "update";
   message: string;
   timestamp: Date;
   accreditationId?: string;
@@ -13,58 +15,46 @@ interface Notification {
 
 interface RealTimeNotificationsProps {
   onAccreditationUpdate?: (accreditationId: string) => void;
+  onRefresh?: () => void;
 }
 
 export default function RealTimeNotifications({
   onAccreditationUpdate,
+  onRefresh,
 }: RealTimeNotificationsProps) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [isConnected, setIsConnected] = useState(false);
 
-  const addNotification = useCallback(
-    (notification: Omit<Notification, "id" | "timestamp">) => {
+  const removeNotification = useCallback((id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  }, []);
+
+  const handleEvent = useCallback(
+    (event: StreamEvent) => {
+      if (event.type === "connected") return;
+
       const newNotification: Notification = {
-        ...notification,
         id: Math.random().toString(36).substr(2, 9),
+        type: event.type as Notification["type"],
+        message: event.data?.description ?? `Mise à jour: ${event.type}`,
         timestamp: new Date(),
+        accreditationId: event.accreditationId,
       };
 
-      setNotifications((prev) => [newNotification, ...prev.slice(0, 4)]); // Garder max 5 notifications
+      setNotifications((prev) => [newNotification, ...prev.slice(0, 4)]);
 
       // Auto-suppression après 10 secondes
       setTimeout(() => {
         removeNotification(newNotification.id);
       }, 10000);
     },
-    []
+    [removeNotification]
   );
 
-  useEffect(() => {
-    // Simulation de connexion WebSocket pour les notifications en temps réel
-    // Dans une vraie implémentation, vous utiliseriez WebSocket ou Server-Sent Events
-    const connectToNotifications = () => {
-      setIsConnected(true);
-
-      // Simuler des notifications de test
-      setTimeout(() => {
-        addNotification({
-          type: "status_change",
-          message: "Statut mis à jour pour l'accréditation #12345",
-          accreditationId: "12345",
-        });
-      }, 5000);
-    };
-
-    connectToNotifications();
-
-    return () => {
-      setIsConnected(false);
-    };
-  }, [addNotification]);
-
-  const removeNotification = (id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-  };
+  const { isConnected } = useAccreditationStream({
+    onEvent: handleEvent,
+    onRefresh,
+    enabled: true,
+  });
 
   const handleNotificationClick = (notification: Notification) => {
     if (notification.accreditationId && onAccreditationUpdate) {
@@ -83,9 +73,11 @@ export default function RealTimeNotifications({
           className={`bg-white border-l-4 shadow-lg rounded-lg p-4 cursor-pointer transition-all duration-300 hover:shadow-xl ${
             notification.type === "status_change"
               ? "border-blue-500"
-              : notification.type === "new_accreditation"
+              : notification.type === "zone_transfer"
                 ? "border-green-500"
-                : "border-orange-500"
+                : notification.type === "created"
+                  ? "border-emerald-500"
+                  : "border-orange-500"
           }`}
           onClick={() => handleNotificationClick(notification)}
         >
@@ -120,7 +112,7 @@ export default function RealTimeNotifications({
           isConnected ? "text-green-600" : "text-red-600"
         }`}
       >
-        {isConnected ? "● Connecté" : "○ Déconnecté"}
+        {isConnected ? "● Connecté en temps réel" : "○ Déconnecté"}
       </div>
     </div>
   );

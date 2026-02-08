@@ -15,7 +15,9 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { buildLink } from "@/lib/url";
-import type { Accreditation } from "@/types";
+import type { Accreditation, Zone } from "@/types";
+import { getZoneLabel, isFinalDestination, ZONE_COLORS } from "@/lib/zone-utils";
+import { truncateText } from "@/lib/utils";
 
 /* ---------- Types ---------- */
 export interface AccreditationTableProps {
@@ -174,6 +176,11 @@ export default function AccreditationTable({
                   </div>
                 </th>
 
+                {/* COLONNE ZONE */}
+                <th className="px-2 md:px-4 py-3 md:py-4 font-semibold text-xs md:text-sm text-center border-r border-white/20">
+                  <span>Zone</span>
+                </th>
+
                 {/* COLONNE SOCIÉTÉ (triable) */}
                 <th
                   onClick={() => toggleSort("company")}
@@ -315,7 +322,20 @@ export default function AccreditationTable({
                   }`}
                 >
                   <td className="py-3 md:py-4 px-2 md:px-6 text-center border-r border-gray-100">
-                    <StatusPill status={acc.status as string} />
+                    <StatusPill status={acc.status as string} zone={acc.currentZone as Zone | undefined} />
+                  </td>
+                  <td className="px-2 md:px-4 py-3 md:py-4 text-center border-r border-gray-100">
+                    {acc.currentZone ? (
+                      <span 
+                        className={`inline-flex items-center px-2 py-1 rounded-full text-[10px] font-medium ${ZONE_COLORS[acc.currentZone as Zone]?.bg ?? "bg-gray-100"} ${ZONE_COLORS[acc.currentZone as Zone]?.text ?? "text-gray-800"}`}
+                        title={getZoneLabel(acc.currentZone as Zone)}
+                      >
+                        {isFinalDestination(acc.currentZone as Zone) ? "✓ " : ""}
+                        {truncateText(getZoneLabel(acc.currentZone as Zone), 12)}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
                   </td>
                   <td className="px-4 md:px-6 py-3 md:py-4 font-medium text-gray-800 text-center border-r border-gray-100">
                     {acc.company}
@@ -326,8 +346,11 @@ export default function AccreditationTable({
                     </span>
                   </td>
                   <td className="px-4 md:px-6 py-3 md:py-4 text-center border-r border-gray-100">
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-800">
-                      {acc.event || "-"}
+                    <span 
+                      className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-800"
+                      title={acc.event || undefined}
+                    >
+                      {truncateText(acc.event || "-", 15)}
                     </span>
                   </td>
                   <td className="px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-gray-600 text-center border-r border-gray-100">

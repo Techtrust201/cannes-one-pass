@@ -10,99 +10,81 @@ import StepFour from "@/components/accreditation/StepFour";
 import { useState, useEffect, Suspense } from "react";
 import type { Vehicle } from "@/types";
 
+type FormData = {
+  stepOne: { company: string; stand: string; unloading: string; event: string };
+  vehicle: Vehicle;
+  stepThree: { message: string; consent: boolean };
+};
+
 function AccreditationPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const step = Number(searchParams.get("step") ?? "1");
 
   const [stepValid, setStepValid] = useState(false);
+  const [hasSaved, setHasSaved] = useState(false);
 
-  // utilitaires de persistance
-  function safeLoad<T>(key: string, fallback: T): T {
-    if (typeof window === "undefined") return fallback;
-    const raw = localStorage.getItem(key);
-    if (!raw || raw === "undefined") {
-      localStorage.removeItem(key);
-      return fallback;
-    }
-    try {
-      return JSON.parse(raw) as T;
-    } catch {
-      localStorage.removeItem(key);
-      return fallback;
-    }
-  }
-
-  function defaultVehicle(): Vehicle {
+  function getDefaultFormData(): FormData {
     return {
-      id: 1,
-      plate: "",
-      size: "",
-      phoneCode: "+33",
-      phoneNumber: "",
-      date: "",
-      time: "",
-      city: "",
-      unloading: [],
+      stepOne: { company: "", stand: "", unloading: "", event: "" },
+      vehicle: {
+        id: 1,
+        plate: "",
+        size: "",
+        phoneCode: "+33",
+        phoneNumber: "",
+        date: "",
+        time: "",
+        city: "",
+        unloading: [],
+      },
+      stepThree: { message: "", consent: false },
     };
   }
 
-  // 1. Définir les états par objet pour chaque étape
-  const [stepOneData, setStepOneData] = useState({
-    company: "",
-    stand: "",
-    unloading: "",
-    event: "",
-  });
-  const [vehicle, setVehicle] = useState<Vehicle>(defaultVehicle());
-  const [stepThreeData, setStepThreeData] = useState({
-    message: "",
-    consent: false,
-  });
+  const [formData, setFormData] = useState<FormData>(getDefaultFormData());
 
-  // 2. Fonctions de patch partiel pour chaque objet
-  const patchStepOne = (patch: Partial<typeof stepOneData>) =>
-    setStepOneData((prev) => ({ ...prev, ...patch }));
-  const patchStepThree = (patch: Partial<typeof stepThreeData>) =>
-    setStepThreeData((prev) => ({ ...prev, ...patch }));
+  const updateForm = (
+    section: keyof FormData,
+    data: Partial<FormData[keyof FormData]>
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      [section]: { ...prev[section], ...data },
+    }));
+  };
 
-  // hydrate from localStorage after mount
   useEffect(() => {
-    setStepOneData(safeLoad("acc_step1", stepOneData));
-    setVehicle(safeLoad<Vehicle>("acc_vehicle", vehicle));
-    setStepThreeData(safeLoad("acc_step3", stepThreeData));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const saved = localStorage.getItem("acc_formData");
+    if (saved) {
+      try {
+        setFormData(JSON.parse(saved));
+      } catch {
+        // Ignore invalid data
+      }
+    }
   }, []);
 
-  // reset validity when step changes
+  useEffect(() => {
+    localStorage.setItem("acc_formData", JSON.stringify(formData));
+  }, [formData]);
+
   useEffect(() => {
     setStepValid(false);
   }, [step]);
-
-  // persist to localStorage
-  useEffect(() => {
-    localStorage.setItem("acc_step1", JSON.stringify(stepOneData));
-  }, [stepOneData]);
-
-  useEffect(() => {
-    localStorage.setItem("acc_vehicle", JSON.stringify(vehicle));
-  }, [vehicle]);
-
-  useEffect(() => {
-    localStorage.setItem("acc_step3", JSON.stringify(stepThreeData));
-  }, [stepThreeData]);
 
   function gotoStep(n: number) {
     router.push(`/accreditation?step=${n}`);
   }
 
+  function clearForm() {
+    setFormData(getDefaultFormData());
+    localStorage.removeItem("acc_formData");
+    setHasSaved(false);
+  }
+
   function resetAll() {
-    setStepOneData({ company: "", stand: "", unloading: "", event: "" });
-    setVehicle(defaultVehicle());
-    setStepThreeData({ message: "", consent: false });
-    localStorage.removeItem("acc_step1");
-    localStorage.removeItem("acc_vehicle");
-    localStorage.removeItem("acc_step3");
+    clearForm();
     gotoStep(1);
   }
 
@@ -195,40 +177,42 @@ function AccreditationPageContent() {
             <div className="flex-1 overflow-y-auto overflow-x-hidden">
               {step === 1 && (
                 <StepOne
-                  data={stepOneData}
-                  update={patchStepOne}
+                  data={formData.stepOne}
+                  update={(patch) => updateForm("stepOne", patch)}
                   onValidityChange={setStepValid}
                 />
               )}
               {step === 2 && (
                 <StepTwo
-                  data={vehicle}
-                  update={(patch) => setVehicle((v) => ({ ...v, ...patch }))}
+                  data={formData.vehicle}
+                  update={(patch) => updateForm("vehicle", patch)}
                   onValidityChange={setStepValid}
                 />
               )}
               {step === 3 && (
                 <StepThree
-                  data={stepThreeData}
-                  update={patchStepThree}
+                  data={formData.stepThree}
+                  update={(patch) => updateForm("stepThree", patch)}
                   onValidityChange={setStepValid}
                 />
               )}
               {step === 4 && (
                 <StepFour
                   data={{
-                    ...stepOneData,
-                    ...stepThreeData,
-                    vehicles: [vehicle],
+                    ...formData.stepOne,
+                    ...formData.stepThree,
+                    vehicles: [formData.vehicle],
                   }}
                   onReset={resetAll}
+                  onClearForm={clearForm}
+                  onHasSavedChange={setHasSaved}
                 />
               )}
             </div>
 
             {/* Navigation buttons */}
             <div className="flex justify-between mt-6 pt-4 border-t border-gray-200 shrink-0">
-              {step > 1 ? (
+              {step > 1 && !(step === 4 && hasSaved) ? (
                 <button
                   onClick={() => gotoStep(step - 1)}
                   className="px-4 py-2 border rounded"

@@ -34,6 +34,7 @@ export default async function LogisticienDashboard(props: {
     status = "",
     from = "",
     to = "",
+    zone = "",
     page = "1",
     sort = "createdAt",
     dir = "desc",
@@ -61,6 +62,10 @@ export default async function LogisticienDashboard(props: {
 
   if (status && status !== "all") {
     filtered = filtered.filter((acc) => (acc.status as string) === status);
+  }
+
+  if (zone && zone !== "all") {
+    filtered = filtered.filter((acc) => acc.currentZone === zone);
   }
 
   const hasFrom = Boolean(from);
@@ -186,12 +191,20 @@ export default async function LogisticienDashboard(props: {
     { value: "ABSENT", label: "Absent" },
   ];
 
+  const zoneOptions = [
+    { value: "", label: "Toutes zones" },
+    { value: "LA_BOCCA", label: "La Bocca" },
+    { value: "PALAIS_DES_FESTIVALS", label: "Palais des festivals" },
+    { value: "PANTIERO", label: "Pantiero" },
+    { value: "MACE", label: "Macé" },
+  ];
+
   return (
     <div className="h-screen flex flex-col ">
       {/* Header fixe */}
       <div className="flex-shrink-0 p-2">
         <div className="flex justify-between items-center">
-          <FilterBar searchParams={paramsObj} statusOptions={statusOptions} />
+          <FilterBar searchParams={paramsObj} statusOptions={statusOptions} zoneOptions={zoneOptions} />
           {/* <Link
             href="/logisticien/nouveau?step=1"
             className="px-4 py-2 bg-[#4F587E] text-white rounded-lg text-sm hover:bg-[#3B4252] transition-colors duration-200 font-medium"

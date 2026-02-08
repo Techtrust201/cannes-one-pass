@@ -16,60 +16,50 @@ function LogisticienNewContent() {
   const step = Number(searchParams.get("step") ?? "1");
 
   const [stepValid, setStepValid] = useState(false);
+  const [hasSaved, setHasSaved] = useState(false);
 
-  // utilitaires de persistance
-  function safeLoad<T>(key: string, fallback: T): T {
-    if (typeof window === "undefined") return fallback;
-    const raw = localStorage.getItem(key);
-    if (!raw || raw === "undefined") {
-      localStorage.removeItem(key);
-      return fallback;
-    }
-    try {
-      return JSON.parse(raw) as T;
-    } catch {
-      localStorage.removeItem(key);
-      return fallback;
-    }
-  }
+  type FormData = {
+    stepOne: {
+      company: string;
+      stand: string;
+      unloading: string;
+      event: string;
+    };
+    vehicle: Vehicle;
+    stepThree: { message: string; consent: boolean; email: string };
+  };
 
-  function defaultVehicle(): Vehicle {
+  function getDefaultFormData(): FormData {
     return {
-      id: 1,
-      plate: "",
-      size: "",
-      phoneCode: "+33",
-      phoneNumber: "",
-      date: "",
-      time: "",
-      city: "",
-      unloading: ["rear"],
+      stepOne: { company: "", stand: "", unloading: "", event: "" },
+      vehicle: {
+        id: 1,
+        plate: "",
+        size: "",
+        phoneCode: "+33",
+        phoneNumber: "",
+        date: "",
+        time: "",
+        city: "",
+        unloading: ["rear"],
+      },
+      stepThree: { message: "", consent: false, email: "" },
     };
   }
 
-  // 1. Définir les états par objet pour chaque étape
-  const [stepOneData, setStepOneData] = useState({
-    company: "",
-    stand: "",
-    unloading: "",
-    event: "",
-  });
-  const [vehicle, setVehicle] = useState<Vehicle>(defaultVehicle());
-  const [stepThreeData, setStepThreeData] = useState({
-    message: "",
-    consent: false,
-    email: "",
-  });
+  const [formData, setFormData] = useState<FormData>(getDefaultFormData());
 
-  // 2. Fonctions de patch partiel pour chaque objet
-  const patchStepOne = (patch: Partial<typeof stepOneData>) =>
-    setStepOneData((prev) => ({ ...prev, ...patch }));
-  const patchStepThree = (patch: Partial<typeof stepThreeData>) =>
-    setStepThreeData((prev) => ({ ...prev, ...patch }));
+  const updateForm = (
+    section: keyof FormData,
+    data: Partial<FormData[keyof FormData]>
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      [section]: { ...prev[section], ...data },
+    }));
+  };
 
-  // 3. Adapter les props passées aux Steps
   useEffect(() => {
-    // On regarde si on a des query params pertinents
     const company = searchParams.get("company") || "";
     const stand = searchParams.get("stand") || "";
     const unloading = searchParams.get("unloading") || "";
@@ -81,42 +71,43 @@ function LogisticienNewContent() {
       company || stand || unloading || event || message || email || city;
 
     if (hasQuery) {
-      setStepOneData({ company, stand, unloading, event });
-      setVehicle({ ...defaultVehicle(), city });
-      setStepThreeData({ message, consent: false, email });
+      setFormData({
+        stepOne: { company, stand, unloading, event },
+        vehicle: { ...getDefaultFormData().vehicle, city },
+        stepThree: { message, consent: false, email },
+      });
     } else {
-      setStepOneData(safeLoad("log_stepOneData", stepOneData));
-      setVehicle(safeLoad<Vehicle>("log_vehicle", vehicle));
-      setStepThreeData(safeLoad("log_stepThreeData", stepThreeData));
+      const saved = localStorage.getItem("log_formData");
+      if (saved) {
+        try {
+          setFormData(JSON.parse(saved));
+        } catch {
+          // Ignore invalid data
+        }
+      }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [searchParams]);
+
+  useEffect(() => {
+    localStorage.setItem("log_formData", JSON.stringify(formData));
+  }, [formData]);
 
   useEffect(() => {
     setStepValid(false);
   }, [step]);
 
-  useEffect(() => {
-    localStorage.setItem("log_stepOneData", JSON.stringify(stepOneData));
-  }, [stepOneData]);
-  useEffect(() => {
-    localStorage.setItem("log_vehicle", JSON.stringify(vehicle));
-  }, [vehicle]);
-  useEffect(() => {
-    localStorage.setItem("log_stepThreeData", JSON.stringify(stepThreeData));
-  }, [stepThreeData]);
-
   function gotoStep(n: number) {
     router.push(`/logisticien/nouveau?step=${n}`);
   }
 
+  function clearForm() {
+    setFormData(getDefaultFormData());
+    localStorage.removeItem("log_formData");
+    setHasSaved(false);
+  }
+
   function resetAll() {
-    setStepOneData({ company: "", stand: "", unloading: "", event: "" });
-    setVehicle(defaultVehicle());
-    setStepThreeData({ message: "", consent: false, email: "" });
-    localStorage.removeItem("log_stepOneData");
-    localStorage.removeItem("log_vehicle");
-    localStorage.removeItem("log_stepThreeData");
+    clearForm();
     gotoStep(1);
   }
 
@@ -191,39 +182,41 @@ function LogisticienNewContent() {
             <div className="flex-1 overflow-y-auto overflow-x-hidden">
               {step === 1 && (
                 <StepOne
-                  data={stepOneData}
-                  update={patchStepOne}
+                  data={formData.stepOne}
+                  update={(patch) => updateForm("stepOne", patch)}
                   onValidityChange={setStepValid}
                 />
               )}
               {step === 2 && (
                 <StepTwo
-                  data={vehicle}
-                  update={(patch) => setVehicle((v) => ({ ...v, ...patch }))}
+                  data={formData.vehicle}
+                  update={(patch) => updateForm("vehicle", patch)}
                   onValidityChange={setStepValid}
                 />
               )}
               {step === 3 && (
                 <StepThree
-                  data={stepThreeData}
-                  update={patchStepThree}
+                  data={formData.stepThree}
+                  update={(patch) => updateForm("stepThree", patch)}
                   onValidityChange={setStepValid}
                 />
               )}
               {step === 4 && (
                 <StepFourLog
                   data={{
-                    ...stepOneData,
-                    ...stepThreeData,
-                    vehicles: [vehicle],
+                    ...formData.stepOne,
+                    ...formData.stepThree,
+                    vehicles: [formData.vehicle],
                   }}
                   onReset={resetAll}
+                  onClearForm={clearForm}
+                  onHasSavedChange={setHasSaved}
                 />
               )}
             </div>
 
             <div className="flex justify-between mt-6 pt-4 border-t border-gray-200 shrink-0">
-              {step > 1 ? (
+              {step > 1 && !(step === 4 && hasSaved) ? (
                 <button
                   onClick={() => gotoStep(step - 1)}
                   className="px-4 py-2 border rounded"

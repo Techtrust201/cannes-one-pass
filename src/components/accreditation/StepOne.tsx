@@ -28,6 +28,11 @@ interface Props {
 
 const EVENTS = [
   {
+    key: "waicf",
+    label: "WAICF",
+    logo: "/accreditation/pict_page1/palais-des-festivals.png",
+  },
+  {
     key: "festival",
     label: "Festival du Film",
     logo: "/accreditation/pict_page1/festival.png",
@@ -66,20 +71,65 @@ export default function StepOne({ data, update, onValidityChange }: Props) {
     null
   );
   const [currentIdx, setCurrentIdx] = React.useState(0);
+  const isUpdatingFromCarousel = React.useRef(false);
+  const hasInitialized = React.useRef(false);
+
+  // Initialiser event à "waicf" si vide - se déclenche immédiatement au montage
+  React.useEffect(() => {
+    if (!event) {
+      update({ event: "waicf" });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   React.useEffect(() => {
     if (!carouselApi) return;
     const updateIdx = () => setCurrentIdx(carouselApi.selectedScrollSnap());
     carouselApi.on("select", updateIdx);
     updateIdx();
+    
+    // S'assurer que event correspond à l'index actuel du carrousel
+    if (!hasInitialized.current) {
+      const initialIdx = carouselApi.selectedScrollSnap();
+      const initialEvent = EVENTS[initialIdx]?.key;
+      if (initialEvent && (!event || initialEvent !== event)) {
+        update({ event: initialEvent });
+      }
+      hasInitialized.current = true;
+    }
+    
     return () => {
       carouselApi.off("select", updateIdx);
     };
-  }, [carouselApi]);
+  }, [carouselApi]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Synchroniser le carrousel avec la valeur de event (changement externe uniquement)
   React.useEffect(() => {
-    // Quand on change de slide, on update le champ event
-    update({ event: EVENTS[currentIdx].key });
+    if (!carouselApi || !hasInitialized.current || isUpdatingFromCarousel.current) {
+      isUpdatingFromCarousel.current = false;
+      return;
+    }
+
+    const targetEvent = event || "waicf";
+    const eventIndex = EVENTS.findIndex((ev) => ev.key === targetEvent);
+    
+    if (eventIndex !== -1) {
+      const currentSnap = carouselApi.selectedScrollSnap();
+      if (eventIndex !== currentSnap) {
+        carouselApi.scrollTo(eventIndex);
+        setCurrentIdx(eventIndex);
+      }
+    }
+  }, [carouselApi, event]);
+
+  // Quand on change de slide (carrousel ou clic), on update le champ event
+  React.useEffect(() => {
+    if (!hasInitialized.current) return;
+    
+    const newEvent = EVENTS[currentIdx]?.key;
+    if (newEvent && newEvent !== event) {
+      isUpdatingFromCarousel.current = true;
+      update({ event: newEvent });
+    }
     // eslint-disable-next-line
   }, [currentIdx]);
 

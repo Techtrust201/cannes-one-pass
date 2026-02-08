@@ -1,66 +1,40 @@
 import { NextRequest } from "next/server";
+import { findCity } from "@/lib/city-search";
 
 // Coordonnées exactes du Palais des Festivals de Cannes
 const PALAIS_COORDINATES = {
   lat: 43.5506,
   lng: 7.0175,
-  address:
-    "Palais des festivals et des congrès de Cannes, 1 Bd de la Croisette, 06400 Cannes",
 };
 
-// API Nominatim d'OpenStreetMap (gratuite et fiable)
-const NOMINATIM_API_URL = "https://nominatim.openstreetmap.org/search";
-
-// Fonction pour calculer la distance routière réelle (formule de Haversine + facteur routier adaptatif)
-function calculateRoadDistance(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number
-): number {
-  const R = 6371; // Rayon de la Terre en km
+// ── Haversine amélioré avec facteur routier adaptatif ─────────────────
+function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLng = ((lng2 - lng1) * Math.PI) / 180;
   const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.sin(dLat / 2) ** 2 +
     Math.cos((lat1 * Math.PI) / 180) *
       Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) *
-      Math.sin(dLng / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const distanceAsTheCrowFlies = R * c;
-
-  // Facteur de correction routière adaptatif selon la distance
-  let routeFactor = 1.3; // Défaut
-  if (distanceAsTheCrowFlies < 50)
-    routeFactor = 1.5; // Très courte distance = beaucoup de détours urbains
-  else if (distanceAsTheCrowFlies < 200)
-    routeFactor = 1.4; // Courte distance = détours régionaux
-  else if (distanceAsTheCrowFlies < 500)
-    routeFactor = 1.3; // Distance moyenne = mix routes/autoroutes
-  else if (distanceAsTheCrowFlies < 1000)
-    routeFactor = 1.25; // Longue distance = principalement autoroutes
-  else routeFactor = 1.2; // Très longue distance = autoroutes directes
-
-  return Math.round(distanceAsTheCrowFlies * routeFactor);
+      Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// Cache pour éviter les appels répétés au géocodeur (avec expiration)
-const geocodeCache = new Map<
-  string,
-  {
-    lat: number;
-    lng: number;
-    country: string;
-    fullName: string;
-    distance: number;
-    timestamp: number;
-  }
->();
+function calculateRoadDistance(lat: number, lng: number): number {
+  const d = haversine(lat, lng, PALAIS_COORDINATES.lat, PALAIS_COORDINATES.lng);
 
-const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 heures
+  // Facteur de correction routière adaptatif
+  let factor: number;
+  if (d < 50) factor = 1.5;         // Détours urbains
+  else if (d < 200) factor = 1.4;   // Routes régionales
+  else if (d < 500) factor = 1.3;   // Mix routes/autoroutes
+  else if (d < 1000) factor = 1.25; // Principalement autoroutes
+  else factor = 1.2;                // Autoroutes directes
 
-// Fonction pour nettoyer et normaliser les noms de ville
+  return Math.round(d * factor);
+}
+
+// ── Normalisation du nom de ville ─────────────────────────────────────
 function normalizeCity(city: string): string {
   return city
     .toLowerCase()
@@ -77,299 +51,143 @@ function normalizeCity(city: string): string {
     .replace(/\s+/g, " ");
 }
 
-// Fonction pour déduire le pays depuis le nom de ville
-function deduceCountryFromCity(cityName: string): string {
+// ── Déduction du pays ─────────────────────────────────────────────────
+function deduceCountry(cityName: string): string {
   const city = normalizeCity(cityName);
-
-  // Détection spéciale pour Cannes et région PACA
-  if (
-    city.includes("cannes") ||
-    city.includes("nice") ||
-    city.includes("antibes") ||
-    city.includes("grasse") ||
-    city.includes("monaco") ||
-    city.includes("menton")
-  ) {
-    return "FRANCE";
+  const match = findCity(cityName);
+  if (match) {
+    // Map country name to enum
+    const MAP: Record<string, string> = {
+      France: "FRANCE", Allemagne: "ALLEMAGNE", Italie: "ITALIE",
+      Espagne: "ESPAGNE", "Royaume-Uni": "ROYAUME_UNI", Belgique: "BELGIQUE",
+      Suisse: "SUISSE", "Pays-Bas": "PAYS_BAS", Portugal: "PORTUGAL",
+      Pologne: "POLOGNE", Autriche: "AUTRICHE", "République tchèque": "REP_TCHEQUE",
+      Hongrie: "HONGRIE", Roumanie: "ROUMANIE", Croatie: "CROATIE",
+      Monaco: "FRANCE",
+    };
+    return MAP[match.p] ?? "AUTRE";
   }
 
-  // Villes françaises
-  const frenchCities = [
-    "paris",
-    "lyon",
-    "marseille",
-    "toulouse",
-    "nantes",
-    "strasbourg",
-    "montpellier",
-    "bordeaux",
-    "lille",
-    "rennes",
-    "reims",
-    "le havre",
-    "saint-etienne",
-    "toulon",
-    "grenoble",
-    "dijon",
-    "angers",
-    "nimes",
-    "villeurbanne",
-    "clermont-ferrand",
-    "aix-en-provence",
-  ];
-
-  // Villes espagnoles
-  const spanishCities = [
-    "madrid",
-    "barcelona",
-    "valencia",
-    "sevilla",
-    "zaragoza",
-    "malaga",
-    "murcia",
-    "palma",
-    "las palmas",
-    "bilbao",
-    "alicante",
-    "cordoba",
-    "valladolid",
-    "vigo",
-  ];
-
-  // Villes italiennes
-  const italianCities = [
-    "rome",
-    "milan",
-    "naples",
-    "turin",
-    "palermo",
-    "genoa",
-    "bologna",
-    "florence",
-    "bari",
-    "catania",
-    "venice",
-    "verona",
-    "messina",
-    "padua",
-  ];
-
-  // Villes allemandes
-  const germanCities = [
-    "berlin",
-    "hamburg",
-    "munich",
-    "cologne",
-    "frankfurt",
-    "stuttgart",
-    "dusseldorf",
-    "dortmund",
-    "essen",
-    "leipzig",
-    "bremen",
-    "dresden",
-    "hanover",
-    "nuremberg",
-  ];
-
-  // Villes polonaises (ajout spécial pour vos données)
-  const polishCities = [
-    "warsaw",
-    "varsovie",
-    "krakow",
-    "cracovie",
-    "gdansk",
-    "poznan",
-    "wroclaw",
-    "lodz",
-    "katowice",
-    "bialystok",
-    "szczecin",
-    "gdynia",
-    "pienki",
-    "barglów",
-    "koscielny",
-  ];
-
-  if (frenchCities.some((c) => city.includes(c))) return "FRANCE";
-  if (spanishCities.some((c) => city.includes(c))) return "ESPAGNE";
-  if (italianCities.some((c) => city.includes(c))) return "ITALIE";
-  if (germanCities.some((c) => city.includes(c))) return "ALLEMAGNE";
-  if (polishCities.some((c) => city.includes(c))) return "POLOGNE";
-
-  // Autres indices
-  if (
-    city.includes("brussels") ||
-    city.includes("bruxelles") ||
-    city.includes("antwerp")
-  )
-    return "BELGIQUE";
-  if (
-    city.includes("zurich") ||
-    city.includes("geneva") ||
-    city.includes("geneve") ||
-    city.includes("bern")
-  )
-    return "SUISSE";
-  if (
-    city.includes("london") ||
-    city.includes("londres") ||
-    city.includes("manchester") ||
-    city.includes("birmingham")
-  )
-    return "ROYAUME_UNI";
-  if (
-    city.includes("amsterdam") ||
-    city.includes("rotterdam") ||
-    city.includes("hague")
-  )
-    return "PAYS_BAS";
-  if (
-    city.includes("lisbon") ||
-    city.includes("lisbonne") ||
-    city.includes("porto") ||
-    city.includes("braga")
-  )
-    return "PORTUGAL";
+  // Fallback heuristics
+  if (city.includes("cannes") || city.includes("nice") || city.includes("paris") ||
+      city.includes("lyon") || city.includes("marseille")) return "FRANCE";
+  if (city.includes("london") || city.includes("londres")) return "ROYAUME_UNI";
+  if (city.includes("berlin") || city.includes("munich")) return "ALLEMAGNE";
+  if (city.includes("rome") || city.includes("milan")) return "ITALIE";
+  if (city.includes("madrid") || city.includes("barcelona")) return "ESPAGNE";
+  if (city.includes("bruxelles") || city.includes("brussels")) return "BELGIQUE";
+  if (city.includes("zurich") || city.includes("geneve")) return "SUISSE";
+  if (city.includes("amsterdam") || city.includes("rotterdam")) return "PAYS_BAS";
+  if (city.includes("lisbonne") || city.includes("porto")) return "PORTUGAL";
+  if (city.includes("varsovie") || city.includes("cracovie")) return "POLOGNE";
 
   return "AUTRE";
 }
 
-// Fonction pour géocoder une ville avec cache
-async function geocodeCity(cityName: string): Promise<{
-  lat: number;
-  lng: number;
-  country: string;
-  fullName: string;
-  distance: number;
+// ── Cache mémoire pour Nominatim (villes rares) ──────────────────────
+const nominatimCache = new Map<string, {
+  lat: number; lng: number; country: string; fullName: string;
+  distance: number; timestamp: number;
+}>();
+const CACHE_TTL = 24 * 60 * 60 * 1000; // 24h
+
+// ── Fallback Nominatim (gratuit, < 5% des requêtes) ──────────────────
+async function geocodeViaNominatim(cityName: string): Promise<{
+  lat: number; lng: number; fullName: string; distance: number;
 } | null> {
-  const normalizedCity = normalizeCity(cityName);
-  const cacheKey = normalizedCity;
-
-  // Vérifier le cache
-  const cached = geocodeCache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-    console.log(`🎯 Cache hit pour "${cityName}" → ${cached.distance}km`);
-    return cached;
-  }
-
-  // CAS SPÉCIAL : Si c'est Cannes, retourner distance 0
-  if (normalizedCity.includes("cannes")) {
-    const result = {
-      lat: PALAIS_COORDINATES.lat,
-      lng: PALAIS_COORDINATES.lng,
-      country: "FRANCE",
-      fullName: "Cannes, France",
-      distance: 0,
-      timestamp: Date.now(),
-    };
-    geocodeCache.set(cacheKey, result);
-    console.log(`🎯 Cannes détecté → 0km (logique!)`);
-    return result;
-  }
+  const key = normalizeCity(cityName);
+  const cached = nominatimCache.get(key);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) return cached;
 
   try {
-    console.log(`🔍 Géocodage de "${cityName}"...`);
-
-    // Appel direct à l'API Nominatim d'OpenStreetMap
-    const encodedCity = encodeURIComponent(cityName);
-    const url = `${NOMINATIM_API_URL}?q=${encodedCity}&format=json&limit=1&addressdetails=1`;
-
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": "PalaisDesFestivals/1.0", // Requis par Nominatim
-      },
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(cityName)}&format=json&limit=1&addressdetails=1`;
+    const resp = await fetch(url, {
+      headers: { "User-Agent": "PalaisDesFestivals/1.0" },
     });
+    if (!resp.ok) return null;
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
+    const results = await resp.json();
+    if (!results?.length) return null;
 
-    const results = await response.json();
+    const loc = results[0];
+    const lat = parseFloat(loc.lat);
+    const lng = parseFloat(loc.lon);
+    if (isNaN(lat) || isNaN(lng)) return null;
 
-    if (results && results.length > 0) {
-      const location = results[0];
-      const lat = parseFloat(location.lat);
-      const lng = parseFloat(location.lon);
-
-      if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
-        const distance = calculateRoadDistance(
-          lat,
-          lng,
-          PALAIS_COORDINATES.lat,
-          PALAIS_COORDINATES.lng
-        );
-        const country = deduceCountryFromCity(cityName);
-        const fullName = location.display_name || cityName;
-
-        const result = {
-          lat,
-          lng,
-          country,
-          fullName,
-          distance,
-          timestamp: Date.now(),
-        };
-
-        geocodeCache.set(cacheKey, result);
-        console.log(
-          `✅ Géocodé "${cityName}" → ${fullName} (${country}) → ${distance}km`
-        );
-        return result;
-      }
-    }
-
-    console.log(`❌ Impossible de géocoder "${cityName}"`);
-    return null;
-  } catch (error) {
-    console.error(`🚨 Erreur géocodage "${cityName}":`, error);
+    const distance = calculateRoadDistance(lat, lng);
+    const result = {
+      lat, lng,
+      country: deduceCountry(cityName),
+      fullName: loc.display_name || cityName,
+      distance,
+      timestamp: Date.now(),
+    };
+    nominatimCache.set(key, result);
+    return result;
+  } catch {
     return null;
   }
 }
 
+// ── Endpoint GET /api/distance?city=xxx ──────────────────────────────
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const city = searchParams.get("city");
 
     if (!city) {
-      return Response.json(
-        { error: "Paramètre 'city' manquant" },
-        { status: 400 }
-      );
+      return Response.json({ error: "Paramètre 'city' manquant" }, { status: 400 });
     }
 
-    console.log(`🚀 API Distance - Calcul pour: "${city}"`);
-
-    const result = await geocodeCity(city);
-
-    if (!result) {
-      console.log(
-        `⚠️ Ville "${city}" non trouvée, distance par défaut = 500km`
-      );
+    // Cas spécial : Cannes → 0 km
+    if (normalizeCity(city).includes("cannes")) {
       return Response.json({
         city,
-        distance: 500, // Distance par défaut réaliste
-        country: deduceCountryFromCity(city),
-        fullName: city,
-        coordinates: null,
-        source: "fallback",
+        distance: 0,
+        country: "FRANCE",
+        fullName: "Cannes, France",
+        coordinates: { lat: PALAIS_COORDINATES.lat, lng: PALAIS_COORDINATES.lng },
+        source: "local",
       });
     }
 
+    // 1. Chercher dans la base locale (< 1ms)
+    const localMatch = findCity(city);
+    if (localMatch) {
+      return Response.json({
+        city,
+        distance: localMatch.d,
+        country: deduceCountry(city),
+        fullName: `${localMatch.n}, ${localMatch.p}`,
+        coordinates: { lat: localMatch.lat, lng: localMatch.lng },
+        source: "local",
+      });
+    }
+
+    // 2. Fallback Nominatim (rare, < 5%)
+    const nominatimResult = await geocodeViaNominatim(city);
+    if (nominatimResult) {
+      return Response.json({
+        city,
+        distance: nominatimResult.distance,
+        country: deduceCountry(city),
+        fullName: nominatimResult.fullName,
+        coordinates: { lat: nominatimResult.lat, lng: nominatimResult.lng },
+        source: "nominatim",
+      });
+    }
+
+    // 3. Fallback final : distance par défaut
     return Response.json({
       city,
-      distance: result.distance,
-      country: result.country,
-      fullName: result.fullName,
-      coordinates: {
-        lat: result.lat,
-        lng: result.lng,
-      },
-      source: "geocoded",
+      distance: 500,
+      country: deduceCountry(city),
+      fullName: city,
+      coordinates: null,
+      source: "fallback",
     });
   } catch (error) {
-    console.error("🚨 Erreur API Distance:", error);
+    console.error("Erreur API Distance:", error);
     return Response.json(
       { error: "Erreur lors du calcul de distance" },
       { status: 500 }

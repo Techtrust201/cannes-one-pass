@@ -16,9 +16,16 @@ interface Props {
     consent: boolean;
   };
   onReset: () => void;
+  onClearForm: () => void;
+  onHasSavedChange: (hasSaved: boolean) => void;
 }
 
-export default function StepFour({ data, onReset }: Props) {
+export default function StepFour({
+  data,
+  onReset,
+  onClearForm,
+  onHasSavedChange,
+}: Props) {
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -43,12 +50,15 @@ export default function StepFour({ data, onReset }: Props) {
       if (!saveRes.ok) throw new Error("Erreur enregistrement");
       setSuccess(true);
       setHasSaved(true);
+      onHasSavedChange(true);
       setInfoMsg(
         "Votre demande a bien été enregistrée. Elle doit être validée par un agent."
       );
       setTimeout(() => {
         setShowModal(false);
         setSuccess(false);
+        // Vider les champs mais rester sur step 4
+        onClearForm();
       }, 1200);
     } catch (err) {
       console.error(err);
@@ -93,6 +103,31 @@ export default function StepFour({ data, onReset }: Props) {
       return;
     }
     setShowModal(true);
+  }
+
+  async function handleNewRequest() {
+    if (!hasSaved) {
+      // Si pas encore enregistré, enregistrer d'abord
+      try {
+        setLoading(true);
+        const saveRes = await fetch("/api/accreditations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...data, status: "NOUVEAU" }),
+        });
+        if (!saveRes.ok) throw new Error("Erreur enregistrement");
+        setHasSaved(true);
+        onHasSavedChange(true);
+      } catch (err) {
+        console.error(err);
+        alert("Impossible d'enregistrer la demande");
+        return;
+      } finally {
+        setLoading(false);
+      }
+    }
+    // Puis réinitialiser et revenir au step 1
+    onReset();
   }
 
   return (
@@ -170,8 +205,9 @@ export default function StepFour({ data, onReset }: Props) {
           {/* Nouveau bouton après enregistrement */}
           {hasSaved && (
             <button
-              onClick={onReset}
-              className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-base bg-white text-gray-700 border border-gray-300 shadow hover:bg-gray-100 transition-all duration-150 mt-2"
+              onClick={handleNewRequest}
+              disabled={loading}
+              className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-base bg-white text-gray-700 border border-gray-300 shadow hover:bg-gray-100 transition-all duration-150 mt-2 disabled:opacity-60"
             >
               <PlusCircle size={20} />
               Nouvelle demande

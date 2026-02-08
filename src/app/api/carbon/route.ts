@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
+import { findCity } from "@/lib/city-search";
 
-// Types pour les données du bilan carbone
+// ── Types ────────────────────────────────────────────────────────────
 interface CarbonDataEntry {
   id: string;
   evenement: string;
@@ -22,120 +23,103 @@ interface AggregatedData {
   emissionsKgCO2eq: number;
 }
 
-// Coefficients d'émission CO2 par type de véhicule (kg CO2/km)
-// Basés sur les données ADEME 2024 pour les véhicules utilitaires diesel
+// ── Coefficients CO₂ (ADEME 2024, diesel utilitaires) ────────────────
 const CO2_COEFFICIENTS = {
-  "<10m3": 0.185, // Fourgonnette/camionnette <3.5t (185g CO2/km)
-  "10-15m3": 0.265, // Fourgon moyen 3.5-7.5t (265g CO2/km)
-  "15-20m3": 0.385, // Camion porteur 7.5-16t (385g CO2/km)
-  ">20m3": 0.485, // Poids lourd >16t (485g CO2/km)
+  "<10m3": 0.185,   // Fourgonnette <3.5t
+  "10-15m3": 0.265, // Fourgon moyen 3.5-7.5t
+  "15-20m3": 0.385, // Camion porteur 7.5-16t
+  ">20m3": 0.485,   // Poids lourd >16t
 } as const;
 
-// Mapping des tailles de véhicules depuis les nouveaux enums
-function mapVehicleTypeToSize(
-  vehicleType: string | null,
-  fallbackSize?: string
-): string {
-  if (vehicleType) {
-    switch (vehicleType) {
-      case "PETIT":
-        return "<10m3";
-      case "MOYEN":
-        return "10-15m3";
-      case "GRAND":
-        return "15-20m3";
-      case "TRES_GRAND":
-        return ">20m3";
-      default:
-        return "10-15m3";
-    }
-  }
+// ── Haversine amélioré (même que distance/route.ts) ──────────────────
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function calculateRoadDistance(lat: number, lng: number): number {
+  const CANNES = { lat: 43.5506, lng: 7.0175 };
+  const R = 6371;
+  const dLat = ((CANNES.lat - lat) * Math.PI) / 180;
+  const dLng = ((CANNES.lng - lng) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat * Math.PI) / 180) *
+      Math.cos((CANNES.lat * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  const d = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-  // Fallback sur l'ancien système si pas de vehicleType
-  if (fallbackSize) {
-    const sizeUpper = fallbackSize.toUpperCase();
-    if (
-      sizeUpper.includes("PETIT") ||
-      sizeUpper.includes("SMALL") ||
-      sizeUpper.includes("<10")
-    )
-      return "<10m3";
-    if (
-      sizeUpper.includes("MOYEN") ||
-      sizeUpper.includes("MEDIUM") ||
-      sizeUpper.includes("10-15")
-    )
-      return "10-15m3";
-    if (
-      sizeUpper.includes("GRAND") ||
-      sizeUpper.includes("LARGE") ||
-      sizeUpper.includes("15-20")
-    )
-      return "15-20m3";
-    if (
-      sizeUpper.includes("TRES") ||
-      sizeUpper.includes("XL") ||
-      sizeUpper.includes(">20")
-    )
-      return ">20m3";
-  }
-
-  return "10-15m3"; // Défaut
+  let factor: number;
+  if (d < 50) factor = 1.5;
+  else if (d < 200) factor = 1.4;
+  else if (d < 500) factor = 1.3;
+  else if (d < 1000) factor = 1.25;
+  else factor = 1.2;
+  return Math.round(d * factor);
 }
 
-// Mapping des pays depuis les nouveaux enums
-function mapCountryToFrench(
-  country: string | null,
-  fallbackCity?: string
-): string {
-  if (country) {
-    switch (country) {
-      case "FRANCE":
-        return "France";
-      case "ESPAGNE":
-        return "Espagne";
-      case "ITALIE":
-        return "Italie";
-      case "ALLEMAGNE":
-        return "Allemagne";
-      case "BELGIQUE":
-        return "Belgique";
-      case "SUISSE":
-        return "Suisse";
-      case "ROYAUME_UNI":
-        return "Royaume-Uni";
-      case "PAYS_BAS":
-        return "Pays-Bas";
-      case "PORTUGAL":
-        return "Portugal";
-      case "AUTRE":
-        return "Autre";
-      default:
-        return "France";
+// ── Mapping type véhicule ────────────────────────────────────────────
+function mapVehicleTypeToSize(vehicleType: string | null, fallbackSize?: string): string {
+  if (vehicleType) {
+    switch (vehicleType) {
+      case "PETIT": return "<10m3";
+      case "MOYEN": return "10-15m3";
+      case "GRAND": return "15-20m3";
+      case "TRES_GRAND": return ">20m3";
+      default: return "10-15m3";
     }
   }
-
-  // Fallback sur la ville si pas de country
-  if (fallbackCity) {
-    const cityUpper = fallbackCity.toUpperCase();
-    if (
-      cityUpper.includes("PARIS") ||
-      cityUpper.includes("LYON") ||
-      cityUpper.includes("MARSEILLE")
-    )
-      return "France";
-    if (cityUpper.includes("MADRID") || cityUpper.includes("BARCELONA"))
-      return "Espagne";
-    if (cityUpper.includes("ROME") || cityUpper.includes("MILAN"))
-      return "Italie";
-    if (cityUpper.includes("BERLIN") || cityUpper.includes("MUNICH"))
-      return "Allemagne";
+  if (fallbackSize) {
+    const s = fallbackSize.toUpperCase();
+    if (s.includes("PETIT") || s.includes("SMALL") || s.includes("<10")) return "<10m3";
+    if (s.includes("MOYEN") || s.includes("MEDIUM") || s.includes("10-15")) return "10-15m3";
+    if (s.includes("GRAND") || s.includes("LARGE") || s.includes("15-20")) return "15-20m3";
+    if (s.includes("TRES") || s.includes("XL") || s.includes(">20")) return ">20m3";
   }
+  return "10-15m3";
+}
 
+// ── Mapping pays ─────────────────────────────────────────────────────
+function mapCountryToFrench(country: string | null, fallbackCity?: string): string {
+  if (country) {
+    const MAP: Record<string, string> = {
+      FRANCE: "France", ESPAGNE: "Espagne", ITALIE: "Italie",
+      ALLEMAGNE: "Allemagne", BELGIQUE: "Belgique", SUISSE: "Suisse",
+      ROYAUME_UNI: "Royaume-Uni", PAYS_BAS: "Pays-Bas", PORTUGAL: "Portugal",
+      AUTRE: "Autre",
+    };
+    return MAP[country] ?? "France";
+  }
+  // Essayer la base locale pour le pays
+  if (fallbackCity) {
+    const match = findCity(fallbackCity);
+    if (match) return match.p;
+  }
   return fallbackCity || "Origine non renseignée";
 }
 
-// Fonction pour parser les dates françaises
+// ── Distance depuis une ville (base locale prioritaire) ──────────────
+async function getDistanceFromCity(
+  cityName: string,
+  apiOrigin: string
+): Promise<number> {
+  // 1. Base locale (< 1ms)
+  const match = findCity(cityName);
+  if (match) return match.d;
+
+  // 2. Fallback API (rare)
+  try {
+    const resp = await fetch(
+      `${apiOrigin}/api/distance?city=${encodeURIComponent(cityName)}`
+    );
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data.distance > 0) return data.distance;
+    }
+  } catch {
+    // Ignore
+  }
+
+  return 0;
+}
+
+// ── Parsing date ─────────────────────────────────────────────────────
 function parseDate(dateStr: string): Date {
   if (dateStr.includes("/")) {
     const [day, month, year] = dateStr.split("/").map(Number);
@@ -144,22 +128,18 @@ function parseDate(dateStr: string): Date {
   return new Date(dateStr);
 }
 
-// Fonction pour filtrer les données sur 12 mois
-function filterTwelveMonths(
-  data: CarbonDataEntry[],
-  endDateStr: string
-): CarbonDataEntry[] {
+function filterTwelveMonths(data: CarbonDataEntry[], endDateStr: string): CarbonDataEntry[] {
   const endDate = parseDate(endDateStr);
   const startDate = new Date(endDate);
   startDate.setMonth(startDate.getMonth() - 11);
   startDate.setDate(1);
-
-  return data.filter((entry) => {
-    const entryDate = parseDate(entry.date);
-    return entryDate >= startDate && entryDate <= endDate;
+  return data.filter((e) => {
+    const d = parseDate(e.date);
+    return d >= startDate && d <= endDate;
   });
 }
 
+// ── GET /api/carbon ──────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -167,38 +147,19 @@ export async function GET(req: NextRequest) {
     const endDate = searchParams.get("end") || "31/12/2024";
     const search = searchParams.get("search") || "";
 
-    console.log(
-      `🔍 API Carbon - Recherche: "${search}", Période: ${startDate} -> ${endDate}`
-    );
-
-    // IMPORTANT: Récupérer les accréditations avec statut "ENTREE" OU "SORTIE"
-    // Car les deux signifient que le véhicule s'est effectivement présenté
+    // Récupérer les accréditations ENTREE ou SORTIE
     const accreditations = await prisma.accreditation.findMany({
-      include: {
-        vehicles: true,
-      },
+      include: { vehicles: true },
       where: {
         AND: [
-          // CONDITION PRINCIPALE: Véhicules qui se sont présentés (ENTREE ou SORTIE)
-          {
-            status: {
-              in: ["ENTREE", "SORTIE"],
-            },
-          },
-          // Filtres de recherche optionnels
+          { status: { in: ["ENTREE", "SORTIE"] } },
           search
             ? {
                 OR: [
                   { company: { contains: search, mode: "insensitive" } },
                   { event: { contains: search, mode: "insensitive" } },
                   { stand: { contains: search, mode: "insensitive" } },
-                  {
-                    vehicles: {
-                      some: {
-                        plate: { contains: search, mode: "insensitive" },
-                      },
-                    },
-                  },
+                  { vehicles: { some: { plate: { contains: search, mode: "insensitive" } } } },
                 ],
               }
             : {},
@@ -206,116 +167,42 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    console.log(
-      `📊 Trouvé ${accreditations.length} accréditations avec statut ENTREE ou SORTIE`
-    );
-
-    // Transformer les données en format bilan carbone
     const carbonData: CarbonDataEntry[] = [];
 
-    let totalVehiclesProcessed = 0;
-    let vehiclesWithDistance = 0;
-    let vehiclesWithoutDistance = 0;
-
     for (const acc of accreditations) {
-      console.log(
-        `🚗 Traitement accréditation: ${acc.company} - ${acc.event} (${acc.vehicles.length} véhicules)`
-      );
-
       for (const vehicle of acc.vehicles) {
-        totalVehiclesProcessed++;
+        const vehicleType = mapVehicleTypeToSize(vehicle.vehicleType || null, vehicle.size);
 
-        // 1. CALCUL DU TYPE DE VÉHICULE
-        // Utiliser les nouveaux champs en priorité, puis fallback sur le champ "size"
-        const vehicleType = mapVehicleTypeToSize(
-          vehicle.vehicleType || null,
-          vehicle.size
-        );
-
-        // 2. CALCUL DE LA DISTANCE
+        // Distance : estimatedKms > kms (texte) > base locale > API
         let km = 0;
-        let distanceSource = "non renseignée";
-
-        // Priorité 1: estimatedKms (nouveau champ calculé)
         if (vehicle.estimatedKms && vehicle.estimatedKms > 0) {
           km = vehicle.estimatedKms;
-          distanceSource = "calculée automatiquement";
-          vehiclesWithDistance++;
+        } else if (vehicle.kms) {
+          const parsed = parseInt(vehicle.kms.replace(/\D/g, "")) || 0;
+          if (parsed > 0) km = parsed;
         }
-        // Priorité 2: kms (ancien champ texte)
-        else if (vehicle.kms) {
-          const parsedKms = parseInt(vehicle.kms.replace(/\D/g, "")) || 0;
-          if (parsedKms > 0) {
-            km = parsedKms;
-            distanceSource = "saisie manuelle";
-            vehiclesWithDistance++;
-          } else {
-            vehiclesWithoutDistance++;
-          }
-        }
-        // Priorité 3: Calculer depuis la ville si possible
-        else if (vehicle.city) {
-          try {
-            const distanceResponse = await fetch(
-              `${req.nextUrl.origin}/api/distance?city=${encodeURIComponent(vehicle.city)}`
-            );
-            if (distanceResponse.ok) {
-              const distanceData = await distanceResponse.json();
-              if (distanceData.success && distanceData.data.distance > 0) {
-                km = distanceData.data.distance;
-                distanceSource = `calculée depuis ${vehicle.city}`;
-                vehiclesWithDistance++;
-              } else {
-                vehiclesWithoutDistance++;
-              }
-            } else {
-              vehiclesWithoutDistance++;
-            }
-          } catch (error) {
-            console.error(
-              `Erreur calcul distance pour ${vehicle.city}:`,
-              error
-            );
-            vehiclesWithoutDistance++;
-          }
-        } else {
-          vehiclesWithoutDistance++;
+        if (km === 0 && vehicle.city) {
+          km = await getDistanceFromCity(vehicle.city, req.nextUrl.origin);
         }
 
-        // 3. CALCUL DES ÉMISSIONS CO2
-        // 🔧 FIX: Vérifier que le vehicleType existe dans les coefficients
-        const validVehicleTypes = Object.keys(CO2_COEFFICIENTS);
-        const finalVehicleType = validVehicleTypes.includes(vehicleType)
-          ? vehicleType
-          : "10-15m3"; // Fallback sûr
+        // Émissions CO₂
+        const validTypes = Object.keys(CO2_COEFFICIENTS);
+        const finalType = validTypes.includes(vehicleType) ? vehicleType : "10-15m3";
+        const coeff = CO2_COEFFICIENTS[finalType as keyof typeof CO2_COEFFICIENTS];
+        const kgCO2eq = km > 0 ? Math.round(km * coeff) : 0;
 
-        const coefficient =
-          CO2_COEFFICIENTS[finalVehicleType as keyof typeof CO2_COEFFICIENTS];
-        const kgCO2eq = km > 0 ? Math.round(km * coefficient) : 0;
+        // Pays
+        const origine = mapCountryToFrench(vehicle.country || null, vehicle.city);
 
-        console.log(
-          `  🧮 Calcul CO2: ${km}km × ${coefficient} = ${kgCO2eq}kg (type: ${finalVehicleType})`
-        );
-
-        // 4. DÉTERMINATION DU PAYS D'ORIGINE
-        const origine = mapCountryToFrench(
-          vehicle.country || null,
-          vehicle.city
-        );
-
-        // 5. GESTION DES DATES
-        let dateFormatted =
-          vehicle.date || new Date().toISOString().split("T")[0];
+        // Date
+        let dateFormatted = vehicle.date || new Date().toISOString().split("T")[0];
         if (vehicle.arrivalDate) {
-          dateFormatted = new Date(vehicle.arrivalDate)
-            .toISOString()
-            .split("T")[0];
+          dateFormatted = new Date(vehicle.arrivalDate).toISOString().split("T")[0];
         }
 
-        // 6. CRÉATION DE L'ENTRÉE CARBON
         carbonData.push({
           id: `${acc.id}-${vehicle.id}`,
-          evenement: acc.event, // DONNÉES RÉELLES uniquement
+          evenement: acc.event,
           plaque: vehicle.plate,
           entreprise: acc.company,
           stand: acc.stand,
@@ -325,38 +212,29 @@ export async function GET(req: NextRequest) {
           kgCO2eq,
           date: dateFormatted,
         });
-
-        console.log(
-          `  ✅ Véhicule ${vehicle.plate}: ${km}km (${distanceSource}), ${kgCO2eq}kg CO2`
-        );
       }
     }
 
-    console.log(`📈 Résumé traitement:`);
-    console.log(`  - Total véhicules: ${totalVehiclesProcessed}`);
-    console.log(`  - Avec distance: ${vehiclesWithDistance}`);
-    console.log(`  - Sans distance: ${vehiclesWithoutDistance}`);
-
-    // Filtrer sur 12 mois
+    // Filtrer 12 mois
     const filteredData = filterTwelveMonths(carbonData, endDate);
 
-    // Calculer les agrégations
+    // Agrégations
     const aggregations = {
-      pays: calculateAggregation(filteredData, "origine"),
-      evenement: calculateAggregation(filteredData, "evenement"),
-      entreprise: calculateAggregation(filteredData, "entreprise"),
-      type: calculateAggregation(filteredData, "type"),
+      pays: aggregate(filteredData, "origine"),
+      evenement: aggregate(filteredData, "evenement"),
+      entreprise: aggregate(filteredData, "entreprise"),
+      type: aggregate(filteredData, "type"),
     };
 
-    // Calculer les données mensuelles
-    const monthlyData = calculateMonthlyData(filteredData, endDate);
+    // Données mensuelles
+    const monthly = monthlyData(filteredData, endDate);
 
     return Response.json({
       success: true,
       data: {
         detailed: filteredData,
         aggregations,
-        monthly: monthlyData,
+        monthly,
         period: { start: startDate, end: endDate },
         total: filteredData.length,
       },
@@ -370,108 +248,60 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// Fonction pour calculer les agrégations
-function calculateAggregation(
-  data: CarbonDataEntry[],
-  field: keyof CarbonDataEntry
-): AggregatedData[] {
-  const groups = data.reduce(
-    (acc, entry) => {
-      const key = String(entry[field]);
-      if (!acc[key]) {
-        acc[key] = { nbVehicules: 0, distanceKm: 0, emissionsKgCO2eq: 0 };
-      }
-      acc[key].nbVehicules += 1;
-      acc[key].distanceKm += entry.km;
-      acc[key].emissionsKgCO2eq += entry.kgCO2eq;
-      return acc;
-    },
-    {} as Record<
-      string,
-      { nbVehicules: number; distanceKm: number; emissionsKgCO2eq: number }
-    >
-  );
-
+// ── Agrégation ───────────────────────────────────────────────────────
+function aggregate(data: CarbonDataEntry[], field: keyof CarbonDataEntry): AggregatedData[] {
+  const groups: Record<string, { nbVehicules: number; distanceKm: number; emissionsKgCO2eq: number }> = {};
+  for (const e of data) {
+    const key = String(e[field]);
+    if (!groups[key]) groups[key] = { nbVehicules: 0, distanceKm: 0, emissionsKgCO2eq: 0 };
+    groups[key].nbVehicules += 1;
+    groups[key].distanceKm += e.km;
+    groups[key].emissionsKgCO2eq += e.kgCO2eq;
+  }
   return Object.entries(groups)
-    .map(([category, values]) => ({
-      category,
-      ...values,
-    }))
+    .map(([category, v]) => ({ category, ...v }))
     .sort((a, b) => b.nbVehicules - a.nbVehicules);
 }
 
-// Fonction pour calculer les données mensuelles
-function calculateMonthlyData(data: CarbonDataEntry[], endDateStr: string) {
-  console.log(`🗓️  Calcul données mensuelles pour ${data.length} véhicules`);
+// ── Données mensuelles ───────────────────────────────────────────────
+function monthlyData(data: CarbonDataEntry[], endDateStr: string) {
   const endDate = parseDate(endDateStr);
-
-  // 🔧 FIX: Générer TOUS les 12 mois précédant la date de fin (règle métier)
-  interface MonthlyDataResult {
-    month: string;
-    monthIndex: number;
-    year: number;
+  const seen = new Set<string>();
+  const months: {
+    month: string; monthIndex: number; year: number;
     nbVehicules: number;
-    typeBreakdown: {
-      "<10m3": number;
-      "10-15m3": number;
-      "15-20m3": number;
-      ">20m3": number;
-    };
+    typeBreakdown: { "<10m3": number; "10-15m3": number; "15-20m3": number; ">20m3": number };
     data: CarbonDataEntry[];
     uniqueKey: string;
-  }
-  const months: MonthlyDataResult[] = [];
-  const processedMonths = new Set<string>(); // Éviter les doublons
+  }[] = [];
 
   for (let i = 11; i >= 0; i--) {
-    const monthDate = new Date(endDate);
-    monthDate.setMonth(monthDate.getMonth() - i);
+    const d = new Date(endDate);
+    d.setMonth(d.getMonth() - i);
+    const key = `${d.getFullYear()}-${String(d.getMonth()).padStart(2, "0")}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
 
-    const monthName = new Intl.DateTimeFormat("fr-FR", {
-      month: "long",
-      year: "numeric",
-    }).format(monthDate);
-
-    // Créer une clé unique pour éviter les doublons
-    const uniqueKey = `${monthDate.getFullYear()}-${monthDate.getMonth().toString().padStart(2, "0")}`;
-
-    // Skip si déjà traité
-    if (processedMonths.has(uniqueKey)) {
-      continue;
-    }
-    processedMonths.add(uniqueKey);
-
-    // Filtrer les véhicules pour ce mois spécifique
-    const monthData = data.filter((entry) => {
-      const entryDate = parseDate(entry.date);
-      return (
-        entryDate.getMonth() === monthDate.getMonth() &&
-        entryDate.getFullYear() === monthDate.getFullYear()
-      );
+    const name = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" }).format(d);
+    const monthEntries = data.filter((e) => {
+      const ed = parseDate(e.date);
+      return ed.getMonth() === d.getMonth() && ed.getFullYear() === d.getFullYear();
     });
-
-    const typeBreakdown = {
-      "<10m3": monthData.filter((d) => d.type === "<10m3").length,
-      "10-15m3": monthData.filter((d) => d.type === "10-15m3").length,
-      "15-20m3": monthData.filter((d) => d.type === "15-20m3").length,
-      ">20m3": monthData.filter((d) => d.type === ">20m3").length,
-    };
-
-    console.log(`📅 ${monthName}: ${monthData.length} véhicules`);
 
     months.push({
-      month: monthName,
-      monthIndex: monthDate.getMonth(),
-      year: monthDate.getFullYear(),
-      nbVehicules: monthData.length,
-      typeBreakdown,
-      data: monthData,
-      uniqueKey,
+      month: name,
+      monthIndex: d.getMonth(),
+      year: d.getFullYear(),
+      nbVehicules: monthEntries.length,
+      typeBreakdown: {
+        "<10m3": monthEntries.filter((e) => e.type === "<10m3").length,
+        "10-15m3": monthEntries.filter((e) => e.type === "10-15m3").length,
+        "15-20m3": monthEntries.filter((e) => e.type === "15-20m3").length,
+        ">20m3": monthEntries.filter((e) => e.type === ">20m3").length,
+      },
+      data: monthEntries,
+      uniqueKey: key,
     });
   }
-
-  console.log(
-    `🎯 Généré ${months.length} mois (tous les 12 mois de la période)`
-  );
   return months;
 }

@@ -27,13 +27,27 @@ enum HistoryAction {
   EMAIL_SENT
   INFO_UPDATED
   DELETED
+  ZONE_CHANGED
+  ZONE_TRANSFER
 }
 
 enum VehicleType {
-  PETIT
-  MOYEN
-  GRAND
-  TRES_GRAND
+  PORTEUR
+  PORTEUR_ARTICULE
+  SEMI_REMORQUE
+}
+
+enum Zone {
+  LA_BOCCA
+  PALAIS_DES_FESTIVALS
+  PANTIERO
+  MACE
+}
+
+enum ZoneAction {
+  ENTRY
+  EXIT
+  TRANSFER
 }
 
 enum CountryRegion {
@@ -63,10 +77,12 @@ model Accreditation {
   exitAt      DateTime?
   email       String?              @db.VarChar(255)
   sentAt      DateTime?
+  currentZone Zone?
 
-  vehicles    Vehicle[]
-  emailHistory AccreditationEmailHistory[]
-  history     AccreditationHistory[]
+  vehicles       Vehicle[]
+  emailHistory   AccreditationEmailHistory[]
+  history        AccreditationHistory[]
+  zoneMovements  ZoneMovement[]
 }
 
 model Vehicle {
@@ -88,8 +104,25 @@ model Vehicle {
   arrivalDate     DateTime?
   departureDate   DateTime?
 
+  // Champs poids (en tonnes)
+  emptyWeight     Int?
+  maxWeight       Int?
+  currentWeight   Int?
+
   accreditation   Accreditation @relation(fields: [accreditationId], references: [id], onDelete: Cascade)
   accreditationId String
+}
+
+model ZoneMovement {
+  id              Int           @id @default(autoincrement())
+  accreditation   Accreditation @relation(fields: [accreditationId], references: [id], onDelete: Cascade)
+  accreditationId String
+  fromZone        Zone?
+  toZone          Zone
+  action          ZoneAction
+  timestamp       DateTime      @default(now())
+  userId          String?
+  userAgent       String?
 }
 
 model AccreditationEmailHistory {

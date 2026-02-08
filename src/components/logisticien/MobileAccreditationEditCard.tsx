@@ -4,7 +4,7 @@ import { useState, useTransition, useCallback, useMemo } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import type { Accreditation, AccreditationStatus } from "@/types";
+import type { Accreditation } from "@/types";
 import {
   ArrowLeft,
   Save,
@@ -13,9 +13,13 @@ import {
   CheckCircle,
   Pencil,
   Trash2,
+  Phone,
+  MessageCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { getTelLink, getWhatsAppLink } from "@/lib/contact-utils";
+import ActionButtons from "./ActionButtons";
 
 // Type pour le formulaire d'édition de véhicule
 interface VehicleFormData {
@@ -30,14 +34,6 @@ interface VehicleFormData {
 }
 
 const accreditationFormSchema = z.object({
-  status: z.enum([
-    "NOUVEAU",
-    "ATTENTE",
-    "ENTREE",
-    "SORTIE",
-    "REFUS",
-    "ABSENT",
-  ] as const),
   company: z.string().min(1, "Entreprise requise").max(100, "Trop long"),
   stand: z.string().min(1, "Stand requis").max(50, "Trop long"),
   unloading: z.string().min(1, "Déchargement requis").max(50, "Trop long"),
@@ -49,7 +45,7 @@ type AccreditationFormData = z.infer<typeof accreditationFormSchema>;
 
 // Types pour les toasts
 type ToastType = "success" | "error" | "info";
-interface Toast {
+interface ToastData {
   id: string;
   type: ToastType;
   message: string;
@@ -57,13 +53,11 @@ interface Toast {
 
 // Hook personnalisé pour les toasts
 function useToasts() {
-  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [toasts, setToasts] = useState<ToastData[]>([]);
 
   const addToast = useCallback((type: ToastType, message: string) => {
     const id = Date.now().toString();
     setToasts((prev) => [...prev, { id, type, message }]);
-
-    // Auto-remove after 5 seconds
     setTimeout(() => {
       setToasts((prev) => prev.filter((toast) => toast.id !== id));
     }, 5000);
@@ -76,63 +70,12 @@ function useToasts() {
   return { toasts, addToast, removeToast };
 }
 
-// Hook personnalisé pour la logique métier du statut
-function useStatusLogic() {
-  const [showEntryConfirm, setShowEntryConfirm] = useState(false);
-
-  const handleStatusChange = useCallback(
-    (
-      currentStatus: AccreditationStatus,
-      newStatus: AccreditationStatus,
-      onStatusChange: (status: AccreditationStatus) => void
-    ) => {
-      if (newStatus === "ENTREE" && currentStatus !== "ENTREE") {
-        setShowEntryConfirm(true);
-        return;
-      }
-
-      // Permettre tous les changements de statut sauf depuis SORTIE
-      if (currentStatus !== "SORTIE") {
-        onStatusChange(newStatus);
-      }
-    },
-    []
-  );
-
-  return {
-    showEntryConfirm,
-    setShowEntryConfirm,
-    handleStatusChange,
-  };
-}
-
-// Ajout de la fonction pour les transitions métier mobile
-const getNextStatusOptions = (current: AccreditationStatus) => {
-  // Toujours inclure le statut actuel pour permettre de le voir
-  const allOptions = [
-    { value: "NOUVEAU", label: "Nouveau" },
-    { value: "ATTENTE", label: "Attente" },
-    { value: "ENTREE", label: "Entrée" },
-    { value: "SORTIE", label: "Sortie" },
-    { value: "REFUS", label: "Refusé" },
-    { value: "ABSENT", label: "Absent" },
-  ];
-
-  // Si le statut est SORTIE, on ne peut plus changer
-  if (current === "SORTIE") {
-    return allOptions.filter((option) => option.value === current);
-  }
-
-  // Pour tous les autres statuts, permettre tous les changements
-  return allOptions;
-};
-
 // Composant Toast
-function Toast({
+function ToastComponent({
   toast,
   onRemove,
 }: {
-  toast: Toast;
+  toast: ToastData;
   onRemove: (id: string) => void;
 }) {
   const icons = {
@@ -207,27 +150,21 @@ interface Props {
 export default function MobileAccreditationEditCard({ acc }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const { showEntryConfirm, setShowEntryConfirm, handleStatusChange } =
-    useStatusLogic();
   const { toasts, addToast, removeToast } = useToasts();
   const [editingVehicle, setEditingVehicle] = useState<number | null>(null);
   const [vehicleFormData, setVehicleFormData] =
     useState<VehicleFormData | null>(null);
 
-  // Initialisation du formulaire avec react-hook-form
+  // Initialisation du formulaire avec react-hook-form (sans status)
   const {
     control,
     handleSubmit,
-    watch,
-    setValue,
-    trigger,
     formState: { errors, isValid },
     reset,
   } = useForm<AccreditationFormData>({
     resolver: zodResolver(accreditationFormSchema),
     defaultValues: useMemo(
       () => ({
-        status: acc.status as AccreditationStatus,
         company: acc.company ?? "",
         stand: acc.stand ?? "",
         unloading: acc.unloading ?? "",
@@ -239,9 +176,7 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
     mode: "onChange",
   });
 
-  const currentStatus = watch("status");
-
-  // Soumission du formulaire optimisée
+  // Soumission du formulaire (sans changer le status)
   const onSubmit = useCallback(
     async (data: AccreditationFormData) => {
       startTransition(async () => {
@@ -249,7 +184,10 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
           const response = await fetch(`/api/accreditations/${acc.id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data),
+            body: JSON.stringify({
+              ...data,
+              status: acc.status, // on garde le statut actuel
+            }),
           });
 
           if (!response.ok) {
@@ -260,27 +198,22 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
             );
           }
 
-          // Reset du formulaire pour indiquer qu'il n'y a plus de changements
           reset(data);
-          addToast("success", "Modifications enregistrées avec succès");
-
-          if (router.refresh) {
-            router.refresh();
-          }
+          addToast("success", "Modifications enregistrées");
+          router.refresh();
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : "Erreur inconnue";
-          addToast("error", `Erreur lors de la sauvegarde: ${errorMessage}`);
-          console.error("Erreur lors de la sauvegarde:", error);
+          addToast("error", `Erreur: ${errorMessage}`);
+          console.error("Erreur sauvegarde:", error);
         }
       });
     },
-    [acc.id, reset, addToast, router]
+    [acc.id, acc.status, reset, addToast, router]
   );
 
-  // Ajout d'un nouveau véhicule mémorisé
+  // Ajout d'un nouveau véhicule
   const handleAddVehicle = useCallback(() => {
-    // On prépare tous les champs à dupliquer
     const params = new URLSearchParams({
       step: "1",
       company: acc.company || "",
@@ -289,22 +222,20 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
       event: acc.event || "",
       message: acc.message || "",
       email: acc.email || "",
-      // On prend la ville du premier véhicule s'il existe
       city: acc.vehicles[0]?.city || "",
     });
     router.push(`/logisticien/nouveau?${params.toString()}`);
   }, [acc, router]);
 
-  // Fonction pour éditer un véhicule
+  // Éditer un véhicule
   const handleEditVehicle = useCallback(
     (vehicleIndex: number) => {
       const vehicle = acc.vehicles[vehicleIndex];
       if (!vehicle) return;
-
       setEditingVehicle(vehicleIndex);
       setVehicleFormData({
         plate: vehicle.plate || "",
-        size: vehicle.size || "-10",
+        size: vehicle.size || "",
         phoneCode: vehicle.phoneCode || "+33",
         phoneNumber: vehicle.phoneNumber || "",
         date: vehicle.date || "",
@@ -320,59 +251,53 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
     [acc]
   );
 
-  // Fonction pour supprimer un véhicule
+  // Supprimer un véhicule
   const handleDeleteVehicle = useCallback(
     async (vehicleId: number) => {
       if (!confirm("Supprimer ce véhicule ?")) return;
-
       try {
         const response = await fetch(`/api/vehicles/${vehicleId}`, {
           method: "DELETE",
         });
-
         if (response.ok) {
-          addToast("success", "Véhicule supprimé avec succès");
+          addToast("success", "Véhicule supprimé");
           router.refresh();
         } else {
-          addToast("error", "Erreur lors de la suppression");
+          addToast("error", "Erreur suppression");
         }
       } catch (error) {
-        addToast("error", "Erreur lors de la suppression");
+        addToast("error", "Erreur suppression");
         console.error("Erreur suppression véhicule:", error);
       }
     },
     [addToast, router]
   );
 
-  // Fonction pour sauvegarder l'édition d'un véhicule
+  // Sauvegarder l'édition d'un véhicule
   const handleSaveVehicleEdit = useCallback(async () => {
     if (editingVehicle === null || !vehicleFormData) return;
-
     const vehicle = acc.vehicles[editingVehicle];
     if (!vehicle) return;
-
     try {
       const response = await fetch(`/api/vehicles/${vehicle.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(vehicleFormData),
       });
-
       if (response.ok) {
-        addToast("success", "Véhicule modifié avec succès");
+        addToast("success", "Véhicule modifié");
         setEditingVehicle(null);
         setVehicleFormData(null);
         router.refresh();
       } else {
-        addToast("error", "Erreur lors de la modification");
+        addToast("error", "Erreur modification");
       }
     } catch (error) {
-      addToast("error", "Erreur lors de la modification");
+      addToast("error", "Erreur modification");
       console.error("Erreur modification véhicule:", error);
     }
   }, [editingVehicle, vehicleFormData, acc.vehicles, addToast, router]);
 
-  // Fonction pour annuler l'édition
   const handleCancelVehicleEdit = useCallback(() => {
     setEditingVehicle(null);
     setVehicleFormData(null);
@@ -380,7 +305,7 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
 
   return (
     <>
-      <div className="block sm:hidden w-full max-w-lg mx-auto bg-white rounded-2xl shadow-lg p-4 space-y-6 pb-24">
+      <div className="block sm:hidden w-full max-w-lg mx-auto bg-white rounded-2xl shadow-lg p-4 space-y-4 pb-24">
         {/* Header */}
         <header className="flex items-center gap-3 mb-2">
           <Link
@@ -395,53 +320,17 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
           </h1>
         </header>
 
+        {/* ── WORKFLOW : Statut + Actions ── */}
+        <div className="bg-gray-50 rounded-xl border border-gray-200 p-3">
+          <ActionButtons acc={acc} />
+        </div>
+
+        {/* Formulaire d'édition des infos */}
         <form
           onSubmit={handleSubmit(onSubmit)}
-          className="space-y-6"
+          className="space-y-4"
           noValidate
         >
-          {/* Statut */}
-          <FormField
-            label="Statut"
-            name="status"
-            error={errors.status?.message}
-            required
-          >
-            <Controller
-              name="status"
-              control={control}
-              render={({ field }) => (
-                <select
-                  {...field}
-                  id="status"
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  onChange={(e) => {
-                    const newStatus = e.target.value as AccreditationStatus;
-                    handleStatusChange(currentStatus, newStatus, (status) => {
-                      setValue("status", status, {
-                        shouldDirty: true,
-                        shouldValidate: true,
-                      });
-                      trigger("status");
-                    });
-                  }}
-                  disabled={currentStatus === "SORTIE"}
-                  aria-describedby={errors.status ? "status-error" : undefined}
-                >
-                  {getNextStatusOptions(currentStatus).map((option) => (
-                    <option
-                      key={option.value}
-                      value={option.value}
-                      disabled={option.value === currentStatus}
-                    >
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              )}
-            />
-          </FormField>
-
           {/* Informations générales */}
           <div className="space-y-2">
             {[
@@ -490,7 +379,6 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
               </button>
             </div>
 
-            {/* Liste des véhicules existants */}
             {acc.vehicles && acc.vehicles.length > 0 && (
               <div className="bg-gray-50 rounded-lg p-3 space-y-3">
                 {acc.vehicles.map((vehicle, index) => (
@@ -526,8 +414,24 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
                       {vehicle.size && <div>Taille: {vehicle.size}</div>}
                       {vehicle.city && <div>Ville: {vehicle.city}</div>}
                       {vehicle.phoneCode && vehicle.phoneNumber && (
-                        <div>
-                          Téléphone: {vehicle.phoneCode} {vehicle.phoneNumber}
+                        <div className="flex items-center gap-2">
+                          <span>Téléphone: {vehicle.phoneCode} {vehicle.phoneNumber}</span>
+                          <a
+                            href={getTelLink(vehicle.phoneCode, vehicle.phoneNumber)}
+                            className="p-1 rounded bg-green-100 text-green-700"
+                            title="Appeler"
+                          >
+                            <Phone size={12} />
+                          </a>
+                          <a
+                            href={getWhatsAppLink(vehicle.phoneCode, vehicle.phoneNumber)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1 rounded bg-emerald-100 text-emerald-700"
+                            title="WhatsApp"
+                          >
+                            <MessageCircle size={12} />
+                          </a>
                         </div>
                       )}
                       {vehicle.date && <div>Date: {vehicle.date}</div>}
@@ -583,91 +487,16 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
             />
           </FormField>
 
-          {/* Bouton enregistrer */}
+          {/* Bouton enregistrer les infos */}
           <button
             type="submit"
             disabled={isPending || !isValid}
             className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[#4F587E] text-white font-bold text-base shadow hover:bg-[#3B4252] transition mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save size={20} />
-            {isPending ? "Enregistrement..." : "Enregistrer"}
+            {isPending ? "Enregistrement..." : "Enregistrer les infos"}
           </button>
-
-          {/* Debug des erreurs */}
-          {!isValid && (
-            <div className="text-xs text-red-600 bg-red-50 p-2 rounded border">
-              <strong>Erreurs de validation :</strong>
-              <pre className="text-xs mt-1">
-                {JSON.stringify(errors, null, 2)}
-              </pre>
-            </div>
-          )}
-
-          {/* Messages d'aide pour l'accessibilité */}
-          {!isValid && (
-            <div id="form-invalid" className="sr-only">
-              Le formulaire contient des erreurs
-            </div>
-          )}
         </form>
-
-        {/* Modal de confirmation entrée */}
-        {showEntryConfirm && (
-          <div
-            className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="entry-confirm-title"
-            aria-describedby="entry-confirm-description"
-          >
-            <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 border border-gray-200">
-              <h2
-                id="entry-confirm-title"
-                className="text-lg font-bold mb-4 text-gray-900 text-center"
-              >
-                Confirmer l&apos;entrée du véhicule
-              </h2>
-              <p
-                id="entry-confirm-description"
-                className="mb-6 text-gray-700 leading-relaxed text-center text-sm"
-              >
-                Attention : si vous validez l&apos;entrée, le chrono de présence
-                sera activé pour ce véhicule.
-                <br />
-                <span className="font-semibold text-red-600">
-                  Cette action est irréversible.
-                </span>{" "}
-                La durée sur site sera calculée automatiquement lors de la
-                sortie.
-                <br />
-                Confirmez-vous l&apos;entrée ?
-              </p>
-              <div className="flex flex-col gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowEntryConfirm(false)}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-400 bg-gray-200 text-gray-800 font-semibold hover:bg-gray-300 transition shadow"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setValue("status", "ENTREE", {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    });
-                    trigger("status");
-                    setShowEntryConfirm(false);
-                  }}
-                  className="w-full px-4 py-3 rounded-xl bg-[#4F587E] text-white font-semibold shadow hover:bg-[#3B4252] transition"
-                >
-                  Valider l&apos;entrée
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Modal d'édition de véhicule */}
         {editingVehicle !== null && vehicleFormData && (
@@ -686,145 +515,87 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
               </h2>
 
               <div className="space-y-4">
-                {/* Plaque */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Plaque
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Plaque</label>
                   <input
                     type="text"
                     value={vehicleFormData.plate}
-                    onChange={(e) =>
-                      setVehicleFormData({
-                        ...vehicleFormData,
-                        plate: e.target.value,
-                      })
-                    }
+                    onChange={(e) => setVehicleFormData({ ...vehicleFormData, plate: e.target.value })}
                     className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm"
                     placeholder="XX-123-YY"
                   />
                 </div>
 
-                {/* Taille */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Taille
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Taille</label>
                   <select
                     value={vehicleFormData.size}
-                    onChange={(e) =>
-                      setVehicleFormData({
-                        ...vehicleFormData,
-                        size: e.target.value,
-                      })
-                    }
+                    onChange={(e) => setVehicleFormData({ ...vehicleFormData, size: e.target.value })}
                     className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm"
                   >
-                    <option value="-10">-10</option>
-                    <option value="10-14">10-14</option>
-                    <option value="15-20">15-20</option>
-                    <option value="+20">+20</option>
+                    <option value="PORTEUR">Porteur</option>
+                    <option value="PORTEUR_ARTICULE">Porteur articulé</option>
+                    <option value="SEMI_REMORQUE">Semi-remorque</option>
                   </select>
                 </div>
 
-                {/* Téléphone */}
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Indicatif
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Indicatif</label>
                     <input
                       type="text"
                       value={vehicleFormData.phoneCode}
-                      onChange={(e) =>
-                        setVehicleFormData({
-                          ...vehicleFormData,
-                          phoneCode: e.target.value,
-                        })
-                      }
+                      onChange={(e) => setVehicleFormData({ ...vehicleFormData, phoneCode: e.target.value })}
                       className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm"
                       placeholder="+33"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Numéro
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Numéro</label>
                     <input
                       type="text"
                       value={vehicleFormData.phoneNumber}
-                      onChange={(e) =>
-                        setVehicleFormData({
-                          ...vehicleFormData,
-                          phoneNumber: e.target.value,
-                        })
-                      }
+                      onChange={(e) => setVehicleFormData({ ...vehicleFormData, phoneNumber: e.target.value })}
                       className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm"
                       placeholder="123456789"
                     />
                   </div>
                 </div>
 
-                {/* Date et Heure */}
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Date
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
                     <input
                       type="date"
                       value={vehicleFormData.date}
-                      onChange={(e) =>
-                        setVehicleFormData({
-                          ...vehicleFormData,
-                          date: e.target.value,
-                        })
-                      }
+                      onChange={(e) => setVehicleFormData({ ...vehicleFormData, date: e.target.value })}
                       className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Heure
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Heure</label>
                     <input
                       type="time"
                       value={vehicleFormData.time}
-                      onChange={(e) =>
-                        setVehicleFormData({
-                          ...vehicleFormData,
-                          time: e.target.value,
-                        })
-                      }
+                      onChange={(e) => setVehicleFormData({ ...vehicleFormData, time: e.target.value })}
                       className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm"
                     />
                   </div>
                 </div>
 
-                {/* Ville */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Ville
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Ville</label>
                   <input
                     type="text"
                     value={vehicleFormData.city}
-                    onChange={(e) =>
-                      setVehicleFormData({
-                        ...vehicleFormData,
-                        city: e.target.value,
-                      })
-                    }
+                    onChange={(e) => setVehicleFormData({ ...vehicleFormData, city: e.target.value })}
                     className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm"
                     placeholder="Paris"
                   />
                 </div>
 
-                {/* Déchargement */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Déchargement
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Déchargement</label>
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <input
@@ -833,25 +604,13 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
                         checked={vehicleFormData.unloading.includes("lat")}
                         onChange={(e) => {
                           const newUnloading = e.target.checked
-                            ? [
-                                ...vehicleFormData.unloading.filter(
-                                  (v: string) => v !== "lat"
-                                ),
-                                "lat",
-                              ]
-                            : vehicleFormData.unloading.filter(
-                                (v: string) => v !== "lat"
-                              );
-                          setVehicleFormData({
-                            ...vehicleFormData,
-                            unloading: newUnloading,
-                          });
+                            ? [...vehicleFormData.unloading.filter((v: string) => v !== "lat"), "lat"]
+                            : vehicleFormData.unloading.filter((v: string) => v !== "lat");
+                          setVehicleFormData({ ...vehicleFormData, unloading: newUnloading });
                         }}
                         className="rounded border-gray-300"
                       />
-                      <label htmlFor="edit-lat" className="text-sm">
-                        Latéral
-                      </label>
+                      <label htmlFor="edit-lat" className="text-sm">Latéral</label>
                     </div>
                     <div className="flex items-center gap-2">
                       <input
@@ -860,25 +619,13 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
                         checked={vehicleFormData.unloading.includes("rear")}
                         onChange={(e) => {
                           const newUnloading = e.target.checked
-                            ? [
-                                ...vehicleFormData.unloading.filter(
-                                  (v: string) => v !== "rear"
-                                ),
-                                "rear",
-                              ]
-                            : vehicleFormData.unloading.filter(
-                                (v: string) => v !== "rear"
-                              );
-                          setVehicleFormData({
-                            ...vehicleFormData,
-                            unloading: newUnloading,
-                          });
+                            ? [...vehicleFormData.unloading.filter((v: string) => v !== "rear"), "rear"]
+                            : vehicleFormData.unloading.filter((v: string) => v !== "rear");
+                          setVehicleFormData({ ...vehicleFormData, unloading: newUnloading });
                         }}
                         className="rounded border-gray-300"
                       />
-                      <label htmlFor="edit-rear" className="text-sm">
-                        Arrière
-                      </label>
+                      <label htmlFor="edit-rear" className="text-sm">Arrière</label>
                     </div>
                   </div>
                 </div>
@@ -907,7 +654,7 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
 
       {/* Toasts */}
       {toasts.map((toast) => (
-        <Toast key={toast.id} toast={toast} onRemove={removeToast} />
+        <ToastComponent key={toast.id} toast={toast} onRemove={removeToast} />
       ))}
     </>
   );

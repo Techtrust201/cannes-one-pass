@@ -1,7 +1,25 @@
+// --- Zones ---
+export type Zone = "LA_BOCCA" | "PALAIS_DES_FESTIVALS" | "PANTIERO" | "MACE";
+export type ZoneAction = "ENTRY" | "EXIT" | "TRANSFER";
+
+export interface ZoneMovement {
+  id: number;
+  accreditationId: string;
+  fromZone?: Zone | null;
+  toZone: Zone;
+  action: ZoneAction;
+  timestamp: Date;
+  userId?: string | null;
+  userAgent?: string | null;
+}
+
+// --- Types de véhicules ---
+export type VehicleType = "PORTEUR" | "PORTEUR_ARTICULE" | "SEMI_REMORQUE";
+
 export interface Vehicle {
   id: number;
   plate: string;
-  size: "" | "-10" | "10-14" | "15-20" | "+20";
+  size: string;
   phoneCode: string;
   phoneNumber: string;
   date: string;
@@ -9,6 +27,10 @@ export interface Vehicle {
   city: string;
   unloading: ("lat" | "rear")[];
   kms?: string;
+  vehicleType?: VehicleType;
+  emptyWeight?: number;
+  maxWeight?: number;
+  currentWeight?: number;
 }
 
 export type AccreditationStatus =
@@ -21,7 +43,7 @@ export type AccreditationStatus =
 
 export interface Accreditation {
   id: string;
-  createdAt: Date; // ISO date
+  createdAt: Date;
   company: string;
   stand: string;
   unloading: string;
@@ -30,8 +52,9 @@ export interface Accreditation {
   consent: boolean;
   vehicles: Vehicle[];
   status: AccreditationStatus;
-  entryAt?: Date; // ISO date
-  exitAt?: Date; // ISO date
+  entryAt?: Date;
+  exitAt?: Date;
   email?: string;
   sentAt?: Date;
+  currentZone?: Zone | null;
 }

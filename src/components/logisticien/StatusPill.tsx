@@ -1,4 +1,14 @@
-export default function StatusPill({ status }: { status: string }) {
+import type { Zone } from "@/types";
+import { getZoneLabel, isFinalDestination, ZONE_COLORS } from "@/lib/zone-utils";
+import { truncateText } from "@/lib/utils";
+
+export default function StatusPill({
+  status,
+  zone,
+}: {
+  status: string;
+  zone?: Zone | null;
+}) {
   const map: Record<
     string,
     { bg: string; text: string; full: string; short: string }
@@ -47,13 +57,34 @@ export default function StatusPill({ status }: { status: string }) {
     short: status.slice(0, 4),
   };
 
+  const zoneLabel = zone ? getZoneLabel(zone) : null;
+  const fullLabelRaw = zoneLabel ? `${cfg.full} – ${zoneLabel}` : cfg.full;
+  const shortLabelRaw = zoneLabel ? `${cfg.short} – ${zoneLabel}` : cfg.short;
+  
+  // Tronquer les labels pour éviter les débordements
+  const fullLabel = truncateText(fullLabelRaw, 20);
+  const shortLabel = truncateText(shortLabelRaw, 15);
+  const zoneLabelTruncated = zoneLabel ? truncateText(zoneLabel, 12) : undefined;
+
   return (
-    <span
-      className={`inline-flex justify-center items-center min-w-[90px] h-7 rounded-2xl text-xs font-medium px-4 py-1 ${cfg.bg} ${cfg.text}`}
-      style={{ boxShadow: "0 1px 4px 0 rgba(79,88,126,0.07)" }}
-    >
-      <span className="hidden lg:inline">{cfg.full}</span>
-      <span className="inline lg:hidden">{cfg.short}</span>
+    <span className="inline-flex flex-col items-center gap-0.5">
+      <span
+        className={`inline-flex justify-center items-center min-w-[90px] h-7 rounded-2xl text-xs font-medium px-4 py-1 ${cfg.bg} ${cfg.text}`}
+        style={{ boxShadow: "0 1px 4px 0 rgba(79,88,126,0.07)" }}
+        title={fullLabelRaw !== fullLabel ? fullLabelRaw : undefined}
+      >
+        <span className="hidden lg:inline">{fullLabel}</span>
+        <span className="inline lg:hidden">{shortLabel}</span>
+      </span>
+      {zone && zoneLabel && zoneLabelTruncated && (
+        <span
+          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${ZONE_COLORS[zone].bg} ${ZONE_COLORS[zone].text}`}
+          title={zoneLabel !== zoneLabelTruncated ? zoneLabel : undefined}
+        >
+          {isFinalDestination(zone) ? "✓ " : "→ "}
+          {zoneLabelTruncated}
+        </span>
+      )}
     </span>
   );
 }

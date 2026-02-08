@@ -93,6 +93,10 @@ async function createUserWithAuth(
   password: string,
   role: "SUPER_ADMIN" | "ADMIN" | "USER"
 ) {
+  // Utilise la fonction hashPassword de Better Auth
+  // pour garantir la compatibilité du format
+  const hashedPassword = await hashPassword(password);
+
   // Vérifier si l'utilisateur existe déjà
   const existing = await prisma.user.findUnique({
     where: { email },
@@ -100,12 +104,37 @@ async function createUserWithAuth(
 
   if (existing) {
     console.log(`  ⏭️  ${email} existe déjà (rôle: ${existing.role})`);
+
+    // Vérifier si le compte credential existe aussi
+    const existingAccount = await prisma.account.findFirst({
+      where: {
+        userId: existing.id,
+        providerId: "credential",
+      },
+    });
+
+    if (!existingAccount) {
+      // L'utilisateur existe mais pas son compte credential → le créer
+      await prisma.account.create({
+        data: {
+          userId: existing.id,
+          accountId: existing.id,
+          providerId: "credential",
+          password: hashedPassword,
+        },
+      });
+      console.log(`  🔧 Compte credential créé pour ${email} (manquant)`);
+    } else {
+      // Le compte existe → mettre à jour le mot de passe pour être sûr
+      await prisma.account.update({
+        where: { id: existingAccount.id },
+        data: { password: hashedPassword },
+      });
+      console.log(`  🔄 Mot de passe mis à jour pour ${email}`);
+    }
+
     return existing;
   }
-
-  // Utilise la fonction hashPassword de Better Auth
-  // pour garantir la compatibilité du format
-  const hashedPassword = await hashPassword(password);
 
   // Créer l'utilisateur
   const user = await prisma.user.create({

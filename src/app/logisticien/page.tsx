@@ -24,9 +24,8 @@ const slug = (s: unknown) =>
 export default async function LogisticienDashboard(props: {
   searchParams: Promise<Record<string, string>>;
 }) {
-  const searchParams = await props.searchParams;
   // Next.js 15 : searchParams est une Promise → on attend son résultat.
-  const paramsObj = await searchParams;
+  const paramsObj = await props.searchParams;
   const data = await readAccreditations();
 
   const {

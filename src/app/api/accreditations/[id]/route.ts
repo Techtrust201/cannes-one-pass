@@ -27,7 +27,7 @@ export async function GET(
       unloading: Array.isArray(v.unloading)
         ? v.unloading
         : typeof v.unloading === "string" && v.unloading.startsWith("[")
-          ? JSON.parse(v.unloading)
+          ? (() => { try { return JSON.parse(v.unloading as string); } catch { return [v.unloading]; } })()
           : v.unloading
             ? [v.unloading]
             : [],
@@ -256,7 +256,7 @@ export async function PATCH(
         unloading: Array.isArray(v.unloading)
           ? v.unloading
           : typeof v.unloading === "string" && v.unloading.startsWith("[")
-            ? JSON.parse(v.unloading)
+            ? (() => { try { return JSON.parse(v.unloading as string); } catch { return [v.unloading]; } })()
             : v.unloading
               ? [v.unloading]
               : [],

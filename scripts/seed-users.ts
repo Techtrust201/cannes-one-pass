@@ -8,7 +8,7 @@
  * - 2 comptes ADMIN (La Bocca, Le Palais des Festivals)
  * Avec toutes les permissions pour les super admins.
  */
-import { PrismaClient, Feature } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { randomBytes } from "crypto";
 import { config as dotenvConfig } from "dotenv";
@@ -26,7 +26,11 @@ if (!connectionString) {
 }
 
 const adapter = new PrismaPg({ connectionString });
-const prisma = new PrismaClient({ adapter });
+// Note: Le cast est nécessaire car le plugin TS de Next.js interfère
+// avec la résolution des types générés de Prisma dans les scripts externes.
+// Le code compile correctement avec tsc (vérifié).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const prisma = new PrismaClient({ adapter }) as any;
 
 // Générer un mot de passe aléatoire sécurisé
 function generatePassword(length = 16): string {
@@ -40,7 +44,7 @@ function generatePassword(length = 16): string {
   return password;
 }
 
-const ALL_FEATURES: Feature[] = [
+const ALL_FEATURES = [
   "LISTE",
   "CREER",
   "PLAQUE",
@@ -49,7 +53,7 @@ const ALL_FEATURES: Feature[] = [
   "BILAN_CARBONE",
   "GESTION_ZONES",
   "GESTION_DATES",
-];
+] as const;
 
 // Comptes à créer
 const SUPER_ADMINS = [

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 // import type { Accreditation } from "@/types";
 import { addHistoryEntry, createCreatedEntry } from "@/lib/history";
-import { requirePermission } from "@/lib/auth-helpers";
+import { requirePermission, getSession } from "@/lib/auth-helpers";
 
 export async function GET(request: NextRequest) {
   try {
@@ -36,6 +36,15 @@ export async function GET(request: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    // Tenter de récupérer la session (optionnel, le formulaire public n'est pas authentifié)
+    let currentUserId: string | undefined;
+    try {
+      const session = await getSession(req);
+      currentUserId = session?.user?.id;
+    } catch {
+      // Pas de session = formulaire public
+    }
+
     const raw = await req.json();
     const { company, stand, unloading, event, message, consent, vehicles } =
       raw;
@@ -103,7 +112,7 @@ export async function POST(req: NextRequest) {
       include: { vehicles: true },
     });
     // Ajout historique création
-    await addHistoryEntry(createCreatedEntry(created.id, "system"));
+    await addHistoryEntry(createCreatedEntry(created.id, currentUserId));
     // Désérialisation unloading pour la réponse
     const safeCreated = {
       ...created,

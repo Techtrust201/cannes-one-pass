@@ -32,8 +32,10 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  let currentUserId: string | undefined;
   try {
-    await requirePermission(req, "GESTION_ZONES", "write");
+    const session = await requirePermission(req, "GESTION_ZONES", "write");
+    currentUserId = session.user.id;
   } catch (error) {
     if (error instanceof Response) {
       return new Response(error.body, { status: error.status, statusText: error.statusText });
@@ -81,6 +83,15 @@ export async function POST(
     data: updates,
   });
 
+  // Traductions lisibles des zones
+  const ZONE_LABELS: Record<string, string> = {
+    LA_BOCCA: "La Bocca",
+    PALAIS_DES_FESTIVALS: "Palais des Festivals",
+    PANTIERO: "Pantiero",
+    MACE: "Macé",
+  };
+  const zoneLabel = ZONE_LABELS[zone] || zone;
+
   // Historique
   await prisma.accreditationHistory.create({
     data: {
@@ -89,7 +100,10 @@ export async function POST(
       field: "currentZone",
       oldValue: acc.currentZone ?? undefined,
       newValue: zone,
-      description: `${action === "ENTRY" ? "Entrée" : "Sortie"} zone ${zone}`,
+      description: action === "ENTRY"
+        ? `Entrée en zone ${zoneLabel}`
+        : `Sortie de la zone ${zoneLabel}`,
+      userId: currentUserId,
     },
   });
 

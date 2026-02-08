@@ -14,12 +14,16 @@ interface HistoryEntry {
     | "VEHICLE_UPDATED"
     | "EMAIL_SENT"
     | "INFO_UPDATED"
-    | "DELETED";
+    | "DELETED"
+    | "ZONE_CHANGED"
+    | "ZONE_TRANSFER";
   field?: string;
   oldValue?: string;
   newValue?: string;
   createdAt: string;
   userId?: string;
+  userName?: string | null;
+  userEmail?: string | null;
   description: string;
 }
 
@@ -65,11 +69,14 @@ export default function AccreditationHistory({
       case "EMAIL_SENT":
         return <Mail size={16} className="text-green-600" />;
       case "CREATED":
-        return <Edit size={16} className="text-green-600" />;
+        return <Plus size={16} className="text-green-600" />;
       case "DELETED":
         return <Trash2 size={16} className="text-red-600" />;
       case "INFO_UPDATED":
         return <Edit size={16} className="text-blue-600" />;
+      case "ZONE_CHANGED":
+      case "ZONE_TRANSFER":
+        return <Edit size={16} className="text-purple-600" />;
       default:
         return <Clock size={16} className="text-gray-600" />;
     }
@@ -93,9 +100,21 @@ export default function AccreditationHistory({
         return "border-l-red-500 bg-red-50";
       case "INFO_UPDATED":
         return "border-l-blue-500 bg-blue-50";
+      case "ZONE_CHANGED":
+      case "ZONE_TRANSFER":
+        return "border-l-purple-500 bg-purple-50";
       default:
         return "border-l-gray-500 bg-gray-50";
     }
+  };
+
+  /** Affiche le nom de l'utilisateur ou "Formulaire" si pas d'utilisateur */
+  const getUserDisplay = (entry: HistoryEntry) => {
+    if (entry.userName) return entry.userName;
+    if (entry.userEmail) return entry.userEmail;
+    if (entry.userId === "system") return "Système";
+    if (entry.userId) return "Utilisateur";
+    return "Formulaire";
   };
 
   if (loading) {
@@ -156,15 +175,7 @@ export default function AccreditationHistory({
                   {entry.description}
                 </p>
 
-                {entry.field && entry.oldValue && entry.newValue && (
-                  <p className="text-xs text-gray-600 mt-1">
-                    {entry.field}:{" "}
-                    <span className="line-through">{entry.oldValue}</span> →{" "}
-                    <span className="font-medium">{entry.newValue}</span>
-                  </p>
-                )}
-
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
                   <span className="text-xs text-gray-500">
                     {new Date(entry.createdAt).toLocaleString("fr-FR", {
                       day: "2-digit",
@@ -175,12 +186,10 @@ export default function AccreditationHistory({
                     })}
                   </span>
 
-                  {entry.userId && (
-                    <div className="flex items-center gap-1 text-xs text-gray-500">
-                      <User size={12} />
-                      <span>Utilisateur {entry.userId}</span>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-1 text-xs text-gray-500">
+                    <User size={12} />
+                    <span>{getUserDisplay(entry)}</span>
+                  </div>
                 </div>
               </div>
             </div>

@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { Resend } from "resend";
 import { addHistoryEntry, createEmailSentEntry } from "@/lib/history";
+import { getSession } from "@/lib/auth-helpers";
 
 export async function POST(
   req: NextRequest,
@@ -9,6 +10,15 @@ export async function POST(
 ) {
   const params = await props.params;
   try {
+    // Récupérer l'utilisateur connecté (optionnel)
+    let currentUserId: string | undefined;
+    try {
+      const session = await getSession(req);
+      currentUserId = session?.user?.id;
+    } catch {
+      // Pas de session
+    }
+
     const { email } = (await req.json()) as { email?: string };
 
     const acc = await prisma.accreditation.findUnique({
@@ -78,7 +88,7 @@ export async function POST(
     });
 
     // Enregistrer l'historique de l'envoi d'email
-    await addHistoryEntry(createEmailSentEntry(acc.id, targetEmail, "system"));
+    await addHistoryEntry(createEmailSentEntry(acc.id, targetEmail, currentUserId));
 
     return new Response(null, { status: 200 });
   } catch (err) {

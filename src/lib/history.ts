@@ -11,6 +11,59 @@ interface HistoryEntryData {
   userAgent?: string;
 }
 
+// ─── Traductions lisibles ────────────────────────────────────────────
+
+const STATUS_LABELS: Record<string, string> = {
+  ATTENTE: "En attente",
+  ENTREE: "Entrée",
+  SORTIE: "Sortie",
+  NOUVEAU: "Nouveau",
+  REFUS: "Refusé",
+  ABSENT: "Absent",
+};
+
+const ZONE_LABELS: Record<string, string> = {
+  LA_BOCCA: "La Bocca",
+  PALAIS_DES_FESTIVALS: "Palais des Festivals",
+  PANTIERO: "Pantiero",
+  MACE: "Macé",
+};
+
+const FIELD_LABELS: Record<string, string> = {
+  company: "Entreprise",
+  stand: "Stand",
+  unloading: "Déchargement",
+  event: "Événement",
+  message: "Message",
+  currentZone: "Zone",
+  vehicles: "Véhicules",
+  status: "Statut",
+  email: "E-mail",
+};
+
+function translateStatus(status: string): string {
+  return STATUS_LABELS[status] || status;
+}
+
+function translateZone(zone: string): string {
+  if (!zone) return "Aucune";
+  return ZONE_LABELS[zone] || zone;
+}
+
+function translateField(field: string): string {
+  return FIELD_LABELS[field] || field;
+}
+
+/** Traduit une valeur en fonction du champ concerné */
+function translateValue(field: string, value: string): string {
+  if (!value) return "Aucune";
+  if (field === "status") return translateStatus(value);
+  if (field === "currentZone") return translateZone(value);
+  return value;
+}
+
+// ─── Appel API ───────────────────────────────────────────────────────
+
 export async function addHistoryEntry(data: HistoryEntryData) {
   try {
     // Détecte si on est côté serveur (Node) ou client (browser)
@@ -58,7 +111,8 @@ export async function getAccreditationHistory(accreditationId: string) {
   }
 }
 
-// Fonctions utilitaires pour créer des entrées d'historique
+// ─── Fonctions utilitaires pour créer des entrées d'historique ───────
+
 export function createStatusChangeEntry(
   accreditationId: string,
   oldStatus: string,
@@ -71,7 +125,7 @@ export function createStatusChangeEntry(
     field: "status",
     oldValue: oldStatus,
     newValue: newStatus,
-    description: `Statut changé de ${oldStatus} à ${newStatus}`,
+    description: `Statut modifié : ${translateStatus(oldStatus)} → ${translateStatus(newStatus)}`,
     userId,
     userAgent:
       typeof window !== "undefined" ? window.navigator.userAgent : undefined,
@@ -136,13 +190,32 @@ export function createInfoUpdatedEntry(
   newValue: string,
   userId?: string
 ): HistoryEntryData {
+  const label = translateField(field);
+  const oldDisplay = translateValue(field, oldValue);
+  const newDisplay = translateValue(field, newValue);
+
+  // Cas spécial pour les véhicules : message simplifié
+  if (field === "vehicles") {
+    return {
+      accreditationId,
+      action: "INFO_UPDATED",
+      field,
+      oldValue,
+      newValue,
+      description: "Véhicules mis à jour",
+      userId,
+      userAgent:
+        typeof window !== "undefined" ? window.navigator.userAgent : undefined,
+    };
+  }
+
   return {
     accreditationId,
     action: "INFO_UPDATED",
     field,
     oldValue,
     newValue,
-    description: `${field} modifié de "${oldValue}" à "${newValue}"`,
+    description: `${label} modifié : ${oldDisplay} → ${newDisplay}`,
     userId,
     userAgent:
       typeof window !== "undefined" ? window.navigator.userAgent : undefined,

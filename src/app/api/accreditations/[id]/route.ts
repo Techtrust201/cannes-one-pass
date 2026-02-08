@@ -51,8 +51,10 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  let currentUserId: string | undefined;
   try {
-    await requirePermission(req, "LISTE", "write");
+    const session = await requirePermission(req, "LISTE", "write");
+    currentUserId = session.user.id;
   } catch (error) {
     if (error instanceof Response) {
       return new Response(error.body, { status: error.status, statusText: error.statusText });
@@ -146,7 +148,7 @@ export async function PATCH(
           "currentZone",
           acc.currentZone ?? "",
           currentZone,
-          "system"
+          currentUserId
         )
       )
     );
@@ -156,7 +158,7 @@ export async function PATCH(
   if (status !== acc.status) {
     changes.push(
       addHistoryEntry(
-        createStatusChangeEntry(accreditationId, acc.status, status, "system")
+        createStatusChangeEntry(accreditationId, acc.status, status, currentUserId)
       )
     );
   }
@@ -170,7 +172,7 @@ export async function PATCH(
           "company",
           acc.company,
           company,
-          "system"
+          currentUserId
         )
       )
     );
@@ -183,7 +185,7 @@ export async function PATCH(
           "stand",
           acc.stand,
           stand,
-          "system"
+          currentUserId
         )
       )
     );
@@ -196,7 +198,7 @@ export async function PATCH(
           "unloading",
           acc.unloading,
           unloading,
-          "system"
+          currentUserId
         )
       )
     );
@@ -209,7 +211,7 @@ export async function PATCH(
           "event",
           acc.event,
           event,
-          "system"
+          currentUserId
         )
       )
     );
@@ -222,7 +224,7 @@ export async function PATCH(
           "message",
           acc.message || "",
           message || "",
-          "system"
+          currentUserId
         )
       )
     );
@@ -255,7 +257,7 @@ export async function PATCH(
           "vehicles",
           JSON.stringify(acc.vehicles),
           JSON.stringify(vehicles),
-          "system"
+          currentUserId
         )
       )
     );

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import type { Accreditation, Zone } from "@/types";
 import { useRouter } from "next/navigation";
-import { Pencil, Trash2, Info, PlusCircle, Phone, MessageCircle, Save, Send } from "lucide-react";
+import { Pencil, Trash2, Info, PlusCircle, Phone, MessageCircle } from "lucide-react";
 import VehicleForm from "@/components/accreditation/VehicleForm";
 import AccreditationHistory from "./AccreditationHistory";
 import type { Vehicle } from "@/types";
@@ -468,7 +468,6 @@ export default function AccreditationFormCard({ acc }: Props) {
             onClick={save}
             className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-white border-2 border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 hover:border-gray-400 transition disabled:opacity-50 disabled:cursor-not-allowed text-sm"
           >
-            <Save size={16} />
             {saving ? "Enregistrement…" : "Enregistrer les modifications"}
           </button>
 
@@ -477,7 +476,6 @@ export default function AccreditationFormCard({ acc }: Props) {
             disabled={sending || !email}
             className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#4F587E] text-white font-semibold shadow-sm hover:bg-[#3B4252] transition disabled:opacity-50 disabled:cursor-not-allowed text-sm"
           >
-            <Send size={16} />
             {sending ? "Envoi…" : "Envoyer l'accréditation"}
           </button>
         </div>

@@ -149,40 +149,40 @@ export function FilterBar({ searchParams, statusOptions, zoneOptions }: FilterBa
       </div>
 
       {/* Desktop : bouton + popover flottant amélioré */}
-      <div className="hidden sm:block w-full mb-6 relative">
-        <div className="flex justify-end mb-4">
+      <div className="hidden sm:block w-full mb-4 relative">
+        <div className="flex justify-end mb-2">
           <button
             type="button"
             onClick={() => setIsFilterOpen((v) => !v)}
-            className="inline-flex items-center gap-2 px-7 py-3 bg-[#4F587E] text-white font-bold rounded-2xl hover:bg-[#3B4252] focus:ring-2 focus:ring-blue-400 transition shadow-lg hover:shadow-xl text-base"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#4F587E] text-white font-semibold rounded-xl hover:bg-[#3B4252] focus:ring-2 focus:ring-blue-400 transition shadow-md text-sm"
           >
-            <Filter className="w-5 h-5 text-blue-200" />
+            <Filter className="w-4 h-4 text-blue-200" />
             Filtrer
           </button>
         </div>
         {isFilterOpen && (
           <div
             ref={popoverRef}
-            className="absolute right-0 z-50 mt-2 bg-white rounded-3xl shadow-2xl border border-gray-100 p-7 animate-fade-in"
-            style={{ top: "60px" }}
+            className="absolute right-0 z-50 mt-1 bg-white rounded-2xl shadow-2xl border border-gray-200 p-6 animate-fade-in min-w-[520px]"
+            style={{ top: "50px" }}
           >
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <Filter className="w-6 h-6 text-blue-600" />
-                <h2 className="text-2xl font-extrabold text-gray-900">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Filter className="w-5 h-5 text-[#4F587E]" />
+                <h2 className="text-lg font-bold text-gray-900">
                   Filtres de recherche
                 </h2>
               </div>
               <button
                 type="button"
                 onClick={() => setIsFilterOpen(false)}
-                className="p-2 rounded-full hover:bg-gray-100 focus:ring-2 focus:ring-blue-400"
+                className="p-1.5 rounded-lg hover:bg-gray-100 focus:ring-2 focus:ring-blue-400"
                 aria-label="Fermer le filtre"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5" />
               </button>
             </div>
-            <form method="get" className="space-y-7">
+            <form method="get" className="space-y-5">
               <div className="relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                 <input

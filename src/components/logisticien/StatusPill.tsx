@@ -1,88 +1,104 @@
 import type { Zone } from "@/types";
-import { getZoneLabel, isFinalDestination, ZONE_COLORS } from "@/lib/zone-utils";
-import { truncateText } from "@/lib/utils";
+import { getZoneLabel, ZONE_COLORS } from "@/lib/zone-utils";
 
-export default function StatusPill({
-  status,
-  zone,
-}: {
+/** Dot color per zone for compact display */
+const ZONE_DOT: Record<Zone, string> = {
+  LA_BOCCA: "bg-orange-500",
+  PALAIS_DES_FESTIVALS: "bg-green-500",
+  PANTIERO: "bg-blue-500",
+  MACE: "bg-purple-500",
+};
+
+const STATUS_CFG: Record<
+  string,
+  { bg: string; text: string; label: string }
+> = {
+  NOUVEAU: {
+    bg: "bg-amber-100",
+    text: "text-amber-700",
+    label: "Nouveau",
+  },
+  ATTENTE: {
+    bg: "bg-sky-100",
+    text: "text-sky-700",
+    label: "Attente",
+  },
+  ENTREE: {
+    bg: "bg-emerald-100",
+    text: "text-emerald-700",
+    label: "Entrée",
+  },
+  SORTIE: {
+    bg: "bg-slate-200",
+    text: "text-slate-700",
+    label: "Sortie",
+  },
+  REFUS: {
+    bg: "bg-red-100",
+    text: "text-red-700",
+    label: "Refusé",
+  },
+  ABSENT: {
+    bg: "bg-violet-100",
+    text: "text-violet-700",
+    label: "Absent",
+  },
+};
+
+interface Props {
   status: string;
   zone?: Zone | null;
-}) {
-  const map: Record<
-    string,
-    { bg: string; text: string; full: string; short: string }
-  > = {
-    NOUVEAU: {
-      bg: "bg-[#FFF1CC]",
-      text: "text-[#FFAA00]",
-      full: "Nouveau",
-      short: "Nouv",
-    },
-    ATTENTE: {
-      bg: "bg-[#CCE4FF]",
-      text: "text-[#0079FF]",
-      full: "Attente",
-      short: "Att",
-    },
-    ENTREE: {
-      bg: "bg-[#E0F7F4] border border-[#B2DFDB] shadow-sm",
-      text: "text-[#4F587E]",
-      full: "Entrée",
-      short: "Ent",
-    },
-    SORTIE: {
-      bg: "bg-[#DCDEE5]",
-      text: "text-[#4F587E]",
-      full: "Sortie",
-      short: "Sort",
-    },
-    REFUS: {
-      bg: "bg-[#FCCCCC]",
-      text: "text-[#EE0000]",
-      full: "Refusé",
-      short: "Ref",
-    },
-    ABSENT: {
-      bg: "bg-[#EADAFF]",
-      text: "text-[#9747FF]",
-      full: "Absent",
-      short: "Abs",
-    },
-  };
-  const cfg = map[status] ?? {
+  /** compact = table mode (single line, small). full = detail mode (with zone badge). */
+  compact?: boolean;
+}
+
+export default function StatusPill({ status, zone, compact = false }: Props) {
+  const cfg = STATUS_CFG[status] ?? {
     bg: "bg-gray-200",
-    text: "text-gray-800",
-    full: status,
-    short: status.slice(0, 4),
+    text: "text-gray-700",
+    label: status,
   };
 
+  if (compact) {
+    // --- Compact mode for table rows: single-line pill with zone dot ---
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold leading-none whitespace-nowrap ${cfg.bg} ${cfg.text}`}
+        title={zone ? `${cfg.label} – ${getZoneLabel(zone)}` : cfg.label}
+      >
+        {zone && (
+          <span
+            className={`w-2 h-2 rounded-full flex-shrink-0 ${ZONE_DOT[zone] ?? "bg-gray-400"}`}
+          />
+        )}
+        {!zone && (
+          <span className="w-2 h-2 rounded-full flex-shrink-0 bg-gray-300" />
+        )}
+        {cfg.label}
+      </span>
+    );
+  }
+
+  // --- Full mode for detail views ---
   const zoneLabel = zone ? getZoneLabel(zone) : null;
-  const fullLabelRaw = zoneLabel ? `${cfg.full} – ${zoneLabel}` : cfg.full;
-  const shortLabelRaw = zoneLabel ? `${cfg.short} – ${zoneLabel}` : cfg.short;
-  
-  // Tronquer les labels pour éviter les débordements
-  const fullLabel = truncateText(fullLabelRaw, 20);
-  const shortLabel = truncateText(shortLabelRaw, 15);
-  const zoneLabelTruncated = zoneLabel ? truncateText(zoneLabel, 12) : undefined;
 
   return (
-    <span className="inline-flex flex-col items-center gap-0.5">
+    <span className="inline-flex flex-col items-start gap-1">
       <span
-        className={`inline-flex justify-center items-center min-w-[90px] h-7 rounded-2xl text-xs font-medium px-4 py-1 ${cfg.bg} ${cfg.text}`}
-        style={{ boxShadow: "0 1px 4px 0 rgba(79,88,126,0.07)" }}
-        title={fullLabelRaw !== fullLabel ? fullLabelRaw : undefined}
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${cfg.bg} ${cfg.text}`}
       >
-        <span className="hidden lg:inline">{fullLabel}</span>
-        <span className="inline lg:hidden">{shortLabel}</span>
+        {zone && (
+          <span
+            className={`w-2 h-2 rounded-full flex-shrink-0 ${ZONE_DOT[zone] ?? "bg-gray-400"}`}
+          />
+        )}
+        {cfg.label}
       </span>
-      {zone && zoneLabel && zoneLabelTruncated && (
+      {zone && (
         <span
-          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${ZONE_COLORS[zone].bg} ${ZONE_COLORS[zone].text}`}
-          title={zoneLabel !== zoneLabelTruncated ? zoneLabel : undefined}
+          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium ${ZONE_COLORS[zone].bg} ${ZONE_COLORS[zone].text}`}
         >
-          {isFinalDestination(zone) ? "✓ " : "→ "}
-          {zoneLabelTruncated}
+          {zoneLabel}
         </span>
       )}
     </span>

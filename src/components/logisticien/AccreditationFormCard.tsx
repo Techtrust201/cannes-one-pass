@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import type { Accreditation, Zone } from "@/types";
 import { useRouter } from "next/navigation";
-import { Pencil, Trash2, Info, PlusCircle, Phone, MessageCircle } from "lucide-react";
+import { Pencil, Trash2, Info, PlusCircle, Phone, MessageCircle, Save, Send } from "lucide-react";
 import VehicleForm from "@/components/accreditation/VehicleForm";
 import AccreditationHistory from "./AccreditationHistory";
 import type { Vehicle } from "@/types";
@@ -35,17 +35,6 @@ export default function AccreditationFormCard({ acc }: Props) {
 
   const [email, setEmail] = useState(acc.email ?? "");
   const [sending, setSending] = useState(false);
-  const [showAddVehicle, setShowAddVehicle] = useState(false);
-  const [newVehicle, setNewVehicle] = useState({
-    plate: "",
-    size: "" as Vehicle["size"],
-    phoneCode: "+33",
-    phoneNumber: "",
-    date: "",
-    time: "",
-    city: "",
-    unloading: ["lat"] as Vehicle["unloading"],
-  });
 
   const [emailHistory, setEmailHistory] = useState<
     { email: string; sentAt: string }[]
@@ -147,31 +136,6 @@ export default function AccreditationFormCard({ acc }: Props) {
     }
   }
 
-  async function handleAddVehicle() {
-    const res = await fetch(`/api/accreditations/${acc.id}/vehicles`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(newVehicle),
-    });
-    if (res.ok) {
-      setShowAddVehicle(false);
-      setNewVehicle({
-        plate: "",
-        size: "",
-        phoneCode: "+33",
-        phoneNumber: "",
-        date: "",
-        time: "",
-        city: "",
-        unloading: ["lat"],
-      });
-      router.refresh();
-      setHistoryVersion((v) => v + 1);
-    } else {
-      alert("Erreur ajout véhicule");
-    }
-  }
-
   function formatDuration(entryAt: string | null, exitAt: string | null) {
     if (!entryAt || !exitAt) return "-";
     const d1 = new Date(entryAt);
@@ -248,13 +212,22 @@ export default function AccreditationFormCard({ acc }: Props) {
           </div>
         )}
 
-        {/* Liste des véhicules existants */}
-        {acc.vehicles && acc.vehicles.length > 0 && (
-          <div className="mb-8">
-            <h3 className="font-semibold mb-4 text-base text-gray-800 flex items-center gap-2">
+        {/* Liste des véhicules */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-base text-gray-800 flex items-center gap-2">
               <div className="w-3 h-3 bg-[#4F587E] rounded-full"></div>
               Véhicules accrédités
             </h3>
+            <button
+              onClick={handleDuplicateForNewVehicle}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#4F587E]/10 text-[#4F587E] border border-[#4F587E]/20 hover:bg-[#4F587E]/20 transition"
+            >
+              <PlusCircle size={14} />
+              Ajouter un véhicule
+            </button>
+          </div>
+          {acc.vehicles && acc.vehicles.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full text-sm border border-gray-300 rounded-xl overflow-hidden mb-6 min-w-full shadow-sm">
                 <thead>
@@ -385,8 +358,12 @@ export default function AccreditationFormCard({ acc }: Props) {
                 </tbody>
               </table>
             </div>
-          </div>
-        )}
+          ) : (
+            <p className="text-sm text-gray-400 text-center py-4 bg-white rounded-xl border border-gray-200">
+              Aucun véhicule ajouté
+            </p>
+          )}
+        </div>
 
         {/* Form grid — informations éditables */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 text-sm bg-white rounded-lg md:rounded-2xl p-3 md:p-8 border border-gray-200 mb-4 md:mb-8 w-full">
@@ -484,57 +461,26 @@ export default function AccreditationFormCard({ acc }: Props) {
           </div>
         </div>
 
-        {/* Boutons de sauvegarde */}
-        <div className="px-2 md:px-6 pb-4 md:pb-6 flex flex-col sm:flex-row justify-end gap-3 md:gap-6">
+        {/* ── Actions principales ── */}
+        <div className="flex flex-col sm:flex-row gap-3 mb-8">
           <button
             disabled={saving}
             onClick={save}
-            className="w-full sm:w-auto px-4 md:px-6 py-2 md:py-3 rounded-xl bg-[#4F587E] text-white font-semibold shadow hover:bg-[#3B4252] transition disabled:opacity-50 disabled:cursor-not-allowed text-sm md:text-base"
+            className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-white border-2 border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 hover:border-gray-400 transition disabled:opacity-50 disabled:cursor-not-allowed text-sm"
           >
-            Enregistrer les infos
+            <Save size={16} />
+            {saving ? "Enregistrement…" : "Enregistrer les modifications"}
           </button>
 
           <button
             onClick={sendAccreditation}
             disabled={sending || !email}
-            className="w-full sm:w-auto px-4 md:px-6 py-2 md:py-3 rounded-xl bg-[#4F587E] text-white font-semibold shadow hover:bg-[#3B4252] transition disabled:opacity-50 disabled:cursor-not-allowed text-sm md:text-base"
+            className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#4F587E] text-white font-semibold shadow-sm hover:bg-[#3B4252] transition disabled:opacity-50 disabled:cursor-not-allowed text-sm"
           >
+            <Send size={16} />
             {sending ? "Envoi…" : "Envoyer l'accréditation"}
           </button>
-          <button
-            onClick={handleDuplicateForNewVehicle}
-            className="w-full sm:w-auto px-4 md:px-6 py-2 md:py-3 bg-gray-200 text-gray-800 rounded-xl border border-gray-400 hover:bg-gray-300 transition font-semibold shadow text-sm md:text-base"
-          >
-            {showAddVehicle ? "Annuler" : "+ Ajouter un véhicule"}
-          </button>
         </div>
-        {showAddVehicle && (
-          <div className="px-6 pb-6 mt-4">
-            <div className="rounded-xl border border-[#4F587E] bg-gradient-to-br from-gray-50 to-gray-100 p-6 shadow-lg">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-[#4F587E] rounded-lg">
-                  <PlusCircle className="text-white" size={20} />
-                </div>
-                <span className="font-semibold text-[#4F587E] text-lg">
-                  Ajouter un véhicule
-                </span>
-              </div>
-              <VehicleForm
-                data={newVehicle as Vehicle}
-                update={(patch) => setNewVehicle((v) => ({ ...v, ...patch }))}
-                onValidityChange={() => {}}
-              />
-              <div className="flex justify-end mt-6">
-                <button
-                  onClick={handleAddVehicle}
-                  className="w-full sm:w-auto px-6 py-3 rounded-xl bg-[#4F587E] text-white font-semibold shadow hover:bg-[#3B4252] transition"
-                >
-                  Ajouter ce véhicule
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
         {/* Historique des emails envoyés */}
         {emailHistory.length > 0 && (
           <div className="px-6 pb-6">

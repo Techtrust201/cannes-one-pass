@@ -215,8 +215,8 @@ export default async function LogisticienDashboard(props: {
       </div>
 
       {/* Contenu fixe */}
-      <div className="flex-1 px-8 pb-8">
-        <div className="grid md:grid-cols-2 gap-8 h-full">
+      <div className="flex-1 px-2 sm:px-4 pb-4 min-h-0">
+        <div className="grid md:grid-cols-[1fr_420px] gap-4 h-full">
           <AccreditationTable
             pageData={pageData}
             currentPage={currentPage}

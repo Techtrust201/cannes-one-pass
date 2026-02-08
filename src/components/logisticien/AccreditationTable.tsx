@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { List, Pencil, Trash2 } from "lucide-react";
+import { List, Pencil, Trash2, LogIn, LogOut, Clock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import StatusPill from "./StatusPill";
 import MobileAccreditationList from "./MobileAccreditationList";
@@ -16,8 +16,6 @@ import {
 } from "@/components/ui/pagination";
 import { buildLink } from "@/lib/url";
 import type { Accreditation, Zone } from "@/types";
-import { getZoneLabel, isFinalDestination, ZONE_COLORS } from "@/lib/zone-utils";
-import { truncateText } from "@/lib/utils";
 
 /* ---------- Types ---------- */
 export interface AccreditationTableProps {
@@ -41,12 +39,12 @@ export interface AccreditationTableProps {
   dir: "asc" | "desc";
 }
 
-/* ---------- Caret moderne ---------- */
+/* ---------- Sort caret ---------- */
 function SortCaret({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
   if (!active) {
     return (
       <svg
-        className="w-4 h-4 text-gray-400 opacity-60 group-hover:opacity-80 transition-opacity"
+        className="w-3 h-3 text-gray-400 opacity-50 shrink-0"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
@@ -60,33 +58,38 @@ function SortCaret({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
       </svg>
     );
   }
-
   return (
     <svg
-      className={`w-4 h-4 transition-all duration-200 ${
-        active ? "text-[#4F587E]" : "text-gray-400"
-      }`}
+      className="w-3 h-3 text-[#4F587E] shrink-0"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
     >
       {dir === "asc" ? (
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M5 15l7-7 7 7"
-        />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
       ) : (
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M19 9l-7 7-7-7"
-        />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
       )}
     </svg>
   );
+}
+
+/* ---------- Helper: format duration ---------- */
+function fmtDuration(entryAt: Date | string | null | undefined, exitAt: Date | string | null | undefined) {
+  if (!entryAt || !exitAt) return null;
+  const ms = +new Date(exitAt) - +new Date(entryAt);
+  if (ms <= 0) return null;
+  const h = Math.floor(ms / 3600000);
+  const min = Math.floor(ms / 60000) % 60;
+  if (h > 0) return `${h}h${min > 0 ? `${String(min).padStart(2, "0")}` : ""}`;
+  return `${min}min`;
+}
+
+/* ---------- Helper: truncate ---------- */
+function truncate(text: string | undefined | null, max: number) {
+  if (!text) return "-";
+  if (text.length <= max) return text;
+  return text.slice(0, max - 1) + "…";
 }
 
 export default function AccreditationTable({
@@ -101,7 +104,6 @@ export default function AccreditationTable({
 }: AccreditationTableProps) {
   const router = useRouter();
 
-  /* ----- tri (client) ----- */
   const toggleSort = (
     key:
       | "status"
@@ -114,8 +116,7 @@ export default function AccreditationTable({
       | "exitAt"
       | "duration"
   ) => {
-    const nextDir: "asc" | "desc" =
-      sort === key && dir === "asc" ? "desc" : "asc";
+    const nextDir: "asc" | "desc" = sort === key && dir === "asc" ? "desc" : "asc";
     const p = new URLSearchParams(searchParams);
     p.set("page", "1");
     p.set("sort", key);
@@ -123,11 +124,10 @@ export default function AccreditationTable({
     router.push(`?${p.toString()}`);
   };
 
-  /* ----- suppression ----- */
   const handleDelete = async (id: string) => {
     if (
       !confirm(
-        "Êtes-vous sûr de vouloir supprimer définitivement cette accréditation ?\n\nCette action est irréversible et supprimera toutes les données associées."
+        "Êtes-vous sûr de vouloir supprimer définitivement cette accréditation ?\n\nCette action est irréversible."
       )
     )
       return;
@@ -136,301 +136,182 @@ export default function AccreditationTable({
     else alert("Erreur lors de la suppression");
   };
 
+  /* ---------- Header cell helper ---------- */
+  const Th = ({
+    label,
+    sortKey,
+    className = "",
+  }: {
+    label: string;
+    sortKey?: string;
+    className?: string;
+  }) => {
+    const isSortable = !!sortKey;
+    return (
+      <th
+        onClick={isSortable ? () => toggleSort(sortKey as Parameters<typeof toggleSort>[0]) : undefined}
+        className={`px-2 py-2.5 text-[11px] font-semibold text-gray-600 uppercase tracking-wider text-left whitespace-nowrap ${isSortable ? "cursor-pointer select-none hover:text-gray-900 group" : ""} ${className}`}
+        aria-sort={
+          sort === sortKey ? (dir === "asc" ? "ascending" : "descending") : undefined
+        }
+      >
+        <span className="inline-flex items-center gap-1">
+          {label}
+          {isSortable && <SortCaret active={sort === sortKey} dir={dir} />}
+        </span>
+      </th>
+    );
+  };
+
   return (
     <>
-      {/* ===== VERSION MOBILE ===== */}
+      {/* ===== MOBILE ===== */}
       <MobileAccreditationList pageData={pageData} onDelete={handleDelete} />
 
-      {/* ===== VERSION DESKTOP ===== */}
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-xl flex flex-col h-[85vh] hidden sm:flex overflow-hidden">
-        {/* En-tête violet */}
-        <div className="bg-[#4F587E] text-white rounded-t-2xl px-8 py-5 shadow flex items-center justify-between">
-          <h1 className="text-lg font-bold flex items-center gap-3">
-            <div className="p-2 bg-white/20 rounded-lg">
-              <List size={22} />
-            </div>
-            Liste d&apos;accréditations
-          </h1>
+      {/* ===== DESKTOP ===== */}
+      <div className="bg-white border border-gray-200 rounded-2xl shadow-lg flex-col h-[85vh] hidden sm:flex overflow-hidden">
+        {/* Header */}
+        <div className="bg-[#4F587E] text-white rounded-t-2xl px-5 py-4 flex items-center gap-3">
+          <div className="p-1.5 bg-white/20 rounded-lg">
+            <List size={18} />
+          </div>
+          <h1 className="text-sm font-bold">Liste d&apos;accréditations</h1>
+          <span className="ml-auto text-xs text-white/70 font-medium">{filteredCount} résultat{filteredCount !== 1 ? "s" : ""}</span>
         </div>
 
-        {/* Tableau */}
-        <div className="flex-1 min-h-0 overflow-x-auto overflow-y-auto bg-white">
-          <table className="min-w-full text-xs md:text-base border-collapse">
-            <thead className="sticky top-0 z-10">
-              <tr className="bg-white text-gray-900 shadow-lg border-b border-gray-200">
-                {/* COLONNE STATUT (triable) */}
-                <th
-                  onClick={() => toggleSort("status")}
-                  className="group px-2 md:px-6 py-3 md:py-4 font-semibold text-xs md:text-sm first:pl-2 md:first:pl-8 text-center cursor-pointer select-none hover:bg-white/10 transition-all duration-200 border-r border-white/20"
-                  aria-sort={
-                    sort === "status"
-                      ? dir === "asc"
-                        ? "ascending"
-                        : "descending"
-                      : "none"
-                  }
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <span>Statut</span>
-                    <SortCaret active={sort === "status"} dir={dir} />
-                  </div>
-                </th>
-
-                {/* COLONNE ZONE */}
-                <th className="px-2 md:px-4 py-3 md:py-4 font-semibold text-xs md:text-sm text-center border-r border-white/20">
-                  <span>Zone</span>
-                </th>
-
-                {/* COLONNE SOCIÉTÉ (triable) */}
-                <th
-                  onClick={() => toggleSort("company")}
-                  className="group px-2 md:px-6 py-3 md:py-4 font-semibold text-xs md:text-sm text-center cursor-pointer select-none hover:bg-white/10 transition-all duration-200 border-r border-white/20"
-                  aria-sort={
-                    sort === "company"
-                      ? dir === "asc"
-                        ? "ascending"
-                        : "descending"
-                      : "none"
-                  }
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <span>Société</span>
-                    <SortCaret active={sort === "company"} dir={dir} />
-                  </div>
-                </th>
-
-                {/* COLONNE STAND DESSERVI (triable) */}
-                <th
-                  onClick={() => toggleSort("stand")}
-                  className="group px-2 md:px-6 py-3 md:py-4 font-semibold text-xs md:text-sm text-center cursor-pointer select-none hover:bg-white/10 transition-all duration-200 border-r border-white/20"
-                  aria-sort={
-                    sort === "stand"
-                      ? dir === "asc"
-                        ? "ascending"
-                        : "descending"
-                      : "none"
-                  }
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <span>Stand desservi</span>
-                    <SortCaret active={sort === "stand"} dir={dir} />
-                  </div>
-                </th>
-                {/* COLONNE ÉVÉNEMENT (triable) */}
-                <th
-                  onClick={() => toggleSort("event")}
-                  className="group px-2 md:px-6 py-3 md:py-4 font-semibold text-xs md:text-sm text-center cursor-pointer select-none hover:bg-white/10 transition-all duration-200 border-r border-white/20"
-                  aria-sort={
-                    sort === "event"
-                      ? dir === "asc"
-                        ? "ascending"
-                        : "descending"
-                      : "none"
-                  }
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <span>Événement</span>
-                    <SortCaret active={sort === "event"} dir={dir} />
-                  </div>
-                </th>
-
-                {/* DATE (triable) */}
-                <th
-                  onClick={() => toggleSort("createdAt")}
-                  className="group px-2 md:px-6 py-3 md:py-4 font-semibold text-xs md:text-sm text-center cursor-pointer select-none hover:bg-white/10 transition-all duration-200 border-r border-white/20"
-                  aria-sort={
-                    sort === "createdAt"
-                      ? dir === "asc"
-                        ? "ascending"
-                        : "descending"
-                      : "none"
-                  }
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <span>Date</span>
-                    <SortCaret active={sort === "createdAt"} dir={dir} />
-                  </div>
-                </th>
-
-                {/* HEURE D'ENTRÉE (triable) */}
-                <th
-                  onClick={() => toggleSort("entryAt")}
-                  className="group px-4 md:px-8 py-3 md:py-4 font-semibold text-xs md:text-sm text-center cursor-pointer select-none hover:bg-white/10 transition-all duration-200 border-r border-white/20 min-w-[200px]"
-                  aria-sort={
-                    sort === "entryAt"
-                      ? dir === "asc"
-                        ? "ascending"
-                        : "descending"
-                      : "none"
-                  }
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <span>Heure d&apos;entrée</span>
-                    <SortCaret active={sort === "entryAt"} dir={dir} />
-                  </div>
-                </th>
-
-                <th
-                  onClick={() => toggleSort("duration")}
-                  className="group px-4 md:px-8 py-3 md:py-4 font-semibold text-xs md:text-sm text-center cursor-pointer select-none hover:bg-white/10 transition-all duration-200 border-r border-white/20 min-w-[200px]"
-                  aria-sort={
-                    sort === "duration"
-                      ? dir === "asc"
-                        ? "ascending"
-                        : "descending"
-                      : "none"
-                  }
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <span>Heure sur site</span>
-                    <SortCaret active={sort === "duration"} dir={dir} />
-                  </div>
-                </th>
-
-                <th
-                  onClick={() => toggleSort("exitAt")}
-                  className="group px-4 md:px-8 py-3 md:py-4 font-semibold text-xs md:text-sm text-center cursor-pointer select-none hover:bg-white/10 transition-all duration-200 border-r border-white/20 min-w-[200px]"
-                  aria-sort={
-                    sort === "exitAt"
-                      ? dir === "asc"
-                        ? "ascending"
-                        : "descending"
-                      : "none"
-                  }
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <span>Heure de sortie</span>
-                    <SortCaret active={sort === "exitAt"} dir={dir} />
-                  </div>
-                </th>
-
-                {/* ACTIONS */}
-                <th className="px-6 py-3 md:py-4 text-center border-l border-white/20">
-                  <span className="text-xs md:text-sm font-semibold">
-                    Actions
-                  </span>
+        {/* Table */}
+        <div className="flex-1 min-h-0 overflow-auto">
+          <table className="w-full text-xs border-collapse">
+            <thead className="sticky top-0 z-10 bg-gray-50 border-b border-gray-200">
+              <tr>
+                <Th label="Statut" sortKey="status" />
+                <Th label="Société" sortKey="company" />
+                <Th label="Événement" sortKey="event" />
+                <Th label="Date" sortKey="createdAt" />
+                <Th label="Horaires" sortKey="entryAt" />
+                <th className="px-2 py-2.5 text-[11px] font-semibold text-gray-600 uppercase tracking-wider text-center whitespace-nowrap">
+                  Actions
                 </th>
               </tr>
             </thead>
 
-            <tbody className="bg-white">
-              {pageData.map((acc, index) => (
-                <tr
-                  key={String(acc.id)}
-                  className={`hover:bg-blue-50/50 transition-all duration-200 border-b border-gray-100 group ${
-                    index % 2 === 0 ? "bg-white" : "bg-gray-50/30"
-                  }`}
-                >
-                  <td className="py-3 md:py-4 px-2 md:px-6 text-center border-r border-gray-100">
-                    <StatusPill status={acc.status as string} zone={acc.currentZone as Zone | undefined} />
-                  </td>
-                  <td className="px-2 md:px-4 py-3 md:py-4 text-center border-r border-gray-100">
-                    {acc.currentZone ? (
-                      <span 
-                        className={`inline-flex items-center px-2 py-1 rounded-full text-[10px] font-medium ${ZONE_COLORS[acc.currentZone as Zone]?.bg ?? "bg-gray-100"} ${ZONE_COLORS[acc.currentZone as Zone]?.text ?? "text-gray-800"}`}
-                        title={getZoneLabel(acc.currentZone as Zone)}
-                      >
-                        {isFinalDestination(acc.currentZone as Zone) ? "✓ " : ""}
-                        {truncateText(getZoneLabel(acc.currentZone as Zone), 12)}
-                      </span>
-                    ) : (
-                      <span className="text-gray-400">-</span>
-                    )}
-                  </td>
-                  <td className="px-4 md:px-6 py-3 md:py-4 font-medium text-gray-800 text-center border-r border-gray-100">
-                    {acc.company}
-                  </td>
-                  <td className="px-4 md:px-6 py-3 md:py-4 text-center border-r border-gray-100">
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-[#4F587E]/10 text-[#4F587E]">
-                      {acc.stand || "-"}
-                    </span>
-                  </td>
-                  <td className="px-4 md:px-6 py-3 md:py-4 text-center border-r border-gray-100">
-                    <span 
-                      className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-800"
-                      title={acc.event || undefined}
+            <tbody>
+              {pageData.map((acc, index) => {
+                const duration = fmtDuration(acc.entryAt, acc.exitAt);
+                return (
+                  <tr
+                    key={String(acc.id)}
+                    className={`border-b border-gray-100 hover:bg-blue-50/40 transition-colors ${
+                      index % 2 === 0 ? "bg-white" : "bg-gray-50/40"
+                    }`}
+                  >
+                    {/* Statut (with zone dot) */}
+                    <td className="px-2 py-2">
+                      <StatusPill
+                        status={acc.status as string}
+                        zone={acc.currentZone as Zone | undefined}
+                        compact
+                      />
+                    </td>
+
+                    {/* Société */}
+                    <td
+                      className="px-2 py-2 font-medium text-gray-800 max-w-[140px]"
+                      title={acc.company || undefined}
                     >
-                      {truncateText(acc.event || "-", 15)}
-                    </span>
-                  </td>
-                  <td className="px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-gray-600 text-center border-r border-gray-100">
-                    {new Date(acc.createdAt).toLocaleDateString("fr-FR", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "numeric",
-                    })}
-                  </td>
-                  <td className="px-4 md:px-8 py-3 md:py-4 whitespace-nowrap text-gray-600 text-center border-r border-gray-100">
-                    {acc.entryAt ? (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        {new Date(acc.entryAt).toLocaleTimeString("fr-FR", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                    ) : (
-                      <span className="text-gray-400">-</span>
-                    )}
-                  </td>
-                  <td className="px-4 md:px-8 py-3 md:py-4 whitespace-nowrap text-gray-600 text-center border-r border-gray-100">
-                    {acc.entryAt && acc.exitAt ? (
-                      (() => {
-                        const ms =
-                          +new Date(acc.exitAt) - +new Date(acc.entryAt);
-                        if (ms <= 0)
-                          return <span className="text-gray-400">-</span>;
-                        const min = Math.floor(ms / 60000) % 60;
-                        const h = Math.floor(ms / 3600000);
-                        return (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            {h}h {min}min
+                      <span className="block truncate">{acc.company || "-"}</span>
+                    </td>
+
+                    {/* Événement */}
+                    <td className="px-2 py-2 text-gray-600 max-w-[100px]">
+                      <span className="block truncate">{truncate(acc.event, 16)}</span>
+                    </td>
+
+                    {/* Date */}
+                    <td className="px-2 py-2 text-gray-500 whitespace-nowrap">
+                      {acc.createdAt
+                        ? new Date(acc.createdAt).toLocaleDateString("fr-FR", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "2-digit",
+                          })
+                        : "-"}
+                    </td>
+
+                    {/* Horaires (merged: entry + duration/exit) */}
+                    <td className="px-2 py-2">
+                      {acc.entryAt ? (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="inline-flex items-center gap-1 text-green-700">
+                            <LogIn size={10} className="shrink-0" />
+                            {new Date(acc.entryAt).toLocaleTimeString("fr-FR", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
                           </span>
-                        );
-                      })()
-                    ) : (
-                      <span className="text-gray-400">-</span>
-                    )}
-                  </td>
-                  <td className="px-4 md:px-8 py-3 md:py-4 whitespace-nowrap text-gray-600 text-center border-r border-gray-100">
-                    {acc.exitAt ? (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                        {new Date(acc.exitAt).toLocaleTimeString("fr-FR", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                    ) : (
-                      <span className="text-gray-400">-</span>
-                    )}
-                  </td>
-                  <td className="px-4 md:px-6 py-3 md:py-4 text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <Link
-                        href={buildLink(searchParams, currentPage, {
-                          sel: String(acc.id),
-                        })}
-                        className="p-2 hover:bg-[#4F587E]/10 rounded-lg transition-all duration-200 text-[#4F587E] hover:text-[#3B4252]"
-                        title="Éditer"
-                      >
-                        <Pencil size={16} />
-                      </Link>
-                      <button
-                        onClick={() => handleDelete(acc.id)}
-                        className="p-2 hover:bg-red-50 rounded-lg transition-all duration-200 text-red-400 hover:text-red-600"
-                        title="Supprimer"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
+                          {acc.exitAt ? (
+                            <span className="inline-flex items-center gap-1 text-red-600">
+                              <LogOut size={10} className="shrink-0" />
+                              {new Date(acc.exitAt).toLocaleTimeString("fr-FR", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                          ) : duration ? (
+                            <span className="inline-flex items-center gap-1 text-gray-400">
+                              <Clock size={10} className="shrink-0" />
+                              {duration}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-blue-500 text-[10px]">
+                              <Clock size={10} className="shrink-0 animate-pulse" />
+                              en cours
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-gray-300">-</span>
+                      )}
+                    </td>
+
+                    {/* Actions */}
+                    <td className="px-2 py-2 text-center">
+                      <div className="inline-flex items-center gap-0.5">
+                        <Link
+                          href={buildLink(searchParams, currentPage, {
+                            sel: String(acc.id),
+                          })}
+                          className="p-1.5 hover:bg-[#4F587E]/10 rounded-lg transition text-[#4F587E]"
+                          title="Éditer"
+                        >
+                          <Pencil size={14} />
+                        </Link>
+                        <button
+                          onClick={() => handleDelete(acc.id)}
+                          className="p-1.5 hover:bg-red-50 rounded-lg transition text-red-400 hover:text-red-600"
+                          title="Supprimer"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+
+              {pageData.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="text-center py-12 text-gray-400 text-sm">
+                    Aucune accréditation trouvée
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
 
-        {/* Pagination moderne */}
-        <div className="px-8 py-5 bg-gradient-to-r from-gray-50 to-gray-100 flex flex-col gap-3 md:flex-row md:items-center md:justify-between text-gray-700 flex-shrink-0 border-t border-gray-200 rounded-b-2xl shadow-inner">
+        {/* Pagination */}
+        <div className="px-4 py-3 bg-gray-50 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-gray-600 flex-shrink-0 border-t border-gray-200 rounded-b-2xl text-xs">
           <span className="font-medium">
             {filteredCount === 0
               ? 0
@@ -441,7 +322,6 @@ export default function AccreditationTable({
 
           <Pagination>
             <PaginationContent>
-              {/* bouton précédent */}
               <PaginationItem>
                 {currentPage === 1 ? (
                   <PaginationPrevious href="#" disabled />
@@ -452,7 +332,6 @@ export default function AccreditationTable({
                 )}
               </PaginationItem>
 
-              {/* pages numérotées / ellipses */}
               {(() => {
                 const pages: number[] = [];
                 if (totalPages <= 5) {
@@ -492,7 +371,6 @@ export default function AccreditationTable({
                 );
               })()}
 
-              {/* bouton suivant */}
               <PaginationItem>
                 {currentPage === totalPages ? (
                   <PaginationNext href="#" disabled />

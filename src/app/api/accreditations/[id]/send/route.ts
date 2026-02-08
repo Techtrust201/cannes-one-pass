@@ -29,7 +29,8 @@ export async function POST(
     }
 
     // Génération PDF via appel interne
-    const origin = process.env.INTERNAL_BASE_URL || "http://localhost:3000";
+    const { getBaseUrl } = await import("@/lib/base-url");
+    const origin = getBaseUrl();
     const pdfRes = await fetch(`${origin}/api/accreditation/pdf`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

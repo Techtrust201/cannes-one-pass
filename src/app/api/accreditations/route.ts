@@ -2,8 +2,18 @@ import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 // import type { Accreditation } from "@/types";
 import { addHistoryEntry, createCreatedEntry } from "@/lib/history";
+import { requirePermission } from "@/lib/auth-helpers";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  try {
+    await requirePermission(request, "LISTE", "read");
+  } catch (error) {
+    if (error instanceof Response) {
+      return new Response(error.body, { status: error.status, statusText: error.statusText });
+    }
+    return new Response("Non autorisé", { status: 401 });
+  }
+
   const list = await prisma.accreditation.findMany({
     include: { vehicles: true },
   });

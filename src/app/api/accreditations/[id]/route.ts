@@ -6,12 +6,22 @@ import {
   createStatusChangeEntry,
   createInfoUpdatedEntry,
 } from "@/lib/history";
+import { requirePermission } from "@/lib/auth-helpers";
 
 /* ----------------------- GET ----------------------- */
 export async function GET(
   _req: NextRequest,
   props: { params: Promise<{ id: string }> }
 ) {
+  try {
+    await requirePermission(_req, "LISTE", "read");
+  } catch (error) {
+    if (error instanceof Response) {
+      return new Response(error.body, { status: error.status, statusText: error.statusText });
+    }
+    return new Response("Non autorisé", { status: 401 });
+  }
+
   const params = await props.params;
   const { id } = params;
   const acc = await prisma.accreditation.findUnique({
@@ -41,6 +51,15 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  try {
+    await requirePermission(req, "LISTE", "write");
+  } catch (error) {
+    if (error instanceof Response) {
+      return new Response(error.body, { status: error.status, statusText: error.statusText });
+    }
+    return new Response("Non autorisé", { status: 401 });
+  }
+
   const { id: accreditationId } = await params;
   const acc = await prisma.accreditation.findUnique({
     where: { id: accreditationId },
@@ -270,6 +289,15 @@ export async function DELETE(
   _req: NextRequest,
   props: { params: Promise<{ id: string }> }
 ) {
+  try {
+    await requirePermission(_req, "LISTE", "write");
+  } catch (error) {
+    if (error instanceof Response) {
+      return new Response(error.body, { status: error.status, statusText: error.statusText });
+    }
+    return new Response("Non autorisé", { status: 401 });
+  }
+
   const params = await props.params;
   const { id } = params;
   try {

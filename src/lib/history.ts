@@ -15,9 +15,12 @@ export async function addHistoryEntry(data: HistoryEntryData) {
   try {
     // Détecte si on est côté serveur (Node) ou client (browser)
     const isServer = typeof window === "undefined";
-    const base = isServer
-      ? process.env.INTERNAL_BASE_URL || "http://localhost:3000"
-      : "";
+    let base = "";
+    if (isServer) {
+      // Import dynamique pour éviter le bundling côté client
+      const { getBaseUrl } = await import("./base-url");
+      base = getBaseUrl();
+    }
     const response = await fetch(
       `${base}/api/accreditations/${data.accreditationId}/history`,
       {

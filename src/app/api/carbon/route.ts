@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { findCity } from "@/lib/city-search";
+import { requirePermission } from "@/lib/auth-helpers";
 
 // ── Types ────────────────────────────────────────────────────────────
 interface CarbonDataEntry {
@@ -142,6 +143,7 @@ function filterTwelveMonths(data: CarbonDataEntry[], endDateStr: string): Carbon
 // ── GET /api/carbon ──────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
   try {
+    await requirePermission(req, "BILAN_CARBONE", "read");
     const { searchParams } = new URL(req.url);
     const startDate = searchParams.get("start") || "01/01/2024";
     const endDate = searchParams.get("end") || "31/12/2024";

@@ -1,10 +1,20 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
+import { requirePermission } from "@/lib/auth-helpers";
 
 export async function PATCH(
   req: NextRequest,
   props: { params: Promise<{ id: string }> }
 ) {
+  try {
+    await requirePermission(req, "LISTE", "write");
+  } catch (error) {
+    if (error instanceof Response) {
+      return new Response(error.body, { status: error.status, statusText: error.statusText });
+    }
+    return new Response("Non autorisé", { status: 401 });
+  }
+
   const params = await props.params;
   try {
     const data = await req.json();

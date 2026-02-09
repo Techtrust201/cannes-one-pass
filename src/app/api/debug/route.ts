@@ -17,7 +17,8 @@ export async function GET() {
 
   // Test 3: Import dynamique de pg
   try {
-    const pg = await import("pg");
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const pg = require("pg") as { Pool: unknown };
     results["3_pg_import"] = `OK (Pool: ${typeof pg.Pool})`;
   } catch (e: unknown) {
     results["3_pg_import"] = `FAIL: ${e instanceof Error ? e.message : String(e)}`;
@@ -48,16 +49,16 @@ export async function GET() {
 
   // Test 6: Import dynamique de better-auth
   try {
-    const { betterAuth } = await import("better-auth");
-    results["6_better_auth_import"] = `OK (betterAuth: ${typeof betterAuth})`;
+    const ba = await import("better-auth");
+    results["6_better_auth_import"] = `OK (betterAuth: ${typeof ba.betterAuth})`;
   } catch (e: unknown) {
     results["6_better_auth_import"] = `FAIL: ${e instanceof Error ? e.message : String(e)}`;
   }
 
   // Test 7: Import du module auth complet
   try {
-    const { auth } = await import("@/lib/auth");
-    results["7_auth_module"] = `OK (auth: ${typeof auth})`;
+    const authMod = await import("@/lib/auth");
+    results["7_auth_module"] = `OK (auth: ${typeof authMod.auth})`;
   } catch (e: unknown) {
     results["7_auth_module"] = `FAIL: ${e instanceof Error ? e.message : String(e)}`;
   }

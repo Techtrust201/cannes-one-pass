@@ -10,6 +10,35 @@ import StepThree from "@/components/accreditation/StepThree";
 import StepFourLog from "@/components/accreditation/StepFourLog";
 import type { Vehicle } from "@/types";
 
+type FormData = {
+  stepOne: {
+    company: string;
+    stand: string;
+    unloading: string;
+    event: string;
+  };
+  vehicle: Vehicle;
+  stepThree: { message: string; consent: boolean; email: string };
+};
+
+function getDefaultFormData(): FormData {
+  return {
+    stepOne: { company: "", stand: "", unloading: "", event: "" },
+    vehicle: {
+      id: 1,
+      plate: "",
+      size: "",
+      phoneCode: "+33",
+      phoneNumber: "",
+      date: "",
+      time: "",
+      city: "",
+      unloading: ["rear"],
+    },
+    stepThree: { message: "", consent: false, email: "" },
+  };
+}
+
 function LogisticienNewContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -17,35 +46,6 @@ function LogisticienNewContent() {
 
   const [stepValid, setStepValid] = useState(false);
   const [hasSaved, setHasSaved] = useState(false);
-
-  type FormData = {
-    stepOne: {
-      company: string;
-      stand: string;
-      unloading: string;
-      event: string;
-    };
-    vehicle: Vehicle;
-    stepThree: { message: string; consent: boolean; email: string };
-  };
-
-  function getDefaultFormData(): FormData {
-    return {
-      stepOne: { company: "", stand: "", unloading: "", event: "" },
-      vehicle: {
-        id: 1,
-        plate: "",
-        size: "",
-        phoneCode: "+33",
-        phoneNumber: "",
-        date: "",
-        time: "",
-        city: "",
-        unloading: ["rear"],
-      },
-      stepThree: { message: "", consent: false, email: "" },
-    };
-  }
 
   const [formData, setFormData] = useState<FormData>(getDefaultFormData());
 

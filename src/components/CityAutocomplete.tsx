@@ -182,9 +182,11 @@ export default function CityAutocomplete({
         role="combobox"
         aria-expanded={open}
         aria-autocomplete="list"
+        aria-controls="city-autocomplete-list"
       />
       {open && allResults.length > 0 && (
         <ul
+          id="city-autocomplete-list"
           ref={listRef}
           className="absolute z-10 left-0 right-0 bg-white border rounded shadow-lg max-h-60 overflow-auto text-sm"
           role="listbox"

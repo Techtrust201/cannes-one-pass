@@ -33,14 +33,14 @@ export default function LogisticienLayout({
       {/* Overlay mobile */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/40 z-40 sm:hidden"
+          className="fixed inset-0 bg-black/40 z-[55] sm:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
       {/* Sidebar */}
       <aside
         className={`
-        fixed sm:static top-0 left-0 z-50 h-screen w-60 bg-[#3F4660] text-white flex flex-col transition-transform duration-300
+        fixed sm:static top-0 left-0 z-[60] h-screen w-60 bg-[#3F4660] text-white flex flex-col transition-transform duration-300
         ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
         sm:translate-x-0 sm:flex
       `}
@@ -74,12 +74,12 @@ export default function LogisticienLayout({
           )}
         </div>
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto px-2 py-4 space-y-4">
+        <nav className="flex-1 overflow-y-auto px-2 py-4 space-y-4 pb-20 sm:pb-4">
           {/* Bloc Accréditations */}
           {(hasPermission("LISTE", "read") ||
             hasPermission("CREER", "read")) && (
             <details open className="group">
-              <summary className="flex items-center justify-between cursor-pointer px-3 py-2 bg-[#2C2F3F] text-xs font-semibold uppercase tracking-wide select-none">
+              <summary className="flex items-center justify-between cursor-pointer px-3 py-2.5 bg-[#2C2F3F] rounded-lg text-xs font-semibold uppercase tracking-wide select-none">
                 <span className="flex items-center gap-2">
                   <Image
                     src="/logisticien/Vector%20(16).svg"
@@ -97,12 +97,12 @@ export default function LogisticienLayout({
                   <path d="M6 8l4 4 4-4" />
                 </svg>
               </summary>
-              <ul className="mt-2 pl-5 space-y-1 text-sm">
+              <ul className="mt-2 pl-3 space-y-1 text-sm">
                 {hasPermission("LISTE", "read") && (
                   <li>
                     <Link
                       href="/logisticien"
-                      className="flex items-center gap-2 px-2 py-1 rounded hover:bg-white/10"
+                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
                       onClick={() => setSidebarOpen(false)}
                     >
                       <Image
@@ -119,7 +119,7 @@ export default function LogisticienLayout({
                   <li>
                     <Link
                       href="/logisticien/nouveau?step=1"
-                      className="flex items-center gap-2 px-2 py-1 rounded hover:bg-white/10"
+                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
                       onClick={() => setSidebarOpen(false)}
                     >
                       <Image
@@ -140,7 +140,7 @@ export default function LogisticienLayout({
           {(hasPermission("PLAQUE", "read") ||
             hasPermission("QR_CODE", "read")) && (
             <details open className="group">
-              <summary className="flex items-center justify-between cursor-pointer px-3 py-2 bg-[#2C2F3F] text-xs font-semibold uppercase tracking-wide select-none">
+              <summary className="flex items-center justify-between cursor-pointer px-3 py-2.5 bg-[#2C2F3F] rounded-lg text-xs font-semibold uppercase tracking-wide select-none">
                 <span className="flex items-center gap-2">
                   <Image
                     src="/logisticien/Vector%20(19).svg"
@@ -158,12 +158,12 @@ export default function LogisticienLayout({
                   <path d="M6 8l4 4 4-4" />
                 </svg>
               </summary>
-              <ul className="mt-2 pl-5 space-y-1 text-sm">
+              <ul className="mt-2 pl-3 space-y-1 text-sm">
                 {hasPermission("PLAQUE", "read") && (
                   <li>
                     <Link
                       href="/logisticien/scanner/plaque"
-                      className="flex items-center gap-2 px-2 py-1 rounded hover:bg-white/10"
+                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
                       onClick={() => setSidebarOpen(false)}
                     >
                       <Image
@@ -180,7 +180,7 @@ export default function LogisticienLayout({
                   <li>
                     <Link
                       href="/logisticien/scanner/qr"
-                      className="flex items-center gap-2 px-2 py-1 rounded hover:bg-white/10"
+                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
                       onClick={() => setSidebarOpen(false)}
                     >
                       <Image
@@ -203,7 +203,7 @@ export default function LogisticienLayout({
             hasPermission("GESTION_ZONES", "read") ||
             hasPermission("GESTION_DATES", "read")) && (
             <details open className="group">
-              <summary className="flex items-center justify-between cursor-pointer px-3 py-2 bg-[#2C2F3F] text-xs font-semibold uppercase tracking-wide select-none">
+              <summary className="flex items-center justify-between cursor-pointer px-3 py-2.5 bg-[#2C2F3F] rounded-lg text-xs font-semibold uppercase tracking-wide select-none">
                 <span className="flex items-center gap-2">
                   <svg
                     width="16"
@@ -228,12 +228,12 @@ export default function LogisticienLayout({
                   <path d="M6 8l4 4 4-4" />
                 </svg>
               </summary>
-              <ul className="mt-2 pl-5 space-y-1 text-sm">
+              <ul className="mt-2 pl-3 space-y-1 text-sm">
                 {hasPermission("FLUX_VEHICULES", "read") && (
                   <li>
                     <Link
                       href="/logisticien/vehicles"
-                      className="flex items-center gap-2 px-2 py-1 rounded hover:bg-white/10"
+                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
                       onClick={() => setSidebarOpen(false)}
                     >
                       <svg
@@ -257,7 +257,7 @@ export default function LogisticienLayout({
                   <li>
                     <Link
                       href="/logisticien/carbon"
-                      className="flex items-center gap-2 px-2 py-1 rounded hover:bg-white/10"
+                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
                       onClick={() => setSidebarOpen(false)}
                     >
                       <svg
@@ -281,7 +281,7 @@ export default function LogisticienLayout({
                   <li>
                     <Link
                       href="/logisticien/zones"
-                      className="flex items-center gap-2 px-2 py-1 rounded hover:bg-white/10"
+                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
                       onClick={() => setSidebarOpen(false)}
                     >
                       <svg
@@ -305,7 +305,7 @@ export default function LogisticienLayout({
                   <li>
                     <Link
                       href="/logisticien/dates"
-                      className="flex items-center gap-2 px-2 py-1 rounded hover:bg-white/10"
+                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
                       onClick={() => setSidebarOpen(false)}
                     >
                       <svg
@@ -334,7 +334,7 @@ export default function LogisticienLayout({
             <div className="pt-2">
               <Link
                 href="/admin/users"
-                className="flex items-center gap-2 px-3 py-2 bg-purple-500/20 text-purple-200 rounded-lg hover:bg-purple-500/30 text-xs font-semibold uppercase tracking-wide transition-colors"
+                className="flex items-center gap-2 px-3 py-2.5 bg-purple-500/20 text-purple-200 rounded-lg hover:bg-purple-500/30 active:bg-purple-500/40 text-xs font-semibold uppercase tracking-wide transition-colors"
                 onClick={() => setSidebarOpen(false)}
               >
                 <svg
@@ -355,13 +355,13 @@ export default function LogisticienLayout({
           )}
         </nav>
         {/* Déconnexion */}
-        <div className="border-t border-white/10 p-4 text-xs">
+        <div className="border-t border-white/10 p-3 sm:p-4 mb-16 sm:mb-0">
           <button
             onClick={async () => {
               await authClient.signOut();
               router.push("/login");
             }}
-            className="flex items-center gap-2 hover:underline w-full text-left"
+            className="flex items-center gap-3 w-full text-left px-3 py-3 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors text-sm"
           >
             <Image
               src="/logisticien/Vector%20(21).svg"
@@ -375,7 +375,7 @@ export default function LogisticienLayout({
         {/* Close button mobile */}
         {sidebarOpen && (
           <button
-            className="absolute top-4 right-4 sm:hidden text-white bg-[#2C2F3F] p-2 rounded-full"
+            className="absolute top-4 right-4 sm:hidden text-white bg-[#2C2F3F] p-2.5 rounded-full active:bg-[#1a1d2e] transition-colors"
             onClick={() => setSidebarOpen(false)}
             aria-label="Fermer le menu"
           >
@@ -384,11 +384,11 @@ export default function LogisticienLayout({
         )}
       </aside>
       {/* Contenu principal */}
-      <main className="flex-1 bg-gray-50 h-auto min-h-0">
+      <main className="flex-1 bg-gray-50 h-auto min-h-0 pb-20 sm:pb-0">
         {children}
       </main>
       {/* Navbar mobile en bas */}
-      <MobileNavbar onBurger={() => setSidebarOpen(true)} />
+      <MobileNavbar onBurger={() => setSidebarOpen(true)} hidden={sidebarOpen} />
     </div>
   );
 }

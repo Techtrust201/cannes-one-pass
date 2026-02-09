@@ -11,14 +11,14 @@ interface CarbonStatsProps {
 export default function CarbonStats({ data, loading }: CarbonStatsProps) {
   if (loading) {
     return (
-      <div className="bg-white border-b border-gray-200 px-6 py-3">
-        <div className="flex items-center justify-center gap-8">
-          <div className="animate-pulse flex space-x-4">
-            <div className="h-4 bg-gray-200 rounded w-20"></div>
-            <div className="h-4 bg-gray-200 rounded w-20"></div>
-            <div className="h-4 bg-gray-200 rounded w-20"></div>
-            <div className="h-4 bg-gray-200 rounded w-20"></div>
-          </div>
+      <div className="bg-white border-b border-gray-200 px-3 md:px-6 py-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-8">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="animate-pulse text-center">
+              <div className="h-4 bg-gray-200 rounded w-16 mx-auto mb-1"></div>
+              <div className="h-3 bg-gray-200 rounded w-20 mx-auto"></div>
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -51,26 +51,24 @@ export default function CarbonStats({ data, loading }: CarbonStatsProps) {
       color: "text-orange-600",
     },
     {
-      label: "Moyenne par véhicule",
+      label: "Moy. / véhicule",
       value: `${formatNumber(Math.round(avgCO2PerVehicle))} kg`,
       color: "text-purple-600",
     },
   ];
 
   return (
-    <div className="bg-white border-b border-gray-200 px-6 py-3">
-      <div className="flex items-center justify-center gap-8">
+    <div className="bg-white border-b border-gray-200 px-3 md:px-6 py-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-8">
         {stats.map((stat, index) => (
           <div key={index} className="text-center">
-            <div className={`text-lg font-semibold ${stat.color}`}>
+            <div className={`text-base md:text-lg font-semibold ${stat.color}`}>
               {stat.value}
             </div>
-            <div className="text-xs text-gray-500">{stat.label}</div>
+            <div className="text-[10px] md:text-xs text-gray-500">{stat.label}</div>
           </div>
         ))}
       </div>
     </div>
   );
 }
-
-

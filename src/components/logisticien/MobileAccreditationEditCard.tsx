@@ -305,7 +305,7 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
 
   return (
     <>
-      <div className="block sm:hidden w-full max-w-lg mx-auto bg-white rounded-2xl shadow-lg p-4 space-y-4 pb-24">
+      <div className="block sm:hidden w-full max-w-lg mx-auto bg-white rounded-2xl shadow-lg p-4 space-y-4 pb-4">
         {/* Header */}
         <header className="flex items-center gap-3 mb-2">
           <Link

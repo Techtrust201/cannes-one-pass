@@ -116,13 +116,13 @@ function LogisticienNewContent() {
       className="min-h-screen flex flex-col text-gray-900"
       style={{ background: "linear-gradient(#353c52 0 50%, #ffffff 0 100%)" }}
     >
-      <header className="py-6 px-4 flex flex-col items-center text-white gap-1">
-        <h1 className="text-2xl font-bold">Nouvelle accréditation</h1>
-        <p className="text-sm opacity-80">Espace logisticien</p>
+      <header className="py-4 sm:py-6 px-4 flex flex-col items-center text-white gap-1">
+        <h1 className="text-xl sm:text-2xl font-bold">Nouvelle accréditation</h1>
+        <p className="text-xs sm:text-sm opacity-80">Espace logisticien</p>
       </header>
 
-      <main className="flex-1 flex flex-col items-center pb-28 px-4 sm:px-6 lg:px-8 mt-4">
-        <div className="bg-white rounded-2xl shadow-lg overflow-hidden flex flex-col lg:flex-row w-11/12 lg:w-3/4 lg:max-h-[65vh]">
+      <main className="flex-1 flex flex-col items-center px-3 sm:px-6 lg:px-8 mt-2 sm:mt-4 pb-6">
+        <div className="bg-white rounded-2xl shadow-lg overflow-hidden flex flex-col lg:flex-row w-full sm:w-11/12 lg:w-3/4 lg:max-h-[65vh]">
           {/* Image */}
           <div
             className={`relative lg:w-[35%] h-80 ${
@@ -139,9 +139,9 @@ function LogisticienNewContent() {
           </div>
 
           {/* Form side */}
-          <div className="flex-1 p-8 sm:p-7 flex flex-col">
+          <div className="flex-1 p-4 sm:p-7 flex flex-col">
             {/* Progress */}
-            <div className="flex items-center mb-6 w-full max-w-md mx-auto">
+            <div className="flex items-center mb-4 sm:mb-6 w-full max-w-md mx-auto">
               {Array.from({ length: 4 }).map((_, idx) => {
                 const active = step === idx + 1;
                 const done = step > idx + 1;
@@ -151,7 +151,7 @@ function LogisticienNewContent() {
                 return (
                   <div key={idx} className="flex items-center gap-0.5 flex-1">
                     <div
-                      className={`w-10 h-10 flex items-center justify-center rounded-lg border-2 ${
+                      className={`w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-lg border-2 shrink-0 ${
                         done
                           ? "bg-[#3DAAA4] border-[#3DAAA4]"
                           : active
@@ -164,7 +164,7 @@ function LogisticienNewContent() {
                         alt={`step ${idx + 1}`}
                         width={24}
                         height={24}
-                        className="w-6 h-6"
+                        className="w-4 h-4 sm:w-6 sm:h-6"
                       />
                     </div>
                     {idx < 3 && (
@@ -215,11 +215,12 @@ function LogisticienNewContent() {
               )}
             </div>
 
-            <div className="flex justify-between mt-6 pt-4 border-t border-gray-200 shrink-0">
+            {/* Navigation buttons */}
+            <div className="flex justify-between mt-4 sm:mt-6 pt-4 border-t border-gray-200 shrink-0 gap-3">
               {step > 1 && !(step === 4 && hasSaved) ? (
                 <button
                   onClick={() => gotoStep(step - 1)}
-                  className="px-4 py-2 border rounded"
+                  className="px-5 py-3 border border-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50 active:bg-gray-100 transition min-h-[48px]"
                 >
                   Retour
                 </button>
@@ -230,7 +231,7 @@ function LogisticienNewContent() {
                 <button
                   onClick={() => gotoStep(step + 1)}
                   disabled={!stepValid}
-                  className="px-6 py-2 rounded bg-[#353c52] text-white disabled:opacity-50 hover:bg-primary-dark"
+                  className="px-6 py-3 rounded-xl bg-[#353c52] text-white text-sm font-medium disabled:opacity-50 hover:bg-[#2a3045] active:bg-[#1f2538] transition min-h-[48px]"
                 >
                   Suivant
                 </button>
@@ -238,16 +239,17 @@ function LogisticienNewContent() {
             </div>
           </div>
         </div>
-      </main>
 
-      <footer className="fixed bottom-0 left-0 w-full py-3 px-6 bg-[#353c52] flex items-center shadow-md">
-        <Link
-          href="/logisticien"
-          className="text-white text-sm hover:underline"
-        >
-          &lt; Retour dashboard
-        </Link>
-      </footer>
+        {/* Retour dashboard link - inline instead of fixed footer */}
+        <div className="mt-4 w-full sm:w-11/12 lg:w-3/4">
+          <Link
+            href="/logisticien"
+            className="inline-flex items-center text-gray-600 hover:text-gray-900 text-sm transition-colors py-2"
+          >
+            &lt; Retour dashboard
+          </Link>
+        </div>
+      </main>
     </div>
   );
 }

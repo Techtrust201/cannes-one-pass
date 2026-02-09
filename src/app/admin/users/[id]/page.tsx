@@ -320,24 +320,24 @@ export default function EditUserPage({
   return (
     <div>
       {/* Breadcrumb */}
-      <div className="mb-6">
+      <div className="mb-4 md:mb-6">
         <Link
           href="/admin/users"
-          className="text-[#3F4660] hover:underline text-sm"
+          className="text-[#3F4660] hover:underline text-sm min-h-[44px] inline-flex items-center"
         >
           ← Retour à la liste
         </Link>
       </div>
 
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">
+      <div className="flex items-center justify-between mb-4 md:mb-6 gap-3">
+        <div className="min-w-0">
+          <h2 className="text-xl md:text-2xl font-bold text-gray-900 truncate">
             {user.name}
           </h2>
-          <p className="text-gray-500 text-sm">{user.email}</p>
+          <p className="text-gray-500 text-sm truncate">{user.email}</p>
         </div>
         <span
-          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${
+          className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${
             user.isActive
               ? "bg-green-100 text-green-800"
               : "bg-red-100 text-red-800"
@@ -364,10 +364,10 @@ export default function EditUserPage({
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* Section Info utilisateur */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+          <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4">
             Informations
           </h3>
           <form onSubmit={handleSaveUser} className="space-y-4">
@@ -379,7 +379,7 @@ export default function EditUserPage({
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#3F4660] focus:border-transparent outline-none"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#3F4660] focus:border-transparent outline-none min-h-[44px]"
               />
             </div>
 
@@ -391,7 +391,7 @@ export default function EditUserPage({
                 type="email"
                 value={user.email}
                 disabled
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-500"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-500 min-h-[44px]"
               />
             </div>
 
@@ -404,7 +404,7 @@ export default function EditUserPage({
                 onChange={(e) =>
                   setRole(e.target.value as UserRole)
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#3F4660] focus:border-transparent outline-none"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#3F4660] focus:border-transparent outline-none min-h-[44px]"
               >
                 {ROLES.map((r) => (
                   <option key={r.value} value={r.value}>
@@ -418,14 +418,14 @@ export default function EditUserPage({
               <button
                 type="button"
                 onClick={() => router.push("/admin/users")}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 transition-colors"
+                className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 transition-colors min-h-[44px]"
               >
                 Annuler
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="flex-1 bg-[#3F4660] hover:bg-[#2C2F3F] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                className="flex-1 bg-[#3F4660] hover:bg-[#2C2F3F] text-white px-4 py-3 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 min-h-[44px]"
               >
                 {saving ? "Enregistrement..." : "Enregistrer"}
               </button>
@@ -434,14 +434,14 @@ export default function EditUserPage({
         </div>
 
         {/* Section Permissions */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+          <div className="flex items-center justify-between mb-4 gap-2">
+            <h3 className="text-base md:text-lg font-semibold text-gray-900">
               Permissions
             </h3>
             {user.role === "SUPER_ADMIN" && (
-              <span className="text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded-full">
-                Accès complet (Super Admin)
+              <span className="text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded-full shrink-0">
+                Accès complet
               </span>
             )}
           </div>
@@ -455,18 +455,18 @@ export default function EditUserPage({
           ) : (
             <>
               {/* Boutons tout cocher/décocher */}
-              <div className="flex gap-2 mb-4">
+              <div className="flex flex-wrap gap-2 mb-4">
                 <button
                   type="button"
                   onClick={() => toggleAll("canRead", true)}
-                  className="text-xs px-3 py-1 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors"
+                  className="text-xs px-3 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors min-h-[36px]"
                 >
                   Tout lire
                 </button>
                 <button
                   type="button"
                   onClick={() => toggleAll("canWrite", true)}
-                  className="text-xs px-3 py-1 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
+                  className="text-xs px-3 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors min-h-[36px]"
                 >
                   Tout écrire
                 </button>
@@ -476,13 +476,13 @@ export default function EditUserPage({
                     toggleAll("canRead", false);
                     toggleAll("canWrite", false);
                   }}
-                  className="text-xs px-3 py-1 bg-gray-50 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+                  className="text-xs px-3 py-2 bg-gray-50 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors min-h-[36px]"
                 >
                   Tout retirer
                 </button>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-1">
                 {FEATURES.map((f) => {
                   const perm = permissions.get(f.key) || {
                     canRead: false,
@@ -491,33 +491,33 @@ export default function EditUserPage({
                   return (
                     <div
                       key={f.key}
-                      className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50"
+                      className="flex items-center justify-between py-3 px-3 rounded-lg hover:bg-gray-50 min-h-[44px]"
                     >
                       <span className="text-sm text-gray-700 font-medium">
                         {f.label}
                       </span>
-                      <div className="flex items-center gap-3">
-                        <label className="flex items-center gap-1.5 cursor-pointer">
+                      <div className="flex items-center gap-3 shrink-0">
+                        <label className="flex items-center gap-1.5 cursor-pointer min-h-[44px]">
                           <input
                             type="checkbox"
                             checked={perm.canRead}
                             onChange={() =>
                               togglePermission(f.key, "canRead")
                             }
-                            className="rounded border-gray-300 text-[#3F4660] focus:ring-[#3F4660] w-4 h-4"
+                            className="rounded border-gray-300 text-[#3F4660] focus:ring-[#3F4660] w-5 h-5"
                           />
                           <span className="text-xs text-gray-500">
                             Lire
                           </span>
                         </label>
-                        <label className="flex items-center gap-1.5 cursor-pointer">
+                        <label className="flex items-center gap-1.5 cursor-pointer min-h-[44px]">
                           <input
                             type="checkbox"
                             checked={perm.canWrite}
                             onChange={() =>
                               togglePermission(f.key, "canWrite")
                             }
-                            className="rounded border-gray-300 text-[#3F4660] focus:ring-[#3F4660] w-4 h-4"
+                            className="rounded border-gray-300 text-[#3F4660] focus:ring-[#3F4660] w-5 h-5"
                           />
                           <span className="text-xs text-gray-500">
                             Écrire
@@ -533,7 +533,7 @@ export default function EditUserPage({
                 type="button"
                 onClick={handleSavePermissions}
                 disabled={savingPerms}
-                className="w-full mt-4 bg-[#3F4660] hover:bg-[#2C2F3F] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                className="w-full mt-4 bg-[#3F4660] hover:bg-[#2C2F3F] text-white px-4 py-3 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 min-h-[44px]"
               >
                 {savingPerms
                   ? "Enregistrement..."
@@ -545,18 +545,18 @@ export default function EditUserPage({
       </div>
 
       {/* Section Gestion du mot de passe */}
-      <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+      <div className="mt-4 md:mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+        <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4">
           Gestion du mot de passe
         </h3>
 
         {tempPassword && (
-          <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="mb-4 p-3 md:p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <p className="text-sm font-medium text-yellow-800 mb-2">
               Nouveau mot de passe généré :
             </p>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 px-3 py-2 bg-white border border-yellow-300 rounded text-sm font-mono text-gray-900">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <code className="flex-1 px-3 py-2 bg-white border border-yellow-300 rounded text-sm font-mono text-gray-900 break-all overflow-x-auto">
                 {tempPassword}
               </code>
               <button
@@ -565,14 +565,14 @@ export default function EditUserPage({
                   navigator.clipboard.writeText(tempPassword);
                   alert("Mot de passe copié dans le presse-papiers");
                 }}
-                className="px-3 py-2 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 rounded text-sm font-medium transition-colors"
+                className="shrink-0 px-3 py-2.5 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 rounded text-sm font-medium transition-colors min-h-[44px]"
               >
                 Copier
               </button>
             </div>
             <p className="text-xs text-yellow-700 mt-2">
-              ⚠️ Ce mot de passe ne sera affiché qu'une seule fois. Assurez-vous
-              de le communiquer à l'utilisateur de manière sécurisée.
+              Ce mot de passe ne sera affiché qu&apos;une seule fois. Assurez-vous
+              de le communiquer à l&apos;utilisateur de manière sécurisée.
             </p>
             <button
               type="button"
@@ -584,19 +584,19 @@ export default function EditUserPage({
           </div>
         )}
 
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
           <button
             type="button"
             onClick={handleResetPassword}
             disabled={resettingPassword}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full sm:w-auto px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
           >
             {resettingPassword ? "Réinitialisation..." : "Réinitialiser le mot de passe"}
           </button>
           <button
             type="button"
             onClick={() => setShowModifyModal(true)}
-            className="px-4 py-2 bg-[#3F4660] hover:bg-[#2C2F3F] text-white rounded-lg text-sm font-medium transition-colors"
+            className="w-full sm:w-auto px-4 py-3 bg-[#3F4660] hover:bg-[#2C2F3F] text-white rounded-lg text-sm font-medium transition-colors min-h-[44px]"
           >
             Modifier le mot de passe
           </button>
@@ -606,7 +606,7 @@ export default function EditUserPage({
       {/* Modal de modification du mot de passe */}
       {showModifyModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4">
+          <div className="bg-white rounded-2xl shadow-xl p-4 md:p-6 w-full max-w-md mx-4">
             <h3 className="text-lg font-bold text-gray-900 mb-4">
               Modifier le mot de passe
             </h3>
@@ -621,7 +621,7 @@ export default function EditUserPage({
                   required
                   minLength={8}
                   placeholder="Minimum 8 caractères"
-                  className="px-3 py-2 text-sm"
+                  className="px-3 py-2.5 text-sm"
                 />
               </div>
               <div>
@@ -634,7 +634,7 @@ export default function EditUserPage({
                   required
                   minLength={8}
                   placeholder="Répétez le mot de passe"
-                  className="px-3 py-2 text-sm"
+                  className="px-3 py-2.5 text-sm"
                 />
               </div>
               <div className="flex gap-3 pt-2">
@@ -646,14 +646,14 @@ export default function EditUserPage({
                     setConfirmPassword("");
                     setError("");
                   }}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 transition-colors min-h-[44px]"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
                   disabled={modifyingPassword}
-                  className="flex-1 bg-[#3F4660] hover:bg-[#2C2F3F] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                  className="flex-1 bg-[#3F4660] hover:bg-[#2C2F3F] text-white px-4 py-3 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 min-h-[44px]"
                 >
                   {modifyingPassword ? "Modification..." : "Modifier"}
                 </button>

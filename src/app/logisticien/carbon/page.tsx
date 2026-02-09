@@ -53,14 +53,14 @@ export default function CarbonPage() {
 
     if (error) {
       return (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 md:p-6">
           <div className="flex items-center">
             <div className="text-red-600 font-medium">Erreur</div>
           </div>
-          <p className="text-red-700 mt-2">{error}</p>
+          <p className="text-red-700 mt-2 text-sm">{error}</p>
           <button
             onClick={refetch}
-            className="mt-3 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+            className="mt-3 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
           >
             Réessayer
           </button>
@@ -70,8 +70,8 @@ export default function CarbonPage() {
 
     if (!data || data.total === 0) {
       return (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-          <p className="text-blue-800">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 md:p-6">
+          <p className="text-blue-800 text-sm">
             Aucune donnée disponible pour la période sélectionnée.
           </p>
         </div>
@@ -95,7 +95,7 @@ export default function CarbonPage() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-gray-50">
       <CarbonHeader
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -109,7 +109,7 @@ export default function CarbonPage() {
       <CarbonStats data={data} loading={loading} />
       <CarbonTabs activeTab={activeTab} onTabChange={setActiveTab} />
       <div className="flex-1 overflow-y-auto">
-        <div className="p-6" data-export-content>
+        <div className="p-3 md:p-6" data-export-content>
           {renderActiveTab()}
         </div>
       </div>

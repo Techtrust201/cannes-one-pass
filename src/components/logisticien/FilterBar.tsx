@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Search, Filter, Calendar, X } from "lucide-react";
+import { Search, Filter, Calendar, X, SlidersHorizontal } from "lucide-react";
 import { useRef, useEffect, useState } from "react";
 
 export interface FilterBarProps {
@@ -13,9 +13,13 @@ export interface FilterBarProps {
 export function FilterBar({ searchParams, statusOptions, zoneOptions }: FilterBarProps) {
   const { q = "", status = "", from = "", to = "", zone = "" } = searchParams;
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
 
-  // Fermer le popover sur clic extérieur
+  // Compter les filtres actifs
+  const activeFiltersCount = [status, zone, from, to, q].filter(Boolean).length;
+
+  // Fermer le popover desktop sur clic extérieur
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
@@ -37,119 +41,167 @@ export function FilterBar({ searchParams, statusOptions, zoneOptions }: FilterBa
 
   return (
     <>
-      {/* Mobile/tablette : card grise, labels, boutons larges */}
-      <div className="block sm:hidden w-full pb-10">
-        <div className="bg-gray-50 rounded-2xl shadow p-4 mb-4 border border-gray-100">
-          <form method="get" className="flex flex-col gap-4 w-full">
-            <div className="flex flex-col gap-1">
-              <label
-                htmlFor="q"
-                className="text-xs font-semibold text-gray-700"
-              >
-                Recherche
-              </label>
-              <input
-                id="q"
-                type="text"
-                name="q"
-                defaultValue={q as string}
-                placeholder="ID, plaque, statut, date..."
-                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-white"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label
-                htmlFor="status"
-                className="text-xs font-semibold text-gray-700"
-              >
-                Statut
-              </label>
-              <select
-                id="status"
-                name="status"
-                defaultValue={status as string}
-                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-white"
-              >
-                {statusOptions.map((opt) => (
-                  <option key={opt.value || "all"} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {zoneOptions && (
-              <div className="flex flex-col gap-1">
-                <label
-                  htmlFor="zone"
-                  className="text-xs font-semibold text-gray-700"
-                >
-                  Zone
-                </label>
-                <select
-                  id="zone"
-                  name="zone"
-                  defaultValue={zone as string}
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-white"
-                >
-                  {zoneOptions.map((opt) => (
-                    <option key={opt.value || "all"} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+      {/* ===== MOBILE/TABLETTE : Bouton compact + drawer ===== */}
+      <div className="block md:hidden w-full">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsMobileFilterOpen(true)}
+            className="flex items-center gap-2 px-4 py-3 bg-[#4F587E] text-white font-semibold rounded-xl hover:bg-[#3B4252] active:bg-[#2d3347] transition shadow-md text-sm min-h-[44px]"
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            Filtres
+            {activeFiltersCount > 0 && (
+              <span className="inline-flex items-center justify-center w-5 h-5 bg-white text-[#4F587E] rounded-full text-xs font-bold">
+                {activeFiltersCount}
+              </span>
             )}
-            <div className="flex gap-2">
-              <div className="flex flex-col gap-1 w-1/2">
-                <label
-                  htmlFor="from"
-                  className="text-xs font-semibold text-gray-700"
-                >
-                  Début
-                </label>
-                <input
-                  id="from"
-                  type="date"
-                  name="from"
-                  defaultValue={from as string}
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-white"
-                />
-              </div>
-              <div className="flex flex-col gap-1 w-1/2">
-                <label
-                  htmlFor="to"
-                  className="text-xs font-semibold text-gray-700"
-                >
-                  Fin
-                </label>
-                <input
-                  id="to"
-                  type="date"
-                  name="to"
-                  defaultValue={to as string}
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-white"
-                />
-              </div>
-            </div>
-            <button
-              type="submit"
-              className="w-full px-4 py-2 rounded-xl bg-[#4F587E] text-white font-bold shadow hover:bg-[#3B4252] transition-colors text-base"
-            >
-              Filtrer
-            </button>
+          </button>
+          {activeFiltersCount > 0 && (
             <Link
               href="/logisticien"
-              className="w-full px-4 py-2 rounded-xl border border-gray-300 text-gray-700 bg-white hover:bg-gray-100 transition-colors text-center text-base font-semibold"
+              className="px-3 py-3 rounded-xl border border-gray-300 text-gray-600 bg-white hover:bg-gray-50 active:bg-gray-100 text-xs font-medium transition min-h-[44px] flex items-center"
             >
-              Réinitialiser
+              <X className="w-4 h-4" />
             </Link>
-          </form>
+          )}
         </div>
-        {/* SUPPRESSION du bouton Nouvelle demande mobile */}
+
+        {/* Drawer slide-up mobile */}
+        {isMobileFilterOpen && (
+          <>
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 bg-black/40 z-[70]"
+              onClick={() => setIsMobileFilterOpen(false)}
+            />
+            {/* Drawer */}
+            <div className="fixed inset-x-0 bottom-0 z-[80] bg-white rounded-t-2xl shadow-2xl max-h-[85vh] overflow-y-auto animate-slide-up pb-[env(safe-area-inset-bottom)]">
+              <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between rounded-t-2xl">
+                <div className="flex items-center gap-2">
+                  <Filter className="w-5 h-5 text-[#4F587E]" />
+                  <h2 className="text-base font-bold text-gray-900">Filtres</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsMobileFilterOpen(false)}
+                  className="p-2 rounded-lg hover:bg-gray-100 active:bg-gray-200 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                  aria-label="Fermer les filtres"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form method="get" className="p-4 flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="q-mobile" className="text-xs font-semibold text-gray-700">
+                    Recherche
+                  </label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      id="q-mobile"
+                      type="text"
+                      name="q"
+                      defaultValue={q as string}
+                      placeholder="ID, plaque, statut, date..."
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm bg-gray-50 focus:bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="status-mobile" className="text-xs font-semibold text-gray-700">
+                      Statut
+                    </label>
+                    <select
+                      id="status-mobile"
+                      name="status"
+                      defaultValue={status as string}
+                      className="w-full px-3 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm bg-gray-50 focus:bg-white"
+                    >
+                      {statusOptions.map((opt) => (
+                        <option key={opt.value || "all"} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {zoneOptions && (
+                    <div className="flex flex-col gap-1.5">
+                      <label htmlFor="zone-mobile" className="text-xs font-semibold text-gray-700">
+                        Zone
+                      </label>
+                      <select
+                        id="zone-mobile"
+                        name="zone"
+                        defaultValue={zone as string}
+                        className="w-full px-3 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm bg-gray-50 focus:bg-white"
+                      >
+                        {zoneOptions.map((opt) => (
+                          <option key={opt.value || "all"} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="from-mobile" className="text-xs font-semibold text-gray-700">
+                      Début
+                    </label>
+                    <input
+                      id="from-mobile"
+                      type="date"
+                      name="from"
+                      defaultValue={from as string}
+                      className="w-full px-3 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm bg-gray-50 focus:bg-white"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="to-mobile" className="text-xs font-semibold text-gray-700">
+                      Fin
+                    </label>
+                    <input
+                      id="to-mobile"
+                      type="date"
+                      name="to"
+                      defaultValue={to as string}
+                      className="w-full px-3 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm bg-gray-50 focus:bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <Link
+                    href="/logisticien"
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 active:bg-gray-100 text-sm font-semibold transition min-h-[48px]"
+                    onClick={() => setIsMobileFilterOpen(false)}
+                  >
+                    <X className="w-4 h-4" />
+                    Réinitialiser
+                  </Link>
+                  <button
+                    type="submit"
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[#4F587E] text-white font-bold shadow hover:bg-[#3B4252] active:bg-[#2d3347] text-sm transition min-h-[48px]"
+                    onClick={() => setIsMobileFilterOpen(false)}
+                  >
+                    <Filter className="w-4 h-4" />
+                    Appliquer
+                  </button>
+                </div>
+              </form>
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Desktop : bouton + popover flottant amélioré */}
-      <div className="hidden sm:block w-full mb-4 relative">
+      {/* ===== DESKTOP : bouton + popover flottant ===== */}
+      <div className="hidden md:block w-full mb-4 relative">
         <div className="flex justify-end mb-2">
           <button
             type="button"
@@ -158,6 +210,11 @@ export function FilterBar({ searchParams, statusOptions, zoneOptions }: FilterBa
           >
             <Filter className="w-4 h-4 text-blue-200" />
             Filtrer
+            {activeFiltersCount > 0 && (
+              <span className="inline-flex items-center justify-center w-5 h-5 bg-white text-[#4F587E] rounded-full text-xs font-bold">
+                {activeFiltersCount}
+              </span>
+            )}
           </button>
         </div>
         {isFilterOpen && (

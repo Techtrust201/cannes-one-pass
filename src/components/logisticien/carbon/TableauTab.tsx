@@ -68,7 +68,7 @@ function AggregatedSection({ title, data, defaultOpen = true }: SectionProps) {
     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between text-sm font-medium text-gray-900 hover:bg-gray-100"
+        className="w-full px-3 md:px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between text-sm font-medium text-gray-900 hover:bg-gray-100 min-h-[44px]"
       >
         <span>{title}</span>
         {isOpen ? (
@@ -83,71 +83,74 @@ function AggregatedSection({ title, data, defaultOpen = true }: SectionProps) {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="px-4 py-3 text-left font-medium text-gray-900">
+                <th className="px-2 py-2 md:px-4 md:py-3 text-left font-medium text-gray-900">
                   <button
                     className="flex items-center gap-1 hover:text-gray-700"
                     onClick={() => handleSort("category")}
                   >
-                    {title}
+                    <span className="truncate max-w-[100px] md:max-w-none">{title}</span>
                     {sortBy === "category" ? (
                       sortOrder === "asc" ? (
-                        <ChevronUp className="w-3 h-3" />
+                        <ChevronUp className="w-3 h-3 shrink-0" />
                       ) : (
-                        <ChevronDown className="w-3 h-3" />
+                        <ChevronDown className="w-3 h-3 shrink-0" />
                       )
                     ) : (
-                      <ArrowUpDown className="w-3 h-3" />
+                      <ArrowUpDown className="w-3 h-3 shrink-0" />
                     )}
                   </button>
                 </th>
-                <th className="px-4 py-3 text-right font-medium text-gray-900">
+                <th className="px-2 py-2 md:px-4 md:py-3 text-right font-medium text-gray-900">
                   <button
                     className="flex items-center gap-1 hover:text-gray-700 ml-auto"
                     onClick={() => handleSort("nbVehicules")}
                   >
-                    NB véhicules
+                    <span className="hidden sm:inline">NB véhicules</span>
+                    <span className="sm:hidden">Véh.</span>
                     {sortBy === "nbVehicules" ? (
                       sortOrder === "asc" ? (
-                        <ChevronUp className="w-3 h-3" />
+                        <ChevronUp className="w-3 h-3 shrink-0" />
                       ) : (
-                        <ChevronDown className="w-3 h-3" />
+                        <ChevronDown className="w-3 h-3 shrink-0" />
                       )
                     ) : (
-                      <ArrowUpDown className="w-3 h-3" />
+                      <ArrowUpDown className="w-3 h-3 shrink-0" />
                     )}
                   </button>
                 </th>
-                <th className="px-4 py-3 text-right font-medium text-gray-900">
+                <th className="px-2 py-2 md:px-4 md:py-3 text-right font-medium text-gray-900">
                   <button
                     className="flex items-center gap-1 hover:text-gray-700 ml-auto"
                     onClick={() => handleSort("distanceKm")}
                   >
-                    Distance Km
+                    <span className="hidden sm:inline">Distance Km</span>
+                    <span className="sm:hidden">Km</span>
                     {sortBy === "distanceKm" ? (
                       sortOrder === "asc" ? (
-                        <ChevronUp className="w-3 h-3" />
+                        <ChevronUp className="w-3 h-3 shrink-0" />
                       ) : (
-                        <ChevronDown className="w-3 h-3" />
+                        <ChevronDown className="w-3 h-3 shrink-0" />
                       )
                     ) : (
-                      <ArrowUpDown className="w-3 h-3" />
+                      <ArrowUpDown className="w-3 h-3 shrink-0" />
                     )}
                   </button>
                 </th>
-                <th className="px-4 py-3 text-right font-medium text-gray-900">
+                <th className="px-2 py-2 md:px-4 md:py-3 text-right font-medium text-gray-900">
                   <button
                     className="flex items-center gap-1 hover:text-gray-700 ml-auto"
                     onClick={() => handleSort("emissionsKgCO2eq")}
                   >
-                    Emissions (kgCO2eq)
+                    <span className="hidden sm:inline">Emissions (kgCO2eq)</span>
+                    <span className="sm:hidden">CO₂</span>
                     {sortBy === "emissionsKgCO2eq" ? (
                       sortOrder === "asc" ? (
-                        <ChevronUp className="w-3 h-3" />
+                        <ChevronUp className="w-3 h-3 shrink-0" />
                       ) : (
-                        <ChevronDown className="w-3 h-3" />
+                        <ChevronDown className="w-3 h-3 shrink-0" />
                       )
                     ) : (
-                      <ArrowUpDown className="w-3 h-3" />
+                      <ArrowUpDown className="w-3 h-3 shrink-0" />
                     )}
                   </button>
                 </th>
@@ -163,14 +166,14 @@ function AggregatedSection({ title, data, defaultOpen = true }: SectionProps) {
                     ${item.category === "TOTAL" ? "font-semibold bg-gray-100" : ""}
                   `}
                 >
-                  <td className="px-4 py-3 text-gray-900">{item.category}</td>
-                  <td className="px-4 py-3 text-right text-gray-900 font-mono">
+                  <td className="px-2 py-2 md:px-4 md:py-3 text-gray-900 truncate max-w-[120px] md:max-w-none">{item.category}</td>
+                  <td className="px-2 py-2 md:px-4 md:py-3 text-right text-gray-900 font-mono">
                     {formatNumber(item.nbVehicules)}
                   </td>
-                  <td className="px-4 py-3 text-right text-gray-900 font-mono">
+                  <td className="px-2 py-2 md:px-4 md:py-3 text-right text-gray-900 font-mono">
                     {formatNumber(item.distanceKm)}
                   </td>
-                  <td className="px-4 py-3 text-right text-gray-900 font-mono">
+                  <td className="px-2 py-2 md:px-4 md:py-3 text-right text-gray-900 font-mono">
                     {formatNumber(item.emissionsKgCO2eq)}
                   </td>
                 </tr>
@@ -185,7 +188,7 @@ function AggregatedSection({ title, data, defaultOpen = true }: SectionProps) {
 
 export default function TableauTab({ data }: TableauTabProps) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <FilterInstructions />
       <AggregatedSection title="Pays" data={data.aggregations.pays} />
       <AggregatedSection title="Événement" data={data.aggregations.evenement} />

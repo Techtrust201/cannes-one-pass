@@ -166,10 +166,18 @@ export default function AccreditationTable({
   return (
     <>
       {/* ===== MOBILE ===== */}
-      <MobileAccreditationList pageData={pageData} onDelete={handleDelete} />
+      <MobileAccreditationList
+        pageData={pageData}
+        onDelete={handleDelete}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        filteredCount={filteredCount}
+        perPage={perPage}
+        searchParams={searchParams}
+      />
 
       {/* ===== DESKTOP ===== */}
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-lg flex-col h-[85vh] hidden sm:flex overflow-hidden">
+      <div className="bg-white border border-gray-200 rounded-2xl shadow-lg flex-col h-[85vh] hidden md:flex overflow-hidden">
         {/* Header */}
         <div className="bg-[#4F587E] text-white rounded-t-2xl px-5 py-4 flex items-center gap-3">
           <div className="p-1.5 bg-white/20 rounded-lg">

@@ -58,7 +58,7 @@ function DonutChart({ title, data, metric, colors }: DonutChartProps) {
       </h3>
 
       {/* Donut Chart */}
-      <div className="h-64 mb-4">
+      <div className="h-48 md:h-64 mb-4">
         <SafeResponsivePie
           data={chartData}
           margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
@@ -130,9 +130,9 @@ function CamembertSection({
   colors?: { [key: string]: string };
 }) {
   return (
-    <div className="mb-8">
-      <h2 className="text-lg font-semibold text-gray-900 mb-4">{title}</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+    <div className="mb-4 md:mb-8">
+      <h2 className="text-base md:text-lg font-semibold text-gray-900 mb-3 md:mb-4">{title}</h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-6">
         <DonutChart
           title="NB véhicules"
           data={data}
@@ -158,7 +158,7 @@ function CamembertSection({
 
 export default function CamembertTab({ data }: CamembertTabProps) {
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 md:space-y-8">
       <CamembertSection title="Pays" data={data.aggregations.pays} />
       <CamembertSection title="Événement" data={data.aggregations.evenement} />
       <CamembertSection

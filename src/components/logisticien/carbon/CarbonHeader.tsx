@@ -54,10 +54,10 @@ export default function CarbonHeader({
     }
   };
   return (
-    <div className="bg-white border-b border-gray-200 px-6 py-4">
-      <div className="flex items-center justify-between gap-4">
-        {/* Recherche améliorée à gauche */}
-        <div className="relative flex-shrink-0">
+    <div className="bg-white border-b border-gray-200 px-3 md:px-6 py-3 md:py-4">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4">
+        {/* Recherche - pleine largeur en mobile */}
+        <div className="relative w-full md:flex-shrink-0 md:w-auto">
           <Search
             className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 transition-colors ${
               isSearching ? "text-blue-500 animate-pulse" : "text-gray-400"
@@ -65,10 +65,10 @@ export default function CarbonHeader({
           />
           <input
             type="text"
-            placeholder="Rechercher entreprise, événement, plaque, stand..."
+            placeholder="Rechercher entreprise, événement, plaque..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className={`pl-10 pr-12 py-2.5 border-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-80 bg-gray-50 focus:bg-white transition-all ${
+            className={`pl-10 pr-12 py-2.5 border-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full md:w-80 bg-gray-50 focus:bg-white transition-all ${
               isSearching ? "border-blue-300" : "border-gray-300"
             }`}
           />
@@ -87,16 +87,16 @@ export default function CarbonHeader({
             </div>
           )}
           {searchQuery && !isSearching && (
-            <div className="absolute top-full left-0 mt-1 text-xs text-gray-500 bg-white px-2 py-1 rounded shadow-sm border">
+            <div className="absolute top-full left-0 mt-1 text-xs text-gray-500 bg-white px-2 py-1 rounded shadow-sm border z-10">
               🔍 Recherche active: &quot;{searchQuery}&quot;
             </div>
           )}
         </div>
 
-        {/* Dates au centre */}
-        <div className="flex items-center gap-4 flex-shrink-0">
+        {/* Dates - stack vertical sur mobile */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 flex-shrink-0">
           <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-gray-400" />
+            <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
             <input
               type="text"
               placeholder="jj / mm / aaaa"
@@ -104,7 +104,7 @@ export default function CarbonHeader({
               onChange={(e) =>
                 onDateRangeChange({ ...dateRange, start: e.target.value })
               }
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-32 text-center"
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-28 sm:w-32 text-center"
             />
             <span className="text-gray-500">–</span>
             <input
@@ -114,29 +114,29 @@ export default function CarbonHeader({
               onChange={(e) =>
                 onDateRangeChange({ ...dateRange, end: e.target.value })
               }
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-32 text-center"
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-28 sm:w-32 text-center"
             />
           </div>
 
-          {/* Raccourcis de dates */}
-          <div className="flex gap-1">
+          {/* Raccourcis de dates - grille 3 colonnes sur mobile */}
+          <div className="grid grid-cols-3 gap-1 sm:flex sm:gap-1">
             <button
               onClick={() => setPresetDateRange("thisYear")}
-              className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded text-gray-700"
+              className="px-2 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded text-gray-700 min-h-[36px] sm:min-h-0 sm:py-1"
               title="Cette année"
             >
               2024
             </button>
             <button
               onClick={() => setPresetDateRange("lastYear")}
-              className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded text-gray-700"
+              className="px-2 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded text-gray-700 min-h-[36px] sm:min-h-0 sm:py-1"
               title="Année dernière"
             >
               2023
             </button>
             <button
               onClick={() => setPresetDateRange("last12Months")}
-              className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded text-gray-700"
+              className="px-2 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded text-gray-700 min-h-[36px] sm:min-h-0 sm:py-1"
               title="12 derniers mois"
             >
               12M
@@ -144,13 +144,13 @@ export default function CarbonHeader({
           </div>
         </div>
 
-        {/* Actions à droite */}
+        {/* Actions - alignées à droite */}
         <div className="flex items-center gap-2 flex-shrink-0">
           {onRefresh && (
             <button
               onClick={onRefresh}
               disabled={loading}
-              className="flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-md text-sm hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50"
+              className="flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-md text-sm hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 min-h-[40px]"
               title="Actualiser les données"
             >
               <RefreshCw
@@ -161,10 +161,10 @@ export default function CarbonHeader({
           <button
             onClick={onExport}
             disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 min-h-[40px]"
           >
             <Download className="w-4 h-4" />
-            Exporter
+            <span className="hidden sm:inline">Exporter</span>
           </button>
         </div>
       </div>

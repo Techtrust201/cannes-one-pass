@@ -1,12 +1,18 @@
 import Link from "next/link";
-import { Pencil, Trash2, LogIn, LogOut, Clock, MapPin, Briefcase } from "lucide-react";
+import { Pencil, Trash2, LogIn, LogOut, Clock, MapPin, Briefcase, ChevronLeft, ChevronRight } from "lucide-react";
 import StatusPill from "./StatusPill";
 import type { Accreditation, Zone } from "@/types";
 import { getZoneLabel, ZONE_COLORS } from "@/lib/zone-utils";
+import { buildLink } from "@/lib/url";
 
 interface MobileAccreditationListProps {
   pageData: Accreditation[];
   onDelete: (id: string) => void;
+  currentPage: number;
+  totalPages: number;
+  filteredCount: number;
+  perPage: number;
+  searchParams: Record<string, string>;
 }
 
 function fmtDuration(entryAt: Date | string | null | undefined, exitAt: Date | string | null | undefined) {
@@ -22,9 +28,23 @@ function fmtDuration(entryAt: Date | string | null | undefined, exitAt: Date | s
 export default function MobileAccreditationList({
   pageData,
   onDelete,
+  currentPage,
+  totalPages,
+  filteredCount,
+  perPage,
+  searchParams,
 }: MobileAccreditationListProps) {
   return (
-    <div className="block sm:hidden w-full space-y-3 overflow-x-hidden pb-20">
+    <div className="block md:hidden w-full space-y-3 overflow-x-hidden">
+      {/* Compteur de résultats */}
+      <div className="flex items-center justify-between px-1">
+        <p className="text-xs text-gray-500 font-medium">
+          {filteredCount === 0
+            ? "Aucun résultat"
+            : `${Math.min((currentPage - 1) * perPage + 1, filteredCount)}–${Math.min(currentPage * perPage, filteredCount)} sur ${filteredCount}`}
+        </p>
+      </div>
+
       {pageData.length === 0 && (
         <div className="text-center py-12 text-gray-400 text-sm">
           Aucune accréditation trouvée
@@ -127,13 +147,13 @@ export default function MobileAccreditationList({
             <div className="flex gap-2 pt-1 border-t border-gray-100">
               <Link
                 href={`/logisticien/${acc.id}`}
-                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-[#4F587E] text-white font-semibold text-xs shadow-sm hover:bg-[#3B4252] transition"
+                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-[#4F587E] text-white font-semibold text-xs shadow-sm hover:bg-[#3B4252] active:bg-[#2d3347] transition min-h-[44px]"
               >
                 <Pencil size={13} />
                 Éditer
               </Link>
               <button
-                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-red-50 text-red-600 font-semibold text-xs border border-red-200 hover:bg-red-100 transition"
+                className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-red-50 text-red-600 font-semibold text-xs border border-red-200 hover:bg-red-100 active:bg-red-200 transition min-h-[44px] min-w-[44px]"
                 onClick={() => onDelete(acc.id)}
               >
                 <Trash2 size={13} />
@@ -142,6 +162,39 @@ export default function MobileAccreditationList({
           </div>
         );
       })}
+
+      {/* Pagination mobile */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-3 pb-2">
+          {currentPage > 1 ? (
+            <Link
+              href={buildLink(searchParams, currentPage - 1)}
+              className="flex items-center gap-1 px-4 py-2.5 rounded-lg bg-white border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50 active:bg-gray-100 transition min-h-[44px] shadow-sm"
+            >
+              <ChevronLeft size={16} />
+              Préc.
+            </Link>
+          ) : (
+            <div />
+          )}
+
+          <span className="text-xs text-gray-500 font-medium">
+            Page {currentPage}/{totalPages}
+          </span>
+
+          {currentPage < totalPages ? (
+            <Link
+              href={buildLink(searchParams, currentPage + 1)}
+              className="flex items-center gap-1 px-4 py-2.5 rounded-lg bg-white border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50 active:bg-gray-100 transition min-h-[44px] shadow-sm"
+            >
+              Suiv.
+              <ChevronRight size={16} />
+            </Link>
+          ) : (
+            <div />
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -157,9 +157,10 @@ export default function AdminUsersPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      {/* Header: stacks vertically on mobile */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 md:mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">
+          <h2 className="text-xl md:text-2xl font-bold text-gray-900">
             Gestion des utilisateurs
           </h2>
           <p className="text-gray-500 text-sm mt-1">
@@ -169,7 +170,7 @@ export default function AdminUsersPage() {
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
-          className="bg-[#3F4660] hover:bg-[#2C2F3F] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          className="w-full sm:w-auto bg-[#3F4660] hover:bg-[#2C2F3F] text-white px-4 py-3 rounded-lg text-sm font-medium transition-colors min-h-[44px]"
         >
           + Nouvel utilisateur
         </button>
@@ -181,19 +182,100 @@ export default function AdminUsersPage() {
         </div>
       )}
 
-      {/* Barre de recherche */}
+      {/* Barre de recherche - full width on mobile */}
       <div className="mb-4">
         <input
           type="text"
           placeholder="Rechercher par nom ou email..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full max-w-md px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#3F4660] focus:border-transparent outline-none"
+          className="w-full md:max-w-md px-4 py-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#3F4660] focus:border-transparent outline-none min-h-[44px]"
         />
       </div>
 
-      {/* Tableau des utilisateurs */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      {/* Mobile card view */}
+      <div className="md:hidden space-y-3">
+        {filteredUsers.map((user) => (
+          <div
+            key={user.id}
+            className="bg-white rounded-xl shadow-sm border border-gray-200 p-4"
+          >
+            {/* Row 1: Name + Status */}
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-gray-900 truncate">
+                  {user.name}
+                </p>
+                <p className="text-gray-500 text-xs truncate">
+                  {user.email}
+                </p>
+              </div>
+              <button
+                onClick={() =>
+                  handleToggleActive(user.id, user.isActive)
+                }
+                className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors min-h-[32px] ${
+                  user.isActive
+                    ? "bg-green-100 text-green-800 hover:bg-green-200"
+                    : "bg-red-100 text-red-800 hover:bg-red-200"
+                }`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    user.isActive ? "bg-green-500" : "bg-red-500"
+                  }`}
+                />
+                {user.isActive ? "Actif" : "Inactif"}
+              </button>
+            </div>
+
+            {/* Row 2: Role + Permissions */}
+            <div className="flex items-center gap-2 mb-3">
+              <span
+                className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${ROLE_COLORS[user.role]}`}
+              >
+                {ROLE_LABELS[user.role]}
+              </span>
+              {user.role === "SUPER_ADMIN" ? (
+                <span className="text-xs text-gray-500">
+                  Accès complet
+                </span>
+              ) : (
+                <span className="text-xs text-gray-500">
+                  {user.permissions.filter((p) => p.canRead).length} / 8
+                  rubriques
+                </span>
+              )}
+            </div>
+
+            {/* Row 3: Actions */}
+            <div className="flex items-center gap-3 pt-2 border-t border-gray-100">
+              <Link
+                href={`/admin/users/${user.id}`}
+                className="flex-1 text-center text-[#3F4660] hover:text-[#2C2F3F] text-sm font-medium py-2 min-h-[44px] flex items-center justify-center rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Modifier
+              </Link>
+              {user.role !== "SUPER_ADMIN" && (
+                <button
+                  onClick={() => handleDelete(user.id, user.name)}
+                  className="flex-1 text-center text-red-600 hover:text-red-800 text-sm font-medium py-2 min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-50 transition-colors"
+                >
+                  Désactiver
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+        {filteredUsers.length === 0 && (
+          <div className="py-8 text-center text-gray-500 text-sm">
+            Aucun utilisateur trouvé
+          </div>
+        )}
+      </div>
+
+      {/* Desktop table view */}
+      <div className="hidden md:block bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -307,7 +389,7 @@ export default function AdminUsersPage() {
       {/* Modal de création */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4">
+          <div className="bg-white rounded-2xl shadow-xl p-4 md:p-6 w-full max-w-md mx-4">
             <h3 className="text-lg font-bold text-gray-900 mb-4">
               Nouvel utilisateur
             </h3>
@@ -323,7 +405,7 @@ export default function AdminUsersPage() {
                     setNewUser({ ...newUser, name: e.target.value })
                   }
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#3F4660] focus:border-transparent outline-none"
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#3F4660] focus:border-transparent outline-none min-h-[44px]"
                 />
               </div>
               <div>
@@ -337,7 +419,7 @@ export default function AdminUsersPage() {
                     setNewUser({ ...newUser, email: e.target.value })
                   }
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#3F4660] focus:border-transparent outline-none"
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#3F4660] focus:border-transparent outline-none min-h-[44px]"
                 />
               </div>
               <div>
@@ -353,7 +435,7 @@ export default function AdminUsersPage() {
                     })
                   }
                   required
-                  className="px-3 py-2 text-sm"
+                  className="px-3 py-2.5 text-sm"
                 />
               </div>
               <div>
@@ -368,7 +450,7 @@ export default function AdminUsersPage() {
                       role: e.target.value as UserRole,
                     })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#3F4660] focus:border-transparent outline-none"
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#3F4660] focus:border-transparent outline-none min-h-[44px]"
                 >
                   <option value="USER">Utilisateur</option>
                   <option value="ADMIN">Admin</option>
@@ -379,14 +461,14 @@ export default function AdminUsersPage() {
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 transition-colors min-h-[44px]"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
                   disabled={creating}
-                  className="flex-1 bg-[#3F4660] hover:bg-[#2C2F3F] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                  className="flex-1 bg-[#3F4660] hover:bg-[#2C2F3F] text-white px-4 py-3 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 min-h-[44px]"
                 >
                   {creating ? "Création..." : "Créer"}
                 </button>

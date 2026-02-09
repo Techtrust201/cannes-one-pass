@@ -182,8 +182,8 @@ export default function StepFourLog({
   }
 
   return (
-    <div className="flex flex-col items-center py-8">
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-lg px-6 py-8 w-full max-w-xl text-left space-y-6">
+    <div className="flex flex-col items-center py-4 md:py-8">
+      <div className="bg-white border border-gray-200 rounded-2xl shadow-lg px-4 py-6 md:px-6 md:py-8 w-full max-w-xl text-left space-y-6">
         {/* Header avec icône de succès ou info */}
         <div className="flex items-center gap-3 mb-2">
           {hasSaved ? (
@@ -318,11 +318,11 @@ export default function StepFourLog({
       {/* Modal de confirmation pour Enregistrer */}
       {showSaveModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 border border-gray-200">
-            <h2 className="text-lg font-bold mb-4 text-gray-900 text-center">
+          <div className="bg-white rounded-2xl shadow-2xl p-4 md:p-8 max-w-md w-full mx-4 border border-gray-200">
+            <h2 className="text-lg font-bold mb-3 md:mb-4 text-gray-900 text-center">
               Confirmer l&apos;enregistrement
             </h2>
-            <p className="mb-6 text-gray-700 leading-relaxed text-center">
+            <p className="mb-4 md:mb-6 text-gray-700 leading-relaxed text-center text-sm md:text-base">
               Cette accréditation sera automatiquement approuvée et mise en
               statut <b>Attente</b>.<br />
               <span className="font-semibold text-green-600">
@@ -333,7 +333,7 @@ export default function StepFourLog({
               <br />
               Confirmez-vous l&apos;enregistrement ?
             </p>
-            <div className="flex flex-col sm:flex-row justify-center gap-6 mt-8">
+            <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-6 mt-4 md:mt-8">
               <button
                 onClick={() => setShowSaveModal(false)}
                 className="w-full sm:w-auto px-6 py-3 rounded-xl border border-gray-400 bg-gray-200 text-gray-800 font-semibold hover:bg-gray-300 transition shadow"
@@ -359,11 +359,11 @@ export default function StepFourLog({
       {/* Modal de confirmation pour Envoyer */}
       {showSendModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 border border-gray-200">
-            <h2 className="text-lg font-bold mb-4 text-gray-900 text-center">
+          <div className="bg-white rounded-2xl shadow-2xl p-4 md:p-8 max-w-md w-full mx-4 border border-gray-200">
+            <h2 className="text-lg font-bold mb-3 md:mb-4 text-gray-900 text-center">
               Confirmer l&apos;envoi
             </h2>
-            <p className="mb-6 text-gray-700 leading-relaxed text-center">
+            <p className="mb-4 md:mb-6 text-gray-700 leading-relaxed text-center text-sm md:text-base">
               Cette accréditation sera créée avec le statut <b>Nouveau</b> et
               nécessitera une validation manuelle.
               <br />
@@ -376,7 +376,7 @@ export default function StepFourLog({
               <br />
               Confirmez-vous l&apos;envoi ?
             </p>
-            <div className="flex flex-col sm:flex-row justify-center gap-6 mt-8">
+            <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-6 mt-4 md:mt-8">
               <button
                 onClick={() => setShowSendModal(false)}
                 className="w-full sm:w-auto px-6 py-3 rounded-xl border border-gray-400 bg-gray-200 text-gray-800 font-semibold hover:bg-gray-300 transition shadow"

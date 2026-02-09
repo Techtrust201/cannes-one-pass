@@ -21,6 +21,15 @@ export async function GET() {
   );
   results["2b_matching_env_keys"] = envKeys.length > 0 ? envKeys.join(", ") : "NONE";
   results["2c_total_env_keys"] = String(Object.keys(process.env).length);
+  results["2d_VERCEL_PROJECT"] = process.env.VERCEL_PROJECT_NAME || "?";
+  results["2e_VERCEL_URL"] = process.env.VERCEL_URL || "?";
+  results["2f_VERCEL_ENV"] = process.env.VERCEL_ENV || "?";
+  results["2g_RESEND_API_KEY"] = process.env.RESEND_API_KEY ? "SET" : "NOT SET";
+  // Lister TOUTES les clés d'env custom (non-NODE, non-PATH, non-__)
+  const allCustomKeys = Object.keys(process.env).filter(
+    (k) => !k.startsWith("_") && !k.startsWith("NODE") && !k.startsWith("PATH") && !k.startsWith("HOME") && !k.startsWith("LANG") && !k.startsWith("npm")
+  );
+  results["2h_all_custom_keys"] = allCustomKeys.join(", ");
 
   // Test 3: Import dynamique de pg
   try {

@@ -3,6 +3,13 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "./prisma";
 
 export const auth = betterAuth({
+  // Fallback hardcodé car les env vars manuelles Vercel ne sont pas injectées
+  secret:
+    process.env.BETTER_AUTH_SECRET ||
+    "Q8EHTzJ37/CKCyMeol4GuKLfZ/LQfq4HXuFSA2qw6SM=",
+  baseURL:
+    process.env.BETTER_AUTH_URL ||
+    "https://cannes-one-pass-r2.vercel.app",
   database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),

@@ -1,12 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Forcer l'injection des env vars au build time (contournement Vercel)
-  env: {
-    BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
-    BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
-    RESEND_API_KEY: process.env.RESEND_API_KEY,
-  },
   serverExternalPackages: [
     "pg",
     "pg-pool",

@@ -15,6 +15,13 @@ export async function GET() {
     : "NOT SET";
   results["2_BETTER_AUTH_URL"] = process.env.BETTER_AUTH_URL || "NOT SET";
 
+  // Test 2b: Lister TOUTES les clés d'env qui contiennent "BETTER" ou "AUTH"
+  const envKeys = Object.keys(process.env).filter(
+    (k) => k.includes("BETTER") || k.includes("AUTH") || k.includes("DATABASE") || k.includes("VERCEL")
+  );
+  results["2b_matching_env_keys"] = envKeys.length > 0 ? envKeys.join(", ") : "NONE";
+  results["2c_total_env_keys"] = String(Object.keys(process.env).length);
+
   // Test 3: Import dynamique de pg
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports

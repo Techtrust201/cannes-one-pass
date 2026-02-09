@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { use } from "react";
 import type { Feature, UserRole } from "@prisma/client";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 
 interface UserPermission {
   feature: Feature;
@@ -49,8 +50,14 @@ export default function EditUserPage({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingPerms, setSavingPerms] = useState(false);
+  const [resettingPassword, setResettingPassword] = useState(false);
+  const [modifyingPassword, setModifyingPassword] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [tempPassword, setTempPassword] = useState<string | null>(null);
+  const [showModifyModal, setShowModifyModal] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   // Formulaire
   const [name, setName] = useState("");
@@ -208,6 +215,84 @@ export default function EditUserPage({
       }
       return next;
     });
+  };
+
+  const handleResetPassword = async () => {
+    if (
+      !confirm(
+        "Êtes-vous sûr de vouloir réinitialiser le mot de passe ? Un nouveau mot de passe aléatoire sera généré et l'utilisateur sera déconnecté."
+      )
+    ) {
+      return;
+    }
+
+    setResettingPassword(true);
+    setError("");
+    setSuccess("");
+    setTempPassword(null);
+
+    try {
+      const res = await fetch(`/api/admin/users/${id}/password`, {
+        method: "POST",
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || "Erreur lors de la réinitialisation");
+        setResettingPassword(false);
+        return;
+      }
+
+      const data = await res.json();
+      setTempPassword(data.password);
+      setSuccess("Mot de passe réinitialisé avec succès");
+    } catch {
+      setError("Erreur réseau");
+    } finally {
+      setResettingPassword(false);
+    }
+  };
+
+  const handleModifyPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+
+    if (newPassword.length < 8) {
+      setError("Le mot de passe doit contenir au moins 8 caractères");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError("Les mots de passe ne correspondent pas");
+      return;
+    }
+
+    setModifyingPassword(true);
+
+    try {
+      const res = await fetch(`/api/admin/users/${id}/password`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: newPassword }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || "Erreur lors de la modification");
+        setModifyingPassword(false);
+        return;
+      }
+
+      setSuccess("Mot de passe modifié avec succès");
+      setShowModifyModal(false);
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch {
+      setError("Erreur réseau");
+    } finally {
+      setModifyingPassword(false);
+    }
   };
 
   if (loading) {
@@ -458,6 +543,125 @@ export default function EditUserPage({
           )}
         </div>
       </div>
+
+      {/* Section Gestion du mot de passe */}
+      <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          Gestion du mot de passe
+        </h3>
+
+        {tempPassword && (
+          <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-sm font-medium text-yellow-800 mb-2">
+              Nouveau mot de passe généré :
+            </p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 px-3 py-2 bg-white border border-yellow-300 rounded text-sm font-mono text-gray-900">
+                {tempPassword}
+              </code>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(tempPassword);
+                  alert("Mot de passe copié dans le presse-papiers");
+                }}
+                className="px-3 py-2 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 rounded text-sm font-medium transition-colors"
+              >
+                Copier
+              </button>
+            </div>
+            <p className="text-xs text-yellow-700 mt-2">
+              ⚠️ Ce mot de passe ne sera affiché qu'une seule fois. Assurez-vous
+              de le communiquer à l'utilisateur de manière sécurisée.
+            </p>
+            <button
+              type="button"
+              onClick={() => setTempPassword(null)}
+              className="mt-2 text-xs text-yellow-700 hover:text-yellow-900 underline"
+            >
+              Masquer
+            </button>
+          </div>
+        )}
+
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={handleResetPassword}
+            disabled={resettingPassword}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {resettingPassword ? "Réinitialisation..." : "Réinitialiser le mot de passe"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowModifyModal(true)}
+            className="px-4 py-2 bg-[#3F4660] hover:bg-[#2C2F3F] text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            Modifier le mot de passe
+          </button>
+        </div>
+      </div>
+
+      {/* Modal de modification du mot de passe */}
+      {showModifyModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">
+              Modifier le mot de passe
+            </h3>
+            <form onSubmit={handleModifyPassword} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nouveau mot de passe
+                </label>
+                <PasswordInput
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  placeholder="Minimum 8 caractères"
+                  className="px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Confirmer le mot de passe
+                </label>
+                <PasswordInput
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  placeholder="Répétez le mot de passe"
+                  className="px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowModifyModal(false);
+                    setNewPassword("");
+                    setConfirmPassword("");
+                    setError("");
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={modifyingPassword}
+                  className="flex-1 bg-[#3F4660] hover:bg-[#2C2F3F] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  {modifyingPassword ? "Modification..." : "Modifier"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

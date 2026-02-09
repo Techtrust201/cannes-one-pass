@@ -17,7 +17,11 @@ export async function POST(req: NextRequest) {
   try {
     return await handler.POST(req);
   } catch (e) {
-    console.error("[Auth] POST error:", e);
-    return new Response("Internal Server Error", { status: 500 });
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[Auth] POST error:", msg, e);
+    return Response.json(
+      { error: "Internal Server Error", detail: msg },
+      { status: 500 }
+    );
   }
 }

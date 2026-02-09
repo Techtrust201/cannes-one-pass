@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 
 export default function LoginPage() {
@@ -10,6 +10,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -30,8 +31,9 @@ export default function LoginPage() {
         return;
       }
 
-      // Redirection après connexion réussie
-      router.push("/logisticien");
+      // Redirection après connexion réussie — utiliser le callbackUrl si présent
+      const callbackUrl = searchParams.get("callbackUrl") || "/logisticien";
+      router.push(callbackUrl);
       router.refresh();
     } catch {
       setError("Erreur de connexion. Veuillez réessayer.");

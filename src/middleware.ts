@@ -13,9 +13,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Vérifier la session via le cookie Better Auth
-  // Better Auth stocke le token de session dans un cookie
+  // Better Auth préfixe les cookies avec __Secure- en HTTPS (production)
+  // En HTTP (localhost), pas de préfixe
   const sessionToken =
+    request.cookies.get("__Secure-better-auth.session_token")?.value ||
     request.cookies.get("better-auth.session_token")?.value;
 
   if (!sessionToken) {
@@ -24,47 +25,27 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Vérifier la session côté serveur via l'API Better Auth
-  try {
-    const sessionResponse = await fetch(
-      new URL("/api/auth/get-session", request.url),
-      {
-        headers: {
-          cookie: request.headers.get("cookie") || "",
-        },
-      }
-    );
+  // Pour le contrôle de rôle admin, décoder le cookie session_data
+  // (signé par Better Auth, contient les infos utilisateur en JSON)
+  if (pathname.startsWith("/admin")) {
+    const sessionData =
+      request.cookies.get("__Secure-better-auth.session_data")?.value ||
+      request.cookies.get("better-auth.session_data")?.value;
 
-    if (!sessionResponse.ok) {
-      const loginUrl = new URL("/login", request.url);
-      loginUrl.searchParams.set("callbackUrl", pathname);
-      return NextResponse.redirect(loginUrl);
-    }
-
-    const session = await sessionResponse.json();
-
-    // Vérifier que le compte est actif
-    if (!session?.user) {
-      const loginUrl = new URL("/login", request.url);
-      loginUrl.searchParams.set("callbackUrl", pathname);
-      return NextResponse.redirect(loginUrl);
-    }
-
-    // Vérifier l'accès admin
-    if (pathname.startsWith("/admin")) {
-      const role = session.user.role;
-      if (role !== "SUPER_ADMIN") {
-        return NextResponse.redirect(new URL("/logisticien", request.url));
+    if (sessionData) {
+      try {
+        const decoded = JSON.parse(decodeURIComponent(sessionData));
+        const role = decoded?.user?.role;
+        if (role !== "SUPER_ADMIN") {
+          return NextResponse.redirect(new URL("/logisticien", request.url));
+        }
+      } catch {
+        // Cookie illisible, laisser passer — la page fera la vérif côté serveur
       }
     }
-
-    return NextResponse.next();
-  } catch {
-    // En cas d'erreur réseau, rediriger vers login
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("callbackUrl", pathname);
-    return NextResponse.redirect(loginUrl);
   }
+
+  return NextResponse.next();
 }
 
 export const config = {

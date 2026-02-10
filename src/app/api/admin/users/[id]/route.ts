@@ -61,7 +61,8 @@ export async function GET(
 
 /**
  * PATCH /api/admin/users/[id]
- * Met à jour un utilisateur (rôle, statut, nom).
+ * Met à jour un utilisateur (rôle, statut, nom, email).
+ * Seuls les SUPER_ADMIN peuvent modifier l'email.
  */
 export async function PATCH(
   request: NextRequest,
@@ -73,7 +74,7 @@ export async function PATCH(
 
     // Empêcher un super admin de se modifier lui-même pour le rôle
     const body = await request.json();
-    const { role, isActive, name } = body;
+    const { role, isActive, name, email } = body;
 
     if (id === session.user.id && role && role !== "SUPER_ADMIN") {
       return NextResponse.json(
@@ -86,6 +87,32 @@ export async function PATCH(
     if (role !== undefined) updateData.role = role;
     if (isActive !== undefined) updateData.isActive = isActive;
     if (name !== undefined) updateData.name = name;
+
+    // Gestion de la modification d'email (SUPER_ADMIN only)
+    if (email !== undefined) {
+      const normalizedEmail = email.toLowerCase().trim();
+
+      if (!normalizedEmail || !normalizedEmail.includes("@")) {
+        return NextResponse.json(
+          { error: "Adresse email invalide" },
+          { status: 400 }
+        );
+      }
+
+      // Vérifier que le nouvel email n'est pas déjà utilisé par un autre utilisateur
+      const existing = await prisma.user.findUnique({
+        where: { email: normalizedEmail },
+      });
+
+      if (existing && existing.id !== id) {
+        return NextResponse.json(
+          { error: "Un autre utilisateur possède déjà cette adresse email" },
+          { status: 409 }
+        );
+      }
+
+      updateData.email = normalizedEmail;
+    }
 
     const user = await prisma.user.update({
       where: { id },

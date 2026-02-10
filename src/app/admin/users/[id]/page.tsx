@@ -61,6 +61,7 @@ export default function EditUserPage({
 
   // Formulaire
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [role, setRole] = useState<UserRole>("USER");
   const [permissions, setPermissions] = useState<
     Map<Feature, { canRead: boolean; canWrite: boolean }>
@@ -74,6 +75,7 @@ export default function EditUserPage({
       const data = await res.json();
       setUser(data);
       setName(data.name);
+      setEmail(data.email);
       setRole(data.role);
 
       // Initialiser les permissions
@@ -112,7 +114,7 @@ export default function EditUserPage({
       const res = await fetch(`/api/admin/users/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, role }),
+        body: JSON.stringify({ name, email, role }),
       });
 
       if (!res.ok) {
@@ -389,10 +391,15 @@ export default function EditUserPage({
               </label>
               <input
                 type="email"
-                value={user.email}
-                disabled
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-500 min-h-[44px]"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#3F4660] focus:border-transparent outline-none min-h-[44px]"
               />
+              {user && email.toLowerCase().trim() !== user.email.toLowerCase().trim() && (
+                <p className="mt-1 text-xs text-amber-600">
+                  L&apos;email sera modifié. L&apos;utilisateur devra utiliser cette nouvelle adresse pour se connecter.
+                </p>
+              )}
             </div>
 
             <div>

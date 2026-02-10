@@ -71,9 +71,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Normaliser l'email en minuscules (Better Auth fait toLowerCase lors du signIn)
+    const normalizedEmail = email.toLowerCase().trim();
+
     // Vérifier que l'email n'existe pas déjà
     const existing = await prisma.user.findUnique({
-      where: { email },
+      where: { email: normalizedEmail },
     });
 
     if (existing) {
@@ -92,7 +95,7 @@ export async function POST(request: NextRequest) {
       const newUser = await tx.user.create({
         data: {
           name,
-          email,
+          email: normalizedEmail,
           emailVerified: true,
           role: role || "USER",
           isActive: true,

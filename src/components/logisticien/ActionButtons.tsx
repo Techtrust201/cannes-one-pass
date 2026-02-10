@@ -56,6 +56,14 @@ export default function ActionButtons({ acc, onActionComplete }: Props) {
 
   /* ---------- helpers API ---------- */
 
+  async function handleConflict(res: Response) {
+    if (res.status === 409) {
+      alert("Cette accréditation a été modifiée par un autre utilisateur. La page va être rafraîchie.");
+      router.refresh();
+      throw new Error("CONFLICT_HANDLED");
+    }
+  }
+
   async function patchStatus(newStatus: AccreditationStatus, zone?: Zone) {
     const body: Record<string, unknown> = {
       status: newStatus,
@@ -64,6 +72,7 @@ export default function ActionButtons({ acc, onActionComplete }: Props) {
       unloading: acc.unloading,
       event: acc.event,
       message: acc.message,
+      version: acc.version, // Optimistic locking
     };
     if (zone) body.currentZone = zone;
     const res = await fetch(`/api/accreditations/${acc.id}`, {
@@ -71,6 +80,7 @@ export default function ActionButtons({ acc, onActionComplete }: Props) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
+    await handleConflict(res);
     if (!res.ok) throw new Error(await res.text());
   }
 
@@ -86,8 +96,10 @@ export default function ActionButtons({ acc, onActionComplete }: Props) {
         event: acc.event,
         message: acc.message,
         currentZone: zone,
+        version: acc.version, // Optimistic locking
       }),
     });
+    await handleConflict(res);
     if (!res.ok) throw new Error(await res.text());
   }
 
@@ -95,8 +107,9 @@ export default function ActionButtons({ acc, onActionComplete }: Props) {
     const res = await fetch(`/api/accreditations/${acc.id}/zones`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, zone }),
+      body: JSON.stringify({ action, zone, version: acc.version }),
     });
+    await handleConflict(res);
     if (!res.ok) throw new Error(await res.text());
   }
 
@@ -104,8 +117,9 @@ export default function ActionButtons({ acc, onActionComplete }: Props) {
     const res = await fetch(`/api/accreditations/${acc.id}/transfer`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ targetZone }),
+      body: JSON.stringify({ targetZone, version: acc.version }),
     });
+    await handleConflict(res);
     if (!res.ok) throw new Error(await res.text());
   }
 
@@ -254,6 +268,8 @@ export default function ActionButtons({ acc, onActionComplete }: Props) {
       router.refresh();
       onActionComplete?.();
     } catch (err) {
+      // Ne pas afficher d'erreur si le conflit a déjà été géré
+      if (err instanceof Error && err.message === "CONFLICT_HANDLED") return;
       alert(
         `Erreur : ${err instanceof Error ? err.message : "Erreur inconnue"}`
       );

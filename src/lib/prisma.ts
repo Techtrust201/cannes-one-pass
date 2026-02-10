@@ -9,7 +9,12 @@ if (!connectionString) {
   throw new Error("DATABASE_URL environment variable is not set");
 }
 
-const adapter = new PrismaPg({ connectionString });
+const adapter = new PrismaPg({
+  connectionString,
+  max: 5, // Max 5 connexions par instance Vercel (compatible Neon free tier)
+  idleTimeoutMillis: 10_000, // Ferme les connexions idle après 10s
+  connectionTimeoutMillis: 5_000, // Timeout si connexion impossible en 5s
+});
 
 export const prisma =
   globalForPrisma.prisma ||

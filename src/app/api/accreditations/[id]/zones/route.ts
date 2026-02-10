@@ -45,7 +45,7 @@ export async function POST(
 
   const { id } = await params;
   const body = await req.json();
-  const { action, zone } = body;
+  const { action, zone, version } = body;
 
   // Validation
   if (!action || !VALID_ACTIONS.includes(action)) {
@@ -55,57 +55,86 @@ export async function POST(
     return new Response("Invalid zone", { status: 400 });
   }
 
-  const acc = await prisma.accreditation.findUnique({ where: { id } });
-  if (!acc) return new Response("Not found", { status: 404 });
+  try {
+    const movement = await prisma.$transaction(async (tx) => {
+      // 1. Lire l'accréditation
+      const acc = await tx.accreditation.findUnique({ where: { id } });
+      if (!acc) throw new Error("NOT_FOUND");
 
-  // Créer le mouvement
-  const movement = await prisma.zoneMovement.create({
-    data: {
-      accreditationId: id,
-      fromZone: acc.currentZone,
-      toZone: zone,
-      action,
-    },
-  });
+      // 2. Optimistic lock
+      if (version !== undefined && version !== null && acc.version !== version) {
+        throw new Error("CONFLICT");
+      }
 
-  // Mettre à jour la zone courante et le statut
-  const updates: Record<string, unknown> = { currentZone: zone };
-  if (action === "ENTRY") {
-    updates.status = "ENTREE";
-    if (!acc.entryAt) updates.entryAt = new Date();
-  } else if (action === "EXIT") {
-    updates.status = "SORTIE";
-    updates.exitAt = new Date();
+      // 3. Créer le mouvement
+      const mov = await tx.zoneMovement.create({
+        data: {
+          accreditationId: id,
+          fromZone: acc.currentZone,
+          toZone: zone,
+          action,
+        },
+      });
+
+      // 4. Mettre à jour la zone courante et le statut
+      const updates: Record<string, unknown> = {
+        currentZone: zone,
+        version: acc.version + 1,
+      };
+      if (action === "ENTRY") {
+        updates.status = "ENTREE";
+        if (!acc.entryAt) updates.entryAt = new Date();
+      } else if (action === "EXIT") {
+        updates.status = "SORTIE";
+        updates.exitAt = new Date();
+      }
+
+      await tx.accreditation.update({
+        where: { id, version: acc.version },
+        data: updates,
+      });
+
+      // 5. Traductions lisibles des zones
+      const ZONE_LABELS: Record<string, string> = {
+        LA_BOCCA: "La Bocca",
+        PALAIS_DES_FESTIVALS: "Palais des Festivals",
+        PANTIERO: "Pantiero",
+        MACE: "Macé",
+      };
+      const zoneLabel = ZONE_LABELS[zone] || zone;
+
+      // 6. Historique dans la transaction
+      await tx.accreditationHistory.create({
+        data: {
+          accreditationId: id,
+          action: "ZONE_CHANGED",
+          field: "currentZone",
+          oldValue: acc.currentZone ?? undefined,
+          newValue: zone,
+          description: action === "ENTRY"
+            ? `Entrée en zone ${zoneLabel}`
+            : `Sortie de la zone ${zoneLabel}`,
+          userId: currentUserId,
+        },
+      });
+
+      return mov;
+    });
+
+    return Response.json(movement, { status: 201 });
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "NOT_FOUND") {
+        return new Response("Not found", { status: 404 });
+      }
+      if (error.message === "CONFLICT") {
+        return Response.json(
+          { error: "Cette accréditation a été modifiée par un autre utilisateur. Veuillez rafraîchir." },
+          { status: 409 }
+        );
+      }
+    }
+    console.error("POST /api/accreditations/[id]/zones error:", error);
+    return new Response("Erreur serveur", { status: 500 });
   }
-
-  await prisma.accreditation.update({
-    where: { id },
-    data: updates,
-  });
-
-  // Traductions lisibles des zones
-  const ZONE_LABELS: Record<string, string> = {
-    LA_BOCCA: "La Bocca",
-    PALAIS_DES_FESTIVALS: "Palais des Festivals",
-    PANTIERO: "Pantiero",
-    MACE: "Macé",
-  };
-  const zoneLabel = ZONE_LABELS[zone] || zone;
-
-  // Historique
-  await prisma.accreditationHistory.create({
-    data: {
-      accreditationId: id,
-      action: "ZONE_CHANGED",
-      field: "currentZone",
-      oldValue: acc.currentZone ?? undefined,
-      newValue: zone,
-      description: action === "ENTRY"
-        ? `Entrée en zone ${zoneLabel}`
-        : `Sortie de la zone ${zoneLabel}`,
-      userId: currentUserId,
-    },
-  });
-
-  return Response.json(movement, { status: 201 });
 }

@@ -187,8 +187,15 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
             body: JSON.stringify({
               ...data,
               status: acc.status, // on garde le statut actuel
+              version: acc.version, // Optimistic locking
             }),
           });
+
+          if (response.status === 409) {
+            addToast("error", "Cette accréditation a été modifiée. Rafraîchissez la page.");
+            router.refresh();
+            return;
+          }
 
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
@@ -209,7 +216,7 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
         }
       });
     },
-    [acc.id, acc.status, reset, addToast, router]
+    [acc.id, acc.status, acc.version, reset, addToast, router]
   );
 
   // Ajout d'un nouveau véhicule

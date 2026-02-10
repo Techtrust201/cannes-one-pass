@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { Resend } from "resend";
-import { addHistoryEntry, createEmailSentEntry } from "@/lib/history";
+import { createEmailSentEntry } from "@/lib/history";
+import { writeHistoryDirect } from "@/lib/history-server";
 import { getSession } from "@/lib/auth-helpers";
 
 export async function POST(
@@ -75,20 +76,25 @@ export async function POST(
       ],
     });
 
-    await prisma.accreditation.update({
-      where: { id: acc.id },
-      data: { sentAt: new Date(), email: targetEmail },
-    });
+    // Transaction : update DB + email history + historique
+    await prisma.$transaction(async (tx) => {
+      await tx.accreditation.update({
+        where: { id: acc.id },
+        data: { sentAt: new Date(), email: targetEmail },
+      });
 
-    await prisma.accreditationEmailHistory.create({
-      data: {
-        accreditationId: acc.id,
-        email: targetEmail,
-      },
-    });
+      await tx.accreditationEmailHistory.create({
+        data: {
+          accreditationId: acc.id,
+          email: targetEmail,
+        },
+      });
 
-    // Enregistrer l'historique de l'envoi d'email
-    await addHistoryEntry(createEmailSentEntry(acc.id, targetEmail, currentUserId));
+      await writeHistoryDirect(
+        createEmailSentEntry(acc.id, targetEmail, currentUserId),
+        tx
+      );
+    });
 
     return new Response(null, { status: 200 });
   } catch (err) {

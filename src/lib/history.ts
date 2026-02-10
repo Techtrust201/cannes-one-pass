@@ -1,6 +1,6 @@
 import type { HistoryAction } from "@prisma/client";
 
-interface HistoryEntryData {
+export interface HistoryEntryData {
   accreditationId: string;
   action: HistoryAction;
   field?: string;
@@ -62,20 +62,19 @@ function translateValue(field: string, value: string): string {
   return value;
 }
 
-// ─── Appel API ───────────────────────────────────────────────────────
+// ─── Appel API (côté client ET serveur via fetch) ────────────────────
 
 export async function addHistoryEntry(data: HistoryEntryData) {
   try {
-    // Détecte si on est côté serveur (Node) ou client (browser)
-    const isServer = typeof window === "undefined";
-    let base = "";
-    if (isServer) {
-      // Import dynamique pour éviter le bundling côté client
-      const { getBaseUrl } = await import("./base-url");
-      base = getBaseUrl();
+    // Côté serveur → écriture directe via le module serveur
+    if (typeof window === "undefined") {
+      const { writeHistoryDirect } = await import("@/lib/history-server");
+      await writeHistoryDirect(data);
+      return true;
     }
+    // Côté client → fetch API
     const response = await fetch(
-      `${base}/api/accreditations/${data.accreditationId}/history`,
+      `/api/accreditations/${data.accreditationId}/history`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

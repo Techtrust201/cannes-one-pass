@@ -1,11 +1,11 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
-// AccreditationStatus used for type inference in status handling
 import {
-  addHistoryEntry,
   createStatusChangeEntry,
   createInfoUpdatedEntry,
+  type HistoryEntryData,
 } from "@/lib/history";
+import { writeHistoryDirect } from "@/lib/history-server";
 import { requirePermission } from "@/lib/auth-helpers";
 
 /* ----------------------- GET ----------------------- */
@@ -63,20 +63,12 @@ export async function PATCH(
   }
 
   const { id: accreditationId } = await params;
-  const acc = await prisma.accreditation.findUnique({
-    where: { id: accreditationId },
-    include: { vehicles: true },
-  });
-  if (!acc) return new Response("Not found", { status: 404 });
-
   const body = await req.json();
-  const { status, company, stand, unloading, event, message, vehicles, currentZone } = body;
+  const { status, company, stand, unloading, event, message, vehicles, currentZone, version } = body;
 
   if (
     !status ||
-    !["ATTENTE", "ENTREE", "SORTIE", "NOUVEAU", "REFUS", "ABSENT"].includes(
-      status
-    )
+    !["ATTENTE", "ENTREE", "SORTIE", "NOUVEAU", "REFUS", "ABSENT"].includes(status)
   ) {
     return new Response("Invalid status", { status: 400 });
   }
@@ -86,204 +78,215 @@ export async function PATCH(
     return new Response("Invalid zone", { status: 400 });
   }
 
-  const updates: Record<string, unknown> = { status, company, stand, unloading, event, message };
-
-  // Mise à jour de la zone si fournie
-  if (currentZone !== undefined) {
-    updates.currentZone = currentZone;
-  }
-
-  if (status === "ENTREE" && !acc.entryAt) updates.entryAt = new Date();
-  if (status === "SORTIE") updates.exitAt = new Date();
-
-  await prisma.accreditation.update({
-    where: { id: accreditationId },
-    data: updates,
-  });
-
-  // Créer un ZoneMovement si une zone est assignée pour la première fois (validation NOUVEAU → ATTENTE)
-  const effectiveZone = currentZone ?? acc.currentZone;
-  if (currentZone && currentZone !== acc.currentZone && !acc.currentZone) {
-    await prisma.zoneMovement.create({
-      data: {
-        accreditationId,
-        toZone: currentZone,
-        action: "ENTRY",
-        fromZone: null,
-      },
-    });
-  }
-
-  // Créer un ZoneMovement si changement de statut vers ENTREE ou SORTIE
-  if (status !== acc.status && effectiveZone) {
-    if (status === "ENTREE") {
-      await prisma.zoneMovement.create({
-        data: {
-          accreditationId,
-          toZone: effectiveZone,
-          action: "ENTRY",
-        },
+  try {
+    await prisma.$transaction(async (tx) => {
+      // 1. Lire l'accréditation avec verrouillage optimiste
+      const acc = await tx.accreditation.findUnique({
+        where: { id: accreditationId },
+        include: { vehicles: true },
       });
-    } else if (status === "SORTIE") {
-      await prisma.zoneMovement.create({
-        data: {
-          accreditationId,
-          fromZone: effectiveZone,
-          toZone: effectiveZone,
-          action: "EXIT",
-        },
+      if (!acc) throw new Error("NOT_FOUND");
+
+      // 2. Vérifier la version (optimistic lock)
+      if (version !== undefined && version !== null && acc.version !== version) {
+        throw new Error("CONFLICT");
+      }
+
+      // 3. Préparer les updates
+      const updates: Record<string, unknown> = {
+        status,
+        company,
+        stand,
+        unloading,
+        event,
+        message,
+        version: acc.version + 1, // Incrémenter la version
+      };
+
+      if (currentZone !== undefined) {
+        updates.currentZone = currentZone;
+      }
+
+      if (status === "ENTREE" && !acc.entryAt) updates.entryAt = new Date();
+      if (status === "SORTIE") updates.exitAt = new Date();
+
+      // 4. Update atomique avec vérification de version
+      const updated = await tx.accreditation.update({
+        where: { id: accreditationId, version: acc.version },
+        data: updates,
       });
-    }
-  }
 
-  // Enregistrer l'historique des changements
-  const changes: Promise<boolean>[] = [];
+      // 5. Créer les ZoneMovements si nécessaire
+      const effectiveZone = currentZone ?? acc.currentZone;
 
-  // Changement de zone
-  if (currentZone && currentZone !== acc.currentZone) {
-    changes.push(
-      addHistoryEntry(
-        createInfoUpdatedEntry(
-          accreditationId,
-          "currentZone",
-          acc.currentZone ?? "",
-          currentZone,
-          currentUserId
-        )
-      )
-    );
-  }
-
-  // Changement de statut
-  if (status !== acc.status) {
-    changes.push(
-      addHistoryEntry(
-        createStatusChangeEntry(accreditationId, acc.status, status, currentUserId)
-      )
-    );
-  }
-
-  // Changements d'informations
-  if (company && company !== acc.company) {
-    changes.push(
-      addHistoryEntry(
-        createInfoUpdatedEntry(
-          accreditationId,
-          "company",
-          acc.company,
-          company,
-          currentUserId
-        )
-      )
-    );
-  }
-  if (stand && stand !== acc.stand) {
-    changes.push(
-      addHistoryEntry(
-        createInfoUpdatedEntry(
-          accreditationId,
-          "stand",
-          acc.stand,
-          stand,
-          currentUserId
-        )
-      )
-    );
-  }
-  if (unloading && unloading !== acc.unloading) {
-    changes.push(
-      addHistoryEntry(
-        createInfoUpdatedEntry(
-          accreditationId,
-          "unloading",
-          acc.unloading,
-          unloading,
-          currentUserId
-        )
-      )
-    );
-  }
-  if (event && event !== acc.event) {
-    changes.push(
-      addHistoryEntry(
-        createInfoUpdatedEntry(
-          accreditationId,
-          "event",
-          acc.event,
-          event,
-          currentUserId
-        )
-      )
-    );
-  }
-  if (message !== acc.message) {
-    changes.push(
-      addHistoryEntry(
-        createInfoUpdatedEntry(
-          accreditationId,
-          "message",
-          acc.message || "",
-          message || "",
-          currentUserId
-        )
-      )
-    );
-  }
-
-  // Attendre que tous les changements d'historique soient enregistrés
-  await Promise.all(changes);
-
-  /* -- remplacement véhicules -- */
-  if (Array.isArray(vehicles)) {
-    await prisma.vehicle.deleteMany({ where: { accreditationId } });
-    if (vehicles.length) {
-      await prisma.vehicle.createMany({
-        data: vehicles.map((vehicle) => {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const { id, ...vehicleData } = vehicle;
-          return {
-            ...vehicleData,
-            unloading: JSON.stringify(vehicle.unloading),
+      if (currentZone && currentZone !== acc.currentZone && !acc.currentZone) {
+        await tx.zoneMovement.create({
+          data: {
             accreditationId,
-          };
-        }),
-      });
-    }
-    // Historique véhicules (trace brute, améliorable)
-    changes.push(
-      addHistoryEntry(
-        createInfoUpdatedEntry(
-          accreditationId,
-          "vehicles",
-          JSON.stringify(acc.vehicles),
-          JSON.stringify(vehicles),
-          currentUserId
-        )
-      )
-    );
-  }
+            toZone: currentZone,
+            action: "ENTRY",
+            fromZone: null,
+          },
+        });
+      }
 
-  // renvoi de la version à jour
-  const accWithVehicles = await prisma.accreditation.findUnique({
-    where: { id: accreditationId },
-    include: { vehicles: true },
-  });
-  // Désérialisation unloading (toujours tableau)
-  const safeAccWithVehicles = {
-    ...accWithVehicles,
-    vehicles:
-      accWithVehicles?.vehicles.map((v) => ({
-        ...v,
-        unloading: Array.isArray(v.unloading)
-          ? v.unloading
-          : typeof v.unloading === "string" && v.unloading.startsWith("[")
-            ? (() => { try { return JSON.parse(v.unloading as string); } catch { return [v.unloading]; } })()
-            : v.unloading
-              ? [v.unloading]
-              : [],
-      })) ?? [],
-  };
-  return Response.json(safeAccWithVehicles);
+      if (status !== acc.status && effectiveZone) {
+        if (status === "ENTREE") {
+          await tx.zoneMovement.create({
+            data: {
+              accreditationId,
+              toZone: effectiveZone,
+              action: "ENTRY",
+            },
+          });
+        } else if (status === "SORTIE") {
+          await tx.zoneMovement.create({
+            data: {
+              accreditationId,
+              fromZone: effectiveZone,
+              toZone: effectiveZone,
+              action: "EXIT",
+            },
+          });
+        }
+      }
+
+      // 6. Collecter les entrées d'historique
+      const historyEntries: HistoryEntryData[] = [];
+
+      if (currentZone && currentZone !== acc.currentZone) {
+        historyEntries.push(
+          createInfoUpdatedEntry(
+            accreditationId,
+            "currentZone",
+            acc.currentZone ?? "",
+            currentZone,
+            currentUserId
+          )
+        );
+      }
+
+      if (status !== acc.status) {
+        historyEntries.push(
+          createStatusChangeEntry(accreditationId, acc.status, status, currentUserId)
+        );
+      }
+
+      if (company && company !== acc.company) {
+        historyEntries.push(
+          createInfoUpdatedEntry(accreditationId, "company", acc.company, company, currentUserId)
+        );
+      }
+      if (stand && stand !== acc.stand) {
+        historyEntries.push(
+          createInfoUpdatedEntry(accreditationId, "stand", acc.stand, stand, currentUserId)
+        );
+      }
+      if (unloading && unloading !== acc.unloading) {
+        historyEntries.push(
+          createInfoUpdatedEntry(accreditationId, "unloading", acc.unloading, unloading, currentUserId)
+        );
+      }
+      if (event && event !== acc.event) {
+        historyEntries.push(
+          createInfoUpdatedEntry(accreditationId, "event", acc.event, event, currentUserId)
+        );
+      }
+      if (message !== acc.message) {
+        historyEntries.push(
+          createInfoUpdatedEntry(
+            accreditationId,
+            "message",
+            acc.message || "",
+            message || "",
+            currentUserId
+          )
+        );
+      }
+
+      // 7. Remplacement des véhicules dans la même transaction
+      if (Array.isArray(vehicles)) {
+        await tx.vehicle.deleteMany({ where: { accreditationId } });
+        if (vehicles.length) {
+          await tx.vehicle.createMany({
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            data: vehicles.map((v: any) => ({
+              plate: v.plate as string,
+              size: v.size as string,
+              phoneCode: v.phoneCode as string,
+              phoneNumber: v.phoneNumber as string,
+              date: v.date as string,
+              time: (v.time as string) ?? "",
+              city: v.city as string,
+              unloading: JSON.stringify(v.unloading),
+              kms: (v.kms as string) ?? "",
+              vehicleType: v.vehicleType ?? null,
+              country: v.country ?? null,
+              estimatedKms: v.estimatedKms != null ? Number(v.estimatedKms) : 0,
+              arrivalDate: v.arrivalDate ? new Date(v.arrivalDate) : null,
+              departureDate: v.departureDate ? new Date(v.departureDate) : null,
+              emptyWeight: v.emptyWeight != null ? Number(v.emptyWeight) : null,
+              maxWeight: v.maxWeight != null ? Number(v.maxWeight) : null,
+              currentWeight: v.currentWeight != null ? Number(v.currentWeight) : null,
+              accreditationId,
+            })),
+          });
+        }
+        historyEntries.push(
+          createInfoUpdatedEntry(
+            accreditationId,
+            "vehicles",
+            JSON.stringify(acc.vehicles),
+            JSON.stringify(vehicles),
+            currentUserId
+          )
+        );
+      }
+
+      // 8. Écrire tout l'historique dans la transaction
+      for (const entry of historyEntries) {
+        await writeHistoryDirect(entry, tx);
+      }
+
+      return updated;
+    });
+
+    // Relire la version complète après la transaction
+    const accWithVehicles = await prisma.accreditation.findUnique({
+      where: { id: accreditationId },
+      include: { vehicles: true },
+    });
+
+    const safeAccWithVehicles = {
+      ...accWithVehicles,
+      vehicles:
+        accWithVehicles?.vehicles.map((v) => ({
+          ...v,
+          unloading: Array.isArray(v.unloading)
+            ? v.unloading
+            : typeof v.unloading === "string" && v.unloading.startsWith("[")
+              ? (() => { try { return JSON.parse(v.unloading as string); } catch { return [v.unloading]; } })()
+              : v.unloading
+                ? [v.unloading]
+                : [],
+        })) ?? [],
+    };
+    return Response.json(safeAccWithVehicles);
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "NOT_FOUND") {
+        return new Response("Not found", { status: 404 });
+      }
+      if (error.message === "CONFLICT") {
+        return Response.json(
+          { error: "Cette accréditation a été modifiée par un autre utilisateur. Veuillez rafraîchir." },
+          { status: 409 }
+        );
+      }
+    }
+    console.error("PATCH /api/accreditations/[id] error:", error);
+    return new Response("Erreur serveur", { status: 500 });
+  }
 }
 
 /* --------------------- DELETE ---------------------- */

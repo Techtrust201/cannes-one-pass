@@ -77,9 +77,11 @@ export default function AccreditationFormCard({ acc }: Props) {
   }
 
   const [historyVersion, setHistoryVersion] = useState(0);
+  const [conflictError, setConflictError] = useState(false);
 
   async function save() {
     setSaving(true);
+    setConflictError(false);
     try {
       const res = await fetch(`/api/accreditations/${acc.id}`, {
         method: "PATCH",
@@ -91,6 +93,7 @@ export default function AccreditationFormCard({ acc }: Props) {
           unloading,
           event,
           message,
+          version: acc.version, // Optimistic locking
           vehicles: [
             {
               ...acc.vehicles[0],
@@ -105,7 +108,12 @@ export default function AccreditationFormCard({ acc }: Props) {
           ],
         }),
       });
+      if (res.status === 409) {
+        setConflictError(true);
+        return;
+      }
       if (!res.ok) throw new Error("Erreur");
+      setConflictError(false);
       router.refresh();
       setHistoryVersion((v) => v + 1);
     } catch {
@@ -460,6 +468,29 @@ export default function AccreditationFormCard({ acc }: Props) {
             />
           </div>
         </div>
+
+        {/* ── Alerte conflit ── */}
+        {conflictError && (
+          <div className="mb-4 bg-amber-50 border border-amber-300 rounded-xl p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-amber-800">
+                ⚠ Cette accréditation a été modifiée par un autre utilisateur.
+              </p>
+              <p className="text-xs text-amber-600 mt-1">
+                Vos modifications n&apos;ont pas été enregistrées. Rafraîchissez pour voir la dernière version.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setConflictError(false);
+                router.refresh();
+              }}
+              className="ml-4 px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-semibold hover:bg-amber-700 transition shrink-0"
+            >
+              Rafraîchir
+            </button>
+          </div>
+        )}
 
         {/* ── Actions principales ── */}
         <div className="flex flex-col sm:flex-row gap-3 mb-8">

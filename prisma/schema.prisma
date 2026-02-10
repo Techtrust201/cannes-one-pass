@@ -184,6 +184,8 @@ model UserPermission {
 model Accreditation {
   id          String               @id @default(uuid())
   createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  version     Int                  @default(0)
   company     String
   stand       String
   unloading   String
@@ -263,4 +265,23 @@ model AccreditationHistory {
   userId          String?         // ID de l'utilisateur qui a fait la modification
   userAgent       String?         // User agent pour tracer l'origine
   createdAt       DateTime        @default(now())
+
+  @@index([createdAt])                    // Accélère le polling /changes et l'archivage
+  @@index([accreditationId, createdAt])   // Accélère la lecture d'historique par accréditation
+}
+
+// ============================================================
+// TABLE D'ARCHIVE — Historique compressé (> 13 mois)
+// ============================================================
+
+model AccreditationHistoryArchive {
+  id              Int           @id           // Même ID que l'original
+  accreditationId String
+  action          HistoryAction
+  summary         String        // JSON compact : {"f":"status","o":"ATTENTE","n":"ENTREE","d":"Statut…","u":"userId"}
+  createdAt       DateTime      // Date de l'action originale
+  archivedAt      DateTime      @default(now())
+
+  @@index([accreditationId])
+  @@index([createdAt])
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Clock, User, Edit, Trash2, Mail, Plus, Minus } from "lucide-react";
+import { Clock, User, Edit, Trash2, Mail, Plus, Minus, Archive } from "lucide-react";
 import { getAccreditationHistory } from "@/lib/history";
 
 interface HistoryEntry {
@@ -25,6 +25,7 @@ interface HistoryEntry {
   userName?: string | null;
   userEmail?: string | null;
   description: string;
+  isArchived?: boolean;
 }
 
 interface AccreditationHistoryProps {
@@ -190,6 +191,13 @@ export default function AccreditationHistory({
                     <User size={12} />
                     <span>{getUserDisplay(entry)}</span>
                   </div>
+
+                  {entry.isArchived && (
+                    <div className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                      <Archive size={10} />
+                      <span>Archivé</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

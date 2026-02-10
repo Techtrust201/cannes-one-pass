@@ -44,6 +44,8 @@ export type AccreditationStatus =
 export interface Accreditation {
   id: string;
   createdAt: Date;
+  updatedAt: Date;
+  version: number;
   company: string;
   stand: string;
   unloading: string;

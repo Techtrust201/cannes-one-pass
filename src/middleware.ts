@@ -1,9 +1,45 @@
 import { NextRequest, NextResponse } from "next/server";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Routes protégées qui nécessitent une authentification
+  // ─── Rate limiting sur les routes POST publiques ───────────────────
+  if (request.method === "POST") {
+    const rateLimitedPaths = [
+      "/api/accreditations",       // Création d'accréditation (formulaire public)
+      "/api/auth",                 // Login / signup
+    ];
+
+    const needsRateLimit = rateLimitedPaths.some((path) =>
+      pathname.startsWith(path)
+    );
+
+    if (needsRateLimit) {
+      const ip = getClientIp(request.headers);
+      const result = rateLimit(`${ip}:${pathname}`, {
+        limit: 20,          // 20 requêtes max
+        windowSeconds: 60,  // par minute
+      });
+
+      if (!result.success) {
+        return NextResponse.json(
+          { error: "Trop de requêtes. Veuillez réessayer dans quelques instants." },
+          {
+            status: 429,
+            headers: {
+              "Retry-After": String(Math.ceil((result.reset - Date.now()) / 1000)),
+              "X-RateLimit-Limit": String(result.limit),
+              "X-RateLimit-Remaining": "0",
+              "X-RateLimit-Reset": String(result.reset),
+            },
+          }
+        );
+      }
+    }
+  }
+
+  // ─── Protection des routes pages (authentification) ────────────────
   const protectedPaths = ["/logisticien", "/admin"];
   const isProtected = protectedPaths.some((path) =>
     pathname.startsWith(path)
@@ -49,5 +85,10 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/logisticien/:path*", "/admin/:path*"],
+  matcher: [
+    "/logisticien/:path*",
+    "/admin/:path*",
+    "/api/accreditations",
+    "/api/auth/:path*",
+  ],
 };

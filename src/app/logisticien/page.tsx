@@ -4,6 +4,7 @@ import { FilterBar } from "@/components/logisticien/FilterBar";
 import AccreditationTable from "@/components/logisticien/AccreditationTable";
 import { buildLink } from "@/lib/url";
 import AccreditationFormCard from "@/components/logisticien/AccreditationFormCard";
+import AutoRefreshOnSSE from "@/components/logisticien/AutoRefreshOnSSE";
 import type { SortDirection } from "@/components/ui/table";
 
 // --- Utilitaire de normalisation accent/casse/espaces/ligatures ---
@@ -200,6 +201,9 @@ export default async function LogisticienDashboard(props: {
 
   return (
     <div className="min-h-screen sm:h-screen flex flex-col">
+      {/* Auto-refresh invisible : détecte les changements et met à jour la liste */}
+      <AutoRefreshOnSSE />
+
       {/* Header fixe */}
       <div className="flex-shrink-0 p-2 md:p-2">
         <div className="flex justify-between items-center">

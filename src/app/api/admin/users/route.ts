@@ -87,25 +87,28 @@ export async function POST(request: NextRequest) {
     const { hashPassword } = await import("better-auth/crypto");
     const hashedPassword = await hashPassword(password);
 
-    // Créer l'utilisateur
-    const user = await prisma.user.create({
-      data: {
-        name,
-        email,
-        emailVerified: true,
-        role: role || "USER",
-        isActive: true,
-      },
-    });
+    // Créer l'utilisateur + le compte dans une transaction atomique
+    const user = await prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
+        data: {
+          name,
+          email,
+          emailVerified: true,
+          role: role || "USER",
+          isActive: true,
+        },
+      });
 
-    // Créer le compte credential
-    await prisma.account.create({
-      data: {
-        userId: user.id,
-        accountId: user.id,
-        providerId: "credential",
-        password: hashedPassword,
-      },
+      await tx.account.create({
+        data: {
+          userId: newUser.id,
+          accountId: newUser.id,
+          providerId: "credential",
+          password: hashedPassword,
+        },
+      });
+
+      return newUser;
     });
 
     return NextResponse.json(

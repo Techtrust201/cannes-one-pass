@@ -10,6 +10,8 @@ export async function readAccreditations(): Promise<Accreditation[]> {
     (a): Accreditation => ({
       id: a.id,
       createdAt: a.createdAt,
+      updatedAt: a.updatedAt,
+      version: a.version,
       company: a.company,
       stand: a.stand,
       unloading: a.unloading,

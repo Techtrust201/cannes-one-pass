@@ -120,20 +120,27 @@ async function getDistanceFromCity(
   return 0;
 }
 
-// ── Parsing date ─────────────────────────────────────────────────────
+// ── Parsing date (supporte ISO YYYY-MM-DD et dd/mm/yyyy) ────────────
 function parseDate(dateStr: string): Date {
   if (dateStr.includes("/")) {
     const [day, month, year] = dateStr.split("/").map(Number);
     return new Date(year, month - 1, day);
   }
+  // Format ISO YYYY-MM-DD — attention au timezone, on parse en local
+  const [y, m, d] = dateStr.split("-").map(Number);
+  if (y && m && d) return new Date(y, m - 1, d);
   return new Date(dateStr);
 }
 
-function filterTwelveMonths(data: CarbonDataEntry[], endDateStr: string): CarbonDataEntry[] {
+function filterByDateRange(
+  data: CarbonDataEntry[],
+  startDateStr: string,
+  endDateStr: string
+): CarbonDataEntry[] {
+  const startDate = parseDate(startDateStr);
   const endDate = parseDate(endDateStr);
-  const startDate = new Date(endDate);
-  startDate.setMonth(startDate.getMonth() - 11);
-  startDate.setDate(1);
+  // Sécurité : si dates invalides, retourner tout
+  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return data;
   return data.filter((e) => {
     const d = parseDate(e.date);
     return d >= startDate && d <= endDate;
@@ -145,8 +152,11 @@ export async function GET(req: NextRequest) {
   try {
     await requirePermission(req, "BILAN_CARBONE", "read");
     const { searchParams } = new URL(req.url);
-    const startDate = searchParams.get("start") || "01/01/2024";
-    const endDate = searchParams.get("end") || "31/12/2024";
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const todayStr = `${currentYear}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    const startDate = searchParams.get("start") || `${currentYear}-01-01`;
+    const endDate = searchParams.get("end") || todayStr;
     const search = searchParams.get("search") || "";
 
     // Récupérer les accréditations ENTREE ou SORTIE
@@ -217,8 +227,8 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Filtrer 12 mois
-    const filteredData = filterTwelveMonths(carbonData, endDate);
+    // Filtrer par la plage de dates choisie par l'utilisateur
+    const filteredData = filterByDateRange(carbonData, startDate, endDate);
 
     // Agrégations
     const aggregations = {
@@ -228,8 +238,8 @@ export async function GET(req: NextRequest) {
       type: aggregate(filteredData, "type"),
     };
 
-    // Données mensuelles
-    const monthly = monthlyData(filteredData, endDate);
+    // Données mensuelles (entre start et end)
+    const monthly = monthlyData(filteredData, startDate, endDate);
 
     return Response.json({
       success: true,
@@ -265,45 +275,71 @@ function aggregate(data: CarbonDataEntry[], field: keyof CarbonDataEntry): Aggre
     .sort((a, b) => b.nbVehicules - a.nbVehicules);
 }
 
-// ── Données mensuelles ───────────────────────────────────────────────
-function monthlyData(data: CarbonDataEntry[], endDateStr: string) {
+// ── Données mensuelles (entre start et end) ─────────────────────────
+function monthlyData(
+  data: CarbonDataEntry[],
+  startDateStr: string,
+  endDateStr: string
+) {
+  const startDate = parseDate(startDateStr);
   const endDate = parseDate(endDateStr);
+
+  // Calculer le nombre de mois entre start et end
   const seen = new Set<string>();
   const months: {
-    month: string; monthIndex: number; year: number;
+    month: string;
+    monthIndex: number;
+    year: number;
     nbVehicules: number;
-    typeBreakdown: { "<10m3": number; "10-15m3": number; "15-20m3": number; ">20m3": number };
+    typeBreakdown: {
+      "<10m3": number;
+      "10-15m3": number;
+      "15-20m3": number;
+      ">20m3": number;
+    };
     data: CarbonDataEntry[];
     uniqueKey: string;
   }[] = [];
 
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date(endDate);
-    d.setMonth(d.getMonth() - i);
-    const key = `${d.getFullYear()}-${String(d.getMonth()).padStart(2, "0")}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
+  // Itérer mois par mois de start à end
+  const cursor = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+  const limit = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
 
-    const name = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" }).format(d);
-    const monthEntries = data.filter((e) => {
-      const ed = parseDate(e.date);
-      return ed.getMonth() === d.getMonth() && ed.getFullYear() === d.getFullYear();
-    });
+  while (cursor <= limit) {
+    const key = `${cursor.getFullYear()}-${String(cursor.getMonth()).padStart(2, "0")}`;
+    if (!seen.has(key)) {
+      seen.add(key);
 
-    months.push({
-      month: name,
-      monthIndex: d.getMonth(),
-      year: d.getFullYear(),
-      nbVehicules: monthEntries.length,
-      typeBreakdown: {
-        "<10m3": monthEntries.filter((e) => e.type === "<10m3").length,
-        "10-15m3": monthEntries.filter((e) => e.type === "10-15m3").length,
-        "15-20m3": monthEntries.filter((e) => e.type === "15-20m3").length,
-        ">20m3": monthEntries.filter((e) => e.type === ">20m3").length,
-      },
-      data: monthEntries,
-      uniqueKey: key,
-    });
+      const name = new Intl.DateTimeFormat("fr-FR", {
+        month: "long",
+        year: "numeric",
+      }).format(cursor);
+
+      const curMonth = cursor.getMonth();
+      const curYear = cursor.getFullYear();
+
+      const monthEntries = data.filter((e) => {
+        const ed = parseDate(e.date);
+        return ed.getMonth() === curMonth && ed.getFullYear() === curYear;
+      });
+
+      months.push({
+        month: name,
+        monthIndex: curMonth,
+        year: curYear,
+        nbVehicules: monthEntries.length,
+        typeBreakdown: {
+          "<10m3": monthEntries.filter((e) => e.type === "<10m3").length,
+          "10-15m3": monthEntries.filter((e) => e.type === "10-15m3").length,
+          "15-20m3": monthEntries.filter((e) => e.type === "15-20m3").length,
+          ">20m3": monthEntries.filter((e) => e.type === ">20m3").length,
+        },
+        data: monthEntries,
+        uniqueKey: key,
+      });
+    }
+    cursor.setMonth(cursor.getMonth() + 1);
   }
+
   return months;
 }

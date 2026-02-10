@@ -17,12 +17,20 @@ export type DateRange = {
 
 export type CarbonTab = "Tableau" | "Camembert" | "Bâtons" | "Liste";
 
+function getDefaultDateRange(): DateRange {
+  const today = new Date();
+  const year = today.getFullYear();
+  // Formater aujourd'hui en YYYY-MM-DD
+  const todayStr = `${year}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  return {
+    start: `${year}-01-01`,
+    end: todayStr,
+  };
+}
+
 export default function CarbonPage() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [dateRange, setDateRange] = useState<DateRange>({
-    start: "01/01/2024",
-    end: "31/12/2024",
-  });
+  const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
   const [activeTab, setActiveTab] = useState<CarbonTab>("Tableau");
 
   // Récupération des données réelles

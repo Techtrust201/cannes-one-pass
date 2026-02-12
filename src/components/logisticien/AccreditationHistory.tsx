@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Clock, User, Edit, Trash2, Mail, Plus, Minus, Archive } from "lucide-react";
+import { Clock, User, Edit, Trash2, Mail, Plus, Minus, Archive, RotateCcw, MessageCircle } from "lucide-react";
 import { getAccreditationHistory } from "@/lib/history";
 
 interface HistoryEntry {
@@ -16,7 +16,10 @@ interface HistoryEntry {
     | "INFO_UPDATED"
     | "DELETED"
     | "ZONE_CHANGED"
-    | "ZONE_TRANSFER";
+    | "ZONE_TRANSFER"
+    | "VEHICLE_RETURN"
+    | "ARCHIVED"
+    | "CHAT_MESSAGE";
   field?: string;
   oldValue?: string;
   newValue?: string;
@@ -78,6 +81,12 @@ export default function AccreditationHistory({
       case "ZONE_CHANGED":
       case "ZONE_TRANSFER":
         return <Edit size={16} className="text-purple-600" />;
+      case "VEHICLE_RETURN":
+        return <RotateCcw size={16} className="text-teal-600" />;
+      case "ARCHIVED":
+        return <Archive size={16} className="text-gray-600" />;
+      case "CHAT_MESSAGE":
+        return <MessageCircle size={16} className="text-indigo-600" />;
       default:
         return <Clock size={16} className="text-gray-600" />;
     }
@@ -104,6 +113,12 @@ export default function AccreditationHistory({
       case "ZONE_CHANGED":
       case "ZONE_TRANSFER":
         return "border-l-purple-500 bg-purple-50";
+      case "VEHICLE_RETURN":
+        return "border-l-teal-500 bg-teal-50";
+      case "ARCHIVED":
+        return "border-l-gray-500 bg-gray-50";
+      case "CHAT_MESSAGE":
+        return "border-l-indigo-500 bg-indigo-50";
       default:
         return "border-l-gray-500 bg-gray-50";
     }

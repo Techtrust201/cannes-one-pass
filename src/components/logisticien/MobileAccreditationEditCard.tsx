@@ -24,6 +24,8 @@ import { getTelLink, getWhatsAppLink } from "@/lib/contact-utils";
 import PhoneInput from "@/components/ui/PhoneInput";
 import ActionButtons from "./ActionButtons";
 import AccreditationHistory from "./AccreditationHistory";
+import DailyTimeSlotHistory from "./DailyTimeSlotHistory";
+import AccreditationChat from "./AccreditationChat";
 
 // Type pour le formulaire d'édition de véhicule
 interface VehicleFormData {
@@ -537,6 +539,17 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
             {isPending ? "Enregistrement..." : "Enregistrer les infos"}
           </button>
         </form>
+
+        {/* ── Créneaux horaires (retour véhicule) ── */}
+        <DailyTimeSlotHistory accreditationId={acc.id} className="mt-4 px-1" />
+
+        {/* ── Discussion agents ── */}
+        <AccreditationChat
+          accreditationId={acc.id}
+          compact
+          defaultCollapsed={true}
+          className="mt-4"
+        />
 
         {/* ── Historique des modifications ── */}
         <HistorySection accreditationId={acc.id} />

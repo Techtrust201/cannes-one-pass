@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { CheckCircle, Download, PlusCircle, AlertTriangle } from "lucide-react";
 import type { Vehicle } from "@/types";
+import DuplicateAlert from "@/components/accreditation/DuplicateAlert";
 
 interface Props {
   data: {
@@ -28,6 +29,7 @@ export default function StepFour({
 }: Props) {
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [showDuplicateCheck, setShowDuplicateCheck] = useState(false);
   const [success, setSuccess] = useState(false);
   const [hasSaved, setHasSaved] = useState(false);
   const [infoMsg, setInfoMsg] = useState("");
@@ -102,7 +104,17 @@ export default function StepFour({
       );
       return;
     }
+    // Lancer la vérification de doublons avant d'afficher la modal de confirmation
+    setShowDuplicateCheck(true);
+  }
+
+  function handleDuplicateConfirm() {
+    setShowDuplicateCheck(false);
     setShowModal(true);
+  }
+
+  function handleDuplicateCancel() {
+    setShowDuplicateCheck(false);
   }
 
   async function handleNewRequest() {
@@ -215,6 +227,17 @@ export default function StepFour({
           )}
         </div>
       </div>
+
+      {/* Vérification des doublons */}
+      {showDuplicateCheck && (
+        <DuplicateAlert
+          company={data.company}
+          plate={data.vehicles[0]?.plate || ""}
+          trailerPlate={data.vehicles[0]?.trailerPlate}
+          onConfirm={handleDuplicateConfirm}
+          onCancel={handleDuplicateCancel}
+        />
+      )}
 
       {/* Modal de confirmation */}
       {showModal && (

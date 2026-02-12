@@ -15,7 +15,60 @@ interface CarbonDataEntry {
   km: number;
   kgCO2eq: number;
   date: string;
+  /** Km supplémentaires dus aux allers-retours inter-zones */
+  kmInterZone?: number;
+  /** CO₂ supplémentaire dû aux allers-retours inter-zones */
+  kgCO2eqInterZone?: number;
+  /** Nombre d'allers-retours */
+  roundTrips?: number;
 }
+
+// ── Coordonnées zone cache (rempli au démarrage) ─────────────────────
+interface ZoneCoords {
+  lat: number;
+  lng: number;
+}
+let zoneCoordCache: Record<string, ZoneCoords> | null = null;
+
+async function getZoneCoords(): Promise<Record<string, ZoneCoords>> {
+  if (zoneCoordCache) return zoneCoordCache;
+  const zones = await prisma.zoneConfig.findMany({ where: { isActive: true } });
+  const coords: Record<string, ZoneCoords> = {};
+  for (const z of zones) {
+    coords[z.zone] = { lat: z.latitude, lng: z.longitude };
+  }
+  zoneCoordCache = coords;
+  return coords;
+}
+
+/** Haversine entre deux points GPS → distance à vol d'oiseau en km */
+function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/** Distance routière estimée entre deux zones (facteur ×1.5 pour trajets courts urbains) */
+function interZoneRoadDistance(z1: ZoneCoords, z2: ZoneCoords): number {
+  const d = haversine(z1.lat, z1.lng, z2.lat, z2.lng);
+  // Trajets urbains/périurbains courts → facteur 1.5
+  const factor = d < 10 ? 1.5 : d < 30 ? 1.4 : 1.3;
+  return Math.round(d * factor * 10) / 10;
+}
+
+/** Tonnage moyen par type de véhicule pour le calcul CO₂ inter-zones */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const AVG_TONNAGE: Record<string, number> = {
+  "Porteur": 19,               // (12 + 26) / 2
+  "Porteur articulé": 19,      // (12 + 26) / 2
+  "Semi-remorque": 29.5,       // (15 + 44) / 2
+};
 
 interface AggregatedData {
   category: string;
@@ -160,9 +213,15 @@ export async function GET(req: NextRequest) {
     const endDate = searchParams.get("end") || todayStr;
     const search = searchParams.get("search") || "";
 
-    // Récupérer les accréditations ENTREE ou SORTIE
+    // Récupérer les accréditations ENTREE ou SORTIE (+ time slots pour round trips)
     const accreditations = await prisma.accreditation.findMany({
-      include: { vehicles: true },
+      include: {
+        vehicles: {
+          include: {
+            timeSlots: { orderBy: { entryAt: "asc" } },
+          },
+        },
+      },
       where: {
         AND: [
           { status: { in: ["ENTREE", "SORTIE"] } },
@@ -179,6 +238,9 @@ export async function GET(req: NextRequest) {
         ],
       },
     });
+
+    // Charger les coordonnées des zones pour les calculs inter-zones
+    const zoneCoords = await getZoneCoords();
 
     const carbonData: CarbonDataEntry[] = [];
 
@@ -198,11 +260,37 @@ export async function GET(req: NextRequest) {
           km = await getDistanceFromCity(vehicle.city, req.nextUrl.origin);
         }
 
-        // Émissions CO₂ — utiliser le coefficient du type réel
+        // ── Calcul inter-zones pour les allers-retours (time slots) ──
+        let kmInterZone = 0;
+        let roundTrips = 0;
+        const timeSlots = (vehicle as typeof vehicle & { timeSlots: Array<{ zone: string; entryAt: Date; exitAt: Date | null; stepNumber: number }> }).timeSlots || [];
+
+        if (timeSlots.length > 1) {
+          // Chaque paire de time slots consécutifs = un aller-retour zone→zone
+          for (let i = 1; i < timeSlots.length; i++) {
+            const prev = timeSlots[i - 1];
+            const curr = timeSlots[i];
+            const z1 = zoneCoords[prev.zone];
+            const z2 = zoneCoords[curr.zone];
+            if (z1 && z2) {
+              // Le véhicule va de la zone de sortie précédente à la zone d'entrée suivante
+              // puis revient → aller simple suffit (le retour est le time slot suivant)
+              kmInterZone += interZoneRoadDistance(z1, z2);
+              roundTrips++;
+            }
+          }
+        }
+
+        // Émissions CO₂ — trajet initial + trajets inter-zones
         const validTypes = Object.keys(CO2_COEFFICIENTS);
         const finalType = validTypes.includes(vehicleType) ? vehicleType : "Porteur";
         const coeff = CO2_COEFFICIENTS[finalType as keyof typeof CO2_COEFFICIENTS];
         const kgCO2eq = km > 0 ? Math.round(km * coeff) : 0;
+
+        // CO₂ inter-zones (coefficient adapté au tonnage moyen)
+        const kgCO2eqInterZone = kmInterZone > 0
+          ? Math.round(kmInterZone * coeff)
+          : 0;
 
         // Pays
         const origine = mapCountryToFrench(vehicle.country || null, vehicle.city);
@@ -221,9 +309,12 @@ export async function GET(req: NextRequest) {
           stand: acc.stand,
           origine,
           type: vehicleType,
-          km,
-          kgCO2eq,
+          km: km + kmInterZone,       // Total = trajet initial + inter-zones
+          kgCO2eq: kgCO2eq + kgCO2eqInterZone,  // Total émissions
           date: dateFormatted,
+          kmInterZone,
+          kgCO2eqInterZone,
+          roundTrips,
         });
       }
     }

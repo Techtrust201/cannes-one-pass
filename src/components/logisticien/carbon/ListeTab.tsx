@@ -124,9 +124,19 @@ function MonthlyAccordion({
                     <td className="px-4 py-3 text-gray-900">{item.type}</td>
                     <td className="px-4 py-3 text-right text-gray-900 font-mono">
                       {formatNumber(item.km)}
+                      {item.roundTrips ? (
+                        <span className="block text-[10px] text-blue-500 font-normal">
+                          dont {formatNumber(item.kmInterZone ?? 0)} inter-zones ({item.roundTrips} A/R)
+                        </span>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3 text-right text-gray-900 font-mono">
                       {formatNumber(item.kgCO2eq)}
+                      {item.kgCO2eqInterZone ? (
+                        <span className="block text-[10px] text-blue-500 font-normal">
+                          dont {formatNumber(item.kgCO2eqInterZone)} inter-zones
+                        </span>
+                      ) : null}
                     </td>
                   </tr>
                 ))}
@@ -167,6 +177,11 @@ function MonthlyAccordion({
                   <span>•</span>
                   <span>{item.type}</span>
                 </div>
+                {item.roundTrips ? (
+                  <p className="text-[10px] text-blue-500 mt-1">
+                    {item.roundTrips} A/R inter-zones (+{formatNumber(item.kmInterZone ?? 0)} km, +{formatNumber(item.kgCO2eqInterZone ?? 0)} kg CO₂)
+                  </p>
+                ) : null}
               </div>
             ))}
             {/* Total mobile */}

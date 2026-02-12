@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { Vehicle, Zone } from "@/types";
 import { getAllZones, getZoneLabel, isFinalDestination } from "@/lib/zone-utils";
+import DuplicateAlert from "@/components/accreditation/DuplicateAlert";
 
 interface Props {
   data: {
@@ -38,6 +39,7 @@ export default function StepFourLog({
   const [selectedZone, setSelectedZone] = useState<Zone | "">("");
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showSendModal, setShowSendModal] = useState(false);
+  const [showDuplicateCheck, setShowDuplicateCheck] = useState(false);
   const [hasSaved, setHasSaved] = useState(false);
   const [infoMsg, setInfoMsg] = useState("");
   const [success, setSuccess] = useState(false);
@@ -149,7 +151,16 @@ export default function StepFourLog({
       setInfoMsg("Cette accréditation a déjà été enregistrée.");
       return;
     }
+    setShowDuplicateCheck(true);
+  }
+
+  function handleDuplicateConfirm() {
+    setShowDuplicateCheck(false);
     setShowSaveModal(true);
+  }
+
+  function handleDuplicateCancel() {
+    setShowDuplicateCheck(false);
   }
 
   async function handleNewRequest() {
@@ -314,6 +325,17 @@ export default function StepFourLog({
           </button>
         </div>
       </div>
+
+      {/* Vérification des doublons */}
+      {showDuplicateCheck && (
+        <DuplicateAlert
+          company={data.company}
+          plate={data.vehicles[0]?.plate || ""}
+          trailerPlate={data.vehicles[0]?.trailerPlate}
+          onConfirm={handleDuplicateConfirm}
+          onCancel={handleDuplicateCancel}
+        />
+      )}
 
       {/* Modal de confirmation pour Enregistrer */}
       {showSaveModal && (

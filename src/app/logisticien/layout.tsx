@@ -110,6 +110,13 @@ export default function LogisticienLayout({
                     <Image src="/logisticien/Vector%20(18).svg" width={16} height={16} alt="Créer" />
                   </Link>
                 )}
+                {hasPermission("ARCHIVES", "read") && (
+                  <Link href="/logisticien/archives" className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="Archives" onClick={() => setSidebarOpen(false)}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white">
+                      <path d="M21 8v13H3V8M1 3h22v5H1V3zM10 12h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </Link>
+                )}
               </div>
             ) : (
             <details open className="group">
@@ -163,6 +170,20 @@ export default function LogisticienLayout({
                         alt=""
                       />
                       Créer
+                    </Link>
+                  </li>
+                )}
+                {hasPermission("ARCHIVES", "read") && (
+                  <li>
+                    <Link
+                      href="/logisticien/archives"
+                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
+                      onClick={() => setSidebarOpen(false)}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white">
+                        <path d="M21 8v13H3V8M1 3h22v5H1V3zM10 12h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      Archives
                     </Link>
                   </li>
                 )}

@@ -151,6 +151,65 @@ export async function PATCH(
         }
       }
 
+      // 5b. Gérer les time slots pour ENTREE/SORTIE
+      if (status !== acc.status && acc.vehicles.length > 0) {
+        const targetVehicle = acc.vehicles[0];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        if (status === "ENTREE") {
+          // Vérifier s'il y a déjà un time slot ouvert pour aujourd'hui
+          const openSlot = await tx.vehicleTimeSlot.findFirst({
+            where: {
+              accreditationId,
+              vehicleId: targetVehicle.id,
+              date: today,
+              exitAt: null,
+            },
+          });
+
+          if (!openSlot) {
+            // Créer un nouveau time slot
+            const lastSlot = await tx.vehicleTimeSlot.findFirst({
+              where: {
+                accreditationId,
+                vehicleId: targetVehicle.id,
+                date: today,
+              },
+              orderBy: { stepNumber: "desc" },
+            });
+            const nextStep = lastSlot ? lastSlot.stepNumber + 1 : 1;
+            await tx.vehicleTimeSlot.create({
+              data: {
+                accreditationId,
+                vehicleId: targetVehicle.id,
+                date: today,
+                stepNumber: nextStep,
+                zone: effectiveZone || "PALAIS_DES_FESTIVALS",
+                entryAt: new Date(),
+              },
+            });
+          }
+        } else if (status === "SORTIE") {
+          // Clôturer le time slot ouvert
+          const openSlot = await tx.vehicleTimeSlot.findFirst({
+            where: {
+              accreditationId,
+              vehicleId: targetVehicle.id,
+              exitAt: null,
+            },
+            orderBy: { stepNumber: "desc" },
+          });
+
+          if (openSlot) {
+            await tx.vehicleTimeSlot.update({
+              where: { id: openSlot.id },
+              data: { exitAt: new Date() },
+            });
+          }
+        }
+      }
+
       // 6. Collecter les entrées d'historique
       const historyEntries: HistoryEntryData[] = [];
 

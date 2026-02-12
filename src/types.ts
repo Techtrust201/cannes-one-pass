@@ -60,4 +60,42 @@ export interface Accreditation {
   email?: string;
   sentAt?: Date;
   currentZone?: Zone | null;
+  isArchived?: boolean;
+  /** Heure d'entrée au Palais (time slot le plus récent) */
+  palaisEntryAt?: Date | null;
+  /** Heure de sortie du Palais (time slot le plus récent) */
+  palaisExitAt?: Date | null;
+}
+
+// --- Créneaux horaires (retour véhicule) ---
+export interface VehicleTimeSlot {
+  id: number;
+  accreditationId: string;
+  vehicleId: number;
+  date: string;
+  stepNumber: number;
+  zone: Zone;
+  entryAt: string;
+  exitAt?: string | null;
+}
+
+// --- Chat inter-agents ---
+export interface ChatMessage {
+  id: number;
+  accreditationId: string;
+  userId: string;
+  userName: string;
+  message: string;
+  createdAt: string;
+}
+
+// --- Configuration des zones ---
+export interface ZoneConfig {
+  id: number;
+  zone: Zone;
+  label: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  isActive: boolean;
 }

@@ -136,6 +136,7 @@ export async function getUserPermissions(userId: string) {
       "BILAN_CARBONE",
       "GESTION_ZONES",
       "GESTION_DATES",
+      "ARCHIVES",
     ];
     return allFeatures.map((feature) => ({
       feature,

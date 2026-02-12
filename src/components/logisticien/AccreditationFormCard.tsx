@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { Pencil, Trash2, Info, PlusCircle, Phone, MessageCircle } from "lucide-react";
 import VehicleForm from "@/components/accreditation/VehicleForm";
 import AccreditationHistory from "./AccreditationHistory";
+import DailyTimeSlotHistory from "./DailyTimeSlotHistory";
+import AccreditationChat from "./AccreditationChat";
 import type { Vehicle } from "@/types";
 import { getTelLink, getWhatsAppLink } from "@/lib/contact-utils";
 import { getZoneLabel, isFinalDestination, ZONE_COLORS } from "@/lib/zone-utils";
@@ -549,6 +551,16 @@ export default function AccreditationFormCard({ acc }: Props) {
             </div>
           </div>
         )}
+
+        {/* Créneaux horaires (retour véhicule) */}
+        <div className="px-6 pb-4">
+          <DailyTimeSlotHistory accreditationId={acc.id} />
+        </div>
+
+        {/* Discussion agents */}
+        <div className="px-6 pb-4">
+          <AccreditationChat accreditationId={acc.id} defaultCollapsed={true} />
+        </div>
 
         {/* Historique des modifications */}
         <div className="px-6 pb-6">

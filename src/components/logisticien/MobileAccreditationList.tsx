@@ -53,7 +53,11 @@ export default function MobileAccreditationList({
 
       {pageData.map((acc) => {
         const zone = acc.currentZone as Zone | undefined;
-        const duration = fmtDuration(acc.entryAt, acc.exitAt);
+        // Prioriser les horaires Palais sur les horaires génériques
+        const displayEntry = acc.palaisEntryAt || acc.entryAt;
+        const displayExit = acc.palaisExitAt || acc.exitAt;
+        const duration = fmtDuration(displayEntry, displayExit);
+        const isPalaisTimes = !!acc.palaisEntryAt;
         const plate = acc.vehicles?.[0]?.plate;
 
         return (
@@ -107,22 +111,22 @@ export default function MobileAccreditationList({
               </div>
             </div>
 
-            {/* Row 3: Horaires compact */}
-            {(acc.entryAt || acc.exitAt) && (
+            {/* Row 3: Horaires compact (Palais prioritaire) */}
+            {(displayEntry || displayExit) && (
               <div className="flex items-center gap-3 text-[11px]">
-                {acc.entryAt && (
+                {displayEntry && (
                   <span className="inline-flex items-center gap-1 text-green-700">
                     <LogIn size={10} className="shrink-0" />
-                    {new Date(acc.entryAt).toLocaleTimeString("fr-FR", {
+                    {new Date(displayEntry).toLocaleTimeString("fr-FR", {
                       hour: "2-digit",
                       minute: "2-digit",
                     })}
                   </span>
                 )}
-                {acc.exitAt && (
+                {displayExit && (
                   <span className="inline-flex items-center gap-1 text-red-600">
                     <LogOut size={10} className="shrink-0" />
-                    {new Date(acc.exitAt).toLocaleTimeString("fr-FR", {
+                    {new Date(displayExit).toLocaleTimeString("fr-FR", {
                       hour: "2-digit",
                       minute: "2-digit",
                     })}
@@ -134,11 +138,14 @@ export default function MobileAccreditationList({
                     {duration}
                   </span>
                 )}
-                {acc.entryAt && !acc.exitAt && !duration && (
+                {displayEntry && !displayExit && !duration && (
                   <span className="inline-flex items-center gap-1 text-blue-500">
                     <Clock size={10} className="shrink-0 animate-pulse" />
                     en cours
                   </span>
+                )}
+                {isPalaisTimes && (
+                  <span className="text-[9px] text-[#4F587E] font-medium">Palais</span>
                 )}
               </div>
             )}

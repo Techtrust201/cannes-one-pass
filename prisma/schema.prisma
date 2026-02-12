@@ -28,6 +28,7 @@ enum Feature {
   BILAN_CARBONE
   GESTION_ZONES
   GESTION_DATES
+  ARCHIVES
 }
 
 // ============================================================
@@ -54,6 +55,9 @@ enum HistoryAction {
   DELETED
   ZONE_CHANGED
   ZONE_TRANSFER
+  VEHICLE_RETURN
+  ARCHIVED
+  CHAT_MESSAGE
 }
 
 enum VehicleType {
@@ -111,6 +115,7 @@ model User {
 
   // Relations custom
   permissions   UserPermission[]
+  chatMessages  ChatMessage[]
 
   @@map("user")
 }
@@ -199,10 +204,14 @@ model Accreditation {
   sentAt      DateTime?
   currentZone Zone?
 
+  isArchived  Boolean              @default(false)
+
   vehicles       Vehicle[]
   emailHistory   AccreditationEmailHistory[]
   history        AccreditationHistory[]
   zoneMovements  ZoneMovement[]
+  timeSlots      VehicleTimeSlot[]
+  chatMessages   ChatMessage[]
 }
 
 model Vehicle {
@@ -234,6 +243,8 @@ model Vehicle {
 
   accreditation   Accreditation @relation(fields: [accreditationId], references: [id], onDelete: Cascade)
   accreditationId String
+
+  timeSlots       VehicleTimeSlot[]
 }
 
 model ZoneMovement {
@@ -287,4 +298,57 @@ model AccreditationHistoryArchive {
 
   @@index([accreditationId])
   @@index([createdAt])
+}
+
+// ============================================================
+// CRÉNEAUX HORAIRES — Suivi entrées/sorties par étape (retour véhicule)
+// ============================================================
+
+model VehicleTimeSlot {
+  id              Int           @id @default(autoincrement())
+  accreditation   Accreditation @relation(fields: [accreditationId], references: [id], onDelete: Cascade)
+  accreditationId String
+  vehicle         Vehicle       @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  vehicleId       Int
+  date            DateTime      @db.Date       // Jour du créneau
+  stepNumber      Int                          // Numéro d'étape dans la journée (1, 2, 3…)
+  zone            Zone                         // Zone d'entrée/sortie
+  entryAt         DateTime                     // Heure d'entrée
+  exitAt          DateTime?                    // Heure de sortie (null = encore sur place)
+
+  @@index([accreditationId, date])
+  @@index([vehicleId, date])
+}
+
+// ============================================================
+// CHAT — Messages inter-agents sur une accréditation
+// ============================================================
+
+model ChatMessage {
+  id              Int           @id @default(autoincrement())
+  accreditation   Accreditation @relation(fields: [accreditationId], references: [id], onDelete: Cascade)
+  accreditationId String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          String        // ID de l'agent qui envoie le message
+  userName        String        // Nom de l'agent (dénormalisé pour perf)
+  message         String        @db.Text
+  createdAt       DateTime      @default(now())
+
+  @@index([accreditationId, createdAt])
+}
+
+// ============================================================
+// CONFIGURATION DES ZONES — Adresses et coordonnées GPS
+// ============================================================
+
+model ZoneConfig {
+  id        Int      @id @default(autoincrement())
+  zone      Zone     @unique              // Lien vers l'enum Zone
+  label     String                        // Nom d'affichage (ex: "La Bocca")
+  address   String                        // Adresse complète
+  latitude  Float                         // Latitude GPS
+  longitude Float                         // Longitude GPS
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

@@ -65,7 +65,10 @@ export async function GET(req: NextRequest) {
         entry.action === "VEHICLE_REMOVED" ? "vehicle_removed" :
         entry.action === "VEHICLE_ADDED" ? "vehicle_added" :
         entry.action === "VEHICLE_UPDATED" ? "vehicle_updated" :
-        entry.action === "INFO_UPDATED" ? "info_updated" : "update",
+        entry.action === "INFO_UPDATED" ? "info_updated" :
+        entry.action === "VEHICLE_RETURN" ? "vehicle_return" :
+        entry.action === "ARCHIVED" ? "archived" :
+        entry.action === "CHAT_MESSAGE" ? "chat_message" : "update",
       accreditationId: entry.accreditationId,
       data: {
         action: entry.action,

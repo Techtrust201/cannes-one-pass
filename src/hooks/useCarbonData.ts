@@ -14,6 +14,12 @@ export interface CarbonDataEntry {
   km: number;
   kgCO2eq: number;
   date: string;
+  /** Km supplémentaires dus aux allers-retours inter-zones */
+  kmInterZone?: number;
+  /** CO₂ supplémentaire dû aux allers-retours inter-zones */
+  kgCO2eqInterZone?: number;
+  /** Nombre d'allers-retours */
+  roundTrips?: number;
 }
 
 export interface AggregatedData {

@@ -1,7 +1,8 @@
 "use client";
 
+import { useState, useCallback } from "react";
 import Link from "next/link";
-import { List, Pencil, Trash2, LogIn, LogOut, Clock } from "lucide-react";
+import { List, Pencil, Trash2, LogIn, LogOut, Clock, CheckSquare, Square, Archive, ArrowRight, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import StatusPill from "./StatusPill";
 import MobileAccreditationList from "./MobileAccreditationList";
@@ -103,6 +104,52 @@ export default function AccreditationTable({
   dir,
 }: AccreditationTableProps) {
   const router = useRouter();
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleAll = useCallback(() => {
+    setSelectedIds((prev) => {
+      if (prev.size === pageData.length) return new Set();
+      return new Set(pageData.map((a) => a.id));
+    });
+  }, [pageData]);
+
+  const executeBulkAction = useCallback(async (action: string) => {
+    if (selectedIds.size === 0) return;
+    const label = action === "ARCHIVE" ? "archiver" : `passer en ${action}`;
+    if (!confirm(`${label} ${selectedIds.size} accréditation(s) ?`)) return;
+    setBulkLoading(true);
+    try {
+      const res = await fetch("/api/accreditations/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: Array.from(selectedIds), action }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.failed > 0) {
+          alert(`${data.succeeded} réussi(s), ${data.failed} échoué(s)`);
+        }
+        setSelectedIds(new Set());
+        router.refresh();
+      } else {
+        alert("Erreur lors de l'action groupée");
+      }
+    } catch {
+      alert("Erreur réseau");
+    } finally {
+      setBulkLoading(false);
+    }
+  }, [selectedIds, router]);
 
   const toggleSort = (
     key:
@@ -192,6 +239,19 @@ export default function AccreditationTable({
           <table className="w-full text-xs border-collapse">
             <thead className="sticky top-0 z-10 bg-gray-50 border-b border-gray-200">
               <tr>
+                <th className="px-2 py-2.5 w-8">
+                  <button
+                    onClick={toggleAll}
+                    className="p-0.5 rounded hover:bg-gray-200 transition"
+                    title={selectedIds.size === pageData.length ? "Tout désélectionner" : "Tout sélectionner"}
+                  >
+                    {selectedIds.size > 0 && selectedIds.size === pageData.length ? (
+                      <CheckSquare size={14} className="text-[#4F587E]" />
+                    ) : (
+                      <Square size={14} className="text-gray-400" />
+                    )}
+                  </button>
+                </th>
                 <Th label="Statut" sortKey="status" />
                 <Th label="Société" sortKey="company" />
                 <Th label="Événement" sortKey="event" />
@@ -205,7 +265,11 @@ export default function AccreditationTable({
 
             <tbody>
               {pageData.map((acc, index) => {
-                const duration = fmtDuration(acc.entryAt, acc.exitAt);
+                // Prioriser les horaires Palais (time slots) sur les horaires génériques
+                const displayEntry = acc.palaisEntryAt || acc.entryAt;
+                const displayExit = acc.palaisExitAt || acc.exitAt;
+                const duration = fmtDuration(displayEntry, displayExit);
+                const isPalaisTimes = !!acc.palaisEntryAt;
                 return (
                   <tr
                     key={String(acc.id)}
@@ -213,6 +277,20 @@ export default function AccreditationTable({
                       index % 2 === 0 ? "bg-white" : "bg-gray-50/40"
                     }`}
                   >
+                    {/* Checkbox */}
+                    <td className="px-2 py-2 w-8">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleSelect(acc.id); }}
+                        className="p-0.5 rounded hover:bg-gray-200 transition"
+                      >
+                        {selectedIds.has(acc.id) ? (
+                          <CheckSquare size={14} className="text-[#4F587E]" />
+                        ) : (
+                          <Square size={14} className="text-gray-300" />
+                        )}
+                      </button>
+                    </td>
+
                     {/* Statut (with zone dot) */}
                     <td className="px-2 py-2">
                       <StatusPill
@@ -246,21 +324,21 @@ export default function AccreditationTable({
                         : "-"}
                     </td>
 
-                    {/* Horaires (merged: entry + duration/exit) */}
+                    {/* Horaires (Palais prioritaire, sinon génériques) */}
                     <td className="px-2 py-2">
-                      {acc.entryAt ? (
+                      {displayEntry ? (
                         <div className="flex flex-col gap-0.5">
                           <span className="inline-flex items-center gap-1 text-green-700">
                             <LogIn size={10} className="shrink-0" />
-                            {new Date(acc.entryAt).toLocaleTimeString("fr-FR", {
+                            {new Date(displayEntry).toLocaleTimeString("fr-FR", {
                               hour: "2-digit",
                               minute: "2-digit",
                             })}
                           </span>
-                          {acc.exitAt ? (
+                          {displayExit ? (
                             <span className="inline-flex items-center gap-1 text-red-600">
                               <LogOut size={10} className="shrink-0" />
-                              {new Date(acc.exitAt).toLocaleTimeString("fr-FR", {
+                              {new Date(displayExit).toLocaleTimeString("fr-FR", {
                                 hour: "2-digit",
                                 minute: "2-digit",
                               })}
@@ -275,6 +353,9 @@ export default function AccreditationTable({
                               <Clock size={10} className="shrink-0 animate-pulse" />
                               en cours
                             </span>
+                          )}
+                          {isPalaisTimes && (
+                            <span className="text-[9px] text-[#4F587E] font-medium">Palais</span>
                           )}
                         </div>
                       ) : (
@@ -309,7 +390,7 @@ export default function AccreditationTable({
 
               {pageData.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="text-center py-12 text-gray-400 text-sm">
+                  <td colSpan={7} className="text-center py-12 text-gray-400 text-sm">
                     Aucune accréditation trouvée
                   </td>
                 </tr>
@@ -392,6 +473,60 @@ export default function AccreditationTable({
           </Pagination>
         </div>
       </div>
+
+      {/* ===== BULK ACTION BAR ===== */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 fade-in duration-200">
+          <div className="bg-[#3F4660] text-white rounded-2xl shadow-2xl px-6 py-3 flex items-center gap-4">
+            <span className="text-sm font-semibold whitespace-nowrap">
+              {selectedIds.size} sélectionné{selectedIds.size > 1 ? "s" : ""}
+            </span>
+            <div className="w-px h-6 bg-white/20" />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => executeBulkAction("ATTENTE")}
+                disabled={bulkLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-500 text-white rounded-lg text-xs font-semibold hover:bg-yellow-600 transition disabled:opacity-50"
+              >
+                <ArrowRight size={12} />
+                En attente
+              </button>
+              <button
+                onClick={() => executeBulkAction("ENTREE")}
+                disabled={bulkLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700 transition disabled:opacity-50"
+              >
+                <ArrowRight size={12} />
+                Entrée
+              </button>
+              <button
+                onClick={() => executeBulkAction("SORTIE")}
+                disabled={bulkLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-700 transition disabled:opacity-50"
+              >
+                <ArrowRight size={12} />
+                Sortie
+              </button>
+              <button
+                onClick={() => executeBulkAction("ARCHIVE")}
+                disabled={bulkLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-600 text-white rounded-lg text-xs font-semibold hover:bg-gray-700 transition disabled:opacity-50"
+              >
+                <Archive size={12} />
+                Archiver
+              </button>
+            </div>
+            <div className="w-px h-6 bg-white/20" />
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="text-xs text-white/70 hover:text-white transition"
+            >
+              Annuler
+            </button>
+            {bulkLoading && <Loader2 size={16} className="animate-spin text-white/70" />}
+          </div>
+        </div>
+      )}
     </>
   );
 }

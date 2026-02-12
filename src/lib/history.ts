@@ -234,3 +234,40 @@ export function createCreatedEntry(
       typeof window !== "undefined" ? window.navigator.userAgent : undefined,
   };
 }
+
+export function createVehicleReturnEntry(
+  accreditationId: string,
+  zone: string,
+  stepNumber: number,
+  userId?: string
+): HistoryEntryData {
+  return {
+    accreditationId,
+    action: "VEHICLE_RETURN",
+    field: "status",
+    oldValue: "SORTIE",
+    newValue: "ENTREE",
+    description: `Retour véhicule – Étape ${stepNumber} à ${translateZone(zone)}`,
+    userId,
+    userAgent:
+      typeof window !== "undefined" ? window.navigator.userAgent : undefined,
+  };
+}
+
+export function createArchivedEntry(
+  accreditationId: string,
+  archived: boolean,
+  userId?: string
+): HistoryEntryData {
+  return {
+    accreditationId,
+    action: "ARCHIVED",
+    field: "isArchived",
+    oldValue: String(!archived),
+    newValue: String(archived),
+    description: archived ? "Accréditation archivée" : "Accréditation désarchivée",
+    userId,
+    userAgent:
+      typeof window !== "undefined" ? window.navigator.userAgent : undefined,
+  };
+}

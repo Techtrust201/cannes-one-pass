@@ -10,6 +10,8 @@ import {
   Ban,
   LogOut,
   MapPin,
+  Archive,
+  RotateCcw,
 } from "lucide-react";
 import type { Accreditation, AccreditationStatus, Zone } from "@/types";
 import {
@@ -219,27 +221,94 @@ export default function ActionButtons({ acc, onActionComplete }: Props) {
           },
         ];
 
-      /* ── SORTIE : camion sorti, prêt pour transfert ── */
-      case "SORTIE":
-        if (!currentZone) return [];
+      /* ── SORTIE : camion sorti, prêt pour transfert ou archivage ── */
+      case "SORTIE": {
+        const sortieActions: ActionDef[] = [];
 
-        return getTransferTargets(currentZone).map((targetZone) => ({
-          id: `transfer_${targetZone}`,
-          label: `${getZoneLabel(targetZone)}`,
-          description: isFinalDestination(targetZone)
-            ? "Destination finale"
-            : "Zone intermédiaire",
-          icon: ArrowRight,
-          color: isFinalDestination(targetZone)
-            ? "bg-green-600 hover:bg-green-700 text-white"
-            : "bg-[#4F587E] hover:bg-[#3B4252] text-white",
-          confirm: `Transférer le véhicule vers ${getZoneLabel(targetZone)} ?`,
-          execute: () => transfer(targetZone),
-        }));
+        if (currentZone) {
+          sortieActions.push(
+            ...getTransferTargets(currentZone).map((targetZone) => ({
+              id: `transfer_${targetZone}`,
+              label: `${getZoneLabel(targetZone)}`,
+              description: isFinalDestination(targetZone)
+                ? "Destination finale"
+                : "Zone intermédiaire",
+              icon: ArrowRight,
+              color: isFinalDestination(targetZone)
+                ? "bg-green-600 hover:bg-green-700 text-white"
+                : "bg-[#4F587E] hover:bg-[#3B4252] text-white",
+              confirm: `Transférer le véhicule vers ${getZoneLabel(targetZone)} ?`,
+              execute: () => transfer(targetZone),
+            }))
+          );
+        }
 
-      /* ── Statuts terminaux ── */
-      default:
-        return [];
+        // Retour véhicule
+        sortieActions.push({
+          id: "return_vehicle",
+          label: "Retour véhicule",
+          description: "Le véhicule revient – créer un nouveau créneau",
+          icon: RotateCcw,
+          color: "bg-teal-600 hover:bg-teal-700 text-white",
+          confirm: `Confirmer le retour du véhicule à ${currentZone ? getZoneLabel(currentZone as Zone) : "la zone"} ?`,
+          execute: async () => {
+            const res = await fetch(`/api/accreditations/${acc.id}/return`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                zone: currentZone || "PALAIS_DES_FESTIVALS",
+              }),
+            });
+            if (!res.ok) throw new Error(await res.text());
+          },
+        });
+
+        // Archiver
+        if (!acc.isArchived) {
+          sortieActions.push({
+            id: "archive",
+            label: "Archiver",
+            description: "Déplacer cette accréditation dans les archives",
+            icon: Archive,
+            color: "bg-gray-600 hover:bg-gray-700 text-white",
+            confirm: "Archiver cette accréditation ?",
+            execute: async () => {
+              const res = await fetch(`/api/accreditations/${acc.id}/archive`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ archive: true }),
+              });
+              if (!res.ok) throw new Error(await res.text());
+            },
+          });
+        }
+
+        return sortieActions;
+      }
+
+      /* ── Statuts terminaux (REFUS, ABSENT) ── */
+      default: {
+        const archiveActions: ActionDef[] = [];
+        if (!acc.isArchived) {
+          archiveActions.push({
+            id: "archive",
+            label: "Archiver",
+            description: "Déplacer cette accréditation dans les archives",
+            icon: Archive,
+            color: "bg-gray-600 hover:bg-gray-700 text-white",
+            confirm: "Archiver cette accréditation ?",
+            execute: async () => {
+              const res = await fetch(`/api/accreditations/${acc.id}/archive`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ archive: true }),
+              });
+              if (!res.ok) throw new Error(await res.text());
+            },
+          });
+        }
+        return archiveActions;
+      }
     }
   }
 

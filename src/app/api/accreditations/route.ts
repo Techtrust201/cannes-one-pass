@@ -14,23 +14,60 @@ export async function GET(request: NextRequest) {
     return new Response("Non autorisé", { status: 401 });
   }
 
+  // Par défaut, exclure les accréditations archivées
+  const { searchParams } = new URL(request.url);
+  const showArchived = searchParams.get("archived") === "true";
+
   const list = await prisma.accreditation.findMany({
-    include: { vehicles: true },
+    where: { isArchived: showArchived },
+    include: {
+      vehicles: {
+        include: {
+          timeSlots: {
+            where: { zone: "PALAIS_DES_FESTIVALS" },
+            orderBy: { entryAt: "desc" },
+            take: 1,
+          },
+        },
+      },
+    },
   });
-  // Désérialisation unloading (toujours tableau)
-  const safeList = list.map((acc) => ({
-    ...acc,
-    vehicles: acc.vehicles.map((v) => ({
-      ...v,
-      unloading: Array.isArray(v.unloading)
-        ? v.unloading
-        : typeof v.unloading === "string" && v.unloading.startsWith("[")
-          ? (() => { try { return JSON.parse(v.unloading as string); } catch { return [v.unloading]; } })()
-          : v.unloading
-            ? [v.unloading]
-            : [],
-    })),
-  }));
+  // Désérialisation unloading + ajout palaisEntryAt/palaisExitAt (le plus récent time slot Palais)
+  const safeList = list.map((acc) => {
+    // Trouver le time slot Palais le plus récent parmi tous les véhicules
+    let palaisEntryAt: Date | null = null;
+    let palaisExitAt: Date | null = null;
+
+    for (const v of acc.vehicles) {
+      const palaisSlot = v.timeSlots?.[0];
+      if (palaisSlot) {
+        if (!palaisEntryAt || palaisSlot.entryAt > palaisEntryAt) {
+          palaisEntryAt = palaisSlot.entryAt;
+          palaisExitAt = palaisSlot.exitAt;
+        }
+      }
+    }
+
+    return {
+      ...acc,
+      palaisEntryAt,
+      palaisExitAt,
+      vehicles: acc.vehicles.map((v) => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { timeSlots, ...rest } = v;
+        return {
+          ...rest,
+          unloading: Array.isArray(v.unloading)
+            ? v.unloading
+            : typeof v.unloading === "string" && v.unloading.startsWith("[")
+              ? (() => { try { return JSON.parse(v.unloading as string); } catch { return [v.unloading]; } })()
+              : v.unloading
+                ? [v.unloading]
+                : [],
+        };
+      }),
+    };
+  });
   return Response.json(safeList);
 }
 

@@ -67,12 +67,19 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
           </label>
           <input
             value={data.plate ?? ""}
-            onChange={(e) => update({ plate: e.target.value })}
-            placeholder="XX-123-YY"
+            onChange={(e) => {
+              // Lettres et chiffres uniquement (pas de - ni de .)
+              const sanitized = e.target.value.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+              update({ plate: sanitized });
+            }}
+            placeholder="XX123YY"
             className={`w-full rounded-md px-3 py-1.5 text-sm shadow-sm focus:ring-primary focus:border-primary ${
               !data.plate ? "border-red-500" : "border-gray-300"
             }`}
           />
+          {data.plate && !/^[A-Za-z0-9]+$/.test(data.plate) && (
+            <p className="text-xs text-red-500 mt-0.5">Lettres et chiffres uniquement</p>
+          )}
         </div>
         {/* Type de véhicule */}
         <div className="flex-1 min-w-[180px]">
@@ -117,8 +124,11 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
             </label>
             <input
               value={data.trailerPlate ?? ""}
-              onChange={(e) => update({ trailerPlate: e.target.value })}
-              placeholder="XX-456-ZZ"
+              onChange={(e) => {
+                const sanitized = e.target.value.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+                update({ trailerPlate: sanitized });
+              }}
+              placeholder="XX456ZZ"
               className="w-full rounded-md px-3 py-1.5 text-sm shadow-sm focus:ring-primary focus:border-primary border-gray-300"
             />
           </div>

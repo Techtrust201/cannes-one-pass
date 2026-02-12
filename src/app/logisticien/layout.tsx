@@ -3,12 +3,14 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import Image from "next/image";
-import { useState } from "react";
-import { X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, ChevronsLeft, ChevronsRight } from "lucide-react";
 import MobileNavbar from "@/components/logisticien/MobileNavbar";
 import { usePermissions } from "@/hooks/usePermissions";
 import { authClient } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
+
+const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";
 
 export default function LogisticienLayout({
   children,
@@ -16,9 +18,26 @@ export default function LogisticienLayout({
   children: ReactNode;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const { user, hasPermission, isSuperAdmin, loading } =
     usePermissions();
   const router = useRouter();
+
+  // Restaurer l'état collapsed depuis localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+      if (saved === "true") setCollapsed(true);
+    } catch { /* ignore SSR */ }
+  }, []);
+
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try { localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
 
   if (loading) {
     return (
@@ -40,9 +59,10 @@ export default function LogisticienLayout({
       {/* Sidebar */}
       <aside
         className={`
-        fixed sm:static top-0 left-0 z-[60] h-screen w-60 bg-[#3F4660] text-white flex flex-col transition-transform duration-300
-        ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
+        fixed sm:static top-0 left-0 z-[60] h-screen bg-[#3F4660] text-white flex flex-col transition-all duration-300
+        ${sidebarOpen ? "translate-x-0 w-60" : "-translate-x-full w-60"}
         sm:translate-x-0 sm:flex
+        ${collapsed ? "sm:w-16" : "sm:w-60"}
       `}
       >
         {/* Logo + User info */}
@@ -62,7 +82,7 @@ export default function LogisticienLayout({
               />
             </svg>
           </div>
-          {user && (
+          {user && !collapsed && (
             <div className="px-4 pb-3">
               <p className="text-xs text-white/70 truncate">
                 {user.name}
@@ -78,6 +98,20 @@ export default function LogisticienLayout({
           {/* Bloc Accréditations */}
           {(hasPermission("LISTE", "read") ||
             hasPermission("CREER", "read")) && (
+            collapsed ? (
+              <div className="space-y-1">
+                {hasPermission("LISTE", "read") && (
+                  <Link href="/logisticien" className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="Liste" onClick={() => setSidebarOpen(false)}>
+                    <Image src="/logisticien/Vector%20(17).svg" width={16} height={16} alt="Liste" />
+                  </Link>
+                )}
+                {hasPermission("CREER", "read") && (
+                  <Link href="/logisticien/nouveau?step=1" className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="Créer" onClick={() => setSidebarOpen(false)}>
+                    <Image src="/logisticien/Vector%20(18).svg" width={16} height={16} alt="Créer" />
+                  </Link>
+                )}
+              </div>
+            ) : (
             <details open className="group">
               <summary className="flex items-center justify-between cursor-pointer px-3 py-2.5 bg-[#2C2F3F] rounded-lg text-xs font-semibold uppercase tracking-wide select-none">
                 <span className="flex items-center gap-2">
@@ -134,11 +168,26 @@ export default function LogisticienLayout({
                 )}
               </ul>
             </details>
+            )
           )}
 
           {/* Bloc Scans */}
           {(hasPermission("PLAQUE", "read") ||
             hasPermission("QR_CODE", "read")) && (
+            collapsed ? (
+              <div className="space-y-1">
+                {hasPermission("PLAQUE", "read") && (
+                  <Link href="/logisticien/scanner/plaque" className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="Plaque" onClick={() => setSidebarOpen(false)}>
+                    <Image src="/logisticien/Group%201%20(1).svg" width={22} height={16} alt="Plaque" />
+                  </Link>
+                )}
+                {hasPermission("QR_CODE", "read") && (
+                  <Link href="/logisticien/scanner/qr" className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="QR code" onClick={() => setSidebarOpen(false)}>
+                    <Image src="/logisticien/Vector%20(20).svg" width={16} height={16} alt="QR code" />
+                  </Link>
+                )}
+              </div>
+            ) : (
             <details open className="group">
               <summary className="flex items-center justify-between cursor-pointer px-3 py-2.5 bg-[#2C2F3F] rounded-lg text-xs font-semibold uppercase tracking-wide select-none">
                 <span className="flex items-center gap-2">
@@ -195,6 +244,7 @@ export default function LogisticienLayout({
                 )}
               </ul>
             </details>
+            )
           )}
 
           {/* Bloc Suivi */}
@@ -202,6 +252,30 @@ export default function LogisticienLayout({
             hasPermission("BILAN_CARBONE", "read") ||
             hasPermission("GESTION_ZONES", "read") ||
             hasPermission("GESTION_DATES", "read")) && (
+            collapsed ? (
+              <div className="space-y-1">
+                {hasPermission("FLUX_VEHICULES", "read") && (
+                  <Link href="/logisticien/vehicles" className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="Flux véhicules" onClick={() => setSidebarOpen(false)}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white"><path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h4c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" fill="currentColor"/></svg>
+                  </Link>
+                )}
+                {hasPermission("BILAN_CARBONE", "read") && (
+                  <Link href="/logisticien/carbon" className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="Bilan carbone" onClick={() => setSidebarOpen(false)}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="currentColor"/></svg>
+                  </Link>
+                )}
+                {hasPermission("GESTION_ZONES", "read") && (
+                  <Link href="/logisticien/zones" className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="Gestion zones" onClick={() => setSidebarOpen(false)}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="currentColor"/></svg>
+                  </Link>
+                )}
+                {hasPermission("GESTION_DATES", "read") && (
+                  <Link href="/logisticien/dates" className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="Gestion dates" onClick={() => setSidebarOpen(false)}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z" fill="currentColor"/></svg>
+                  </Link>
+                )}
+              </div>
+            ) : (
             <details open className="group">
               <summary className="flex items-center justify-between cursor-pointer px-3 py-2.5 bg-[#2C2F3F] rounded-lg text-xs font-semibold uppercase tracking-wide select-none">
                 <span className="flex items-center gap-2">
@@ -327,6 +401,7 @@ export default function LogisticienLayout({
                 )}
               </ul>
             </details>
+            )
           )}
 
           {/* Lien Admin (Super Admin uniquement) */}
@@ -334,8 +409,9 @@ export default function LogisticienLayout({
             <div className="pt-2">
               <Link
                 href="/admin/users"
-                className="flex items-center gap-2 px-3 py-2.5 bg-purple-500/20 text-purple-200 rounded-lg hover:bg-purple-500/30 active:bg-purple-500/40 text-xs font-semibold uppercase tracking-wide transition-colors"
+                className={`flex items-center ${collapsed ? "justify-center" : "gap-2"} px-3 py-2.5 bg-purple-500/20 text-purple-200 rounded-lg hover:bg-purple-500/30 active:bg-purple-500/40 text-xs font-semibold uppercase tracking-wide transition-colors`}
                 onClick={() => setSidebarOpen(false)}
+                title="Administration"
               >
                 <svg
                   width="16"
@@ -349,11 +425,21 @@ export default function LogisticienLayout({
                     fill="currentColor"
                   />
                 </svg>
-                Administration
+                {!collapsed && "Administration"}
               </Link>
             </div>
           )}
         </nav>
+        {/* Bouton collapse (desktop uniquement) */}
+        <div className="hidden sm:flex border-t border-white/10 p-2 justify-center">
+          <button
+            onClick={toggleCollapsed}
+            className="p-2 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors text-white/70 hover:text-white"
+            title={collapsed ? "Déplier le menu" : "Replier le menu"}
+          >
+            {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
+          </button>
+        </div>
         {/* Déconnexion */}
         <div className="border-t border-white/10 p-3 sm:p-4 mb-16 sm:mb-0">
           <button
@@ -361,7 +447,8 @@ export default function LogisticienLayout({
               await authClient.signOut();
               router.push("/login");
             }}
-            className="flex items-center gap-3 w-full text-left px-3 py-3 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors text-sm"
+            className={`flex items-center ${collapsed ? "justify-center" : "gap-3"} w-full text-left px-3 py-3 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors text-sm`}
+            title="Se déconnecter"
           >
             <Image
               src="/logisticien/Vector%20(21).svg"
@@ -369,7 +456,7 @@ export default function LogisticienLayout({
               height={16}
               alt=""
             />
-            Se déconnecter
+            {!collapsed && "Se déconnecter"}
           </button>
         </div>
         {/* Close button mobile */}

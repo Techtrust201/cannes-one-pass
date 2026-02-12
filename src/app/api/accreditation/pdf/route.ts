@@ -14,6 +14,7 @@ interface Vehicle {
   city: string;
   unloading: string;
   kms?: string;
+  trailerPlate?: string;
 }
 
 interface AccreditationPayload {
@@ -192,7 +193,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    addLabelVal("Nom de l'entreprise", company);
+    addLabelVal("Nom du décorateur", company);
     addLabelVal("Stand desservi", stand);
     addLabelVal("Événement", event);
     // Désérialisation du champ unloading (accréditation)
@@ -308,6 +309,9 @@ export async function POST(req: NextRequest) {
         }
       }
       addLabelValBox("Plaque", v.plate);
+      if (v.trailerPlate) {
+        addLabelValBox("Plaque de la remorque", v.trailerPlate);
+      }
       addLabelValBox("Taille du véhicule", v.size);
       addLabelValBox(
         "Téléphone du conducteur",

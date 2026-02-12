@@ -4,7 +4,7 @@ import type { VehicleType } from "@/types";
 const WEIGHT_LIMITS: Record<VehicleType, { emptyWeight: number; maxWeight: number }> = {
   PORTEUR: { emptyWeight: 12, maxWeight: 26 },
   PORTEUR_ARTICULE: { emptyWeight: 12, maxWeight: 26 },
-  SEMI_REMORQUE: { emptyWeight: 15, maxWeight: 30 },
+  SEMI_REMORQUE: { emptyWeight: 15, maxWeight: 44 },
 };
 
 /** Retourne les limites de poids pour un type de véhicule */
@@ -26,6 +26,12 @@ export function getVehicleTypeLabel(vehicleType: VehicleType): string {
     SEMI_REMORQUE: "Semi-remorque",
   };
   return labels[vehicleType];
+}
+
+/** Retourne le poids moyen pour un type de véhicule (moyenne entre poids à vide et poids max en charge) */
+export function getAverageWeight(vehicleType: VehicleType): number {
+  const limits = WEIGHT_LIMITS[vehicleType];
+  return Math.round((limits.emptyWeight + limits.maxWeight) / 2);
 }
 
 /** Tous les types de véhicules disponibles pour la phase pilote */

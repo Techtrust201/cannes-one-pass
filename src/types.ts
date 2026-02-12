@@ -28,6 +28,7 @@ export interface Vehicle {
   unloading: ("lat" | "rear")[];
   kms?: string;
   vehicleType?: VehicleType;
+  trailerPlate?: string;
   emptyWeight?: number;
   maxWeight?: number;
   currentWeight?: number;

@@ -29,10 +29,9 @@ export interface MonthlyData {
   year: number;
   nbVehicules: number;
   typeBreakdown: {
-    "<10m3": number;
-    "10-15m3": number;
-    "15-20m3": number;
-    ">20m3": number;
+    "Porteur": number;
+    "Porteur articulé": number;
+    "Semi-remorque": number;
   };
   data: CarbonDataEntry[];
 }

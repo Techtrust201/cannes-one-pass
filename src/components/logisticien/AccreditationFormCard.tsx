@@ -271,7 +271,10 @@ export default function AccreditationFormCard({ acc }: Props) {
                     <React.Fragment key={v.id}>
                       <tr className="border-b border-gray-200 hover:bg-gray-100 transition-all duration-200">
                         <td className="p-4 font-medium text-gray-800">
-                          {v.plate}
+                          <div>{v.plate}</div>
+                          {v.trailerPlate && (
+                            <div className="text-xs text-gray-500 mt-0.5">Remorque: {v.trailerPlate}</div>
+                          )}
                         </td>
                         <td className="p-4 text-gray-700">{v.size}</td>
                         <td className="p-4 text-gray-700">
@@ -387,7 +390,7 @@ export default function AccreditationFormCard({ acc }: Props) {
           {/* Company */}
           <div className="flex flex-col">
             <label className="font-semibold mb-3 text-gray-800">
-              Nom de l&apos;entreprise
+              Nom du décorateur
             </label>
             <input
               className="w-full h-10 rounded-lg md:rounded-xl border border-gray-400 px-3 md:px-4 focus:ring-2 focus:ring-[#4F587E] focus:border-[#4F587E] transition-all duration-200 bg-white text-sm md:text-base"
@@ -419,7 +422,7 @@ export default function AccreditationFormCard({ acc }: Props) {
               <option value="">Choisir</option>
               <option value="Palais">Palais</option>
               <option value="SVMM">SVMM</option>
-              <option value="Autonome">Autonome</option>
+              <option value="Autonome">Déchargement manuel</option>
             </select>
           </div>
           {/* Event */}

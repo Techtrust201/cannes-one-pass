@@ -5,7 +5,7 @@ import type { Zone } from "@/types";
 import { fetchWithRetry } from "@/lib/fetch-with-retry";
 
 export interface StreamEvent {
-  type: "connected" | "status_change" | "zone_change" | "zone_transfer" | "created" | "update";
+  type: "connected" | "status_change" | "zone_change" | "zone_transfer" | "created" | "update" | "deleted" | "vehicle_removed" | "vehicle_added" | "vehicle_updated" | "info_updated";
   accreditationId?: string;
   data?: {
     action: string;
@@ -87,20 +87,15 @@ export function useAccreditationStream({
       if (!events || events.length === 0) return;
 
       // Traiter chaque événement
-      let shouldRefresh = false;
       for (const event of events as StreamEvent[]) {
         setLastEvent(event);
         onEventRef.current?.(event);
-
-        if (["status_change", "zone_change", "zone_transfer", "created"].includes(event.type)) {
-          shouldRefresh = true;
-        }
       }
 
-      // Déclencher le refresh une seule fois pour tous les événements
-      if (shouldRefresh) {
-        onRefreshRef.current?.();
-      }
+      // Tout événement signifie qu'il y a eu un changement → refresh
+      // Couvre : status_change, zone_change, zone_transfer, created, update,
+      //          deleted, vehicle_removed, vehicle_added, vehicle_updated, info_updated
+      onRefreshRef.current?.();
     } catch {
       setIsConnected(false);
     }

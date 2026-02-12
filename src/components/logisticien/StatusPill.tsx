@@ -19,18 +19,18 @@ const STATUS_CFG: Record<
     label: "Nouveau",
   },
   ATTENTE: {
-    bg: "bg-sky-100",
-    text: "text-sky-700",
+    bg: "bg-yellow-100",
+    text: "text-yellow-700",
     label: "Attente",
   },
   ENTREE: {
-    bg: "bg-emerald-100",
-    text: "text-emerald-700",
+    bg: "bg-green-100",
+    text: "text-green-700",
     label: "Entrée",
   },
   SORTIE: {
-    bg: "bg-slate-200",
-    text: "text-slate-700",
+    bg: "bg-red-100",
+    text: "text-red-700",
     label: "Sortie",
   },
   REFUS: {

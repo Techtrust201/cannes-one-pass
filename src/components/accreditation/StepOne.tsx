@@ -146,13 +146,13 @@ export default function StepOne({ data, update, onValidityChange }: Props) {
                 htmlFor="company"
                 className="text-sm font-semibold text-gray-700"
               >
-                Nom de l&apos;entreprise
+                Nom du décorateur
               </label>
               <input
                 id="company"
                 value={company}
                 onChange={(e) => update({ company: e.target.value })}
-                placeholder="Nom de l'entreprise"
+                placeholder="Nom du décorateur"
                 className={cn(
                   "w-full rounded-md px-3 py-2 shadow-sm focus:ring-primary focus:border-primary",
                   !company.trim() ? "border-red-500" : "border-gray-300"
@@ -200,7 +200,7 @@ export default function StepOne({ data, update, onValidityChange }: Props) {
                 </option>
                 <option value="Palais">Palais</option>
                 <option value="SVMM">SVMM</option>
-                <option value="Autonome">Autonome</option>
+                <option value="Autonome">Déchargement manuel</option>
               </select>
             </div>
           </div>

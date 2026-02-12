@@ -93,6 +93,7 @@ export async function POST(req: NextRequest) {
             unloading: JSON.stringify(v.unloading),
             kms: (v.kms as string) ?? "",
             vehicleType: (v.vehicleType as "PORTEUR" | "PORTEUR_ARTICULE" | "SEMI_REMORQUE") ?? null,
+            trailerPlate: (v.trailerPlate as string) ?? null,
             emptyWeight: v.emptyWeight != null ? Number(v.emptyWeight) : null,
             maxWeight: v.maxWeight != null ? Number(v.maxWeight) : null,
             currentWeight: v.currentWeight != null ? Number(v.currentWeight) : null,

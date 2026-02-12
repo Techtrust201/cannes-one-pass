@@ -225,6 +225,7 @@ export async function PATCH(
               estimatedKms: v.estimatedKms != null ? Number(v.estimatedKms) : 0,
               arrivalDate: v.arrivalDate ? new Date(v.arrivalDate) : null,
               departureDate: v.departureDate ? new Date(v.departureDate) : null,
+              trailerPlate: (v.trailerPlate as string) ?? null,
               emptyWeight: v.emptyWeight != null ? Number(v.emptyWeight) : null,
               maxWeight: v.maxWeight != null ? Number(v.maxWeight) : null,
               currentWeight: v.currentWeight != null ? Number(v.currentWeight) : null,

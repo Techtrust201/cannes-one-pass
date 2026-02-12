@@ -60,7 +60,12 @@ export async function GET(req: NextRequest) {
         entry.action === "ZONE_TRANSFER" ? "zone_transfer" :
         entry.action === "ZONE_CHANGED" ? "zone_change" :
         entry.action === "STATUS_CHANGED" ? "status_change" :
-        entry.action === "CREATED" ? "created" : "update",
+        entry.action === "CREATED" ? "created" :
+        entry.action === "DELETED" ? "deleted" :
+        entry.action === "VEHICLE_REMOVED" ? "vehicle_removed" :
+        entry.action === "VEHICLE_ADDED" ? "vehicle_added" :
+        entry.action === "VEHICLE_UPDATED" ? "vehicle_updated" :
+        entry.action === "INFO_UPDATED" ? "info_updated" : "update",
       accreditationId: entry.accreditationId,
       data: {
         action: entry.action,

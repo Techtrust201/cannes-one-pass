@@ -8,16 +8,17 @@ export interface FilterBarProps {
   searchParams: Record<string, string>;
   statusOptions: { value: string; label: string }[];
   zoneOptions?: { value: string; label: string }[];
+  vehicleTypeOptions?: { value: string; label: string }[];
 }
 
-export function FilterBar({ searchParams, statusOptions, zoneOptions }: FilterBarProps) {
-  const { q = "", status = "", from = "", to = "", zone = "" } = searchParams;
+export function FilterBar({ searchParams, statusOptions, zoneOptions, vehicleTypeOptions }: FilterBarProps) {
+  const { q = "", status = "", from = "", to = "", zone = "", vehicleType = "" } = searchParams;
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
 
   // Compter les filtres actifs
-  const activeFiltersCount = [status, zone, from, to, q].filter(Boolean).length;
+  const activeFiltersCount = [status, zone, from, to, q, vehicleType].filter(Boolean).length;
 
   // Fermer le popover desktop sur clic extérieur
   useEffect(() => {
@@ -149,6 +150,26 @@ export function FilterBar({ searchParams, statusOptions, zoneOptions }: FilterBa
                   )}
                 </div>
 
+                {vehicleTypeOptions && (
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="vehicleType-mobile" className="text-xs font-semibold text-gray-700">
+                      Type de véhicule
+                    </label>
+                    <select
+                      id="vehicleType-mobile"
+                      name="vehicleType"
+                      defaultValue={vehicleType as string}
+                      className="w-full px-3 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm bg-gray-50 focus:bg-white"
+                    >
+                      {vehicleTypeOptions.map((opt) => (
+                        <option key={opt.value || "all"} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1.5">
                     <label htmlFor="from-mobile" className="text-xs font-semibold text-gray-700">
@@ -250,7 +271,7 @@ export function FilterBar({ searchParams, statusOptions, zoneOptions }: FilterBa
                   className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 placeholder-gray-400 bg-gray-50 text-base"
                 />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-5">
                 <div>
                   <label
                     className="text-base font-semibold text-gray-800 mb-2 block"
@@ -286,6 +307,28 @@ export function FilterBar({ searchParams, statusOptions, zoneOptions }: FilterBa
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 bg-gray-50"
                     >
                       {zoneOptions.map((opt) => (
+                        <option key={opt.value || "all"} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                {vehicleTypeOptions && (
+                  <div>
+                    <label
+                      className="text-base font-semibold text-gray-800 mb-2 block"
+                      htmlFor="vehicleType-desktop"
+                    >
+                      Type véhicule
+                    </label>
+                    <select
+                      id="vehicleType-desktop"
+                      name="vehicleType"
+                      defaultValue={vehicleType}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 bg-gray-50"
+                    >
+                      {vehicleTypeOptions.map((opt) => (
                         <option key={opt.value || "all"} value={opt.value}>
                           {opt.label}
                         </option>

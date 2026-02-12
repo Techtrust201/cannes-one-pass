@@ -29,12 +29,11 @@ export interface MonthlyData {
   };
 }
 
-// Mapping des couleurs pour les types (constant partout)
+// Mapping des couleurs pour les types de véhicules réels
 export const TYPE_COLORS = {
-  "<10m3": "#3B82F6", // bleu
-  "10-15m3": "#22C55E", // vert
-  "15-20m3": "#F59E0B", // orange
-  ">20m3": "#EF4444", // rouge
+  "Porteur": "#3B82F6",           // bleu
+  "Porteur articulé": "#F59E0B",  // orange
+  "Semi-remorque": "#EF4444",     // rouge
 };
 
 // Données mock détaillées
@@ -46,7 +45,7 @@ export const mockDetailedData: CarbonData[] = [
     entreprise: "Nomdeentrepriselongue",
     stand: "Nomdestandlongue",
     origine: "Nomdepaystreslong",
-    type: "15-20m3",
+    type: "Semi-remorque",
     km: 999999,
     kgCO2eq: 999999,
     date: "2025-01-15",
@@ -227,25 +226,19 @@ export const mockAggregatedData = {
   ],
   type: [
     {
-      category: "<10m3",
+      category: "Porteur",
       nbVehicules: 999999999,
       distanceKm: 999999999,
       emissionsKgCO2eq: 999999999,
     },
     {
-      category: "10-15m3",
+      category: "Porteur articulé",
       nbVehicules: 999999999,
       distanceKm: 999999999,
       emissionsKgCO2eq: 999999999,
     },
     {
-      category: "15-20m3",
-      nbVehicules: 999999999,
-      distanceKm: 999999999,
-      emissionsKgCO2eq: 999999999,
-    },
-    {
-      category: ">20m3",
+      category: "Semi-remorque",
       nbVehicules: 999999999,
       distanceKm: 999999999,
       emissionsKgCO2eq: 999999999,
@@ -260,10 +253,9 @@ export const mockMonthlyData: MonthlyData[] = [
     year: 2025,
     nbVehicules: 9999,
     typeBreakdown: {
-      "<10m3": 2500,
-      "10-15m3": 2000,
-      "15-20m3": 1500,
-      ">20m3": 1000,
+      "Porteur": 3500,
+      "Porteur articulé": 3000,
+      "Semi-remorque": 3499,
     },
   },
   // Ajouter plus de données pour les 12 mois...

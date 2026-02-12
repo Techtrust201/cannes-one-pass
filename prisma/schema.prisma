@@ -224,6 +224,9 @@ model Vehicle {
   arrivalDate     DateTime?
   departureDate   DateTime?
 
+  // Plaque de la remorque (semi-remorque uniquement, facultatif)
+  trailerPlate    String?
+
   // Champs poids (en tonnes)
   emptyWeight     Int?
   maxWeight       Int?

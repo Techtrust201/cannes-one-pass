@@ -35,6 +35,7 @@ export default async function LogisticienDashboard(props: {
     from = "",
     to = "",
     zone = "",
+    vehicleType = "",
     page = "1",
     sort = "createdAt",
     dir = "desc",
@@ -66,6 +67,12 @@ export default async function LogisticienDashboard(props: {
 
   if (zone && zone !== "all") {
     filtered = filtered.filter((acc) => acc.currentZone === zone);
+  }
+
+  if (vehicleType && vehicleType !== "all") {
+    filtered = filtered.filter((acc) =>
+      acc.vehicles?.some((v) => v.vehicleType === vehicleType || v.size === vehicleType)
+    );
   }
 
   const hasFrom = Boolean(from);
@@ -163,6 +170,26 @@ export default async function LogisticienDashboard(props: {
     return 0;
   });
 
+  // Tri secondaire : si pas de tri explicite demandé par l'utilisateur,
+  // les accréditations du jour avec statut ENTREE remontent en premier
+  if (sort === "createdAt" && dir === "desc") {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    filtered.sort((a, b) => {
+      const aIsToday = a.createdAt && new Date(a.createdAt) >= today && new Date(a.createdAt) < tomorrow;
+      const bIsToday = b.createdAt && new Date(b.createdAt) >= today && new Date(b.createdAt) < tomorrow;
+      const aIsEntree = a.status === "ENTREE" && aIsToday;
+      const bIsEntree = b.status === "ENTREE" && bIsToday;
+
+      if (aIsEntree && !bIsEntree) return -1;
+      if (!aIsEntree && bIsEntree) return 1;
+      return 0;
+    });
+  }
+
   // --- Pagination ---
   const perPage = 15;
   const currentPage = Math.max(1, Number(page));
@@ -199,6 +226,13 @@ export default async function LogisticienDashboard(props: {
     { value: "MACE", label: "Macé" },
   ];
 
+  const vehicleTypeOptions = [
+    { value: "", label: "Tous types" },
+    { value: "PORTEUR", label: "Porteur" },
+    { value: "PORTEUR_ARTICULE", label: "Porteur articulé" },
+    { value: "SEMI_REMORQUE", label: "Semi-remorque" },
+  ];
+
   return (
     <div className="min-h-screen sm:h-screen flex flex-col">
       {/* Auto-refresh invisible : détecte les changements et met à jour la liste */}
@@ -207,7 +241,7 @@ export default async function LogisticienDashboard(props: {
       {/* Header fixe */}
       <div className="flex-shrink-0 p-2 md:p-2">
         <div className="flex justify-between items-center">
-          <FilterBar searchParams={paramsObj} statusOptions={statusOptions} zoneOptions={zoneOptions} />
+          <FilterBar searchParams={paramsObj} statusOptions={statusOptions} zoneOptions={zoneOptions} vehicleTypeOptions={vehicleTypeOptions} />
         </div>
       </div>
 

@@ -4,7 +4,8 @@ import type { Vehicle } from "@/types";
 import CityAutocomplete from "@/components/CityAutocomplete";
 import Image from "next/image";
 import { Checkbox } from "@/components/ui/checkbox";
-import { getVehicleWeightLimits, getVehicleTypeLabel, getAllVehicleTypes } from "@/lib/vehicle-utils";
+import PhoneInput from "@/components/ui/PhoneInput";
+import { getVehicleWeightLimits, getVehicleTypeLabel, getAllVehicleTypes, getAverageWeight } from "@/lib/vehicle-utils";
 import type { VehicleType } from "@/types";
 
 interface Props {
@@ -32,15 +33,17 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => onValidityChange(!!valid), [valid]);
 
-  // Auto-set weight limits when vehicle type changes
+  // Auto-set weight limits + average weight when vehicle type changes
   const handleVehicleTypeChange = (vt: string) => {
     if (vt && getAllVehicleTypes().includes(vt as VehicleType)) {
       const limits = getVehicleWeightLimits(vt as VehicleType);
+      const avgWeight = getAverageWeight(vt as VehicleType);
       update({
         size: vt,
         vehicleType: vt as VehicleType,
         emptyWeight: limits.emptyWeight,
         maxWeight: limits.maxWeight,
+        currentWeight: avgWeight,
       });
     } else {
       update({ size: vt, vehicleType: undefined, emptyWeight: undefined, maxWeight: undefined, currentWeight: undefined });
@@ -98,7 +101,47 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
             ))}
           </select>
         </div>
-        {/* Poids actuel */}
+        {/* Plaque de remorque (semi-remorque uniquement, facultatif) */}
+        {data.size === "SEMI_REMORQUE" && (
+          <div className="flex-1 min-w-[180px]">
+            <label className="text-sm font-semibold flex items-center gap-1 mb-1">
+              <Image
+                src="/accreditation/pict_page2/Group 1.svg"
+                width={16}
+                height={16}
+                className="w-4 h-4"
+                alt="Plaque remorque"
+              />{" "}
+              Plaque de la remorque
+              <span className="font-normal text-xs text-gray-500">(facultatif)</span>
+            </label>
+            <input
+              value={data.trailerPlate ?? ""}
+              onChange={(e) => update({ trailerPlate: e.target.value })}
+              placeholder="XX-456-ZZ"
+              className="w-full rounded-md px-3 py-1.5 text-sm shadow-sm focus:ring-primary focus:border-primary border-gray-300"
+            />
+          </div>
+        )}
+        {/* ──────────────────────────────────────────────────────────────────
+         * CHAMP "POIDS ACTUEL" — DÉSACTIVÉ TEMPORAIREMENT
+         * 
+         * Raison : Le poids actuel est maintenant calculé automatiquement
+         * comme la moyenne entre le poids à vide et le poids max en charge
+         * du type de véhicule sélectionné (via getAverageWeight).
+         * 
+         * Contexte : Les camions peuvent effectuer plusieurs allers-retours
+         * par jour (à vide ou chargés), ce qui rend la saisie manuelle
+         * du poids peu fiable et bloquante pour l'utilisateur.
+         * Le poids moyen est utilisé pour les statistiques du bilan carbone.
+         * 
+         * RÉACTIVATION PRÉVUE : ~Août 2026 (dans 6 mois)
+         * Quand on réactivera ce champ, il faudra :
+         * 1. Décommenter le bloc JSX ci-dessous
+         * 2. Retirer le `currentWeight: avgWeight` du handleVehicleTypeChange
+         * 3. Permettre à l'utilisateur de saisir le poids réel
+         * 4. Adapter le bilan carbone pour distinguer trajet à vide vs chargé
+         * ──────────────────────────────────────────────────────────────────
         {data.vehicleType && (
           <div className="flex-1 min-w-[180px]">
             <label className="text-sm font-semibold flex items-center gap-1 mb-1">
@@ -129,6 +172,21 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
               )}
           </div>
         )}
+        */}
+        {/* Affichage informatif du poids moyen calculé */}
+        {data.vehicleType && (
+          <div className="flex-1 min-w-[180px]">
+            <label className="text-sm font-semibold flex items-center gap-1 mb-1">
+              Poids moyen estimé
+            </label>
+            <div className="w-full rounded-md px-3 py-1.5 text-sm bg-gray-100 border border-gray-300 text-gray-700">
+              {getAverageWeight(data.vehicleType)}t
+              <span className="text-xs text-gray-500 ml-1">
+                (moy. {data.emptyWeight}t à vide / {data.maxWeight}t en charge)
+              </span>
+            </div>
+          </div>
+        )}
         {/* Téléphone */}
         <div className="flex-1 min-w-[180px]">
           <label className="text-sm font-semibold flex items-center gap-1 mb-1">
@@ -141,30 +199,21 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
             />{" "}
             N° du conducteur
           </label>
-          <div className="flex gap-2">
-            <select
-              value={data.phoneCode}
-              onChange={(e) => update({ phoneCode: e.target.value })}
-              className="max-w-16 rounded-md px-2 py-1.5 text-sm shadow-sm bg-white border-gray-300 focus:ring-primary focus:border-primary flex-shrink-0"
-            >
-              {["+33", "+32", "+41", "+34"].map((c) => (
-                <option key={c}>{c}</option>
-              ))}
-            </select>
-            <input
-              type="tel"
-              value={data.phoneNumber ?? ""}
-              onChange={(e) =>
-                update({ phoneNumber: e.target.value.replace(/\D/g, "") })
+          <PhoneInput
+            value={`${data.phoneCode}${data.phoneNumber}`}
+            onChange={(phone) => {
+              // Extraire l'indicatif et le numéro pour rétro-compatibilité
+              // Le phone est au format "+33612345678"
+              const match = phone.match(/^(\+\d{1,4})(.*)$/);
+              if (match) {
+                update({ phoneCode: match[1], phoneNumber: match[2].replace(/\s/g, "") });
+              } else {
+                update({ phoneNumber: phone.replace(/[^\d]/g, "") });
               }
-              placeholder="0912345678"
-              className={`w-full flex-1 min-w-0 rounded-md px-3 py-1.5 text-sm shadow-sm focus:ring-primary focus:border-primary ${
-                !data.phoneNumber ? "border-red-500" : "border-gray-300"
-              }`}
-              inputMode="numeric"
-              pattern="[0-9]*"
-            />
-          </div>
+            }}
+            error={!data.phoneNumber}
+            placeholder="612345678"
+          />
         </div>
         {/* Date */}
         <div className="flex-1 min-w-[180px]">

@@ -24,12 +24,12 @@ interface AggregatedData {
   emissionsKgCO2eq: number;
 }
 
-// ── Coefficients CO₂ (ADEME 2024, diesel utilitaires) ────────────────
+// ── Coefficients CO₂ (ADEME 2024, diesel poids lourds) ──────────────
+// Basés sur les vrais types de véhicules du Palais des Festivals
 const CO2_COEFFICIENTS = {
-  "<10m3": 0.185,   // Fourgonnette <3.5t
-  "10-15m3": 0.265, // Fourgon moyen 3.5-7.5t
-  "15-20m3": 0.385, // Camion porteur 7.5-16t
-  ">20m3": 0.485,   // Poids lourd >16t
+  "Porteur": 0.265,           // Camion porteur rigide ~12-26t
+  "Porteur articulé": 0.385,  // Porteur articulé ~12-26t
+  "Semi-remorque": 0.485,     // Tracteur + semi-remorque ~15-44t
 } as const;
 
 // ── Haversine amélioré (même que distance/route.ts) ──────────────────
@@ -55,25 +55,26 @@ function calculateRoadDistance(lat: number, lng: number): number {
   return Math.round(d * factor);
 }
 
-// ── Mapping type véhicule ────────────────────────────────────────────
-function mapVehicleTypeToSize(vehicleType: string | null, fallbackSize?: string): string {
+// ── Mapping type véhicule → libellé réel ────────────────────────────
+function mapVehicleType(vehicleType: string | null, fallbackSize?: string): string {
+  // Priorité 1 : champ vehicleType (enum Prisma)
   if (vehicleType) {
     switch (vehicleType) {
-      case "PETIT": return "<10m3";
-      case "MOYEN": return "10-15m3";
-      case "GRAND": return "15-20m3";
-      case "TRES_GRAND": return ">20m3";
-      default: return "10-15m3";
+      case "PORTEUR": return "Porteur";
+      case "PORTEUR_ARTICULE": return "Porteur articulé";
+      case "SEMI_REMORQUE": return "Semi-remorque";
+      default: break;
     }
   }
+  // Priorité 2 : champ size (peut contenir l'enum directement)
   if (fallbackSize) {
     const s = fallbackSize.toUpperCase();
-    if (s.includes("PETIT") || s.includes("SMALL") || s.includes("<10")) return "<10m3";
-    if (s.includes("MOYEN") || s.includes("MEDIUM") || s.includes("10-15")) return "10-15m3";
-    if (s.includes("GRAND") || s.includes("LARGE") || s.includes("15-20")) return "15-20m3";
-    if (s.includes("TRES") || s.includes("XL") || s.includes(">20")) return ">20m3";
+    if (s.includes("SEMI")) return "Semi-remorque";
+    if (s.includes("ARTICUL")) return "Porteur articulé";
+    if (s.includes("PORTEUR")) return "Porteur";
   }
-  return "10-15m3";
+  // Défaut : Porteur (véhicule le plus courant)
+  return "Porteur";
 }
 
 // ── Mapping pays ─────────────────────────────────────────────────────
@@ -183,7 +184,7 @@ export async function GET(req: NextRequest) {
 
     for (const acc of accreditations) {
       for (const vehicle of acc.vehicles) {
-        const vehicleType = mapVehicleTypeToSize(vehicle.vehicleType || null, vehicle.size);
+        const vehicleType = mapVehicleType(vehicle.vehicleType || null, vehicle.size);
 
         // Distance : estimatedKms > kms (texte) > base locale > API
         let km = 0;
@@ -197,9 +198,9 @@ export async function GET(req: NextRequest) {
           km = await getDistanceFromCity(vehicle.city, req.nextUrl.origin);
         }
 
-        // Émissions CO₂
+        // Émissions CO₂ — utiliser le coefficient du type réel
         const validTypes = Object.keys(CO2_COEFFICIENTS);
-        const finalType = validTypes.includes(vehicleType) ? vehicleType : "10-15m3";
+        const finalType = validTypes.includes(vehicleType) ? vehicleType : "Porteur";
         const coeff = CO2_COEFFICIENTS[finalType as keyof typeof CO2_COEFFICIENTS];
         const kgCO2eq = km > 0 ? Math.round(km * coeff) : 0;
 
@@ -292,10 +293,9 @@ function monthlyData(
     year: number;
     nbVehicules: number;
     typeBreakdown: {
-      "<10m3": number;
-      "10-15m3": number;
-      "15-20m3": number;
-      ">20m3": number;
+      "Porteur": number;
+      "Porteur articulé": number;
+      "Semi-remorque": number;
     };
     data: CarbonDataEntry[];
     uniqueKey: string;
@@ -329,10 +329,9 @@ function monthlyData(
         year: curYear,
         nbVehicules: monthEntries.length,
         typeBreakdown: {
-          "<10m3": monthEntries.filter((e) => e.type === "<10m3").length,
-          "10-15m3": monthEntries.filter((e) => e.type === "10-15m3").length,
-          "15-20m3": monthEntries.filter((e) => e.type === "15-20m3").length,
-          ">20m3": monthEntries.filter((e) => e.type === ">20m3").length,
+          "Porteur": monthEntries.filter((e) => e.type === "Porteur").length,
+          "Porteur articulé": monthEntries.filter((e) => e.type === "Porteur articulé").length,
+          "Semi-remorque": monthEntries.filter((e) => e.type === "Semi-remorque").length,
         },
         data: monthEntries,
         uniqueKey: key,

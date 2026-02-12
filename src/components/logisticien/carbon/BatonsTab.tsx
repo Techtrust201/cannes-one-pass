@@ -24,10 +24,9 @@ function prepareMonthlyTypeData(monthlyData: MonthlyData[]) {
     month: month.month,
     year: month.year,
     monthIndex: month.monthIndex,
-    "<10m3": month.typeBreakdown["<10m3"],
-    "10-15m3": month.typeBreakdown["10-15m3"],
-    "15-20m3": month.typeBreakdown["15-20m3"],
-    ">20m3": month.typeBreakdown[">20m3"],
+    "Porteur": month.typeBreakdown["Porteur"],
+    "Porteur articulé": month.typeBreakdown["Porteur articulé"],
+    "Semi-remorque": month.typeBreakdown["Semi-remorque"],
   }));
 }
 

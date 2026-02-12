@@ -15,11 +15,15 @@ import {
   Trash2,
   Phone,
   MessageCircle,
+  ChevronDown,
+  History,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getTelLink, getWhatsAppLink } from "@/lib/contact-utils";
+import PhoneInput from "@/components/ui/PhoneInput";
 import ActionButtons from "./ActionButtons";
+import AccreditationHistory from "./AccreditationHistory";
 
 // Type pour le formulaire d'édition de véhicule
 interface VehicleFormData {
@@ -34,7 +38,7 @@ interface VehicleFormData {
 }
 
 const accreditationFormSchema = z.object({
-  company: z.string().min(1, "Entreprise requise").max(100, "Trop long"),
+  company: z.string().min(1, "Nom du décorateur requis").max(100, "Trop long"),
   stand: z.string().min(1, "Stand requis").max(50, "Trop long"),
   unloading: z.string().min(1, "Déchargement requis").max(50, "Trop long"),
   event: z.string().min(1, "Événement requis").max(50, "Trop long"),
@@ -138,6 +142,34 @@ function FormField({
         <span className="text-xs text-red-600" role="alert" aria-live="polite">
           {error}
         </span>
+      )}
+    </div>
+  );
+}
+
+// Section historique repliable pour mobile
+function HistorySection({ accreditationId }: { accreditationId: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+  return (
+    <div className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setIsOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-[#4F587E] hover:bg-gray-100 transition"
+      >
+        <span className="flex items-center gap-2">
+          <History size={16} />
+          Historique des modifications
+        </span>
+        <ChevronDown
+          size={16}
+          className={`transition-transform ${isOpen ? "rotate-180" : ""}`}
+        />
+      </button>
+      {isOpen && (
+        <div className="px-2 pb-3">
+          <AccreditationHistory accreditationId={accreditationId} className="max-h-[300px] overflow-y-auto" />
+        </div>
       )}
     </div>
   );
@@ -341,7 +373,7 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
           {/* Informations générales */}
           <div className="space-y-2">
             {[
-              { label: "Entreprise", field: "company" as const },
+              { label: "Nom du décorateur", field: "company" as const },
               { label: "Stand desservi", field: "stand" as const },
               { label: "Déchargement", field: "unloading" as const },
               { label: "Événement", field: "event" as const },
@@ -419,6 +451,7 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
                     </div>
                     <div className="text-gray-600 text-xs space-y-1">
                       {vehicle.size && <div>Taille: {vehicle.size}</div>}
+                      {vehicle.trailerPlate && <div>Remorque: {vehicle.trailerPlate}</div>}
                       {vehicle.city && <div>Ville: {vehicle.city}</div>}
                       {vehicle.phoneCode && vehicle.phoneNumber && (
                         <div className="flex items-center gap-2">
@@ -505,6 +538,9 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
           </button>
         </form>
 
+        {/* ── Historique des modifications ── */}
+        <HistorySection accreditationId={acc.id} />
+
         {/* Modal d'édition de véhicule */}
         {editingVehicle !== null && vehicleFormData && (
           <div
@@ -546,27 +582,20 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
                   </select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Indicatif</label>
-                    <input
-                      type="text"
-                      value={vehicleFormData.phoneCode}
-                      onChange={(e) => setVehicleFormData({ ...vehicleFormData, phoneCode: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm"
-                      placeholder="+33"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Numéro</label>
-                    <input
-                      type="text"
-                      value={vehicleFormData.phoneNumber}
-                      onChange={(e) => setVehicleFormData({ ...vehicleFormData, phoneNumber: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm"
-                      placeholder="123456789"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone du conducteur</label>
+                  <PhoneInput
+                    value={`${vehicleFormData.phoneCode}${vehicleFormData.phoneNumber}`}
+                    onChange={(phone) => {
+                      const match = phone.match(/^(\+\d{1,4})(.*)$/);
+                      if (match) {
+                        setVehicleFormData({ ...vehicleFormData, phoneCode: match[1], phoneNumber: match[2].replace(/\s/g, "") });
+                      } else {
+                        setVehicleFormData({ ...vehicleFormData, phoneNumber: phone.replace(/[^\d]/g, "") });
+                      }
+                    }}
+                    placeholder="612345678"
+                  />
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">

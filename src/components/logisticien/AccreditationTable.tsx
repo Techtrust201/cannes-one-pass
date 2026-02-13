@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import Link from "next/link";
-import { List, Pencil, Trash2, LogIn, LogOut, Clock, CheckSquare, Square, Archive, ArrowRight, Loader2 } from "lucide-react";
+import { List, Pencil, Trash2, LogIn, LogOut, Clock, CheckSquare, Square, Archive, ArrowRight, Loader2, MapPin } from "lucide-react";
 import { useRouter } from "next/navigation";
 import StatusPill from "./StatusPill";
 import MobileAccreditationList from "./MobileAccreditationList";
@@ -16,6 +16,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { buildLink } from "@/lib/url";
+import { getZoneLabel } from "@/lib/zone-utils";
 import type { Accreditation } from "@/types";
 
 /* ---------- Types ---------- */
@@ -26,6 +27,8 @@ export interface AccreditationTableProps {
   filteredCount: number;
   perPage: number;
   searchParams: Record<string, string>;
+  /** ID de l'accréditation sélectionnée (param `sel` URL) */
+  selectedId?: string;
   sort:
     | "status"
     | "id"
@@ -75,17 +78,6 @@ function SortCaret({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
   );
 }
 
-/* ---------- Helper: format duration ---------- */
-function fmtDuration(entryAt: Date | string | null | undefined, exitAt: Date | string | null | undefined) {
-  if (!entryAt || !exitAt) return null;
-  const ms = +new Date(exitAt) - +new Date(entryAt);
-  if (ms <= 0) return null;
-  const h = Math.floor(ms / 3600000);
-  const min = Math.floor(ms / 60000) % 60;
-  if (h > 0) return `${h}h${min > 0 ? `${String(min).padStart(2, "0")}` : ""}`;
-  return `${min}min`;
-}
-
 /* ---------- Helper: truncate ---------- */
 function truncate(text: string | undefined | null, max: number) {
   if (!text) return "-";
@@ -100,6 +92,7 @@ export default function AccreditationTable({
   filteredCount,
   perPage,
   searchParams,
+  selectedId,
   sort,
   dir,
 }: AccreditationTableProps) {
@@ -266,16 +259,22 @@ export default function AccreditationTable({
 
             <tbody>
               {pageData.map((acc, index) => {
-                // Prioriser les horaires Palais (time slots) sur les horaires génériques
-                const displayEntry = acc.palaisEntryAt || acc.entryAt;
-                const displayExit = acc.palaisExitAt || acc.exitAt;
-                const duration = fmtDuration(displayEntry, displayExit);
-                const isPalaisTimes = !!acc.palaisEntryAt;
+                // Afficher exclusivement le dernier step (toutes zones)
+                const displayEntry = acc.lastStepEntryAt || acc.entryAt;
+                const displayExit = acc.lastStepExitAt || acc.exitAt;
+                const displayZone = acc.lastStepZone || acc.currentZone;
+                const isSelected = selectedId === String(acc.id);
+                const selectUrl = buildLink(searchParams, currentPage, { sel: String(acc.id) });
                 return (
                   <tr
                     key={String(acc.id)}
-                    className={`border-b border-gray-100 hover:bg-blue-50/40 transition-colors ${
-                      index % 2 === 0 ? "bg-white" : "bg-gray-50/40"
+                    onClick={() => router.push(selectUrl)}
+                    className={`border-b border-gray-100 cursor-pointer transition-all duration-150 ${
+                      isSelected
+                        ? "bg-blue-50 ring-1 ring-inset ring-blue-300 shadow-sm"
+                        : index % 2 === 0
+                          ? "bg-white hover:bg-blue-50/40"
+                          : "bg-gray-50/40 hover:bg-blue-50/40"
                     }`}
                   >
                     {/* Checkbox */}
@@ -343,7 +342,7 @@ export default function AccreditationTable({
                         : "-"}
                     </td>
 
-                    {/* Horaires (Palais prioritaire, sinon génériques) */}
+                    {/* Horaires — dernier step uniquement */}
                     <td className="px-2 py-2">
                       {displayEntry ? (
                         <div className="flex flex-col gap-0.5">
@@ -362,19 +361,17 @@ export default function AccreditationTable({
                                 minute: "2-digit",
                               })}
                             </span>
-                          ) : duration ? (
-                            <span className="inline-flex items-center gap-1 text-gray-400">
-                              <Clock size={10} className="shrink-0" />
-                              {duration}
-                            </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 text-blue-500 text-[10px]">
                               <Clock size={10} className="shrink-0 animate-pulse" />
                               en cours
                             </span>
                           )}
-                          {isPalaisTimes && (
-                            <span className="text-[9px] text-[#4F587E] font-medium">Palais</span>
+                          {displayZone && (
+                            <span className="inline-flex items-center gap-0.5 text-[9px] text-[#4F587E] font-medium">
+                              <MapPin size={8} className="shrink-0" />
+                              {getZoneLabel(displayZone)}
+                            </span>
                           )}
                         </div>
                       ) : (
@@ -386,16 +383,15 @@ export default function AccreditationTable({
                     <td className="px-2 py-2 text-center">
                       <div className="inline-flex items-center gap-0.5">
                         <Link
-                          href={buildLink(searchParams, currentPage, {
-                            sel: String(acc.id),
-                          })}
+                          href={selectUrl}
+                          onClick={(e) => e.stopPropagation()}
                           className="p-1.5 hover:bg-[#4F587E]/10 rounded-lg transition text-[#4F587E]"
                           title="Éditer"
                         >
                           <Pencil size={14} />
                         </Link>
                         <button
-                          onClick={() => handleDelete(acc.id)}
+                          onClick={(e) => { e.stopPropagation(); handleDelete(acc.id); }}
                           className="p-1.5 hover:bg-red-50 rounded-lg transition text-red-400 hover:text-red-600"
                           title="Supprimer"
                         >

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import type { Accreditation } from "@/types";
 import { useRouter } from "next/navigation";
-import { Pencil, Trash2, Info, PlusCircle, Phone, MessageCircle } from "lucide-react";
+import { Pencil, Trash2, Info, PlusCircle, Phone, MessageCircle, Send, Save, Copy, Check, Loader2 } from "lucide-react";
 import VehicleForm from "@/components/accreditation/VehicleForm";
 import AccreditationHistory from "./AccreditationHistory";
 import DailyTimeSlotHistory from "./DailyTimeSlotHistory";
@@ -78,6 +78,14 @@ export default function AccreditationFormCard({ acc }: Props) {
 
   const [historyVersion, setHistoryVersion] = useState(0);
   const [conflictError, setConflictError] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  function copyId() {
+    navigator.clipboard.writeText(acc.id).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
 
   async function save() {
     setSaving(true);
@@ -159,19 +167,17 @@ export default function AccreditationFormCard({ acc }: Props) {
   };
 
   return (
-    <div className="bg-gray-50 border border-gray-300 rounded-lg md:rounded-2xl shadow-lg w-full max-h-[85vh] overflow-y-auto flex flex-col">
+    <div className="bg-gray-50 border border-gray-200 rounded-2xl shadow-xl w-full max-h-[85vh] overflow-y-auto flex flex-col">
       {/* Header */}
-      <div className="bg-[#4F587E] text-white rounded-t-2xl px-8 py-5 shadow flex items-center justify-between">
-        <h1 className="text-lg font-bold flex items-center gap-3">
-          <div className="p-2 bg-white/20 rounded-lg">
-            <Info size={22} />
-          </div>
-          Infos accréditations
-        </h1>
+      <div className="bg-[#4F587E] text-white rounded-t-2xl px-6 py-4 shadow-md flex items-center gap-3">
+        <div className="p-1.5 bg-white/15 rounded-lg">
+          <Info size={18} />
+        </div>
+        <h1 className="text-sm font-bold tracking-wide">Infos accréditation</h1>
       </div>
 
       {/* Contenu scrollable */}
-      <div className="flex-1 overflow-y-auto min-h-0 overflow-x-hidden p-8">
+      <div className="flex-1 overflow-y-auto min-h-0 overflow-x-hidden p-5">
 
         {/* ── WORKFLOW : Statut + Actions ── */}
         <div className="mb-6 bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
@@ -183,7 +189,7 @@ export default function AccreditationFormCard({ acc }: Props) {
 
         {/* Historique des créneaux (remplace "Durée sur site") */}
         <div className="mb-6 bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-          <DailyTimeSlotHistory accreditationId={acc.id} />
+          <DailyTimeSlotHistory accreditationId={acc.id} refreshKey={historyVersion} />
         </div>
 
         {/* Liste des véhicules */}
@@ -344,187 +350,190 @@ export default function AccreditationFormCard({ acc }: Props) {
           )}
         </div>
 
-        {/* Form grid — informations éditables */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 text-sm bg-white rounded-lg md:rounded-2xl p-3 md:p-8 border border-gray-200 mb-4 md:mb-8 w-full">
-          {/* ID */}
-          <div className="flex flex-col">
-            <label className="font-semibold mb-3 text-gray-800">#ID</label>
-            <input
-              className="w-full h-10 rounded-lg md:rounded-xl border border-gray-400 px-3 md:px-4 focus:ring-2 focus:ring-[#4F587E] focus:border-[#4F587E] transition-all duration-200 bg-gray-100 text-sm md:text-base"
-              value={acc.id}
-              readOnly
-            />
-          </div>
-          {/* Company */}
-          <div className="flex flex-col">
-            <label className="font-semibold mb-3 text-gray-800">
-              Nom du décorateur
-            </label>
-            <input
-              className="w-full h-10 rounded-lg md:rounded-xl border border-gray-400 px-3 md:px-4 focus:ring-2 focus:ring-[#4F587E] focus:border-[#4F587E] transition-all duration-200 bg-white text-sm md:text-base"
-              value={company}
-              onChange={(e) => setCompany(e.target.value)}
-            />
-          </div>
-          {/* Stand */}
-          <div className="flex flex-col">
-            <label className="font-semibold mb-3 text-gray-800">
-              Stand desservi
-            </label>
-            <input
-              className="w-full h-10 rounded-lg md:rounded-xl border border-gray-400 px-3 md:px-4 focus:ring-2 focus:ring-[#4F587E] focus:border-[#4F587E] transition-all duration-200 bg-white text-sm md:text-base"
-              value={stand}
-              onChange={(e) => setStand(e.target.value)}
-            />
-          </div>
-          {/* Unloading */}
-          <div className="flex flex-col">
-            <label className="font-semibold mb-3 text-gray-800">
-              Déchargement par
-            </label>
-            <select
-              className="w-full h-10 rounded-lg md:rounded-xl border border-gray-400 px-3 md:px-4 focus:ring-2 focus:ring-[#4F587E] focus:border-[#4F587E] transition-all duration-200 bg-white text-sm md:text-base"
-              value={unloading}
-              onChange={(e) => setUnloading(e.target.value)}
-            >
-              <option value="">Choisir</option>
-              <option value="Palais">Palais</option>
-              <option value="SVMM">SVMM</option>
-              <option value="Autonome">Déchargement manuel</option>
-            </select>
-          </div>
-          {/* Event */}
-          <div className="flex flex-col">
-            <label className="font-semibold mb-3 text-gray-800">
-              Événement
-            </label>
-            <select
-              className="w-full h-10 rounded-lg md:rounded-xl border border-gray-400 px-3 md:px-4 focus:ring-2 focus:ring-[#4F587E] focus:border-[#4F587E] transition-all duration-200 bg-white text-sm md:text-base"
-              value={event}
-              onChange={(e) => setEvent(e.target.value)}
-            >
-              <option value="">Choisir un événement</option>
-              {event && !EVENT_OPTIONS.some((o) => o.value === event) && (
-                <option value={event}>{event}</option>
-              )}
-              {EVENT_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          {/* Message */}
-          <div className="flex flex-col col-span-full">
-            <label className="font-semibold mb-3 text-gray-800">
-              Message du conducteur
-            </label>
-            <textarea
-              className="w-full rounded-lg md:rounded-xl border border-gray-400 px-3 md:px-4 py-2 md:py-3 min-h-[80px] md:min-h-[100px] focus:ring-2 focus:ring-[#4F587E] focus:border-[#4F587E] transition-all duration-200 resize-none text-sm md:text-base"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-            />
-          </div>
-          {/* Email */}
-          <div className="flex flex-col col-span-full">
-            <label className="font-semibold mb-3 text-gray-800">
-              E-mail du destinataire
-            </label>
-            <input
-              type="email"
-              className="w-full h-10 rounded-lg md:rounded-xl border border-gray-400 px-3 md:px-4 focus:ring-2 focus:ring-[#4F587E] focus:border-[#4F587E] transition-all duration-200 bg-white text-sm md:text-base"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="conducteur@email.com"
-            />
-          </div>
-        </div>
-
-        {/* ── Alerte conflit ── */}
-        {conflictError && (
-          <div className="mb-4 bg-amber-50 border border-amber-300 rounded-xl p-4 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-semibold text-amber-800">
-                ⚠ Cette accréditation a été modifiée par un autre utilisateur.
-              </p>
-              <p className="text-xs text-amber-600 mt-1">
-                Vos modifications n&apos;ont pas été enregistrées. Rafraîchissez pour voir la dernière version.
-              </p>
-            </div>
+        {/* ── Form grid — informations éditables ── */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-6 overflow-hidden">
+          {/* ID Badge */}
+          <div className="px-5 pt-5 pb-3 border-b border-gray-100 flex items-center gap-3">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">ID</span>
             <button
-              onClick={() => {
-                setConflictError(false);
-                router.refresh();
-              }}
-              className="ml-4 px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-semibold hover:bg-amber-700 transition shrink-0"
+              onClick={copyId}
+              className="group inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 border border-gray-200 transition-all duration-150"
+              title="Copier l'ID"
             >
-              Rafraîchir
+              <span className="text-xs font-mono font-semibold text-gray-600 truncate max-w-[180px]">{acc.id}</span>
+              {copied ? (
+                <Check size={12} className="text-green-500 shrink-0" />
+              ) : (
+                <Copy size={12} className="text-gray-400 group-hover:text-gray-600 shrink-0" />
+              )}
             </button>
           </div>
-        )}
 
-        {/* ── Actions principales ── */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-8">
-          <button
-            disabled={saving}
-            onClick={save}
-            className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-white border-2 border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 hover:border-gray-400 transition disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-          >
-            {saving ? "Enregistrement…" : "Enregistrer les modifications"}
-          </button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4 p-5 text-sm">
+            {/* Company */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Nom du décorateur</label>
+              <input
+                className="w-full h-9 rounded-lg border border-gray-200 px-3 text-sm bg-white focus:ring-2 focus:ring-blue-400/40 focus:border-blue-400 transition-all duration-150 placeholder:text-gray-300"
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+                placeholder="Nom..."
+              />
+            </div>
 
-          <button
-            onClick={sendAccreditation}
-            disabled={sending || !email}
-            className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#4F587E] text-white font-semibold shadow-sm hover:bg-[#3B4252] transition disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-          >
-            {sending ? "Envoi…" : "Envoyer l'accréditation"}
-          </button>
+            {/* Stand */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Stand desservi</label>
+              <input
+                className="w-full h-9 rounded-lg border border-gray-200 px-3 text-sm bg-white focus:ring-2 focus:ring-blue-400/40 focus:border-blue-400 transition-all duration-150 placeholder:text-gray-300"
+                value={stand}
+                onChange={(e) => setStand(e.target.value)}
+                placeholder="Stand..."
+              />
+            </div>
+
+            {/* Unloading */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Déchargement par</label>
+              <select
+                className="w-full h-9 rounded-lg border border-gray-200 px-3 text-sm bg-white focus:ring-2 focus:ring-blue-400/40 focus:border-blue-400 transition-all duration-150 appearance-none cursor-pointer"
+                value={unloading}
+                onChange={(e) => setUnloading(e.target.value)}
+              >
+                <option value="">Choisir</option>
+                <option value="Palais">Palais</option>
+                <option value="SVMM">SVMM</option>
+                <option value="Autonome">Déchargement manuel</option>
+              </select>
+            </div>
+
+            {/* Event */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Événement</label>
+              <select
+                className="w-full h-9 rounded-lg border border-gray-200 px-3 text-sm bg-white focus:ring-2 focus:ring-blue-400/40 focus:border-blue-400 transition-all duration-150 appearance-none cursor-pointer"
+                value={event}
+                onChange={(e) => setEvent(e.target.value)}
+              >
+                <option value="">Choisir un événement</option>
+                {event && !EVENT_OPTIONS.some((o) => o.value === event) && (
+                  <option value={event}>{event}</option>
+                )}
+                {EVENT_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Message */}
+            <div className="space-y-1.5 col-span-full">
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Message du conducteur</label>
+              <textarea
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 min-h-[68px] text-sm bg-white focus:ring-2 focus:ring-blue-400/40 focus:border-blue-400 transition-all duration-150 resize-none placeholder:text-gray-300"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Aucun message..."
+              />
+            </div>
+
+            {/* Email + inline send */}
+            <div className="space-y-1.5 col-span-full">
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">E-mail du destinataire</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="email"
+                  className="flex-1 h-9 rounded-lg border border-gray-200 px-3 text-sm bg-white focus:ring-2 focus:ring-blue-400/40 focus:border-blue-400 transition-all duration-150 placeholder:text-gray-300"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="conducteur@email.com"
+                />
+                <button
+                  onClick={sendAccreditation}
+                  disabled={sending || !email}
+                  title="Envoyer l'accréditation par e-mail"
+                  className="shrink-0 w-9 h-9 rounded-lg bg-[#4F587E] text-white flex items-center justify-center hover:bg-[#3B4252] active:scale-95 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[#4F587E] shadow-sm"
+                >
+                  {sending ? (
+                    <Loader2 size={15} className="animate-spin" />
+                  ) : (
+                    <Send size={15} />
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Alerte conflit */}
+          {conflictError && (
+            <div className="mx-5 mb-4 bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-amber-800">
+                  Modifié par un autre utilisateur
+                </p>
+                <p className="text-[10px] text-amber-600 mt-0.5">
+                  Rafraîchissez pour voir la dernière version.
+                </p>
+              </div>
+              <button
+                onClick={() => { setConflictError(false); router.refresh(); }}
+                className="px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 transition shrink-0"
+              >
+                Rafraîchir
+              </button>
+            </div>
+          )}
+
+          {/* Bouton Enregistrer */}
+          <div className="px-5 pb-5 pt-1">
+            <button
+              disabled={saving}
+              onClick={save}
+              className="w-full inline-flex items-center justify-center gap-2 h-10 rounded-lg bg-white border border-gray-200 text-gray-700 font-semibold text-sm hover:bg-gray-50 hover:border-gray-300 active:scale-[0.99] transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+            >
+              {saving ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  Enregistrement...
+                </>
+              ) : (
+                <>
+                  <Save size={14} />
+                  Enregistrer
+                </>
+              )}
+            </button>
+          </div>
         </div>
         {/* Historique des emails envoyés */}
         {emailHistory.length > 0 && (
-          <div className="px-6 pb-6">
-            <h3 className="font-semibold mb-4 text-base text-gray-800 flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              Historique des envois d&apos;e-mails
-            </h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm border border-gray-200 rounded-xl overflow-hidden min-w-full shadow-sm">
-                <thead>
-                  <tr className="bg-gradient-to-r from-gray-50 to-gray-100">
-                    <th className="p-4 text-left font-semibold text-gray-700">
-                      E-mail
-                    </th>
-                    <th className="p-4 text-left font-semibold text-gray-700">
-                      Date d&apos;envoi
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {emailHistory.map((h, i) => (
-                    <tr
-                      key={i}
-                      className="border-b border-gray-100 hover:bg-green-50/50 transition-all duration-200"
-                    >
-                      <td className="p-4 font-medium">{h.email}</td>
-                      <td className="p-4 text-gray-600">
-                        {new Date(h.sentAt).toLocaleString("fr-FR")}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <div className="mb-6 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full" />
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Envois e-mails</span>
+              <span className="ml-auto text-[10px] text-gray-400 font-medium">{emailHistory.length}</span>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {emailHistory.map((h, i) => (
+                <div key={i} className="flex items-center justify-between px-4 py-2.5 hover:bg-gray-50/60 transition-colors">
+                  <span className="text-xs font-medium text-gray-700 truncate">{h.email}</span>
+                  <span className="text-[10px] text-gray-400 font-medium whitespace-nowrap ml-3">
+                    {new Date(h.sentAt).toLocaleString("fr-FR")}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         )}
 
         {/* Discussion agents */}
-        <div className="px-6 pb-4">
+        <div className="mb-6">
           <AccreditationChat accreditationId={acc.id} defaultCollapsed={true} />
         </div>
 
         {/* Historique des modifications */}
-        <div className="px-6 pb-6">
+        <div className="mb-4">
           <AccreditationHistory accreditationId={acc.id} key={historyVersion} />
         </div>
       </div>

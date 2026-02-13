@@ -85,18 +85,19 @@ function liveMinutes(start: string): number {
 interface Props {
   accreditationId: string;
   className?: string;
+  /** Incrémenter cette valeur déclenche un re-fetch instantané (après une action). */
+  refreshKey?: number;
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
  * Composant principal
  * ──────────────────────────────────────────────────────────────────────────── */
 
-export default function DailyTimeSlotHistory({ accreditationId, className = "" }: Props) {
+export default function DailyTimeSlotHistory({ accreditationId, className = "", refreshKey = 0 }: Props) {
   const [days, setDays] = useState<DayGroup[]>([]);
   const [grandTotalMinutes, setGrandTotalMinutes] = useState(0);
   const [loading, setLoading] = useState(true);
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
-  const [, setTick] = useState(0); // Force re-render pour mise à jour temps réel
 
   const fetchSlots = useCallback(async () => {
     try {
@@ -120,20 +121,12 @@ export default function DailyTimeSlotHistory({ accreditationId, className = "" }
     }
   }, [accreditationId]);
 
-  // Chargement initial + polling toutes les 30s
+  // Chargement initial + polling 15s (pour les autres users) + refresh instantané via refreshKey
   useEffect(() => {
     fetchSlots();
-    const interval = setInterval(fetchSlots, 30000);
+    const interval = setInterval(fetchSlots, 15000);
     return () => clearInterval(interval);
-  }, [fetchSlots]);
-
-  // Tick toutes les 60s pour mise à jour temps réel des durées en cours
-  useEffect(() => {
-    const hasInProgress = days.some((d) => d.slots.some((s) => !s.exitAt));
-    if (!hasInProgress) return;
-    const interval = setInterval(() => setTick((t) => t + 1), 60000);
-    return () => clearInterval(interval);
-  }, [days]);
+  }, [fetchSlots, refreshKey]);
 
   const toggleDay = (date: string) => {
     setExpandedDays((prev) => {

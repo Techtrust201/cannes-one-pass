@@ -187,6 +187,7 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
   const [isPending, startTransition] = useTransition();
   const { toasts, addToast, removeToast } = useToasts();
   const [editingVehicle, setEditingVehicle] = useState<number | null>(null);
+  const [actionVersion, setActionVersion] = useState(0);
   const [vehicleFormData, setVehicleFormData] =
     useState<VehicleFormData | null>(null);
 
@@ -365,7 +366,7 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
 
         {/* ── WORKFLOW : Statut + Actions ── */}
         <div className="bg-gray-50 rounded-xl border border-gray-200 p-3">
-          <ActionButtons acc={acc} />
+          <ActionButtons acc={acc} onActionComplete={() => setActionVersion((v) => v + 1)} />
         </div>
 
         {/* Formulaire d'édition des infos */}
@@ -545,7 +546,7 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
         </form>
 
         {/* ── Créneaux horaires (retour véhicule) ── */}
-        <DailyTimeSlotHistory accreditationId={acc.id} className="mt-4 px-1" />
+        <DailyTimeSlotHistory accreditationId={acc.id} refreshKey={actionVersion} className="mt-4 px-1" />
 
         {/* ── Discussion agents ── */}
         <AccreditationChat

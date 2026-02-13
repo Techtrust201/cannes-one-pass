@@ -53,11 +53,11 @@ export default function MobileAccreditationList({
 
       {pageData.map((acc) => {
         const zone = acc.currentZone || undefined;
-        // Prioriser les horaires Palais sur les horaires génériques
-        const displayEntry = acc.palaisEntryAt || acc.entryAt;
-        const displayExit = acc.palaisExitAt || acc.exitAt;
+        // Afficher exclusivement le dernier step
+        const displayEntry = acc.lastStepEntryAt || acc.entryAt;
+        const displayExit = acc.lastStepExitAt || acc.exitAt;
+        const displayZone = acc.lastStepZone || zone;
         const duration = fmtDuration(displayEntry, displayExit);
-        const isPalaisTimes = !!acc.palaisEntryAt;
         const plate = acc.vehicles?.[0]?.plate;
 
         return (
@@ -111,9 +111,9 @@ export default function MobileAccreditationList({
               </div>
             </div>
 
-            {/* Row 3: Horaires compact (Palais prioritaire) */}
+            {/* Row 3: Horaires — dernier step uniquement */}
             {(displayEntry || displayExit) && (
-              <div className="flex items-center gap-3 text-[11px]">
+              <div className="flex items-center gap-3 text-[11px] flex-wrap">
                 {displayEntry && (
                   <span className="inline-flex items-center gap-1 text-green-700">
                     <LogIn size={10} className="shrink-0" />
@@ -123,7 +123,7 @@ export default function MobileAccreditationList({
                     })}
                   </span>
                 )}
-                {displayExit && (
+                {displayExit ? (
                   <span className="inline-flex items-center gap-1 text-red-600">
                     <LogOut size={10} className="shrink-0" />
                     {new Date(displayExit).toLocaleTimeString("fr-FR", {
@@ -131,21 +131,23 @@ export default function MobileAccreditationList({
                       minute: "2-digit",
                     })}
                   </span>
-                )}
+                ) : displayEntry ? (
+                  <span className="inline-flex items-center gap-1 text-blue-500">
+                    <Clock size={10} className="shrink-0 animate-pulse" />
+                    en cours
+                  </span>
+                ) : null}
                 {duration && (
                   <span className="inline-flex items-center gap-1 text-gray-500">
                     <Clock size={10} className="shrink-0" />
                     {duration}
                   </span>
                 )}
-                {displayEntry && !displayExit && !duration && (
-                  <span className="inline-flex items-center gap-1 text-blue-500">
-                    <Clock size={10} className="shrink-0 animate-pulse" />
-                    en cours
+                {displayZone && (
+                  <span className="inline-flex items-center gap-0.5 text-[9px] text-[#4F587E] font-medium">
+                    <MapPin size={8} className="shrink-0" />
+                    {getZoneLabel(displayZone)}
                   </span>
-                )}
-                {isPalaisTimes && (
-                  <span className="text-[9px] text-[#4F587E] font-medium">Palais</span>
                 )}
               </div>
             )}

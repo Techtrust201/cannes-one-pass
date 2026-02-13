@@ -12,6 +12,8 @@ import {
   MapPin,
   Archive,
   RotateCcw,
+  Loader2,
+  Navigation,
 } from "lucide-react";
 import type { Accreditation, AccreditationStatus } from "@/types";
 import {
@@ -348,51 +350,119 @@ export default function ActionButtons({ acc, onActionComplete }: Props) {
     }
   }
 
+  /* ---------- séparer les actions principales et secondaires ---------- */
+
+  const isTransferAction = (id: string) => id.startsWith("transfer_");
+  const isSecondaryAction = (id: string) => id === "return_vehicle" || id === "archive";
+
+  const transferActions = actions.filter((a) => isTransferAction(a.id));
+  const primaryActions = actions.filter((a) => !isTransferAction(a.id) && !isSecondaryAction(a.id));
+  const secondaryActions = actions.filter((a) => isSecondaryAction(a.id));
+
   /* ---------- rendu ---------- */
+
+  function ActionBtn({ action }: { action: ActionDef }) {
+    const Icon = action.icon;
+    const isLoading = loading === action.id;
+    return (
+      <button
+        onClick={() => executeAction(action)}
+        disabled={isLoading || loading !== null}
+        className={`group flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-xs font-semibold shadow-sm transition-all duration-150 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] ${action.color} disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`}
+      >
+        <span className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
+          {isLoading ? <Loader2 size={14} className="animate-spin" /> : <Icon size={14} />}
+        </span>
+        <div className="text-left min-w-0">
+          <span className="block leading-tight">{action.label}</span>
+          {action.description && (
+            <span className="block text-[9px] opacity-70 font-medium leading-tight mt-0.5 truncate">{action.description}</span>
+          )}
+        </div>
+      </button>
+    );
+  }
 
   return (
     <div className="space-y-3">
-      {/* Zone actuelle */}
+      {/* ── Carte zone actuelle ── */}
       {currentZone && (() => {
         const zc = getZoneColors(currentZone);
+        const isFinal = isFinalDestination(currentZone);
         return (
-        <div
-          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold ${zc.bg} ${zc.text}`}
-        >
-          {isFinalDestination(currentZone) ? "✓ " : "📍 "}
-          Zone : {getZoneLabel(currentZone)}
-          {!isFinalDestination(currentZone) && (
-            <span className="opacity-60">→ Palais des festivals</span>
-          )}
-        </div>
+          <div className={`relative rounded-xl overflow-hidden border ${isFinal ? "border-green-200" : "border-gray-200"}`}>
+            {/* Barre latérale colorée */}
+            <div className={`absolute left-0 top-0 bottom-0 w-1 ${isFinal ? "bg-green-500" : zc.dot}`} />
+            <div className={`flex items-center gap-3 pl-4 pr-4 py-3 ${isFinal ? "bg-green-50/60" : "bg-gradient-to-r from-gray-50 to-white"}`}>
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isFinal ? "bg-green-100" : zc.bg}`}>
+                {isFinal ? (
+                  <CheckCircle size={16} className="text-green-600" />
+                ) : (
+                  <MapPin size={16} className={zc.text} />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className={`text-xs font-bold ${isFinal ? "text-green-800" : "text-gray-800"}`}>
+                  {getZoneLabel(currentZone)}
+                </p>
+                {!isFinal && (
+                  <p className="text-[10px] text-gray-400 font-medium flex items-center gap-1 mt-0.5">
+                    <Navigation size={8} className="shrink-0" />
+                    Destination : Palais des festivals
+                  </p>
+                )}
+                {isFinal && status !== "SORTIE" && (
+                  <p className="text-[10px] text-green-600 font-semibold mt-0.5">Destination finale atteinte</p>
+                )}
+              </div>
+            </div>
+          </div>
         );
       })()}
 
       {/* Pas de zone assignée */}
       {!currentZone && status === "NOUVEAU" && (
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold bg-yellow-50 text-yellow-800 border border-yellow-200">
-          <MapPin size={12} />
-          Aucune zone assignée — à définir lors de la validation
+        <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-amber-50/60 border border-amber-200 text-amber-700">
+          <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
+            <MapPin size={14} />
+          </div>
+          <span className="text-xs font-semibold">Aucune zone assignée — à définir lors de la validation</span>
         </div>
       )}
 
-      {/* Destination finale atteinte */}
-      {currentZone && isFinalDestination(currentZone) && status !== "SORTIE" && (
-        <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-green-800 font-semibold text-xs flex items-center gap-1">
-          ✓ Destination finale atteinte – Palais des festivals
-        </div>
-      )}
-
-      {/* Boutons d'action */}
-      {actions.length > 0 && (
+      {/* ── Actions principales ── */}
+      {primaryActions.length > 0 && (
         <div className="space-y-2">
-          <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
-            {status === "SORTIE"
-              ? "Transférer vers :"
-              : "Actions disponibles :"}
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Actions</p>
+          <div className="flex flex-wrap gap-2">
+            {primaryActions.map((action) => (
+              <ActionBtn key={action.id} action={action} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Transferts ── */}
+      {transferActions.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+            <ArrowRight size={10} />
+            Transférer vers
           </p>
           <div className="flex flex-wrap gap-2">
-            {actions.map((action) => {
+            {transferActions.map((action) => (
+              <ActionBtn key={action.id} action={action} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Actions secondaires (séparées visuellement) ── */}
+      {secondaryActions.length > 0 && (
+        <>
+          <div className="border-t border-dashed border-gray-200 my-1" />
+          <div className="flex flex-wrap gap-2">
+            {secondaryActions.map((action) => {
               const Icon = action.icon;
               const isLoading = loading === action.id;
               return (
@@ -400,48 +470,48 @@ export default function ActionButtons({ acc, onActionComplete }: Props) {
                   key={action.id}
                   onClick={() => executeAction(action)}
                   disabled={isLoading || loading !== null}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all duration-150 ${action.color} disabled:opacity-50 disabled:cursor-not-allowed`}
+                  className="group flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:shadow-sm active:scale-[0.98] transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Icon size={16} />
+                  {isLoading ? <Loader2 size={13} className="animate-spin" /> : <Icon size={13} />}
                   <span>{action.label}</span>
-                  {isLoading && (
-                    <span className="animate-spin ml-1">⏳</span>
-                  )}
                 </button>
               );
             })}
           </div>
-        </div>
+        </>
       )}
 
       {/* Aucune action disponible */}
       {actions.length === 0 && (status === "REFUS" || status === "ABSENT") && (
-        <div className="text-sm text-gray-400 italic bg-gray-50 rounded-lg px-3 py-2">
+        <div className="text-xs text-gray-400 italic bg-gray-50 rounded-lg px-3 py-2.5 border border-gray-100">
           Aucune action disponible (statut final)
         </div>
       )}
 
-      {/* Modal de confirmation */}
+      {/* ── Modal de confirmation ── */}
       {confirmAction && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 border border-gray-200">
-            <h2 className="text-lg font-bold mb-3 text-gray-900 text-center">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 border border-gray-100 animate-in zoom-in-95 fade-in duration-200">
+            <div className="w-10 h-10 rounded-xl bg-[#4F587E]/10 flex items-center justify-center mx-auto mb-4">
+              {(() => { const CIcon = confirmAction.icon; return <CIcon size={20} className="text-[#4F587E]" />; })()}
+            </div>
+            <h2 className="text-base font-bold mb-2 text-gray-900 text-center">
               Confirmation
             </h2>
-            <p className="mb-4 text-gray-700 leading-relaxed text-center text-sm">
+            <p className="mb-5 text-gray-500 leading-relaxed text-center text-xs">
               {confirmAction.confirm}
             </p>
 
             {/* Zone picker dans le modal */}
             {confirmAction.needsZonePicker && (
               <div className="mb-5">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Zone d&apos;attente :
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+                  Zone
                 </label>
                 <select
                   value={selectedZone}
                   onChange={(e) => setSelectedZone(e.target.value)}
-                  className="w-full h-11 rounded-xl border border-gray-300 px-3 text-sm font-medium focus:ring-2 focus:ring-[#4F587E] focus:border-[#4F587E] transition bg-white"
+                  className="w-full h-10 rounded-xl border border-gray-200 px-3 text-sm font-medium focus:ring-2 focus:ring-blue-400/40 focus:border-blue-400 transition bg-white"
                 >
                   <option value="">-- Choisir une zone --</option>
                   {getAllZones().map((zone) => (
@@ -452,7 +522,7 @@ export default function ActionButtons({ acc, onActionComplete }: Props) {
                   ))}
                 </select>
                 {!selectedZone && (
-                  <p className="text-xs text-red-500 mt-1">
+                  <p className="text-[10px] text-red-500 mt-1.5 font-medium">
                     Veuillez sélectionner une zone
                   </p>
                 )}
@@ -465,7 +535,7 @@ export default function ActionButtons({ acc, onActionComplete }: Props) {
                   setConfirmAction(null);
                   setSelectedZone("");
                 }}
-                className="flex-1 px-4 py-3 rounded-xl border border-gray-300 bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200 transition"
+                className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-600 font-semibold text-sm hover:bg-gray-50 transition-all duration-150"
               >
                 Annuler
               </button>
@@ -475,9 +545,11 @@ export default function ActionButtons({ acc, onActionComplete }: Props) {
                   loading !== null ||
                   (confirmAction.needsZonePicker && !selectedZone)
                 }
-                className={`flex-1 px-4 py-3 rounded-xl font-semibold shadow transition ${confirmAction.color} disabled:opacity-50 disabled:cursor-not-allowed`}
+                className={`flex-1 px-4 py-2.5 rounded-xl font-semibold text-sm shadow-sm transition-all duration-150 hover:shadow-md ${confirmAction.color} disabled:opacity-50 disabled:cursor-not-allowed`}
               >
-                {loading ? "..." : "Confirmer"}
+                {loading ? (
+                  <Loader2 size={14} className="animate-spin mx-auto" />
+                ) : "Confirmer"}
               </button>
             </div>
           </div>

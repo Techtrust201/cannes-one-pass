@@ -138,25 +138,32 @@ export default async function LogisticienDashboard(props: {
         aVal = (a.event as string) ?? "";
         bVal = (b.event as string) ?? "";
         break;
-      case "entryAt":
-        aVal = a.entryAt ? new Date(a.entryAt) : new Date(0);
-        bVal = b.entryAt ? new Date(b.entryAt) : new Date(0);
+      case "entryAt": {
+        const aEntry = a.lastStepEntryAt || a.entryAt;
+        const bEntry = b.lastStepEntryAt || b.entryAt;
+        aVal = aEntry ? new Date(aEntry) : new Date(0);
+        bVal = bEntry ? new Date(bEntry) : new Date(0);
         break;
-      case "exitAt":
-        aVal = a.exitAt ? new Date(a.exitAt) : new Date(0);
-        bVal = b.exitAt ? new Date(b.exitAt) : new Date(0);
+      }
+      case "exitAt": {
+        const aExit = a.lastStepExitAt || a.exitAt;
+        const bExit = b.lastStepExitAt || b.exitAt;
+        aVal = aExit ? new Date(aExit) : new Date(0);
+        bVal = bExit ? new Date(bExit) : new Date(0);
         break;
-      case "duration":
-        // Calcul de la durée en millisecondes
+      }
+      case "duration": {
+        // Calcul de la durée en millisecondes (dernier step)
         const getDuration = (acc: typeof a) => {
-          if (!acc.entryAt || !acc.exitAt) return 0;
-          return (
-            new Date(acc.exitAt).getTime() - new Date(acc.entryAt).getTime()
-          );
+          const entry = acc.lastStepEntryAt || acc.entryAt;
+          const exit = acc.lastStepExitAt || acc.exitAt;
+          if (!entry || !exit) return 0;
+          return new Date(exit).getTime() - new Date(entry).getTime();
         };
         aVal = getDuration(a);
         bVal = getDuration(b);
         break;
+      }
       default:
         // createdAt
         aVal = a.createdAt ? new Date(a.createdAt) : new Date(0);
@@ -255,6 +262,7 @@ export default async function LogisticienDashboard(props: {
             filteredCount={filtered.length}
             perPage={perPage}
             searchParams={paramsObj}
+            selectedId={selected?.id}
             sort={sortKey}
             dir={dir as SortDirection}
           />

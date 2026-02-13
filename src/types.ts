@@ -61,10 +61,16 @@ export interface Accreditation {
   sentAt?: Date;
   currentZone?: Zone | null;
   isArchived?: boolean;
-  /** Heure d'entrée au Palais (time slot le plus récent) */
+  /** Heure d'entrée au Palais (time slot le plus récent) — legacy */
   palaisEntryAt?: Date | null;
-  /** Heure de sortie du Palais (time slot le plus récent) */
+  /** Heure de sortie du Palais (time slot le plus récent) — legacy */
   palaisExitAt?: Date | null;
+  /** Heure d'entrée du dernier step (toutes zones confondues) */
+  lastStepEntryAt?: Date;
+  /** Heure de sortie du dernier step (toutes zones confondues) */
+  lastStepExitAt?: Date;
+  /** Zone du dernier step */
+  lastStepZone?: string;
 }
 
 // --- Créneaux horaires (retour véhicule) ---

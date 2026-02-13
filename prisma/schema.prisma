@@ -66,12 +66,9 @@ enum VehicleType {
   SEMI_REMORQUE
 }
 
-enum Zone {
-  LA_BOCCA
-  PALAIS_DES_FESTIVALS
-  PANTIERO
-  MACE
-}
+// enum Zone — SUPPRIMÉ : les zones sont maintenant dynamiques (String + ZoneConfig)
+// Les anciennes valeurs LA_BOCCA, PALAIS_DES_FESTIVALS, PANTIERO, MACE sont
+// maintenues comme données dans la table ZoneConfig.
 
 enum ZoneAction {
   ENTRY
@@ -202,7 +199,7 @@ model Accreditation {
   exitAt      DateTime?
   email       String?              @db.VarChar(255)
   sentAt      DateTime?
-  currentZone Zone?
+  currentZone String?
 
   isArchived  Boolean              @default(false)
 
@@ -251,8 +248,8 @@ model ZoneMovement {
   id              Int           @id @default(autoincrement())
   accreditation   Accreditation @relation(fields: [accreditationId], references: [id], onDelete: Cascade)
   accreditationId String
-  fromZone        Zone?
-  toZone          Zone
+  fromZone        String?
+  toZone          String
   action          ZoneAction
   timestamp       DateTime      @default(now())
   userId          String?
@@ -312,7 +309,7 @@ model VehicleTimeSlot {
   vehicleId       Int
   date            DateTime      @db.Date       // Jour du créneau
   stepNumber      Int                          // Numéro d'étape dans la journée (1, 2, 3…)
-  zone            Zone                         // Zone d'entrée/sortie
+  zone            String                       // Zone d'entrée/sortie (clé dynamique vers ZoneConfig)
   entryAt         DateTime                     // Heure d'entrée
   exitAt          DateTime?                    // Heure de sortie (null = encore sur place)
 
@@ -342,13 +339,15 @@ model ChatMessage {
 // ============================================================
 
 model ZoneConfig {
-  id        Int      @id @default(autoincrement())
-  zone      Zone     @unique              // Lien vers l'enum Zone
-  label     String                        // Nom d'affichage (ex: "La Bocca")
-  address   String                        // Adresse complète
-  latitude  Float                         // Latitude GPS
-  longitude Float                         // Longitude GPS
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                 Int      @id @default(autoincrement())
+  zone               String   @unique              // Identifiant unique de la zone (ex: "LA_BOCCA")
+  label              String                        // Nom d'affichage (ex: "La Bocca")
+  address            String                        // Adresse complète
+  latitude           Float                         // Latitude GPS
+  longitude          Float                         // Longitude GPS
+  isFinalDestination Boolean  @default(false)      // Destination finale (Palais)
+  color              String   @default("gray")     // Couleur associée (ex: "orange", "green", "blue", "purple")
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 }

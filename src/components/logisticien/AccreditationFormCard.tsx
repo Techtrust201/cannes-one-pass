@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import type { Accreditation, Zone } from "@/types";
+import type { Accreditation } from "@/types";
 import { useRouter } from "next/navigation";
 import { Pencil, Trash2, Info, PlusCircle, Phone, MessageCircle } from "lucide-react";
 import VehicleForm from "@/components/accreditation/VehicleForm";
@@ -10,9 +10,7 @@ import DailyTimeSlotHistory from "./DailyTimeSlotHistory";
 import AccreditationChat from "./AccreditationChat";
 import type { Vehicle } from "@/types";
 import { getTelLink, getWhatsAppLink } from "@/lib/contact-utils";
-import { getZoneLabel, isFinalDestination, ZONE_COLORS } from "@/lib/zone-utils";
 import ActionButtons from "./ActionButtons";
-import { truncateText } from "@/lib/utils";
 
 const EVENT_OPTIONS = [
   { value: "waicf", label: "WAICF" },
@@ -146,17 +144,6 @@ export default function AccreditationFormCard({ acc }: Props) {
     }
   }
 
-  function formatDuration(entryAt: string | null, exitAt: string | null) {
-    if (!entryAt || !exitAt) return "-";
-    const d1 = new Date(entryAt);
-    const d2 = new Date(exitAt);
-    const ms = d2.getTime() - d1.getTime();
-    if (ms <= 0) return "-";
-    const min = Math.floor(ms / 60000) % 60;
-    const h = Math.floor(ms / 3600000);
-    return `${h}h ${min}min`;
-  }
-
   const handleDuplicateForNewVehicle = () => {
     const params = new URLSearchParams({
       step: "1",
@@ -181,19 +168,6 @@ export default function AccreditationFormCard({ acc }: Props) {
           </div>
           Infos accréditations
         </h1>
-        {/* Zone badge */}
-        {acc.currentZone && (
-          <span 
-            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold ${ZONE_COLORS[acc.currentZone as Zone].bg} ${ZONE_COLORS[acc.currentZone as Zone].text}`}
-            title={getZoneLabel(acc.currentZone as Zone)}
-          >
-            {isFinalDestination(acc.currentZone as Zone) ? "✓ " : ""}
-            {truncateText(getZoneLabel(acc.currentZone as Zone), 12)}
-            {!isFinalDestination(acc.currentZone as Zone) && (
-              <span className="text-[10px] opacity-75 ml-1">→ Palais</span>
-            )}
-          </span>
-        )}
       </div>
 
       {/* Contenu scrollable */}
@@ -207,20 +181,10 @@ export default function AccreditationFormCard({ acc }: Props) {
           />
         </div>
 
-        {/* Durée sur site */}
-        {(acc.entryAt || acc.exitAt) && (
-          <div className="mb-6 bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-            <label className="font-semibold text-sm text-red-700">
-              Durée sur site
-            </label>
-            <p className="text-red-700 font-semibold text-lg mt-1">
-              {formatDuration(
-                acc.entryAt?.toISOString() ?? null,
-                acc.exitAt?.toISOString() ?? null
-              )}
-            </p>
-          </div>
-        )}
+        {/* Historique des créneaux (remplace "Durée sur site") */}
+        <div className="mb-6 bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+          <DailyTimeSlotHistory accreditationId={acc.id} />
+        </div>
 
         {/* Liste des véhicules */}
         <div className="mb-8">
@@ -274,8 +238,10 @@ export default function AccreditationFormCard({ acc }: Props) {
                       <tr className="border-b border-gray-200 hover:bg-gray-100 transition-all duration-200">
                         <td className="p-4 font-medium text-gray-800">
                           <div>{v.plate}</div>
-                          {v.trailerPlate && (
-                            <div className="text-xs text-gray-500 mt-0.5">Remorque: {v.trailerPlate}</div>
+                          {v.size === "SEMI_REMORQUE" && (
+                            <div className="text-xs text-gray-500 mt-0.5">
+                              Remorque: {v.trailerPlate || <span className="italic text-gray-400">Non renseignée</span>}
+                            </div>
                           )}
                         </td>
                         <td className="p-4 text-gray-700">{v.size}</td>
@@ -551,11 +517,6 @@ export default function AccreditationFormCard({ acc }: Props) {
             </div>
           </div>
         )}
-
-        {/* Créneaux horaires (retour véhicule) */}
-        <div className="px-6 pb-4">
-          <DailyTimeSlotHistory accreditationId={acc.id} />
-        </div>
 
         {/* Discussion agents */}
         <div className="px-6 pb-4">

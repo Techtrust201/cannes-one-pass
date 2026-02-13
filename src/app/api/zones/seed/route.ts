@@ -4,32 +4,40 @@ import { requireRole } from "@/lib/auth-helpers";
 
 const DEFAULT_ZONES = [
   {
-    zone: "LA_BOCCA" as const,
+    zone: "LA_BOCCA",
     label: "La Bocca",
     address: "Zone de stockage La Bocca, Cannes",
     latitude: 43.5519,
     longitude: 6.9629,
+    isFinalDestination: false,
+    color: "orange",
   },
   {
-    zone: "PALAIS_DES_FESTIVALS" as const,
+    zone: "PALAIS_DES_FESTIVALS",
     label: "Palais des Festivals",
     address: "1 Bd de la Croisette, 06400 Cannes",
     latitude: 43.5506,
     longitude: 7.0175,
+    isFinalDestination: true,
+    color: "green",
   },
   {
-    zone: "PANTIERO" as const,
+    zone: "PANTIERO",
     label: "Pantiero",
     address: "Prom. de la Pantiero, 06400 Cannes",
     latitude: 43.5509,
     longitude: 7.0140,
+    isFinalDestination: false,
+    color: "blue",
   },
   {
-    zone: "MACE" as const,
+    zone: "MACE",
     label: "Macé",
     address: "Plage Macé, Bd de la Croisette, 06400 Cannes",
     latitude: 43.5503,
     longitude: 7.0223,
+    isFinalDestination: false,
+    color: "purple",
   },
 ];
 
@@ -57,6 +65,8 @@ export async function POST(req: NextRequest) {
             address: z.address,
             latitude: z.latitude,
             longitude: z.longitude,
+            isFinalDestination: z.isFinalDestination,
+            color: z.color,
           },
           create: z,
         })

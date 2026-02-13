@@ -18,13 +18,17 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const showArchived = searchParams.get("archived") === "true";
 
+  // Trouver la zone de destination finale (ex: Palais des Festivals) dynamiquement
+  const finalZone = await prisma.zoneConfig.findFirst({ where: { isFinalDestination: true, isActive: true } });
+  const finalZoneKey = finalZone?.zone || "PALAIS_DES_FESTIVALS";
+
   const list = await prisma.accreditation.findMany({
     where: { isArchived: showArchived },
     include: {
       vehicles: {
         include: {
           timeSlots: {
-            where: { zone: "PALAIS_DES_FESTIVALS" },
+            where: { zone: finalZoneKey },
             orderBy: { entryAt: "desc" },
             take: 1,
           },

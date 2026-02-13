@@ -1,13 +1,4 @@
-import type { Zone } from "@/types";
-import { getZoneLabel, ZONE_COLORS } from "@/lib/zone-utils";
-
-/** Dot color per zone for compact display */
-const ZONE_DOT: Record<Zone, string> = {
-  LA_BOCCA: "bg-orange-500",
-  PALAIS_DES_FESTIVALS: "bg-green-500",
-  PANTIERO: "bg-blue-500",
-  MACE: "bg-purple-500",
-};
+import { getZoneLabel, getZoneColors } from "@/lib/zone-utils";
 
 const STATUS_CFG: Record<
   string,
@@ -47,7 +38,7 @@ const STATUS_CFG: Record<
 
 interface Props {
   status: string;
-  zone?: Zone | null;
+  zone?: string | null;
   /** compact = table mode (single line, small). full = detail mode (with zone badge). */
   compact?: boolean;
 }
@@ -59,6 +50,8 @@ export default function StatusPill({ status, zone, compact = false }: Props) {
     label: status,
   };
 
+  const zoneColor = zone ? getZoneColors(zone) : null;
+
   if (compact) {
     // --- Compact mode for table rows: single-line pill with zone dot ---
     return (
@@ -66,12 +59,11 @@ export default function StatusPill({ status, zone, compact = false }: Props) {
         className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold leading-none whitespace-nowrap ${cfg.bg} ${cfg.text}`}
         title={zone ? `${cfg.label} – ${getZoneLabel(zone)}` : cfg.label}
       >
-        {zone && (
+        {zone && zoneColor ? (
           <span
-            className={`w-2 h-2 rounded-full flex-shrink-0 ${ZONE_DOT[zone] ?? "bg-gray-400"}`}
+            className={`w-2 h-2 rounded-full flex-shrink-0 ${zoneColor.dot}`}
           />
-        )}
-        {!zone && (
+        ) : (
           <span className="w-2 h-2 rounded-full flex-shrink-0 bg-gray-300" />
         )}
         {cfg.label}
@@ -87,16 +79,16 @@ export default function StatusPill({ status, zone, compact = false }: Props) {
       <span
         className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${cfg.bg} ${cfg.text}`}
       >
-        {zone && (
+        {zone && zoneColor && (
           <span
-            className={`w-2 h-2 rounded-full flex-shrink-0 ${ZONE_DOT[zone] ?? "bg-gray-400"}`}
+            className={`w-2 h-2 rounded-full flex-shrink-0 ${zoneColor.dot}`}
           />
         )}
         {cfg.label}
       </span>
-      {zone && (
+      {zone && zoneColor && (
         <span
-          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium ${ZONE_COLORS[zone].bg} ${ZONE_COLORS[zone].text}`}
+          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium ${zoneColor.bg} ${zoneColor.text}`}
         >
           {zoneLabel}
         </span>

@@ -13,15 +13,15 @@ import {
   Archive,
   RotateCcw,
 } from "lucide-react";
-import type { Accreditation, AccreditationStatus, Zone } from "@/types";
+import type { Accreditation, AccreditationStatus } from "@/types";
 import {
   getZoneLabel,
   getAllZones,
   getTransferTargets,
   isFinalDestination,
-  ZONE_COLORS,
+  getZoneColors,
 } from "@/lib/zone-utils";
-import StatusPill from "./StatusPill";
+
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                             */
@@ -35,7 +35,7 @@ interface ActionDef {
   color: string;
   confirm?: string;
   needsZonePicker?: boolean; // si true, le modal de confirmation inclut un sélecteur de zone
-  execute: (selectedZone?: Zone) => Promise<void>;
+  execute: (selectedZone?: string) => Promise<void>;
 }
 
 interface Props {
@@ -51,10 +51,10 @@ export default function ActionButtons({ acc, onActionComplete }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<ActionDef | null>(null);
-  const [selectedZone, setSelectedZone] = useState<Zone | "">("");
+  const [selectedZone, setSelectedZone] = useState<string>("");
 
   const status = acc.status as AccreditationStatus;
-  const currentZone = acc.currentZone as Zone | undefined;
+  const currentZone = acc.currentZone || undefined;
 
   /* ---------- helpers API ---------- */
 
@@ -66,7 +66,7 @@ export default function ActionButtons({ acc, onActionComplete }: Props) {
     }
   }
 
-  async function patchStatus(newStatus: AccreditationStatus, zone?: Zone) {
+  async function patchStatus(newStatus: AccreditationStatus, zone?: string) {
     const body: Record<string, unknown> = {
       status: newStatus,
       company: acc.company,
@@ -86,7 +86,7 @@ export default function ActionButtons({ acc, onActionComplete }: Props) {
     if (!res.ok) throw new Error(await res.text());
   }
 
-  async function patchZoneOnly(zone: Zone) {
+  async function patchZoneOnly(zone: string) {
     const res = await fetch(`/api/accreditations/${acc.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -105,7 +105,7 @@ export default function ActionButtons({ acc, onActionComplete }: Props) {
     if (!res.ok) throw new Error(await res.text());
   }
 
-  async function zoneAction(action: "ENTRY" | "EXIT", zone: Zone) {
+  async function zoneAction(action: "ENTRY" | "EXIT", zone: string) {
     const res = await fetch(`/api/accreditations/${acc.id}/zones`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -115,7 +115,7 @@ export default function ActionButtons({ acc, onActionComplete }: Props) {
     if (!res.ok) throw new Error(await res.text());
   }
 
-  async function transfer(targetZone: Zone) {
+  async function transfer(targetZone: string) {
     const res = await fetch(`/api/accreditations/${acc.id}/transfer`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -141,7 +141,7 @@ export default function ActionButtons({ acc, onActionComplete }: Props) {
             confirm:
               "Valider cette demande et choisir la zone où le camion sera attendu.",
             needsZonePicker: true,
-            execute: (zone?: Zone) => patchStatus("ATTENTE", zone),
+            execute: (zone?: string) => patchStatus("ATTENTE", zone),
           },
           {
             id: "refuse",
@@ -183,7 +183,7 @@ export default function ActionButtons({ acc, onActionComplete }: Props) {
             color: "bg-[#4F587E] hover:bg-[#3B4252] text-white",
             confirm: "Choisir la nouvelle zone d'attente :",
             needsZonePicker: true,
-            execute: async (zone?: Zone) => {
+            execute: async (zone?: string) => {
               if (zone) await patchZoneOnly(zone);
             },
           },
@@ -243,20 +243,21 @@ export default function ActionButtons({ acc, onActionComplete }: Props) {
           );
         }
 
-        // Retour véhicule
+        // Retour véhicule (avec sélecteur de zone obligatoire)
         sortieActions.push({
           id: "return_vehicle",
           label: "Retour véhicule",
-          description: "Le véhicule revient – créer un nouveau créneau",
+          description: "Le véhicule revient – choisir la zone de retour",
           icon: RotateCcw,
           color: "bg-teal-600 hover:bg-teal-700 text-white",
-          confirm: `Confirmer le retour du véhicule à ${currentZone ? getZoneLabel(currentZone as Zone) : "la zone"} ?`,
-          execute: async () => {
+          confirm: "Sélectionnez la zone de retour du véhicule :",
+          needsZonePicker: true,
+          execute: async (zone?: string) => {
             const res = await fetch(`/api/accreditations/${acc.id}/return`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                zone: currentZone || "PALAIS_DES_FESTIVALS",
+                zone: zone || "PALAIS_DES_FESTIVALS",
               }),
             });
             if (!res.ok) throw new Error(await res.text());
@@ -332,7 +333,7 @@ export default function ActionButtons({ acc, onActionComplete }: Props) {
     try {
       setLoading(action.id);
       setConfirmAction(null);
-      await action.execute(selectedZone as Zone || undefined);
+      await action.execute(selectedZone || undefined);
       setSelectedZone("");
       router.refresh();
       onActionComplete?.();
@@ -349,34 +350,14 @@ export default function ActionButtons({ acc, onActionComplete }: Props) {
 
   /* ---------- rendu ---------- */
 
-  const statusLabel: Record<AccreditationStatus, string> = {
-    NOUVEAU: "Nouvelle demande — en attente de validation",
-    ATTENTE: "Validé — en attente d'arrivée du camion",
-    ENTREE: "Camion présent sur zone",
-    SORTIE: "Camion sorti — prêt pour transfert",
-    REFUS: "Demande refusée",
-    ABSENT: "Camion absent",
-  };
-
   return (
     <div className="space-y-3">
-      {/* Statut actuel */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <StatusPill
-          status={status}
-          zone={currentZone as Zone | undefined}
-        />
-        <span className="text-xs text-gray-500">
-          {statusLabel[status]}
-        </span>
-      </div>
-
       {/* Zone actuelle */}
-      {currentZone && (
+      {currentZone && (() => {
+        const zc = getZoneColors(currentZone);
+        return (
         <div
-          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold ${
-            ZONE_COLORS[currentZone]?.bg ?? "bg-gray-100"
-          } ${ZONE_COLORS[currentZone]?.text ?? "text-gray-800"}`}
+          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold ${zc.bg} ${zc.text}`}
         >
           {isFinalDestination(currentZone) ? "✓ " : "📍 "}
           Zone : {getZoneLabel(currentZone)}
@@ -384,7 +365,8 @@ export default function ActionButtons({ acc, onActionComplete }: Props) {
             <span className="opacity-60">→ Palais des festivals</span>
           )}
         </div>
-      )}
+        );
+      })()}
 
       {/* Pas de zone assignée */}
       {!currentZone && status === "NOUVEAU" && (
@@ -458,7 +440,7 @@ export default function ActionButtons({ acc, onActionComplete }: Props) {
                 </label>
                 <select
                   value={selectedZone}
-                  onChange={(e) => setSelectedZone(e.target.value as Zone | "")}
+                  onChange={(e) => setSelectedZone(e.target.value)}
                   className="w-full h-11 rounded-xl border border-gray-300 px-3 text-sm font-medium focus:ring-2 focus:ring-[#4F587E] focus:border-[#4F587E] transition bg-white"
                 >
                   <option value="">-- Choisir une zone --</option>

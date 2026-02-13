@@ -1,8 +1,6 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 
-const VALID_ZONES = ["LA_BOCCA", "PALAIS_DES_FESTIVALS", "PANTIERO", "MACE"] as const;
-
 /* POST - Transférer une accréditation vers une autre zone */
 export async function POST(
   req: NextRequest,
@@ -12,8 +10,12 @@ export async function POST(
   const body = await req.json();
   const { targetZone, reason, version } = body;
 
-  // Validation
-  if (!targetZone || !VALID_ZONES.includes(targetZone)) {
+  // Validation dynamique de la zone
+  if (!targetZone) {
+    return new Response("Invalid targetZone", { status: 400 });
+  }
+  const validZone = await prisma.zoneConfig.findUnique({ where: { zone: targetZone } });
+  if (!validZone || !validZone.isActive) {
     return new Response("Invalid targetZone", { status: 400 });
   }
 

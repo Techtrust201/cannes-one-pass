@@ -9,7 +9,7 @@ import {
   AlertTriangle,
   Send,
 } from "lucide-react";
-import type { Vehicle, Zone } from "@/types";
+import type { Vehicle } from "@/types";
 import { getAllZones, getZoneLabel, isFinalDestination } from "@/lib/zone-utils";
 import DuplicateAlert from "@/components/accreditation/DuplicateAlert";
 
@@ -36,7 +36,7 @@ export default function StepFourLog({
 }: Props) {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
-  const [selectedZone, setSelectedZone] = useState<Zone | "">("");
+  const [selectedZone, setSelectedZone] = useState<string>("");
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showSendModal, setShowSendModal] = useState(false);
   const [showDuplicateCheck, setShowDuplicateCheck] = useState(false);
@@ -244,7 +244,7 @@ export default function StepFourLog({
           <select
             id="zoneSelect"
             value={selectedZone}
-            onChange={(e) => setSelectedZone(e.target.value as Zone | "")}
+            onChange={(e) => setSelectedZone(e.target.value)}
             className="h-11 rounded-xl border border-gray-300 px-3 text-sm font-medium focus:ring-2 focus:ring-[#4F587E] focus:border-[#4F587E] transition bg-white"
             disabled={hasSaved}
           >

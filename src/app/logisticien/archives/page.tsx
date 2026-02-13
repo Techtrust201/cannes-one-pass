@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Archive, Search, RotateCcw, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import StatusPill from "@/components/logisticien/StatusPill";
-import type { Accreditation, Zone } from "@/types";
+import type { Accreditation } from "@/types";
 
 export default function ArchivesPage() {
   const router = useRouter();
@@ -129,7 +129,7 @@ export default function ArchivesPage() {
                   {pageData.map((acc, i) => (
                     <tr key={acc.id} className={`border-b border-gray-100 hover:bg-blue-50/30 transition ${i % 2 === 0 ? "bg-white" : "bg-gray-50/30"}`}>
                       <td className="px-4 py-3">
-                        <StatusPill status={acc.status} zone={acc.currentZone as Zone | undefined} compact />
+                        <StatusPill status={acc.status} zone={acc.currentZone || undefined} compact />
                       </td>
                       <td className="px-4 py-3 font-medium text-gray-800 max-w-[160px] truncate">{acc.company}</td>
                       <td className="px-4 py-3 text-gray-600 max-w-[120px] truncate">{acc.event}</td>
@@ -167,7 +167,7 @@ export default function ArchivesPage() {
               {pageData.map((acc) => (
                 <div key={acc.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                   <div className="flex items-center gap-2 mb-2">
-                    <StatusPill status={acc.status} zone={acc.currentZone as Zone | undefined} compact />
+                    <StatusPill status={acc.status} zone={acc.currentZone || undefined} compact />
                     <span className="text-xs text-gray-400">
                       {new Date(acc.createdAt).toLocaleDateString("fr-FR")}
                     </span>

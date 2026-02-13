@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { requirePermission } from "@/lib/auth-helpers";
 
-const VALID_ZONES = ["LA_BOCCA", "PALAIS_DES_FESTIVALS", "PANTIERO", "MACE"] as const;
+// Zones validées dynamiquement via la table ZoneConfig
 const VALID_ACTIONS = ["ENTRY", "EXIT"] as const;
 
 /* GET - Historique des mouvements de zone */
@@ -51,14 +51,21 @@ export async function POST(
   if (!action || !VALID_ACTIONS.includes(action)) {
     return new Response("Invalid action. Must be ENTRY or EXIT", { status: 400 });
   }
-  if (!zone || !VALID_ZONES.includes(zone)) {
+  if (!zone) {
+    return new Response("Invalid zone", { status: 400 });
+  }
+  const validZone = await prisma.zoneConfig.findUnique({ where: { zone } });
+  if (!validZone || !validZone.isActive) {
     return new Response("Invalid zone", { status: 400 });
   }
 
   try {
     const movement = await prisma.$transaction(async (tx) => {
-      // 1. Lire l'accréditation
-      const acc = await tx.accreditation.findUnique({ where: { id } });
+      // 1. Lire l'accréditation AVEC les véhicules (nécessaire pour les time slots)
+      const acc = await tx.accreditation.findUnique({
+        where: { id },
+        include: { vehicles: true },
+      });
       if (!acc) throw new Error("NOT_FOUND");
 
       // 2. Optimistic lock
@@ -94,16 +101,70 @@ export async function POST(
         data: updates,
       });
 
-      // 5. Traductions lisibles des zones
-      const ZONE_LABELS: Record<string, string> = {
-        LA_BOCCA: "La Bocca",
-        PALAIS_DES_FESTIVALS: "Palais des Festivals",
-        PANTIERO: "Pantiero",
-        MACE: "Macé",
-      };
-      const zoneLabel = ZONE_LABELS[zone] || zone;
+      // 5. Gérer les VehicleTimeSlot (créneaux horaires)
+      if (acc.vehicles.length > 0) {
+        const targetVehicle = acc.vehicles[0];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
-      // 6. Historique dans la transaction
+        if (action === "ENTRY") {
+          // Vérifier s'il n'y a pas déjà un time slot ouvert pour aujourd'hui
+          const openSlot = await tx.vehicleTimeSlot.findFirst({
+            where: {
+              accreditationId: id,
+              vehicleId: targetVehicle.id,
+              date: today,
+              exitAt: null,
+            },
+          });
+
+          if (!openSlot) {
+            // Déterminer le prochain numéro d'étape pour aujourd'hui
+            const lastSlot = await tx.vehicleTimeSlot.findFirst({
+              where: {
+                accreditationId: id,
+                vehicleId: targetVehicle.id,
+                date: today,
+              },
+              orderBy: { stepNumber: "desc" },
+            });
+            const nextStep = lastSlot ? lastSlot.stepNumber + 1 : 1;
+
+            await tx.vehicleTimeSlot.create({
+              data: {
+                accreditationId: id,
+                vehicleId: targetVehicle.id,
+                date: today,
+                stepNumber: nextStep,
+                zone,
+                entryAt: new Date(),
+              },
+            });
+          }
+        } else if (action === "EXIT") {
+          // Clôturer le time slot ouvert le plus récent
+          const openSlot = await tx.vehicleTimeSlot.findFirst({
+            where: {
+              accreditationId: id,
+              vehicleId: targetVehicle.id,
+              exitAt: null,
+            },
+            orderBy: { stepNumber: "desc" },
+          });
+
+          if (openSlot) {
+            await tx.vehicleTimeSlot.update({
+              where: { id: openSlot.id },
+              data: { exitAt: new Date() },
+            });
+          }
+        }
+      }
+
+      // 6. Label lisible de la zone (dynamique depuis ZoneConfig)
+      const zoneLabel = validZone.label || zone;
+
+      // 7. Historique dans la transaction
       await tx.accreditationHistory.create({
         data: {
           accreditationId: id,

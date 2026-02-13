@@ -16,7 +16,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { buildLink } from "@/lib/url";
-import type { Accreditation, Zone } from "@/types";
+import type { Accreditation } from "@/types";
 
 /* ---------- Types ---------- */
 export interface AccreditationTableProps {
@@ -253,6 +253,7 @@ export default function AccreditationTable({
                   </button>
                 </th>
                 <Th label="Statut" sortKey="status" />
+                <Th label="Plaque" sortKey="plate" />
                 <Th label="Société" sortKey="company" />
                 <Th label="Événement" sortKey="event" />
                 <Th label="Date" sortKey="createdAt" />
@@ -295,9 +296,27 @@ export default function AccreditationTable({
                     <td className="px-2 py-2">
                       <StatusPill
                         status={acc.status as string}
-                        zone={acc.currentZone as Zone | undefined}
+                        zone={acc.currentZone || undefined}
                         compact
                       />
+                    </td>
+
+                    {/* Plaque */}
+                    <td className="px-2 py-2 max-w-[120px]">
+                      {acc.vehicles?.[0]?.plate ? (
+                        <div>
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-gray-100 text-[11px] font-mono font-bold text-gray-700 tracking-wide">
+                            {acc.vehicles[0].plate}
+                          </span>
+                          {acc.vehicles[0].size === "SEMI_REMORQUE" && (
+                            <span className="block text-[9px] text-gray-400 mt-0.5 font-mono">
+                              R: {acc.vehicles[0].trailerPlate || "—"}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-gray-300">-</span>
+                      )}
                     </td>
 
                     {/* Société */}
@@ -390,7 +409,7 @@ export default function AccreditationTable({
 
               {pageData.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="text-center py-12 text-gray-400 text-sm">
+                  <td colSpan={8} className="text-center py-12 text-gray-400 text-sm">
                     Aucune accréditation trouvée
                   </td>
                 </tr>

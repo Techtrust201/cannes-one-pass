@@ -1,5 +1,5 @@
-// --- Zones ---
-export type Zone = "LA_BOCCA" | "PALAIS_DES_FESTIVALS" | "PANTIERO" | "MACE";
+// --- Zones (dynamiques — identifiants String depuis ZoneConfig) ---
+export type Zone = string;
 export type ZoneAction = "ENTRY" | "EXIT" | "TRANSFER";
 
 export interface ZoneMovement {

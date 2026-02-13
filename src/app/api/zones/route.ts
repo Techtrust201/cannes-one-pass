@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { zone, label, address, latitude, longitude } = body;
+    const { zone, label, address, latitude, longitude, isFinalDestination, color } = body;
 
     if (!zone || !label || !address || latitude == null || longitude == null) {
       return Response.json(
@@ -52,8 +52,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Normaliser l'identifiant de zone (majuscules, underscores)
+    const zoneKey = zone.toUpperCase().replace(/[^A-Z0-9]/g, "_");
+
     // Vérifier que la zone n'existe pas déjà
-    const existing = await prisma.zoneConfig.findUnique({ where: { zone } });
+    const existing = await prisma.zoneConfig.findUnique({ where: { zone: zoneKey } });
     if (existing) {
       return Response.json(
         { error: "Cette zone existe déjà" },
@@ -63,11 +66,13 @@ export async function POST(req: NextRequest) {
 
     const created = await prisma.zoneConfig.create({
       data: {
-        zone,
+        zone: zoneKey,
         label,
         address,
         latitude: parseFloat(latitude),
         longitude: parseFloat(longitude),
+        isFinalDestination: isFinalDestination ?? false,
+        color: color ?? "gray",
       },
     });
 

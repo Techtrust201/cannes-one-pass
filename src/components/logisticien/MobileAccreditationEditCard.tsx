@@ -37,6 +37,7 @@ interface VehicleFormData {
   time: string;
   city: string;
   unloading: string[];
+  trailerPlate: string;
 }
 
 const accreditationFormSchema = z.object({
@@ -287,6 +288,7 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
           : vehicle.unloading
             ? [vehicle.unloading]
             : ["lat"],
+        trailerPlate: vehicle.trailerPlate || "",
       });
     },
     [acc]
@@ -453,7 +455,9 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
                     </div>
                     <div className="text-gray-600 text-xs space-y-1">
                       {vehicle.size && <div>Taille: {vehicle.size}</div>}
-                      {vehicle.trailerPlate && <div>Remorque: {vehicle.trailerPlate}</div>}
+                      {vehicle.size === "SEMI_REMORQUE" && (
+                        <div>Plaque remorque: {vehicle.trailerPlate || <span className="italic text-gray-400">Non renseignée</span>}</div>
+                      )}
                       {vehicle.city && <div>Ville: {vehicle.city}</div>}
                       {vehicle.phoneCode && vehicle.phoneNumber && (
                         <div className="flex items-center gap-2">
@@ -586,7 +590,7 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Taille</label>
                   <select
                     value={vehicleFormData.size}
-                    onChange={(e) => setVehicleFormData({ ...vehicleFormData, size: e.target.value })}
+                    onChange={(e) => setVehicleFormData({ ...vehicleFormData, size: e.target.value, trailerPlate: e.target.value !== "SEMI_REMORQUE" ? "" : vehicleFormData.trailerPlate })}
                     className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm"
                   >
                     <option value="PORTEUR">Porteur</option>
@@ -594,6 +598,25 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
                     <option value="SEMI_REMORQUE">Semi-remorque</option>
                   </select>
                 </div>
+
+                {/* Plaque de la remorque (semi-remorque uniquement) */}
+                {vehicleFormData.size === "SEMI_REMORQUE" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Plaque de la remorque <span className="text-xs text-gray-400">(facultatif)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={vehicleFormData.trailerPlate}
+                      onChange={(e) => {
+                        const sanitized = e.target.value.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+                        setVehicleFormData({ ...vehicleFormData, trailerPlate: sanitized });
+                      }}
+                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm"
+                      placeholder="XX456ZZ"
+                    />
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone du conducteur</label>

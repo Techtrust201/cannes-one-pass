@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { Pencil, Trash2, LogIn, LogOut, Clock, MapPin, Briefcase, ChevronLeft, ChevronRight } from "lucide-react";
 import StatusPill from "./StatusPill";
-import type { Accreditation, Zone } from "@/types";
-import { getZoneLabel, ZONE_COLORS } from "@/lib/zone-utils";
+import type { Accreditation } from "@/types";
+import { getZoneLabel, getZoneColorClasses } from "@/lib/zone-utils";
 import { buildLink } from "@/lib/url";
 
 interface MobileAccreditationListProps {
@@ -52,7 +52,7 @@ export default function MobileAccreditationList({
       )}
 
       {pageData.map((acc) => {
-        const zone = acc.currentZone as Zone | undefined;
+        const zone = acc.currentZone || undefined;
         // Prioriser les horaires Palais sur les horaires génériques
         const displayEntry = acc.palaisEntryAt || acc.entryAt;
         const displayExit = acc.palaisExitAt || acc.exitAt;
@@ -71,7 +71,7 @@ export default function MobileAccreditationList({
 
               {zone && (
                 <span
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold ${ZONE_COLORS[zone]?.bg ?? "bg-gray-100"} ${ZONE_COLORS[zone]?.text ?? "text-gray-700"}`}
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold ${getZoneColorClasses(zone)}`}
                 >
                   <MapPin size={9} className="shrink-0" />
                   {getZoneLabel(zone)}

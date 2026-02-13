@@ -73,9 +73,12 @@ export async function PATCH(
     return new Response("Invalid status", { status: 400 });
   }
 
-  const VALID_ZONES = ["LA_BOCCA", "PALAIS_DES_FESTIVALS", "PANTIERO", "MACE"];
-  if (currentZone !== undefined && currentZone !== null && !VALID_ZONES.includes(currentZone)) {
-    return new Response("Invalid zone", { status: 400 });
+  // Validation dynamique de la zone contre la table ZoneConfig
+  if (currentZone !== undefined && currentZone !== null) {
+    const validZone = await prisma.zoneConfig.findUnique({ where: { zone: currentZone } });
+    if (!validZone || !validZone.isActive) {
+      return new Response("Invalid zone", { status: 400 });
+    }
   }
 
   try {

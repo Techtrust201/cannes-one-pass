@@ -3,11 +3,9 @@
 import { useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAccreditationStream } from "@/hooks/useAccreditationStream";
-import type { Zone } from "@/types";
-
 interface AutoRefreshOnSSEProps {
   /** Zone à filtrer (optionnel) */
-  zone?: Zone;
+  zone?: string;
   /** Délai de debounce en ms avant de rafraîchir (défaut: 2000) */
   debounceMs?: number;
 }

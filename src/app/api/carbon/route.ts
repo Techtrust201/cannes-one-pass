@@ -23,21 +23,27 @@ interface CarbonDataEntry {
   roundTrips?: number;
 }
 
-// ── Coordonnées zone cache (rempli au démarrage) ─────────────────────
+// ── Coordonnées zone cache (TTL 5 minutes pour éviter données obsolètes) ──
 interface ZoneCoords {
   lat: number;
   lng: number;
 }
 let zoneCoordCache: Record<string, ZoneCoords> | null = null;
+let zoneCoordCacheTime = 0;
+const ZONE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 async function getZoneCoords(): Promise<Record<string, ZoneCoords>> {
-  if (zoneCoordCache) return zoneCoordCache;
+  const now = Date.now();
+  if (zoneCoordCache && now - zoneCoordCacheTime < ZONE_CACHE_TTL) {
+    return zoneCoordCache;
+  }
   const zones = await prisma.zoneConfig.findMany({ where: { isActive: true } });
   const coords: Record<string, ZoneCoords> = {};
   for (const z of zones) {
     coords[z.zone] = { lat: z.latitude, lng: z.longitude };
   }
   zoneCoordCache = coords;
+  zoneCoordCacheTime = now;
   return coords;
 }
 
@@ -266,16 +272,17 @@ export async function GET(req: NextRequest) {
         const timeSlots = (vehicle as typeof vehicle & { timeSlots: Array<{ zone: string; entryAt: Date; exitAt: Date | null; stepNumber: number }> }).timeSlots || [];
 
         if (timeSlots.length > 1) {
-          // Chaque paire de time slots consécutifs = un aller-retour zone→zone
+          // Chaque paire de time slots consécutifs = un transfert zone→zone
           for (let i = 1; i < timeSlots.length; i++) {
             const prev = timeSlots[i - 1];
             const curr = timeSlots[i];
+            // Pas de distance si même zone
+            if (prev.zone === curr.zone) continue;
             const z1 = zoneCoords[prev.zone];
             const z2 = zoneCoords[curr.zone];
             if (z1 && z2) {
-              // Le véhicule va de la zone de sortie précédente à la zone d'entrée suivante
-              // puis revient → aller simple suffit (le retour est le time slot suivant)
-              kmInterZone += interZoneRoadDistance(z1, z2);
+              const dist = interZoneRoadDistance(z1, z2);
+              kmInterZone += dist;
               roundTrips++;
             }
           }

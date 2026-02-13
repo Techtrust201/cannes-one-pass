@@ -183,7 +183,16 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
           </div>
         )}
         */}
-        {/* Affichage informatif du poids moyen calculé */}
+        {/* ──────────────────────────────────────────────────────────────────
+         * BLOC "POIDS MOYEN ESTIMÉ" — MASQUÉ VISUELLEMENT
+         * 
+         * Le poids moyen est toujours calculé automatiquement en background
+         * via getAverageWeight() dans handleVehicleTypeChange (currentWeight = avgWeight).
+         * Il sert au calcul du bilan carbone mais n'a pas besoin d'être affiché
+         * à l'utilisateur pour éviter la confusion.
+         * 
+         * RÉACTIVATION : Si besoin d'afficher à nouveau, décommenter le bloc ci-dessous.
+         *
         {data.vehicleType && (
           <div className="flex-1 min-w-[180px]">
             <label className="text-sm font-semibold flex items-center gap-1 mb-1">
@@ -197,6 +206,7 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
             </div>
           </div>
         )}
+         * ────────────────────────────────────────────────────────────────── */}
         {/* Téléphone */}
         <div className="flex-1 min-w-[180px]">
           <label className="text-sm font-semibold flex items-center gap-1 mb-1">

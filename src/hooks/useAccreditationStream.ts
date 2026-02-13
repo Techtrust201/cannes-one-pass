@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback, useState } from "react";
-import type { Zone } from "@/types";
+// Zone est maintenant un string dynamique (plus d'import nécessaire)
 import { fetchWithRetry } from "@/lib/fetch-with-retry";
 
 export interface StreamEvent {
@@ -21,7 +21,7 @@ export interface StreamEvent {
 }
 
 interface UseAccreditationStreamOptions {
-  zone?: Zone;
+  zone?: string;
   onEvent?: (event: StreamEvent) => void;
   onRefresh?: () => void;
   enabled?: boolean;

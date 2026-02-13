@@ -1,4 +1,4 @@
-import type { Accreditation, Vehicle, Zone } from "@/types";
+import type { Accreditation, Vehicle } from "@/types";
 import prisma from "@/lib/prisma";
 
 export async function readAccreditations(): Promise<Accreditation[]> {
@@ -21,7 +21,7 @@ export async function readAccreditations(): Promise<Accreditation[]> {
       status: a.status as Accreditation["status"],
       entryAt: a.entryAt ?? undefined,
       exitAt: a.exitAt ?? undefined,
-      currentZone: (a.currentZone as Zone) ?? null,
+      currentZone: a.currentZone ?? null,
       vehicles: a.vehicles.map(
         (v): Vehicle => ({
           id: v.id,

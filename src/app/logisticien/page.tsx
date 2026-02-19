@@ -7,6 +7,14 @@ import AccreditationFormCard from "@/components/logisticien/AccreditationFormCar
 import AutoRefreshOnSSE from "@/components/logisticien/AutoRefreshOnSSE";
 import type { SortDirection } from "@/components/ui/table";
 
+// Parse "DD/MM/YYYY" → Date (ou null si invalide)
+function parseVehicleDate(dateStr?: string): Date | null {
+  if (!dateStr) return null;
+  const [day, month, year] = dateStr.split("/").map(Number);
+  if (!day || !month || !year) return null;
+  return new Date(year, month - 1, day);
+}
+
 // --- Utilitaire de normalisation accent/casse/espaces/ligatures ---
 const slug = (s: unknown) =>
   String(s ?? "")
@@ -37,7 +45,7 @@ export default async function LogisticienDashboard(props: {
     zone = "",
     vehicleType = "",
     page = "1",
-    sort = "createdAt",
+    sort = "vehicleDate",
     dir = "desc",
     sel = "",
   } = paramsObj;
@@ -54,7 +62,7 @@ export default async function LogisticienDashboard(props: {
         acc.company,
         acc.stand,
         acc.event,
-        acc.createdAt && new Date(acc.createdAt).toLocaleDateString("fr-FR"),
+        acc.vehicles?.[0]?.date,
       ]
         .map(slug)
         .some((hay) => hay.includes(needle))
@@ -90,8 +98,8 @@ export default async function LogisticienDashboard(props: {
       fromDate <= toDate ? [fromDate, toDate] : [toDate, fromDate];
 
     filtered = filtered.filter((acc) => {
-      if (!acc.createdAt) return false;
-      const d = new Date(acc.createdAt);
+      const d = parseVehicleDate(acc.vehicles?.[0]?.date);
+      if (!d) return false;
       return d >= start && d <= end;
     });
   }
@@ -100,7 +108,7 @@ export default async function LogisticienDashboard(props: {
   const validSortKeys = [
     "status",
     "id",
-    "createdAt",
+    "vehicleDate",
     "company",
     "stand",
     "event",
@@ -110,7 +118,7 @@ export default async function LogisticienDashboard(props: {
   ] as const;
   const sortKey = (validSortKeys as readonly string[]).includes(sort)
     ? (sort as (typeof validSortKeys)[number])
-    : "createdAt";
+    : "vehicleDate";
   const direction = dir === "asc" ? 1 : -1;
 
   filtered.sort((a, b) => {
@@ -165,9 +173,9 @@ export default async function LogisticienDashboard(props: {
         break;
       }
       default:
-        // createdAt
-        aVal = a.createdAt ? new Date(a.createdAt) : new Date(0);
-        bVal = b.createdAt ? new Date(b.createdAt) : new Date(0);
+        // vehicleDate
+        aVal = parseVehicleDate(a.vehicles?.[0]?.date) ?? new Date(0);
+        bVal = parseVehicleDate(b.vehicles?.[0]?.date) ?? new Date(0);
     }
 
     if (aVal === undefined || bVal === undefined) return 0;
@@ -179,15 +187,17 @@ export default async function LogisticienDashboard(props: {
 
   // Tri secondaire : si pas de tri explicite demandé par l'utilisateur,
   // les accréditations du jour avec statut ENTREE remontent en premier
-  if (sort === "createdAt" && dir === "desc") {
+  if (sort === "vehicleDate" && dir === "desc") {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
     filtered.sort((a, b) => {
-      const aIsToday = a.createdAt && new Date(a.createdAt) >= today && new Date(a.createdAt) < tomorrow;
-      const bIsToday = b.createdAt && new Date(b.createdAt) >= today && new Date(b.createdAt) < tomorrow;
+      const aDate = parseVehicleDate(a.vehicles?.[0]?.date);
+      const bDate = parseVehicleDate(b.vehicles?.[0]?.date);
+      const aIsToday = aDate && aDate >= today && aDate < tomorrow;
+      const bIsToday = bDate && bDate >= today && bDate < tomorrow;
       const aIsEntree = a.status === "ENTREE" && aIsToday;
       const bIsEntree = b.status === "ENTREE" && bIsToday;
 

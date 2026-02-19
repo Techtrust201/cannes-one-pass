@@ -79,13 +79,7 @@ export default function MobileAccreditationList({
               )}
 
               <span className="ml-auto text-[10px] text-gray-400 whitespace-nowrap">
-                {acc.createdAt
-                  ? new Date(acc.createdAt).toLocaleDateString("fr-FR", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "2-digit",
-                    })
-                  : ""}
+                {acc.vehicles?.[0]?.date ?? ""}
               </span>
             </div>
 

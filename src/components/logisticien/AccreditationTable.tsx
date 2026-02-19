@@ -249,7 +249,7 @@ export default function AccreditationTable({
                 <Th label="Plaque" sortKey="plate" />
                 <Th label="Société" sortKey="company" />
                 <Th label="Événement" sortKey="event" />
-                <Th label="Date" sortKey="createdAt" />
+                <Th label="Date" sortKey="vehicleDate" />
                 <Th label="Horaires" sortKey="entryAt" />
                 <th className="px-2 py-2.5 text-[11px] font-semibold text-gray-600 uppercase tracking-wider text-center whitespace-nowrap">
                   Actions
@@ -333,13 +333,7 @@ export default function AccreditationTable({
 
                     {/* Date */}
                     <td className="px-2 py-2 text-gray-500 whitespace-nowrap">
-                      {acc.createdAt
-                        ? new Date(acc.createdAt).toLocaleDateString("fr-FR", {
-                            day: "2-digit",
-                            month: "2-digit",
-                            year: "2-digit",
-                          })
-                        : "-"}
+                      {acc.vehicles?.[0]?.date ?? "-"}
                     </td>
 
                     {/* Horaires — dernier step uniquement */}

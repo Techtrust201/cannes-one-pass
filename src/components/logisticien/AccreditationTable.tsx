@@ -6,6 +6,7 @@ import { List, Pencil, Trash2, LogIn, LogOut, Clock, CheckSquare, Square, Archiv
 import { useRouter } from "next/navigation";
 import StatusPill from "./StatusPill";
 import MobileAccreditationList from "./MobileAccreditationList";
+import { formatVehicleDate } from "@/lib/date-utils";
 import {
   Pagination,
   PaginationContent,
@@ -39,7 +40,8 @@ export interface AccreditationTableProps {
     | "event"
     | "entryAt"
     | "exitAt"
-    | "duration";
+    | "duration"
+    | "vehicleDate";
   dir: "asc" | "desc";
 }
 
@@ -333,7 +335,7 @@ export default function AccreditationTable({
 
                     {/* Date */}
                     <td className="px-2 py-2 text-gray-500 whitespace-nowrap">
-                      {acc.vehicles?.[0]?.date ?? "-"}
+                      {formatVehicleDate(acc.vehicles?.[0]?.date)}
                     </td>
 
                     {/* Horaires — dernier step uniquement */}

@@ -1,3 +1,30 @@
+// --- Événements ---
+export interface Event {
+  id: string;
+  name: string;
+  slug: string;
+  logo: string | null;
+  description: string | null;
+  location: string | null;
+  color: string;
+  startDate: string;
+  endDate: string;
+  setupStartDate: string | null;
+  setupEndDate: string | null;
+  teardownStartDate: string | null;
+  teardownEndDate: string | null;
+  accessStartTime: string | null;
+  accessEndTime: string | null;
+  notes: string | null;
+  activationDays: number;
+  isActive: boolean;
+  isArchived: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type EventStatus = "active" | "upcoming" | "ongoing" | "finished" | "archived";
+
 // --- Zones (dynamiques — identifiants String depuis ZoneConfig) ---
 export type Zone = string;
 export type ZoneAction = "ENTRY" | "EXIT" | "TRANSFER";

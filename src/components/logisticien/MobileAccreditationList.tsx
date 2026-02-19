@@ -4,6 +4,7 @@ import StatusPill from "./StatusPill";
 import type { Accreditation } from "@/types";
 import { getZoneLabel, getZoneColorClasses } from "@/lib/zone-utils";
 import { buildLink } from "@/lib/url";
+import { formatVehicleDate } from "@/lib/date-utils";
 
 interface MobileAccreditationListProps {
   pageData: Accreditation[];
@@ -79,7 +80,7 @@ export default function MobileAccreditationList({
               )}
 
               <span className="ml-auto text-[10px] text-gray-400 whitespace-nowrap">
-                {acc.vehicles?.[0]?.date ?? ""}
+                {formatVehicleDate(acc.vehicles?.[0]?.date)}
               </span>
             </div>
 

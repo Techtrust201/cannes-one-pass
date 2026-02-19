@@ -183,6 +183,40 @@ model UserPermission {
 // MODÈLES MÉTIER (existants)
 // ============================================================
 
+model Event {
+  id                String    @id @default(uuid())
+  name              String
+  slug              String    @unique
+  logo              String?
+  description       String?   @db.Text
+  location          String?
+  color             String    @default("#3DAAA4")
+
+  startDate         DateTime
+  endDate           DateTime
+
+  setupStartDate    DateTime?
+  setupEndDate      DateTime?
+  teardownStartDate DateTime?
+  teardownEndDate   DateTime?
+
+  accessStartTime   String?
+  accessEndTime     String?
+
+  notes             String?   @db.Text
+
+  activationDays    Int       @default(7)
+  isActive          Boolean   @default(false)
+  isArchived        Boolean   @default(false)
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  accreditations    Accreditation[]
+
+  @@index([isArchived, startDate])
+}
+
 model Accreditation {
   id          String               @id @default(uuid())
   createdAt   DateTime             @default(now())
@@ -192,6 +226,8 @@ model Accreditation {
   stand       String
   unloading   String
   event       String
+  eventId     String?
+  eventRef    Event?               @relation(fields: [eventId], references: [id])
   message     String?
   consent     Boolean              @default(false)
   status      AccreditationStatus  @default(ATTENTE)
@@ -209,6 +245,8 @@ model Accreditation {
   zoneMovements  ZoneMovement[]
   timeSlots      VehicleTimeSlot[]
   chatMessages   ChatMessage[]
+
+  @@index([eventId])
 }
 
 model Vehicle {

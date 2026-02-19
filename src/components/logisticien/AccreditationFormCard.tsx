@@ -12,12 +12,29 @@ import type { Vehicle } from "@/types";
 import { getTelLink, getWhatsAppLink } from "@/lib/contact-utils";
 import ActionButtons from "./ActionButtons";
 
-const EVENT_OPTIONS = [
-  { value: "waicf", label: "WAICF" },
-  { value: "festival", label: "Festival du Film" },
-  { value: "miptv", label: "MIPTV" },
-  { value: "mipcom", label: "MIPCOM" },
-];
+function useEventOptions() {
+  const [options, setOptions] = React.useState<
+    { value: string; label: string }[]
+  >([]);
+
+  React.useEffect(() => {
+    fetch("/api/events")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setOptions(
+            data.map((e: { slug: string; name: string }) => ({
+              value: e.slug,
+              label: e.name,
+            }))
+          );
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  return options;
+}
 
 interface Props {
   acc: Accreditation;
@@ -25,6 +42,7 @@ interface Props {
 
 export default function AccreditationFormCard({ acc }: Props) {
   const router = useRouter();
+  const EVENT_OPTIONS = useEventOptions();
   const [company, setCompany] = useState(acc.company ?? "");
   const [stand, setStand] = useState(acc.stand ?? "");
   const [unloading, setUnloading] = useState(acc.unloading ?? "");

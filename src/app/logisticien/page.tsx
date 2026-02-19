@@ -6,14 +6,7 @@ import { buildLink } from "@/lib/url";
 import AccreditationFormCard from "@/components/logisticien/AccreditationFormCard";
 import AutoRefreshOnSSE from "@/components/logisticien/AutoRefreshOnSSE";
 import type { SortDirection } from "@/components/ui/table";
-
-// Parse "DD/MM/YYYY" → Date (ou null si invalide)
-function parseVehicleDate(dateStr?: string): Date | null {
-  if (!dateStr) return null;
-  const [day, month, year] = dateStr.split("/").map(Number);
-  if (!day || !month || !year) return null;
-  return new Date(year, month - 1, day);
-}
+import { parseVehicleDate } from "@/lib/date-utils";
 
 // --- Utilitaire de normalisation accent/casse/espaces/ligatures ---
 const slug = (s: unknown) =>

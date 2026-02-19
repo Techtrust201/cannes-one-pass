@@ -18,6 +18,7 @@ interface Props {
   onSave: (data: Record<string, unknown>) => Promise<void>;
   onDelete?: () => Promise<void>;
   saving?: boolean;
+  defaultStartDate?: string;
 }
 
 export default function EventSheet({
@@ -27,6 +28,7 @@ export default function EventSheet({
   onSave,
   onDelete,
   saving,
+  defaultStartDate,
 }: Props) {
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
@@ -52,6 +54,7 @@ export default function EventSheet({
           onSave={onSave}
           onDelete={onDelete}
           saving={saving}
+          defaultStartDate={defaultStartDate}
         />
       </SheetContent>
     </Sheet>

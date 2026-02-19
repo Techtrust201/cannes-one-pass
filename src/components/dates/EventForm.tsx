@@ -60,6 +60,7 @@ interface Props {
   onSave: (data: FormData) => Promise<void>;
   onDelete?: () => Promise<void>;
   saving?: boolean;
+  defaultStartDate?: string;
 }
 
 function Section({
@@ -101,10 +102,12 @@ function Field({
 const inputClass =
   "w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:ring-2 focus:ring-[#3DAAA4]/30 focus:border-[#3DAAA4] outline-none transition-colors";
 
-export default function EventForm({ event, onSave, onDelete, saving }: Props) {
-  const [form, setForm] = useState<FormData>(
-    event ? fromEvent(event) : EMPTY_FORM
-  );
+export default function EventForm({ event, onSave, onDelete, saving, defaultStartDate }: Props) {
+  const [form, setForm] = useState<FormData>(() => {
+    if (event) return fromEvent(event);
+    if (defaultStartDate) return { ...EMPTY_FORM, startDate: defaultStartDate };
+    return EMPTY_FORM;
+  });
   const [error, setError] = useState("");
 
   const isNew = !event;

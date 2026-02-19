@@ -2,19 +2,18 @@
 
 import { useState, useEffect, useCallback } from "react";
 import type { Event } from "@/types";
-import TimelineView from "@/components/dates/TimelineView";
+import EventCalendar from "@/components/dates/EventCalendar";
 import EventSheet from "@/components/dates/EventSheet";
 import { Plus, RefreshCw } from "lucide-react";
 
 export default function DatesPage() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
-  const [year, setYear] = useState(new Date().getFullYear());
 
-  // Sheet state
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [saving, setSaving] = useState(false);
+  const [defaultDate, setDefaultDate] = useState<string>("");
 
   const fetchEvents = useCallback(async () => {
     try {
@@ -31,19 +30,23 @@ export default function DatesPage() {
     fetchEvents();
   }, [fetchEvents]);
 
-  function openCreate() {
+  function openCreate(date?: Date) {
     setSelectedEvent(null);
+    if (date) setDefaultDate(date.toISOString().split("T")[0]);
+    else setDefaultDate("");
     setSheetOpen(true);
   }
 
   function openEdit(event: Event) {
     setSelectedEvent(event);
+    setDefaultDate("");
     setSheetOpen(true);
   }
 
   function closeSheet() {
     setSheetOpen(false);
     setSelectedEvent(null);
+    setDefaultDate("");
   }
 
   async function handleSave(data: Record<string, unknown>) {
@@ -106,7 +109,7 @@ export default function DatesPage() {
             Gestion des événements
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {events.length} événement{events.length !== 1 ? "s" : ""}
+            {events.length} événement{events.length !== 1 ? "s" : ""} planifié{events.length !== 1 ? "s" : ""}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -118,7 +121,7 @@ export default function DatesPage() {
             <RefreshCw size={16} />
           </button>
           <button
-            onClick={openCreate}
+            onClick={() => openCreate()}
             className="flex items-center gap-2 bg-[#3F4660] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#2C2F3F] transition-colors"
           >
             <Plus size={16} />
@@ -127,22 +130,23 @@ export default function DatesPage() {
         </div>
       </div>
 
-      {/* Timeline */}
-      <TimelineView
+      {/* Calendar */}
+      <EventCalendar
         events={events}
-        year={year}
-        onYearChange={setYear}
         onEventClick={openEdit}
+        onCreateAtDate={(d) => openCreate(d)}
       />
 
       {/* Sheet */}
       <EventSheet
+        key={selectedEvent?.id ?? defaultDate ?? "new"}
         open={sheetOpen}
         onClose={closeSheet}
         event={selectedEvent}
         onSave={handleSave}
         onDelete={selectedEvent ? handleDelete : undefined}
         saving={saving}
+        defaultStartDate={defaultDate}
       />
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Search, Filter, Calendar, X, SlidersHorizontal } from "lucide-react";
 import { useRef, useEffect, useState } from "react";
 
@@ -13,12 +14,37 @@ export interface FilterBarProps {
 
 export function FilterBar({ searchParams, statusOptions, zoneOptions, vehicleTypeOptions }: FilterBarProps) {
   const { q = "", status = "", from = "", to = "", zone = "", vehicleType = "" } = searchParams;
+  const router = useRouter();
+  const pathname = usePathname();
+  const currentSearchParams = useSearchParams();
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
+  const [mobileSearch, setMobileSearch] = useState(q as string);
   const popoverRef = useRef<HTMLDivElement>(null);
 
   // Compter les filtres actifs
   const activeFiltersCount = [status, zone, from, to, q, vehicleType].filter(Boolean).length;
+
+  // Sync mobileSearch when q changes from server (e.g. drawer submit, reset)
+  useEffect(() => {
+    setMobileSearch(q as string);
+  }, [q]);
+
+  // Debounced URL update for real-time search
+  useEffect(() => {
+    if (mobileSearch === (q as string)) return;
+    const timer = setTimeout(() => {
+      const params = new URLSearchParams(currentSearchParams.toString());
+      if (mobileSearch.trim()) {
+        params.set("q", mobileSearch.trim());
+      } else {
+        params.delete("q");
+      }
+      params.delete("page");
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [mobileSearch, q, currentSearchParams, pathname, router]);
 
   // Fermer le popover desktop sur clic extérieur
   useEffect(() => {
@@ -42,26 +68,47 @@ export function FilterBar({ searchParams, statusOptions, zoneOptions, vehicleTyp
 
   return (
     <>
-      {/* ===== MOBILE/TABLETTE : Bouton compact + drawer ===== */}
-      <div className="block md:hidden w-full">
+      {/* ===== MOBILE/TABLETTE : Recherche sticky + bouton Filtres + drawer ===== */}
+      <div className="block md:hidden w-full sticky top-0 z-30 bg-gray-50 py-2">
         <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              value={mobileSearch}
+              onChange={(e) => setMobileSearch(e.target.value)}
+              placeholder="ID, plaque, statut, date..."
+              className="w-full pl-10 pr-9 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm bg-white"
+            />
+            {mobileSearch && (
+              <button
+                type="button"
+                onClick={() => setMobileSearch("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
           <button
             type="button"
             onClick={() => setIsMobileFilterOpen(true)}
-            className="flex items-center gap-2 px-4 py-3 bg-[#4F587E] text-white font-semibold rounded-xl hover:bg-[#3B4252] active:bg-[#2d3347] transition shadow-md text-sm min-h-[44px]"
+            className="flex items-center gap-1.5 px-3 py-2.5 bg-[#4F587E] text-white font-semibold rounded-xl hover:bg-[#3B4252] active:bg-[#2d3347] transition shadow-md text-sm min-h-[42px] shrink-0"
           >
             <SlidersHorizontal className="w-4 h-4" />
-            Filtres
+            <span className="hidden xs:inline">Filtres</span>
             {activeFiltersCount > 0 && (
               <span className="inline-flex items-center justify-center w-5 h-5 bg-white text-[#4F587E] rounded-full text-xs font-bold">
                 {activeFiltersCount}
               </span>
             )}
           </button>
+
           {activeFiltersCount > 0 && (
             <Link
               href="/logisticien"
-              className="px-3 py-3 rounded-xl border border-gray-300 text-gray-600 bg-white hover:bg-gray-50 active:bg-gray-100 text-xs font-medium transition min-h-[44px] flex items-center"
+              className="p-2.5 rounded-xl border border-gray-300 text-gray-600 bg-white hover:bg-gray-50 active:bg-gray-100 transition shrink-0 flex items-center"
             >
               <X className="w-4 h-4" />
             </Link>

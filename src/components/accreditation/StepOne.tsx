@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/carousel";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import Image from "next/image";
+import { ImageIcon } from "lucide-react";
 
 interface Data {
   company: string;
@@ -30,16 +30,10 @@ interface EventOption {
   key: string;
   label: string;
   logo: string;
+  id: string;
 }
 
-const FALLBACK_EVENTS: EventOption[] = [
-  { key: "waicf", label: "WAICF", logo: "/accreditation/pict_page1/palais-des-festivals.png" },
-  { key: "festival", label: "Festival du Film", logo: "/accreditation/pict_page1/festival.png" },
-  { key: "miptv", label: "MIPTV", logo: "/accreditation/pict_page1/miptv.jpg" },
-  { key: "mipcom", label: "MIPCOM", logo: "/accreditation/pict_page1/mipcom.jpg" },
-  { key: "plages électro", label: "Plages Électroniques", logo: "/accreditation/pict_page1/plages-electro.png" },
-  { key: "palais des festivals", label: "Palais des Festivals", logo: "/accreditation/pict_page1/palais-des-festivals.png" },
-];
+const FALLBACK_EVENTS: EventOption[] = [];
 
 function useActiveEvents(): { events: EventOption[]; loading: boolean } {
   const [events, setEvents] = useState<EventOption[]>([]);
@@ -53,10 +47,11 @@ function useActiveEvents(): { events: EventOption[]; loading: boolean } {
         if (cancelled) return;
         if (Array.isArray(data) && data.length > 0) {
           setEvents(
-            data.map((e: { slug: string; name: string; logo: string | null }) => ({
+            data.map((e: { id: string; slug: string; name: string; logo: string | null }) => ({
+              id: e.id,
               key: e.slug,
               label: e.name,
-              logo: e.logo || "/accreditation/pict_page1/palais-des-festivals.png",
+              logo: e.logo || `/api/events/${e.id}/logo`,
             }))
           );
         } else {
@@ -232,14 +227,16 @@ export default function StepOne({ data, update, onValidityChange }: Props) {
                           }}
                         >
                           <CardContent className="flex flex-col items-center justify-center h-full p-1 w-full">
-                            <Image
-                              src={ev.logo}
-                              alt={ev.label}
-                              width={48}
-                              height={36}
-                              className="object-contain w-12 h-9 md:w-16 md:h-12 mb-1 rounded drop-shadow"
-                              priority={idx === 0}
-                            />
+                            {ev.logo ? (
+                              /* eslint-disable-next-line @next/next/no-img-element */
+                              <img
+                                src={ev.logo}
+                                alt={ev.label}
+                                className="object-contain w-12 h-9 md:w-16 md:h-12 mb-1 rounded drop-shadow"
+                              />
+                            ) : (
+                              <ImageIcon className="w-12 h-9 md:w-16 md:h-12 mb-1 text-gray-300" />
+                            )}
                             <span
                               className={cn(
                                 "truncate w-full text-xs md:text-sm font-medium text-center overflow-hidden",

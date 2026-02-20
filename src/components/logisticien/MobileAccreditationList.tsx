@@ -5,6 +5,7 @@ import type { Accreditation } from "@/types";
 import { getZoneLabel, getZoneColorClasses } from "@/lib/zone-utils";
 import { buildLink } from "@/lib/url";
 import { formatVehicleDate } from "@/lib/date-utils";
+import type { EventLogoMap } from "./AccreditationTable";
 
 interface MobileAccreditationListProps {
   pageData: Accreditation[];
@@ -14,6 +15,7 @@ interface MobileAccreditationListProps {
   filteredCount: number;
   perPage: number;
   searchParams: Record<string, string>;
+  eventLogoMap?: EventLogoMap;
 }
 
 function fmtDuration(entryAt: Date | string | null | undefined, exitAt: Date | string | null | undefined) {
@@ -34,6 +36,7 @@ export default function MobileAccreditationList({
   filteredCount,
   perPage,
   searchParams,
+  eventLogoMap = {},
 }: MobileAccreditationListProps) {
   return (
     <div className="block md:hidden w-full space-y-3 overflow-x-hidden">
@@ -97,8 +100,18 @@ export default function MobileAccreditationList({
                     </span>
                   )}
                   {acc.event && (
-                    <span className="inline-flex items-center gap-0.5 text-[10px] text-gray-500">
-                      <Briefcase size={9} className="shrink-0" />
+                    <span className="inline-flex items-center gap-1 text-[10px] text-gray-500">
+                      {eventLogoMap[acc.event]?.logo ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img
+                          src={eventLogoMap[acc.event].logo!}
+                          alt=""
+                          className="w-4 h-4 rounded object-contain shrink-0 bg-white"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                        />
+                      ) : (
+                        <Briefcase size={9} className="shrink-0" />
+                      )}
                       {acc.event}
                     </span>
                   )}

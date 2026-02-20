@@ -23,7 +23,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   const { id } = await ctx.params;
 
   try {
-    const event = await prisma.event.findUnique({ where: { id } });
+    const event = await prisma.event.findUnique({ where: { id }, omit: { logoData: true } });
     if (!event)
       return Response.json({ error: "Événement introuvable" }, { status: 404 });
     return Response.json(event);

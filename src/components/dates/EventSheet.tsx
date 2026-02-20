@@ -15,7 +15,7 @@ interface Props {
   open: boolean;
   onClose: () => void;
   event?: Event | null;
-  onSave: (data: Record<string, unknown>) => Promise<void>;
+  onSave: (data: Record<string, unknown>) => Promise<string | void>;
   onDelete?: () => Promise<void>;
   saving?: boolean;
   defaultStartDate?: string;

@@ -37,6 +37,7 @@ export async function GET(req: NextRequest) {
     const events = await prisma.event.findMany({
       where,
       orderBy: { startDate: "asc" },
+      omit: { logoData: true },
     });
 
     if (activeOnly) {

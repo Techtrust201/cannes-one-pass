@@ -49,7 +49,7 @@ export default function DatesPage() {
     setDefaultDate("");
   }
 
-  async function handleSave(data: Record<string, unknown>) {
+  async function handleSave(data: Record<string, unknown>): Promise<string | void> {
     setSaving(true);
     try {
       const url = selectedEvent
@@ -68,8 +68,10 @@ export default function DatesPage() {
         throw new Error(body.error || "Erreur lors de la sauvegarde");
       }
 
+      const created = await res.json();
       await fetchEvents();
       closeSheet();
+      return created?.id;
     } finally {
       setSaving(false);
     }

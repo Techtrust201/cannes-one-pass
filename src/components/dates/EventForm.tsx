@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import type { Event } from "@/types";
 import { Loader2 } from "lucide-react";
+import ImageUpload from "./ImageUpload";
 
 type FormData = Omit<Event, "id" | "createdAt" | "updatedAt" | "isActive">;
 
@@ -57,7 +58,8 @@ function fromEvent(event: Event): FormData {
 
 interface Props {
   event?: Event | null;
-  onSave: (data: FormData) => Promise<void>;
+  /** Returns the event id after save (needed for logo upload on creation) */
+  onSave: (data: FormData) => Promise<string | void>;
   onDelete?: () => Promise<void>;
   saving?: boolean;
   defaultStartDate?: string;
@@ -109,6 +111,7 @@ export default function EventForm({ event, onSave, onDelete, saving, defaultStar
     return EMPTY_FORM;
   });
   const [error, setError] = useState("");
+  const pendingFileRef = useRef<File | null>(null);
 
   const isNew = !event;
 
@@ -140,7 +143,17 @@ export default function EventForm({ event, onSave, onDelete, saving, defaultStar
 
     const slug = form.slug || autoSlug(form.name);
     try {
-      await onSave({ ...form, slug });
+      const returnedId = await onSave({ ...form, slug });
+
+      if (pendingFileRef.current && returnedId) {
+        const fd = new FormData();
+        fd.append("file", pendingFileRef.current);
+        await fetch(`/api/events/${returnedId}/logo`, {
+          method: "POST",
+          body: fd,
+        });
+        pendingFileRef.current = null;
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur lors de la sauvegarde");
     }
@@ -179,12 +192,12 @@ export default function EventForm({ event, onSave, onDelete, saving, defaultStar
               placeholder="Palais des Festivals"
             />
           </Field>
-          <Field label="Logo (chemin)" className="sm:col-span-2">
-            <input
-              className={inputClass}
-              value={form.logo ?? ""}
-              onChange={(e) => set("logo", e.target.value || null)}
-              placeholder="/accreditation/pict_page1/waicf.png"
+          <Field label="Logo" className="sm:col-span-2">
+            <ImageUpload
+              value={form.logo}
+              eventId={event?.id}
+              onChange={(url) => set("logo", url)}
+              onFileReady={(file) => { pendingFileRef.current = file; }}
             />
           </Field>
           <Field label="Description" className="sm:col-span-2">

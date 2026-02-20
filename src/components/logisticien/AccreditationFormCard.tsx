@@ -14,7 +14,7 @@ import ActionButtons from "./ActionButtons";
 
 function useEventOptions() {
   const [options, setOptions] = React.useState<
-    { value: string; label: string }[]
+    { value: string; label: string; id: string; logo: string | null }[]
   >([]);
 
   React.useEffect(() => {
@@ -23,9 +23,11 @@ function useEventOptions() {
       .then((data) => {
         if (Array.isArray(data) && data.length > 0) {
           setOptions(
-            data.map((e: { slug: string; name: string }) => ({
+            data.map((e: { id: string; slug: string; name: string; logo: string | null }) => ({
               value: e.slug,
               label: e.name,
+              id: e.id,
+              logo: e.logo || `/api/events/${e.id}/logo`,
             }))
           );
         }

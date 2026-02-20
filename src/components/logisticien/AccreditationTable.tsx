@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { List, Pencil, Trash2, LogIn, LogOut, Clock, CheckSquare, Square, Archive, ArrowRight, Loader2, MapPin } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -87,6 +87,41 @@ function truncate(text: string | undefined | null, max: number) {
   return text.slice(0, max - 1) + "…";
 }
 
+export type EventLogoMap = Record<string, { id: string; logo: string | null }>;
+
+function useEventLogoMap(): EventLogoMap {
+  const [map, setMap] = useState<EventLogoMap>({});
+  useEffect(() => {
+    fetch("/api/events")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: { id: string; slug: string; logo: string | null }[]) => {
+        if (!Array.isArray(data)) return;
+        const m: EventLogoMap = {};
+        for (const e of data) {
+          m[e.slug] = { id: e.id, logo: e.logo || `/api/events/${e.id}/logo` };
+        }
+        setMap(m);
+      })
+      .catch(() => {});
+  }, []);
+  return map;
+}
+
+function EventLogo({ slug, eventMap }: { slug: string | undefined | null; eventMap: EventLogoMap }) {
+  if (!slug) return null;
+  const info = eventMap[slug];
+  if (!info?.logo) return null;
+  return (
+    /* eslint-disable-next-line @next/next/no-img-element */
+    <img
+      src={info.logo}
+      alt=""
+      className="w-5 h-5 rounded object-contain shrink-0 bg-white"
+      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+    />
+  );
+}
+
 export default function AccreditationTable({
   pageData,
   currentPage,
@@ -101,6 +136,7 @@ export default function AccreditationTable({
   const router = useRouter();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
+  const eventLogoMap = useEventLogoMap();
 
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds((prev) => {
@@ -216,6 +252,7 @@ export default function AccreditationTable({
         filteredCount={filteredCount}
         perPage={perPage}
         searchParams={searchParams}
+        eventLogoMap={eventLogoMap}
       />
 
       {/* ===== DESKTOP ===== */}
@@ -329,8 +366,11 @@ export default function AccreditationTable({
                     </td>
 
                     {/* Événement */}
-                    <td className="px-2 py-2 text-gray-600 max-w-[100px]">
-                      <span className="block truncate">{truncate(acc.event, 16)}</span>
+                    <td className="px-2 py-2 text-gray-600 max-w-[130px]">
+                      <span className="flex items-center gap-1.5 truncate">
+                        <EventLogo slug={acc.event} eventMap={eventLogoMap} />
+                        {truncate(acc.event, 16)}
+                      </span>
                     </td>
 
                     {/* Date */}

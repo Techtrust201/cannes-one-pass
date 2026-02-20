@@ -86,8 +86,8 @@ const EVENTS = [
     slug: "palais-des-festivals",
     logo: "/accreditation/pict_page1/palais-des-festivals.png",
     color: "#3DAAA4",
-    startDate: new Date("2026-01-01"),
-    endDate: new Date("2026-12-31"),
+    startDate: new Date("2026-01-01T00:00:00Z"),
+    endDate: new Date("2026-12-31T23:59:59Z"),
     activationDays: 30,
   },
 ];

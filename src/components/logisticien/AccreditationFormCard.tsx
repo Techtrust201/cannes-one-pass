@@ -12,31 +12,7 @@ import type { Vehicle } from "@/types";
 import { getTelLink, getWhatsAppLink } from "@/lib/contact-utils";
 import ActionButtons from "./ActionButtons";
 
-function useEventOptions() {
-  const [options, setOptions] = React.useState<
-    { value: string; label: string; id: string; logo: string | null }[]
-  >([]);
-
-  React.useEffect(() => {
-    fetch("/api/events")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          setOptions(
-            data.map((e: { id: string; slug: string; name: string; logo: string | null }) => ({
-              value: e.slug,
-              label: e.name,
-              id: e.id,
-              logo: e.logo || `/api/events/${e.id}/logo`,
-            }))
-          );
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  return options;
-}
+import { useEventOptions } from "@/hooks/useEventOptions";
 
 interface Props {
   acc: Accreditation;

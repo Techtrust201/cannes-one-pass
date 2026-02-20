@@ -26,6 +26,7 @@ import ActionButtons from "./ActionButtons";
 import AccreditationHistory from "./AccreditationHistory";
 import DailyTimeSlotHistory from "./DailyTimeSlotHistory";
 import AccreditationChat from "./AccreditationChat";
+import { useEventOptions } from "@/hooks/useEventOptions";
 
 // Type pour le formulaire d'édition de véhicule
 interface VehicleFormData {
@@ -186,6 +187,7 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const { toasts, addToast, removeToast } = useToasts();
+  const EVENT_OPTIONS = useEventOptions();
   const [editingVehicle, setEditingVehicle] = useState<number | null>(null);
   const [actionVersion, setActionVersion] = useState(0);
   const [vehicleFormData, setVehicleFormData] =
@@ -381,7 +383,6 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
               { label: "Nom du décorateur", field: "company" as const },
               { label: "Stand desservi", field: "stand" as const },
               { label: "Déchargement", field: "unloading" as const },
-              { label: "Événement", field: "event" as const },
             ].map(({ label, field }) => (
               <FormField
                 key={field}
@@ -407,6 +408,38 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
                 />
               </FormField>
             ))}
+
+            {/* Événement — dropdown dynamique */}
+            <FormField
+              label="Événement"
+              name="event"
+              error={errors.event?.message}
+              required
+            >
+              <Controller
+                name="event"
+                control={control}
+                render={({ field: { onChange, value } }) => (
+                  <select
+                    id="event"
+                    value={value}
+                    onChange={onChange}
+                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm bg-white appearance-none"
+                    aria-describedby={errors.event ? "event-error" : undefined}
+                  >
+                    <option value="">Choisir un événement</option>
+                    {value && !EVENT_OPTIONS.some((o) => o.value === value) && (
+                      <option value={value}>{value}</option>
+                    )}
+                    {EVENT_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              />
+            </FormField>
           </div>
 
           {/* Véhicules */}

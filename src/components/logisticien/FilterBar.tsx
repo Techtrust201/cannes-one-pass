@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { Search, Filter, Calendar, X, SlidersHorizontal } from "lucide-react";
-import { useRef, useEffect, useState } from "react";
+import { Search, Filter, Calendar, X, SlidersHorizontal, Truck, MapPin, Clock } from "lucide-react";
+import { useRef, useEffect, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 
 export interface FilterBarProps {
   searchParams: Record<string, string>;
@@ -22,10 +23,9 @@ export function FilterBar({ searchParams, statusOptions, zoneOptions, vehicleTyp
   const [mobileSearch, setMobileSearch] = useState(q as string);
   const popoverRef = useRef<HTMLDivElement>(null);
 
-  // Compter les filtres actifs
   const activeFiltersCount = [status, zone, from, to, q, vehicleType].filter(Boolean).length;
+  const activeFiltersCountExcludingSearch = [status, zone, from, to, vehicleType].filter(Boolean).length;
 
-  // Sync mobileSearch when q changes from server (e.g. drawer submit, reset)
   useEffect(() => {
     setMobileSearch(q as string);
   }, [q]);
@@ -46,7 +46,6 @@ export function FilterBar({ searchParams, statusOptions, zoneOptions, vehicleTyp
     return () => clearTimeout(timer);
   }, [mobileSearch, q, currentSearchParams, pathname, router]);
 
-  // Fermer le popover desktop sur clic extérieur
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
@@ -65,6 +64,56 @@ export function FilterBar({ searchParams, statusOptions, zoneOptions, vehicleTyp
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [isFilterOpen]);
+
+  // Programmatic submit for mobile drawer filters
+  const handleMobileFilterSubmit = useCallback(
+    (e: React.FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      const fd = new FormData(e.currentTarget);
+      const params = new URLSearchParams();
+      for (const [key, val] of fd.entries()) {
+        if (val && typeof val === "string" && val.trim()) {
+          params.set(key, val.trim());
+        }
+      }
+      router.push(`${pathname}?${params.toString()}`);
+      setIsMobileFilterOpen(false);
+    },
+    [pathname, router]
+  );
+
+  const handleMobileReset = useCallback(() => {
+    setIsMobileFilterOpen(false);
+    setMobileSearch("");
+    router.push("/logisticien");
+  }, [router]);
+
+  const removeFilter = useCallback(
+    (key: string) => {
+      const params = new URLSearchParams(currentSearchParams.toString());
+      params.delete(key);
+      params.delete("page");
+      router.push(`${pathname}?${params.toString()}`);
+    },
+    [currentSearchParams, pathname, router]
+  );
+
+  const getFilterLabel = (key: string, value: string): string => {
+    if (key === "status") return statusOptions.find((o) => o.value === value)?.label ?? value;
+    if (key === "zone") return zoneOptions?.find((o) => o.value === value)?.label ?? value;
+    if (key === "vehicleType") return vehicleTypeOptions?.find((o) => o.value === value)?.label ?? value;
+    if (key === "from") return `Depuis ${value}`;
+    if (key === "to") return `Jusqu'au ${value}`;
+    return value;
+  };
+
+  const activeChips = [
+    { key: "status", value: status },
+    { key: "zone", value: zone },
+    { key: "vehicleType", value: vehicleType },
+    { key: "from", value: from },
+    { key: "to", value: to },
+  ].filter((c) => Boolean(c.value));
 
   return (
     <>
@@ -94,41 +143,68 @@ export function FilterBar({ searchParams, statusOptions, zoneOptions, vehicleTyp
           <button
             type="button"
             onClick={() => setIsMobileFilterOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-2.5 bg-[#4F587E] text-white font-semibold rounded-xl hover:bg-[#3B4252] active:bg-[#2d3347] transition shadow-md text-sm min-h-[42px] shrink-0"
+            className={`relative flex items-center gap-1.5 px-3 py-2.5 font-semibold rounded-xl transition shadow-md text-sm min-h-[42px] shrink-0 ${
+              activeFiltersCountExcludingSearch > 0
+                ? "bg-[#4F587E] text-white ring-2 ring-[#FFAA00] ring-offset-1"
+                : "bg-[#4F587E] text-white hover:bg-[#3B4252] active:bg-[#2d3347]"
+            }`}
           >
             <SlidersHorizontal className="w-4 h-4" />
-            <span className="hidden xs:inline">Filtres</span>
-            {activeFiltersCount > 0 && (
-              <span className="inline-flex items-center justify-center w-5 h-5 bg-white text-[#4F587E] rounded-full text-xs font-bold">
-                {activeFiltersCount}
+            <span>Filtres</span>
+            {activeFiltersCountExcludingSearch > 0 && (
+              <span className="inline-flex items-center justify-center w-5 h-5 bg-[#FFAA00] text-white rounded-full text-[10px] font-bold">
+                {activeFiltersCountExcludingSearch}
               </span>
             )}
           </button>
-
-          {activeFiltersCount > 0 && (
-            <Link
-              href="/logisticien"
-              className="p-2.5 rounded-xl border border-gray-300 text-gray-600 bg-white hover:bg-gray-50 active:bg-gray-100 transition shrink-0 flex items-center"
-            >
-              <X className="w-4 h-4" />
-            </Link>
-          )}
         </div>
 
-        {/* Drawer slide-up mobile */}
-        {isMobileFilterOpen && (
+        {/* Chips de filtres actifs */}
+        {activeChips.length > 0 && (
+          <div className="flex items-center gap-1.5 mt-2 overflow-x-auto pb-1 scrollbar-none">
+            {activeChips.map(({ key, value }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => removeFilter(key)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#4F587E]/10 text-[#4F587E] text-[11px] font-semibold whitespace-nowrap shrink-0 active:bg-[#4F587E]/20 transition"
+              >
+                {getFilterLabel(key, value)}
+                <X className="w-3 h-3" />
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={handleMobileReset}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-50 text-red-600 text-[11px] font-semibold whitespace-nowrap shrink-0 active:bg-red-100 transition"
+            >
+              Tout effacer
+            </button>
+          </div>
+        )}
+
+        {/* Drawer slide-up mobile — rendered via portal to escape sticky stacking context */}
+        {isMobileFilterOpen && createPortal(
           <>
-            {/* Backdrop */}
             <div
-              className="fixed inset-0 bg-black/40 z-[70]"
+              className="fixed inset-0 bg-black/40 z-[70] animate-[fadeIn_200ms_ease-out]"
               onClick={() => setIsMobileFilterOpen(false)}
             />
-            {/* Drawer */}
-            <div className="fixed inset-x-0 bottom-0 z-[80] bg-white rounded-t-2xl shadow-2xl max-h-[85vh] overflow-y-auto animate-slide-up pb-[env(safe-area-inset-bottom)]">
-              <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between rounded-t-2xl">
+            <div className="fixed inset-x-0 bottom-0 z-[80] bg-white rounded-t-2xl shadow-2xl max-h-[85vh] flex flex-col animate-[slideUp_300ms_ease-out]">
+              {/* Drag handle */}
+              <div className="flex justify-center pt-3 pb-1 shrink-0">
+                <div className="w-10 h-1 rounded-full bg-gray-300" />
+              </div>
+
+              <div className="shrink-0 bg-white px-4 py-2 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Filter className="w-5 h-5 text-[#4F587E]" />
                   <h2 className="text-base font-bold text-gray-900">Filtres</h2>
+                  {activeFiltersCountExcludingSearch > 0 && (
+                    <span className="inline-flex items-center justify-center w-5 h-5 bg-[#4F587E] text-white rounded-full text-[10px] font-bold">
+                      {activeFiltersCountExcludingSearch}
+                    </span>
+                  )}
                 </div>
                 <button
                   type="button"
@@ -140,54 +216,81 @@ export function FilterBar({ searchParams, statusOptions, zoneOptions, vehicleTyp
                 </button>
               </div>
 
-              <form method="get" className="p-4 flex flex-col gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label htmlFor="q-mobile" className="text-xs font-semibold text-gray-700">
-                    Recherche
-                  </label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <input
-                      id="q-mobile"
-                      type="text"
-                      name="q"
-                      defaultValue={q as string}
-                      placeholder="ID, plaque, statut, date..."
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm bg-gray-50 focus:bg-white"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
+              <form onSubmit={handleMobileFilterSubmit} className="flex flex-col flex-1 min-h-0">
+                {/* Scrollable filter fields */}
+                <div className="flex-1 overflow-y-auto px-4 pt-2 pb-3 flex flex-col gap-3">
+                  {/* Recherche */}
                   <div className="flex flex-col gap-1.5">
-                    <label htmlFor="status-mobile" className="text-xs font-semibold text-gray-700">
-                      Statut
+                    <label htmlFor="q-mobile" className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      Recherche
                     </label>
-                    <select
-                      id="status-mobile"
-                      name="status"
-                      defaultValue={status as string}
-                      className="w-full px-3 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm bg-gray-50 focus:bg-white"
-                    >
-                      {statusOptions.map((opt) => (
-                        <option key={opt.value || "all"} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <input
+                        id="q-mobile"
+                        type="text"
+                        name="q"
+                        defaultValue={q as string}
+                        placeholder="ID, plaque, statut, date..."
+                        className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm bg-gray-50 focus:bg-white transition"
+                      />
+                    </div>
                   </div>
-                  {zoneOptions && (
+
+                  {/* Statut + Zone */}
+                  <div className="grid grid-cols-2 gap-3">
                     <div className="flex flex-col gap-1.5">
-                      <label htmlFor="zone-mobile" className="text-xs font-semibold text-gray-700">
-                        Zone
+                      <label htmlFor="status-mobile" className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                        Statut
                       </label>
                       <select
-                        id="zone-mobile"
-                        name="zone"
-                        defaultValue={zone as string}
-                        className="w-full px-3 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm bg-gray-50 focus:bg-white"
+                        id="status-mobile"
+                        name="status"
+                        defaultValue={status as string}
+                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm bg-gray-50 focus:bg-white appearance-none transition"
                       >
-                        {zoneOptions.map((opt) => (
+                        {statusOptions.map((opt) => (
+                          <option key={opt.value || "all"} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {zoneOptions && (
+                      <div className="flex flex-col gap-1.5">
+                        <label htmlFor="zone-mobile" className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                          Zone
+                        </label>
+                        <select
+                          id="zone-mobile"
+                          name="zone"
+                          defaultValue={zone as string}
+                          className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm bg-gray-50 focus:bg-white appearance-none transition"
+                        >
+                          {zoneOptions.map((opt) => (
+                            <option key={opt.value || "all"} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Type véhicule */}
+                  {vehicleTypeOptions && (
+                    <div className="flex flex-col gap-1.5">
+                      <label htmlFor="vehicleType-mobile" className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+                        <Truck className="w-3.5 h-3.5" />
+                        Type de véhicule
+                      </label>
+                      <select
+                        id="vehicleType-mobile"
+                        name="vehicleType"
+                        defaultValue={vehicleType as string}
+                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm bg-gray-50 focus:bg-white appearance-none transition"
+                      >
+                        {vehicleTypeOptions.map((opt) => (
                           <option key={opt.value || "all"} value={opt.value}>
                             {opt.label}
                           </option>
@@ -195,76 +298,62 @@ export function FilterBar({ searchParams, statusOptions, zoneOptions, vehicleTyp
                       </select>
                     </div>
                   )}
+
+                  {/* Dates */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                      <label htmlFor="from-mobile" className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-green-600" />
+                        Début
+                      </label>
+                      <input
+                        id="from-mobile"
+                        type="date"
+                        name="from"
+                        defaultValue={from as string}
+                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm bg-gray-50 focus:bg-white transition"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label htmlFor="to-mobile" className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-red-500" />
+                        Fin
+                      </label>
+                      <input
+                        id="to-mobile"
+                        type="date"
+                        name="to"
+                        defaultValue={to as string}
+                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm bg-gray-50 focus:bg-white transition"
+                      />
+                    </div>
+                  </div>
                 </div>
 
-                {vehicleTypeOptions && (
-                  <div className="flex flex-col gap-1.5">
-                    <label htmlFor="vehicleType-mobile" className="text-xs font-semibold text-gray-700">
-                      Type de véhicule
-                    </label>
-                    <select
-                      id="vehicleType-mobile"
-                      name="vehicleType"
-                      defaultValue={vehicleType as string}
-                      className="w-full px-3 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm bg-gray-50 focus:bg-white"
+                {/* Actions — sticky en bas, au-dessus de la navbar mobile (56px + safe-area) */}
+                <div className="shrink-0 px-4 pt-3 border-t border-gray-200 bg-white rounded-b-none" style={{ paddingBottom: "calc(56px + env(safe-area-inset-bottom, 0px) + 0.75rem)" }}>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={handleMobileReset}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 active:bg-gray-100 text-sm font-semibold transition min-h-[48px]"
                     >
-                      {vehicleTypeOptions.map((opt) => (
-                        <option key={opt.value || "all"} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
+                      <X className="w-4 h-4" />
+                      Réinitialiser
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[#4F587E] text-white font-bold shadow-lg hover:bg-[#3B4252] active:bg-[#2d3347] text-sm transition min-h-[48px]"
+                    >
+                      <Filter className="w-4 h-4" />
+                      Appliquer
+                    </button>
                   </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex flex-col gap-1.5">
-                    <label htmlFor="from-mobile" className="text-xs font-semibold text-gray-700">
-                      Début
-                    </label>
-                    <input
-                      id="from-mobile"
-                      type="date"
-                      name="from"
-                      defaultValue={from as string}
-                      className="w-full px-3 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm bg-gray-50 focus:bg-white"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label htmlFor="to-mobile" className="text-xs font-semibold text-gray-700">
-                      Fin
-                    </label>
-                    <input
-                      id="to-mobile"
-                      type="date"
-                      name="to"
-                      defaultValue={to as string}
-                      className="w-full px-3 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm bg-gray-50 focus:bg-white"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-3 pt-2">
-                  <Link
-                    href="/logisticien"
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 active:bg-gray-100 text-sm font-semibold transition min-h-[48px]"
-                    onClick={() => setIsMobileFilterOpen(false)}
-                  >
-                    <X className="w-4 h-4" />
-                    Réinitialiser
-                  </Link>
-                  <button
-                    type="submit"
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[#4F587E] text-white font-bold shadow hover:bg-[#3B4252] active:bg-[#2d3347] text-sm transition min-h-[48px]"
-                    onClick={() => setIsMobileFilterOpen(false)}
-                  >
-                    <Filter className="w-4 h-4" />
-                    Appliquer
-                  </button>
                 </div>
               </form>
             </div>
-          </>
+          </>,
+          document.body
         )}
       </div>
 

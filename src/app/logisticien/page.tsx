@@ -178,24 +178,37 @@ export default async function LogisticienDashboard(props: {
     return 0;
   });
 
-  // Tri secondaire : si pas de tri explicite demandé par l'utilisateur,
-  // les accréditations du jour avec statut ENTREE remontent en premier
+  // Tri secondaire : les accréditations du jour remontent en premier,
+  // triées par priorité de statut (ENTREE > ATTENTE > NOUVEAU > reste)
   if (sort === "vehicleDate" && dir === "desc") {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
+    const statusPriority: Record<string, number> = {
+      ENTREE: 0,
+      ATTENTE: 1,
+      NOUVEAU: 2,
+      SORTIE: 3,
+      REFUS: 4,
+      ABSENT: 5,
+    };
+
     filtered.sort((a, b) => {
       const aDate = parseVehicleDate(a.vehicles?.[0]?.date);
       const bDate = parseVehicleDate(b.vehicles?.[0]?.date);
       const aIsToday = aDate && aDate >= today && aDate < tomorrow;
       const bIsToday = bDate && bDate >= today && bDate < tomorrow;
-      const aIsEntree = a.status === "ENTREE" && aIsToday;
-      const bIsEntree = b.status === "ENTREE" && bIsToday;
 
-      if (aIsEntree && !bIsEntree) return -1;
-      if (!aIsEntree && bIsEntree) return 1;
+      if (aIsToday && !bIsToday) return -1;
+      if (!aIsToday && bIsToday) return 1;
+
+      if (aIsToday && bIsToday) {
+        const aPrio = statusPriority[a.status as string] ?? 99;
+        const bPrio = statusPriority[b.status as string] ?? 99;
+        return aPrio - bPrio;
+      }
       return 0;
     });
   }

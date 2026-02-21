@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { Search, Filter, Calendar, X, SlidersHorizontal, Truck, MapPin, Clock } from "lucide-react";
+import { Search, Filter, Calendar, X, SlidersHorizontal, Truck } from "lucide-react";
 import { useRef, useEffect, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 

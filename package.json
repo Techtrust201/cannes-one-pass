@@ -10,7 +10,12 @@
     "lint": "next lint",
     "prisma": "prisma",
     "postinstall": "prisma generate",
-    "seed": "npx tsx scripts/seed-users.ts"
+    "seed": "npx tsx scripts/seed-users.ts",
+    "db:sync": "npx tsx scripts/db-sync.ts -- --direction=supa2neon",
+    "db:sync:reverse": "npx tsx scripts/db-sync.ts -- --direction=neon2supa",
+    "db:sync:verify": "npx tsx scripts/db-sync.ts -- --verify",
+    "db:sync:force": "npx tsx scripts/db-sync.ts -- --force",
+    "db:verify": "npx tsx scripts/migration/verify-migration.ts"
   },
   "dependencies": {
     "@googlemaps/google-maps-services-js": "^3.4.2",

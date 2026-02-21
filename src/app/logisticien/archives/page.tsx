@@ -59,7 +59,7 @@ export default function ArchivesPage() {
       acc.company?.toLowerCase().includes(s) ||
       acc.event?.toLowerCase().includes(s) ||
       acc.stand?.toLowerCase().includes(s) ||
-      acc.vehicles?.some((v) => v.plate?.toLowerCase().includes(s))
+      acc.vehicles?.some((v) => v.plate?.toLowerCase().includes(s) || v.trailerPlate?.toLowerCase().includes(s))
     );
   });
 

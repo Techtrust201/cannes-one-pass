@@ -50,13 +50,14 @@ export default async function LogisticienDashboard(props: {
     filtered = filtered.filter((acc) =>
       [
         acc.id,
-        acc.vehicles?.[0]?.plate,
         acc.status,
         acc.company,
         acc.stand,
         acc.event,
         acc.vehicles?.[0]?.date,
+        ...(acc.vehicles?.flatMap((v) => [v.plate, v.trailerPlate]) ?? []),
       ]
+        .filter(Boolean)
         .map(slug)
         .some((hay) => hay.includes(needle))
     );

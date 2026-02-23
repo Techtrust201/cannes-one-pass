@@ -1,15 +1,14 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
-import type { Accreditation } from "@/types";
+import { useState, useEffect, useCallback } from "react";
+import type { Accreditation, Vehicle } from "@/types";
 import { useRouter } from "next/navigation";
-import { Pencil, Trash2, Info, PlusCircle, Phone, MessageCircle, Send, Save, Copy, Check, Loader2 } from "lucide-react";
-import VehicleForm from "@/components/accreditation/VehicleForm";
+import { Info, PlusCircle, Send, Save, Copy, Check, Loader2 } from "lucide-react";
 import AccreditationHistory from "./AccreditationHistory";
 import DailyTimeSlotHistory from "./DailyTimeSlotHistory";
 import AccreditationChat from "./AccreditationChat";
-import type { Vehicle } from "@/types";
-import { getTelLink, getWhatsAppLink } from "@/lib/contact-utils";
+import VehicleCard from "./VehicleCard";
+import VehicleEditDialog from "./VehicleEditDialog";
 import ActionButtons from "./ActionButtons";
 
 import { useEventOptions } from "@/hooks/useEventOptions";
@@ -45,31 +44,35 @@ export default function AccreditationFormCard({ acc }: Props) {
     refreshEmailHistory();
   }, [refreshEmailHistory]);
 
-  const [editVehicleId, setEditVehicleId] = useState<number | null>(null);
-  const [editVehicle, setEditVehicle] = useState<Vehicle | null>(null);
-  async function handleEditVehicle(v: Vehicle) {
-    setEditVehicleId(v.id);
-    setEditVehicle({ ...v });
+  const [vehicleDialogOpen, setVehicleDialogOpen] = useState(false);
+  const [vehicleDialogMode, setVehicleDialogMode] = useState<"edit" | "add">("add");
+  const [vehicleDialogTarget, setVehicleDialogTarget] = useState<Vehicle | null>(null);
+  const [deletingVehicleId, setDeletingVehicleId] = useState<number | null>(null);
+
+  function handleEditVehicle(v: Vehicle) {
+    setVehicleDialogTarget(v);
+    setVehicleDialogMode("edit");
+    setVehicleDialogOpen(true);
   }
-  async function handleSaveEditVehicle() {
-    const res = await fetch(`/api/vehicles/${editVehicleId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(editVehicle),
-    });
-    if (res.ok) {
-      setEditVehicleId(null);
-      setEditVehicle(null);
-      router.refresh();
-    } else {
-      alert("Erreur modification véhicule");
-    }
+
+  function handleAddVehicle() {
+    setVehicleDialogTarget(null);
+    setVehicleDialogMode("add");
+    setVehicleDialogOpen(true);
   }
+
   async function handleDeleteVehicle(id: number) {
-    if (!confirm("Supprimer ce véhicule ?")) return;
-    const res = await fetch(`/api/vehicles/${id}`, { method: "DELETE" });
-    if (res.ok) router.refresh();
-    else alert("Erreur suppression véhicule");
+    setDeletingVehicleId(id);
+  }
+
+  async function confirmDeleteVehicle() {
+    if (deletingVehicleId === null) return;
+    const res = await fetch(`/api/vehicles/${deletingVehicleId}`, { method: "DELETE" });
+    if (res.ok) {
+      router.refresh();
+      setHistoryVersion((v) => v + 1);
+    }
+    setDeletingVehicleId(null);
   }
 
   const [historyVersion, setHistoryVersion] = useState(0);
@@ -148,20 +151,6 @@ export default function AccreditationFormCard({ acc }: Props) {
     }
   }
 
-  const handleDuplicateForNewVehicle = () => {
-    const params = new URLSearchParams({
-      step: "1",
-      company,
-      stand,
-      unloading,
-      event,
-      message: message || "",
-      email: email || "",
-      city: acc.vehicles[0]?.city || "",
-    });
-    router.push(`/logisticien/nouveau?${params.toString()}`);
-  };
-
   return (
     <div className="bg-gray-50 border border-gray-200 rounded-2xl shadow-xl w-full max-h-[85vh] overflow-y-auto flex flex-col">
       {/* Header */}
@@ -196,7 +185,7 @@ export default function AccreditationFormCard({ acc }: Props) {
               Véhicules accrédités
             </h3>
             <button
-              onClick={handleDuplicateForNewVehicle}
+              onClick={handleAddVehicle}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#4F587E]/10 text-[#4F587E] border border-[#4F587E]/20 hover:bg-[#4F587E]/20 transition"
             >
               <PlusCircle size={14} />
@@ -204,140 +193,16 @@ export default function AccreditationFormCard({ acc }: Props) {
             </button>
           </div>
           {acc.vehicles && acc.vehicles.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm border border-gray-300 rounded-xl overflow-hidden mb-6 min-w-full shadow-sm">
-                <thead>
-                  <tr className="bg-gray-100">
-                    <th className="p-4 text-left font-semibold text-gray-800">
-                      Plaque
-                    </th>
-                    <th className="p-4 text-left font-semibold text-gray-800">
-                      Taille
-                    </th>
-                    <th className="p-4 text-left font-semibold text-gray-800">
-                      Téléphone
-                    </th>
-                    <th className="p-4 text-left font-semibold text-gray-800">
-                      Date
-                    </th>
-                    <th className="p-4 text-left font-semibold text-gray-800">
-                      Heure
-                    </th>
-                    <th className="p-4 text-left font-semibold text-gray-800">
-                      Ville
-                    </th>
-                    <th className="p-4 text-left font-semibold text-gray-800">
-                      Déchargement
-                    </th>
-                    <th className="p-4 text-left font-semibold text-gray-800">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {acc.vehicles.map((v) => (
-                    <React.Fragment key={v.id}>
-                      <tr className="border-b border-gray-200 hover:bg-gray-100 transition-all duration-200">
-                        <td className="p-4 font-medium text-gray-800">
-                          <div>{v.plate}</div>
-                          {v.size === "SEMI_REMORQUE" && (
-                            <div className="text-xs text-gray-500 mt-0.5">
-                              Remorque: {v.trailerPlate || <span className="italic text-gray-400">Non renseignée</span>}
-                            </div>
-                          )}
-                        </td>
-                        <td className="p-4 text-gray-700">{v.size}</td>
-                        <td className="p-4 text-gray-700">
-                          <div className="flex items-center gap-2">
-                            <span>{v.phoneCode} {v.phoneNumber}</span>
-                            {v.phoneNumber && (
-                              <div className="flex gap-1">
-                                <a
-                                  href={getTelLink(v.phoneCode, v.phoneNumber)}
-                                  className="p-1 rounded-md bg-green-100 text-green-700 hover:bg-green-200 transition"
-                                  title="Appeler"
-                                >
-                                  <Phone size={14} />
-                                </a>
-                                <a
-                                  href={getWhatsAppLink(v.phoneCode, v.phoneNumber)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="p-1 rounded-md bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition"
-                                  title="WhatsApp"
-                                >
-                                  <MessageCircle size={14} />
-                                </a>
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                        <td className="p-4 text-gray-700">{v.date}</td>
-                        <td className="p-4 text-gray-700">{v.time}</td>
-                        <td className="p-4 text-gray-700">{v.city}</td>
-                        <td className="p-4 text-gray-700">
-                          {v.unloading.includes("lat") &&
-                          v.unloading.includes("rear")
-                            ? "Latéral + Arrière"
-                            : v.unloading.includes("lat")
-                              ? "Latéral"
-                              : v.unloading.includes("rear")
-                                ? "Arrière"
-                                : "Non défini"}
-                        </td>
-                        <td className="p-4 flex gap-2">
-                          <button
-                            onClick={() => handleEditVehicle(v)}
-                            title="Éditer"
-                            className="text-[#4F587E] hover:bg-gray-200 rounded-lg p-2 transition-all duration-200"
-                          >
-                            <Pencil size={18} />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteVehicle(v.id)}
-                            title="Supprimer"
-                            className="text-red-400 hover:text-red-600 rounded-lg p-2 transition-all duration-200"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </td>
-                      </tr>
-                      {editVehicleId === v.id && (
-                        <tr>
-                          <td colSpan={8} className="bg-gray-50 p-6">
-                            <VehicleForm
-                              data={editVehicle!}
-                              update={(patch) =>
-                                setEditVehicle((veh) =>
-                                  veh ? { ...veh, ...patch } : null
-                                )
-                              }
-                              onValidityChange={() => {}}
-                            />
-                            <div className="flex gap-3 justify-end mt-4">
-                              <button
-                                onClick={() => {
-                                  setEditVehicleId(null);
-                                  setEditVehicle(null);
-                                }}
-                                className="px-4 py-2 rounded-lg border border-gray-400 hover:bg-gray-200 transition-colors duration-200"
-                              >
-                                Annuler
-                              </button>
-                              <button
-                                onClick={handleSaveEditVehicle}
-                                className="px-4 py-2 rounded-lg bg-[#4F587E] text-white hover:bg-[#3B4252] transition-colors duration-200"
-                              >
-                                Enregistrer
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  ))}
-                </tbody>
-              </table>
+            <div className="flex flex-col gap-3">
+              {acc.vehicles.map((v, i) => (
+                <VehicleCard
+                  key={v.id}
+                  vehicle={v}
+                  index={i}
+                  onEdit={handleEditVehicle}
+                  onDelete={handleDeleteVehicle}
+                />
+              ))}
             </div>
           ) : (
             <p className="text-sm text-gray-400 text-center py-4 bg-white rounded-xl border border-gray-200">
@@ -345,6 +210,51 @@ export default function AccreditationFormCard({ acc }: Props) {
             </p>
           )}
         </div>
+
+        {/* Dialog édition/ajout véhicule */}
+        <VehicleEditDialog
+          open={vehicleDialogOpen}
+          onOpenChange={setVehicleDialogOpen}
+          vehicle={vehicleDialogTarget}
+          accreditationId={acc.id}
+          mode={vehicleDialogMode}
+          onSuccess={() => {
+            router.refresh();
+            setHistoryVersion((v) => v + 1);
+          }}
+        />
+
+        {/* Dialog confirmation suppression */}
+        {deletingVehicleId !== null && (
+          <div
+            className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+            onClick={() => setDeletingVehicleId(null)}
+          >
+            <div
+              className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-base font-bold text-gray-900 mb-2">Supprimer ce véhicule ?</h3>
+              <p className="text-sm text-gray-500 mb-5">Cette action est irréversible.</p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDeletingVehicleId(null)}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-semibold text-sm hover:bg-gray-50 transition"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDeleteVehicle}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-red-500 text-white font-semibold text-sm hover:bg-red-600 transition"
+                >
+                  Supprimer
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── Form grid — informations éditables ── */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-6 overflow-hidden">

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import type { Vehicle } from "@/types";
 import CityAutocomplete from "@/components/CityAutocomplete";
 import Image from "next/image";
@@ -21,6 +21,9 @@ const VEHICLE_TYPE_OPTIONS = getAllVehicleTypes().map((vt) => ({
 }));
 
 export default function VehicleForm({ data, update, onValidityChange }: Props) {
+  const plateRef = useRef<HTMLInputElement>(null);
+  const trailerPlateRef = useRef<HTMLInputElement>(null);
+
   const valid =
     (data.plate ?? "").trim() &&
     (data.size ?? "").trim() &&
@@ -32,6 +35,22 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => onValidityChange(!!valid), [valid]);
+
+  const handleSanitizedPlateChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>, field: "plate" | "trailerPlate") => {
+      const input = e.target;
+      const rawValue = input.value;
+      const cursorPos = input.selectionStart ?? rawValue.length;
+      const validCharsBefore = rawValue.slice(0, cursorPos).replace(/[^A-Za-z0-9]/g, "").length;
+      const sanitized = rawValue.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+      update({ [field]: sanitized });
+      const ref = field === "plate" ? plateRef : trailerPlateRef;
+      requestAnimationFrame(() => {
+        ref.current?.setSelectionRange(validCharsBefore, validCharsBefore);
+      });
+    },
+    [update]
+  );
 
   // Auto-set weight limits + average weight when vehicle type changes
   const handleVehicleTypeChange = (vt: string) => {
@@ -52,9 +71,9 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap gap-4 p-1 min-w-0">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-1">
         {/* Plaque */}
-        <div className="flex-1 min-w-[180px]">
+        <div>
           <label className="text-sm font-semibold flex items-center gap-1 mb-1">
             <Image
               src="/accreditation/pict_page2/Group 1.svg"
@@ -66,23 +85,17 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
             Plaque
           </label>
           <input
+            ref={plateRef}
             value={data.plate ?? ""}
-            onChange={(e) => {
-              // Lettres et chiffres uniquement (pas de - ni de .)
-              const sanitized = e.target.value.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
-              update({ plate: sanitized });
-            }}
+            onChange={(e) => handleSanitizedPlateChange(e, "plate")}
             placeholder="XX123YY"
             className={`w-full rounded-md px-3 py-1.5 text-sm shadow-sm focus:ring-primary focus:border-primary ${
               !data.plate ? "border-red-500" : "border-gray-300"
             }`}
           />
-          {data.plate && !/^[A-Za-z0-9]+$/.test(data.plate) && (
-            <p className="text-xs text-red-500 mt-0.5">Lettres et chiffres uniquement</p>
-          )}
         </div>
         {/* Type de véhicule */}
-        <div className="flex-1 min-w-[180px]">
+        <div>
           <label className="text-sm font-semibold flex items-center gap-1 mb-1">
             <Image
               src="/accreditation/pict_page2/Vector (14).svg"
@@ -110,7 +123,7 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
         </div>
         {/* Plaque de remorque (semi-remorque uniquement, facultatif) */}
         {data.size === "SEMI_REMORQUE" && (
-          <div className="flex-1 min-w-[180px]">
+          <div>
             <label className="text-sm font-semibold flex items-center gap-1 mb-1">
               <Image
                 src="/accreditation/pict_page2/Group 1.svg"
@@ -123,11 +136,9 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
               <span className="font-normal text-xs text-gray-500">(facultatif)</span>
             </label>
             <input
+              ref={trailerPlateRef}
               value={data.trailerPlate ?? ""}
-              onChange={(e) => {
-                const sanitized = e.target.value.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
-                update({ trailerPlate: sanitized });
-              }}
+              onChange={(e) => handleSanitizedPlateChange(e, "trailerPlate")}
               placeholder="XX456ZZ"
               className="w-full rounded-md px-3 py-1.5 text-sm shadow-sm focus:ring-primary focus:border-primary border-gray-300"
             />
@@ -208,7 +219,7 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
         )}
          * ────────────────────────────────────────────────────────────────── */}
         {/* Téléphone */}
-        <div className="flex-1 min-w-[180px]">
+        <div>
           <label className="text-sm font-semibold flex items-center gap-1 mb-1">
             <Image
               src="/accreditation/pict_page2/Vector (15).svg"
@@ -236,7 +247,7 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
           />
         </div>
         {/* Date */}
-        <div className="flex-1 min-w-[180px]">
+        <div>
           <label className="text-sm font-semibold flex items-center gap-1 mb-1">
             <Image
               src="/accreditation/pict_page2/Vector (10).svg"
@@ -257,7 +268,7 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
           />
         </div>
         {/* Time */}
-        <div className="flex-1 min-w-[180px]">
+        <div>
           <label className="text-sm font-semibold flex items-center gap-1 mb-1">
             <Image
               src="/accreditation/pict_page2/Vector (11).svg"
@@ -290,7 +301,7 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
           </select>
         </div>
         {/* City */}
-        <div className="flex-1 min-w-[180px]">
+        <div>
           <label className="text-sm font-semibold flex items-center gap-1 mb-1">
             <Image
               src="/accreditation/pict_page2/Vector (13).svg"

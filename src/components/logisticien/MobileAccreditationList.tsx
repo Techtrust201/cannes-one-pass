@@ -99,6 +99,11 @@ export default function MobileAccreditationList({
                       {plate}
                     </span>
                   )}
+                  {acc.vehicles?.[0]?.size === "SEMI_REMORQUE" && (
+                    <span className="text-[9px] text-gray-400 font-mono">
+                      Rem. {acc.vehicles[0].trailerPlate || "—"}
+                    </span>
+                  )}
                   {acc.event && (
                     <span className="inline-flex items-center gap-1 text-[10px] text-gray-500">
                       {eventLogoMap[acc.event]?.logo ? (

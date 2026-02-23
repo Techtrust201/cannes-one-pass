@@ -4,42 +4,25 @@ import { useState, useTransition, useCallback, useMemo } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import type { Accreditation } from "@/types";
+import type { Accreditation, Vehicle } from "@/types";
 import {
   ArrowLeft,
   Save,
   PlusCircle,
   AlertCircle,
   CheckCircle,
-  Pencil,
-  Trash2,
-  Phone,
-  MessageCircle,
   ChevronDown,
   History,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { getTelLink, getWhatsAppLink } from "@/lib/contact-utils";
-import PhoneInput from "@/components/ui/PhoneInput";
 import ActionButtons from "./ActionButtons";
 import AccreditationHistory from "./AccreditationHistory";
 import DailyTimeSlotHistory from "./DailyTimeSlotHistory";
 import AccreditationChat from "./AccreditationChat";
+import VehicleCard from "./VehicleCard";
+import VehicleEditDialog from "./VehicleEditDialog";
 import { useEventOptions } from "@/hooks/useEventOptions";
-
-// Type pour le formulaire d'édition de véhicule
-interface VehicleFormData {
-  plate: string;
-  size: string;
-  phoneCode: string;
-  phoneNumber: string;
-  date: string;
-  time: string;
-  city: string;
-  unloading: string[];
-  trailerPlate: string;
-}
 
 const accreditationFormSchema = z.object({
   company: z.string().min(1, "Nom du décorateur requis").max(100, "Trop long"),
@@ -188,10 +171,11 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
   const [isPending, startTransition] = useTransition();
   const { toasts, addToast, removeToast } = useToasts();
   const EVENT_OPTIONS = useEventOptions();
-  const [editingVehicle, setEditingVehicle] = useState<number | null>(null);
   const [actionVersion, setActionVersion] = useState(0);
-  const [vehicleFormData, setVehicleFormData] =
-    useState<VehicleFormData | null>(null);
+  const [vehicleDialogOpen, setVehicleDialogOpen] = useState(false);
+  const [vehicleDialogMode, setVehicleDialogMode] = useState<"edit" | "add">("add");
+  const [vehicleDialogTarget, setVehicleDialogTarget] = useState<Vehicle | null>(null);
+  const [deletingVehicleId, setDeletingVehicleId] = useState<number | null>(null);
 
   // Initialisation du formulaire avec react-hook-form (sans status)
   const {
@@ -257,97 +241,37 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
     [acc.id, acc.status, acc.version, reset, addToast, router]
   );
 
-  // Ajout d'un nouveau véhicule
   const handleAddVehicle = useCallback(() => {
-    const params = new URLSearchParams({
-      step: "1",
-      company: acc.company || "",
-      stand: acc.stand || "",
-      unloading: acc.unloading || "",
-      event: acc.event || "",
-      message: acc.message || "",
-      email: acc.email || "",
-      city: acc.vehicles[0]?.city || "",
-    });
-    router.push(`/logisticien/nouveau?${params.toString()}`);
-  }, [acc, router]);
+    setVehicleDialogTarget(null);
+    setVehicleDialogMode("add");
+    setVehicleDialogOpen(true);
+  }, []);
 
-  // Éditer un véhicule
-  const handleEditVehicle = useCallback(
-    (vehicleIndex: number) => {
-      const vehicle = acc.vehicles[vehicleIndex];
-      if (!vehicle) return;
-      setEditingVehicle(vehicleIndex);
-      setVehicleFormData({
-        plate: vehicle.plate || "",
-        size: vehicle.size || "",
-        phoneCode: vehicle.phoneCode || "+33",
-        phoneNumber: vehicle.phoneNumber || "",
-        date: vehicle.date || "",
-        time: vehicle.time || "",
-        city: vehicle.city || "",
-        unloading: Array.isArray(vehicle.unloading)
-          ? vehicle.unloading
-          : vehicle.unloading
-            ? [vehicle.unloading]
-            : ["lat"],
-        trailerPlate: vehicle.trailerPlate || "",
-      });
-    },
-    [acc]
-  );
+  const handleEditVehicle = useCallback((v: Vehicle) => {
+    setVehicleDialogTarget(v);
+    setVehicleDialogMode("edit");
+    setVehicleDialogOpen(true);
+  }, []);
 
-  // Supprimer un véhicule
-  const handleDeleteVehicle = useCallback(
-    async (vehicleId: number) => {
-      if (!confirm("Supprimer ce véhicule ?")) return;
-      try {
-        const response = await fetch(`/api/vehicles/${vehicleId}`, {
-          method: "DELETE",
-        });
-        if (response.ok) {
-          addToast("success", "Véhicule supprimé");
-          router.refresh();
-        } else {
-          addToast("error", "Erreur suppression");
-        }
-      } catch (error) {
-        addToast("error", "Erreur suppression");
-        console.error("Erreur suppression véhicule:", error);
-      }
-    },
-    [addToast, router]
-  );
+  const handleDeleteVehicle = useCallback((vehicleId: number) => {
+    setDeletingVehicleId(vehicleId);
+  }, []);
 
-  // Sauvegarder l'édition d'un véhicule
-  const handleSaveVehicleEdit = useCallback(async () => {
-    if (editingVehicle === null || !vehicleFormData) return;
-    const vehicle = acc.vehicles[editingVehicle];
-    if (!vehicle) return;
+  const confirmDeleteVehicle = useCallback(async () => {
+    if (deletingVehicleId === null) return;
     try {
-      const response = await fetch(`/api/vehicles/${vehicle.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(vehicleFormData),
-      });
-      if (response.ok) {
-        addToast("success", "Véhicule modifié");
-        setEditingVehicle(null);
-        setVehicleFormData(null);
+      const res = await fetch(`/api/vehicles/${deletingVehicleId}`, { method: "DELETE" });
+      if (res.ok) {
+        addToast("success", "Véhicule supprimé");
         router.refresh();
       } else {
-        addToast("error", "Erreur modification");
+        addToast("error", "Erreur suppression");
       }
-    } catch (error) {
-      addToast("error", "Erreur modification");
-      console.error("Erreur modification véhicule:", error);
+    } catch {
+      addToast("error", "Erreur suppression");
     }
-  }, [editingVehicle, vehicleFormData, acc.vehicles, addToast, router]);
-
-  const handleCancelVehicleEdit = useCallback(() => {
-    setEditingVehicle(null);
-    setVehicleFormData(null);
-  }, []);
+    setDeletingVehicleId(null);
+  }, [deletingVehicleId, addToast, router]);
 
   return (
     <>
@@ -456,88 +380,19 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
               </button>
             </div>
 
-            {acc.vehicles && acc.vehicles.length > 0 && (
-              <div className="bg-gray-50 rounded-lg p-3 space-y-3">
+            {acc.vehicles && acc.vehicles.length > 0 ? (
+              <div className="flex flex-col gap-3">
                 {acc.vehicles.map((vehicle, index) => (
-                  <div
+                  <VehicleCard
                     key={vehicle.id}
-                    className="bg-white rounded-lg p-3 border"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="font-medium text-sm">
-                        Véhicule {index + 1}:{" "}
-                        {vehicle.plate || "Plaque non définie"}
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleEditVehicle(index)}
-                          className="text-[#4F587E] hover:bg-gray-100 rounded-lg p-2 transition-colors"
-                          aria-label="Éditer le véhicule"
-                        >
-                          <Pencil size={16} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteVehicle(vehicle.id)}
-                          className="text-red-500 hover:bg-red-50 rounded-lg p-2 transition-colors"
-                          aria-label="Supprimer le véhicule"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="text-gray-600 text-xs space-y-1">
-                      {vehicle.size && <div>Taille: {vehicle.size}</div>}
-                      {vehicle.size === "SEMI_REMORQUE" && (
-                        <div>Plaque remorque: {vehicle.trailerPlate || <span className="italic text-gray-400">Non renseignée</span>}</div>
-                      )}
-                      {vehicle.city && <div>Ville: {vehicle.city}</div>}
-                      {vehicle.phoneCode && vehicle.phoneNumber && (
-                        <div className="flex items-center gap-2">
-                          <span>Téléphone: {vehicle.phoneCode} {vehicle.phoneNumber}</span>
-                          <a
-                            href={getTelLink(vehicle.phoneCode, vehicle.phoneNumber)}
-                            className="p-1 rounded bg-green-100 text-green-700"
-                            title="Appeler"
-                          >
-                            <Phone size={12} />
-                          </a>
-                          <a
-                            href={getWhatsAppLink(vehicle.phoneCode, vehicle.phoneNumber)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-1 rounded bg-emerald-100 text-emerald-700"
-                            title="WhatsApp"
-                          >
-                            <MessageCircle size={12} />
-                          </a>
-                        </div>
-                      )}
-                      {vehicle.date && <div>Date: {vehicle.date}</div>}
-                      {vehicle.time && <div>Heure: {vehicle.time}</div>}
-                      {vehicle.unloading && (
-                        <div>
-                          Déchargement:{" "}
-                          {Array.isArray(vehicle.unloading)
-                            ? vehicle.unloading.includes("lat") &&
-                              vehicle.unloading.includes("rear")
-                              ? "Latéral + Arrière"
-                              : vehicle.unloading.includes("lat")
-                                ? "Latéral"
-                                : vehicle.unloading.includes("rear")
-                                  ? "Arrière"
-                                  : "Non défini"
-                            : "Non défini"}
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                    vehicle={vehicle}
+                    index={index}
+                    onEdit={handleEditVehicle}
+                    onDelete={handleDeleteVehicle}
+                  />
                 ))}
               </div>
-            )}
-
-            {acc.vehicles.length === 0 && (
+            ) : (
               <div className="text-sm text-gray-500 text-center py-4">
                 Aucun véhicule ajouté
               </div>
@@ -591,172 +446,53 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
 
         {/* ── Historique des modifications ── */}
         <HistorySection accreditationId={acc.id} />
+      </div>
 
-        {/* Modal d'édition de véhicule */}
-        {editingVehicle !== null && vehicleFormData && (
+      {/* Dialog édition/ajout véhicule */}
+      <VehicleEditDialog
+        open={vehicleDialogOpen}
+        onOpenChange={setVehicleDialogOpen}
+        vehicle={vehicleDialogTarget}
+        accreditationId={acc.id}
+        mode={vehicleDialogMode}
+        onSuccess={() => {
+          router.refresh();
+          setActionVersion((v) => v + 1);
+        }}
+        onToast={addToast}
+      />
+
+      {/* Dialog confirmation suppression */}
+      {deletingVehicleId !== null && (
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+          onClick={() => setDeletingVehicleId(null)}
+        >
           <div
-            className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="vehicle-edit-title"
+            className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
           >
-            <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4 border border-gray-200 max-h-[90vh] overflow-y-auto">
-              <h2
-                id="vehicle-edit-title"
-                className="text-lg font-bold mb-4 text-gray-900"
+            <h3 className="text-base font-bold text-gray-900 mb-2">Supprimer ce véhicule ?</h3>
+            <p className="text-sm text-gray-500 mb-5">Cette action est irréversible.</p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setDeletingVehicleId(null)}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-semibold text-sm hover:bg-gray-50 transition"
               >
-                Éditer le véhicule {editingVehicle + 1}
-              </h2>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Plaque</label>
-                  <input
-                    type="text"
-                    value={vehicleFormData.plate}
-                    onChange={(e) => setVehicleFormData({ ...vehicleFormData, plate: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm"
-                    placeholder="XX-123-YY"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Taille</label>
-                  <select
-                    value={vehicleFormData.size}
-                    onChange={(e) => setVehicleFormData({ ...vehicleFormData, size: e.target.value, trailerPlate: e.target.value !== "SEMI_REMORQUE" ? "" : vehicleFormData.trailerPlate })}
-                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm"
-                  >
-                    <option value="PORTEUR">Porteur</option>
-                    <option value="PORTEUR_ARTICULE">Porteur articulé</option>
-                    <option value="SEMI_REMORQUE">Semi-remorque</option>
-                  </select>
-                </div>
-
-                {/* Plaque de la remorque (semi-remorque uniquement) */}
-                {vehicleFormData.size === "SEMI_REMORQUE" && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Plaque de la remorque <span className="text-xs text-gray-400">(facultatif)</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={vehicleFormData.trailerPlate}
-                      onChange={(e) => {
-                        const sanitized = e.target.value.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
-                        setVehicleFormData({ ...vehicleFormData, trailerPlate: sanitized });
-                      }}
-                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm"
-                      placeholder="XX456ZZ"
-                    />
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone du conducteur</label>
-                  <PhoneInput
-                    value={`${vehicleFormData.phoneCode}${vehicleFormData.phoneNumber}`}
-                    onChange={(phone) => {
-                      const match = phone.match(/^(\+\d{1,4})(.*)$/);
-                      if (match) {
-                        setVehicleFormData({ ...vehicleFormData, phoneCode: match[1], phoneNumber: match[2].replace(/\s/g, "") });
-                      } else {
-                        setVehicleFormData({ ...vehicleFormData, phoneNumber: phone.replace(/[^\d]/g, "") });
-                      }
-                    }}
-                    placeholder="612345678"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                    <input
-                      type="date"
-                      value={vehicleFormData.date}
-                      onChange={(e) => setVehicleFormData({ ...vehicleFormData, date: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Heure</label>
-                    <input
-                      type="time"
-                      value={vehicleFormData.time}
-                      onChange={(e) => setVehicleFormData({ ...vehicleFormData, time: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Ville</label>
-                  <input
-                    type="text"
-                    value={vehicleFormData.city}
-                    onChange={(e) => setVehicleFormData({ ...vehicleFormData, city: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm"
-                    placeholder="Paris"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Déchargement</label>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id="edit-lat"
-                        checked={vehicleFormData.unloading.includes("lat")}
-                        onChange={(e) => {
-                          const newUnloading = e.target.checked
-                            ? [...vehicleFormData.unloading.filter((v: string) => v !== "lat"), "lat"]
-                            : vehicleFormData.unloading.filter((v: string) => v !== "lat");
-                          setVehicleFormData({ ...vehicleFormData, unloading: newUnloading });
-                        }}
-                        className="rounded border-gray-300"
-                      />
-                      <label htmlFor="edit-lat" className="text-sm">Latéral</label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id="edit-rear"
-                        checked={vehicleFormData.unloading.includes("rear")}
-                        onChange={(e) => {
-                          const newUnloading = e.target.checked
-                            ? [...vehicleFormData.unloading.filter((v: string) => v !== "rear"), "rear"]
-                            : vehicleFormData.unloading.filter((v: string) => v !== "rear");
-                          setVehicleFormData({ ...vehicleFormData, unloading: newUnloading });
-                        }}
-                        className="rounded border-gray-300"
-                      />
-                      <label htmlFor="edit-rear" className="text-sm">Arrière</label>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-3 mt-6">
-                <button
-                  type="button"
-                  onClick={handleCancelVehicleEdit}
-                  className="flex-1 px-4 py-3 rounded-xl border border-gray-400 bg-gray-200 text-gray-800 font-semibold hover:bg-gray-300 transition shadow"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveVehicleEdit}
-                  className="flex-1 px-4 py-3 rounded-xl bg-[#4F587E] text-white font-semibold shadow hover:bg-[#3B4252] transition"
-                >
-                  Enregistrer
-                </button>
-              </div>
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteVehicle}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-red-500 text-white font-semibold text-sm hover:bg-red-600 transition"
+              >
+                Supprimer
+              </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Toasts */}
       {toasts.map((toast) => (

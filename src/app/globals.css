@@ -141,6 +141,12 @@ button {
   to { opacity: 1; }
 }
 
+@supports (-webkit-overflow-scrolling: touch) {
+  input, select, textarea {
+    font-size: max(1rem, 16px);
+  }
+}
+
 .scrollbar-none {
   -ms-overflow-style: none;
   scrollbar-width: none;

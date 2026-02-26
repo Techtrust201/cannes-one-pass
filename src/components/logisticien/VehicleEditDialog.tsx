@@ -103,8 +103,8 @@ export default function VehicleEditDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto p-0 gap-0 rounded-t-2xl sm:rounded-2xl fixed bottom-0 sm:bottom-auto sm:top-[50%] left-[50%] translate-x-[-50%] sm:translate-y-[-50%] translate-y-0 w-full sm:w-auto data-[state=open]:slide-in-from-bottom sm:data-[state=open]:slide-in-from-bottom-0 sm:data-[state=open]:slide-in-from-left-1/2 sm:data-[state=open]:slide-in-from-top-[48%]">
-        <DialogHeader className="px-5 pt-5 pb-3 border-b border-gray-100">
+      <DialogContent className="flex flex-col h-[100dvh] sm:h-auto sm:max-h-[90vh] sm:max-w-2xl p-0 gap-0 rounded-t-2xl sm:rounded-2xl fixed bottom-0 sm:bottom-auto sm:top-[50%] left-[50%] translate-x-[-50%] sm:translate-y-[-50%] translate-y-0 w-full sm:w-auto data-[state=open]:slide-in-from-bottom sm:data-[state=open]:slide-in-from-bottom-0 sm:data-[state=open]:slide-in-from-left-1/2 sm:data-[state=open]:slide-in-from-top-[48%]">
+        <DialogHeader className="shrink-0 px-5 pt-5 pb-3 border-b border-gray-100">
           <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-3 sm:hidden" />
           <DialogTitle className="text-base font-bold text-gray-900">
             {title}
@@ -116,7 +116,7 @@ export default function VehicleEditDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="px-5 py-4">
+        <div className="flex-1 overflow-y-auto px-5 py-4">
           <VehicleForm
             data={formData}
             update={handleUpdate}
@@ -124,7 +124,7 @@ export default function VehicleEditDialog({
           />
         </div>
 
-        <div className="flex gap-3 px-5 pb-5 pt-2 border-t border-gray-100">
+        <div className="shrink-0 flex gap-3 px-5 pb-5 pt-2 border-t border-gray-100" style={{ paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}>
           <button
             type="button"
             onClick={() => onOpenChange(false)}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import type { Vehicle } from "@/types";
 import { Loader2 } from "lucide-react";
 import VehicleForm from "@/components/accreditation/VehicleForm";
@@ -55,6 +55,13 @@ export default function VehicleEditDialog({
     setFormData(v ? { ...v } : makeEmptyVehicle());
     setSaving(false);
   }, []);
+
+  // Sync form when dialog opens (Radix n'appelle pas onOpenChange à l'ouverture en mode contrôlé)
+  useEffect(() => {
+    if (open) {
+      resetForm(vehicle);
+    }
+  }, [open, vehicle, resetForm]);
 
   const handleOpenChange = useCallback(
     (newOpen: boolean) => {

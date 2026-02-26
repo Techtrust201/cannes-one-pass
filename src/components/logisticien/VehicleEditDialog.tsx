@@ -103,7 +103,10 @@ export default function VehicleEditDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="flex flex-col inset-0 translate-x-0 translate-y-0 max-w-none rounded-none p-0 gap-0 bg-background sm:inset-auto sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:max-w-2xl sm:max-h-[90vh] sm:h-auto sm:w-auto sm:rounded-2xl data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom sm:data-[state=open]:slide-in-from-bottom-0 sm:data-[state=open]:slide-in-from-left-1/2 sm:data-[state=open]:slide-in-from-top-[48%] sm:data-[state=closed]:slide-out-to-left-1/2 sm:data-[state=closed]:slide-out-to-top-[48%]">
+      <DialogContent
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        className="flex flex-col inset-0 translate-x-0 translate-y-0 max-w-none rounded-none p-0 gap-0 bg-background sm:inset-auto sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:max-w-2xl sm:max-h-[90vh] sm:h-auto sm:w-auto sm:rounded-2xl data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom sm:data-[state=open]:slide-in-from-bottom-0 sm:data-[state=open]:slide-in-from-left-1/2 sm:data-[state=open]:slide-in-from-top-[48%] sm:data-[state=closed]:slide-out-to-left-1/2 sm:data-[state=closed]:slide-out-to-top-[48%]"
+      >
         <DialogHeader className="shrink-0 px-5 pt-5 pb-3 border-b border-gray-100">
           <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-3 sm:hidden" />
           <DialogTitle className="text-base font-bold text-gray-900">

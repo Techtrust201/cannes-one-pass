@@ -12,6 +12,7 @@ import VehicleEditDialog from "./VehicleEditDialog";
 import ActionButtons from "./ActionButtons";
 
 import { useEventOptions } from "@/hooks/useEventOptions";
+import { useUnloadingProviders } from "@/hooks/useUnloadingProviders";
 
 interface Props {
   acc: Accreditation;
@@ -20,6 +21,7 @@ interface Props {
 export default function AccreditationFormCard({ acc }: Props) {
   const router = useRouter();
   const EVENT_OPTIONS = useEventOptions();
+  const { providers: unloadingProviders } = useUnloadingProviders();
   const [company, setCompany] = useState(acc.company ?? "");
   const [stand, setStand] = useState(acc.stand ?? "");
   const [unloading, setUnloading] = useState(acc.unloading ?? "");
@@ -307,8 +309,12 @@ export default function AccreditationFormCard({ acc }: Props) {
                 onChange={(e) => setUnloading(e.target.value)}
               >
                 <option value="">Choisir</option>
-                <option value="Palais">Palais</option>
-                <option value="SVMM">SVMM</option>
+                {unloadingProviders.map((p) => (
+                  <option key={p.id} value={p.name}>{p.name}</option>
+                ))}
+                {unloading && !unloadingProviders.some((p) => p.name === unloading) && unloading !== "Autonome" && (
+                  <option value={unloading}>{unloading}</option>
+                )}
                 <option value="Autonome">Déchargement manuel</option>
               </select>
             </div>

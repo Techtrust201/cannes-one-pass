@@ -12,6 +12,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { ImageIcon } from "lucide-react";
+import { useUnloadingProviders } from "@/hooks/useUnloadingProviders";
 
 interface Data {
   company: string;
@@ -73,6 +74,7 @@ function useActiveEvents(): { events: EventOption[]; loading: boolean } {
 export default function StepOne({ data, update, onValidityChange }: Props) {
   const { company, stand, unloading, event } = data;
   const { events, loading: eventsLoading } = useActiveEvents();
+  const { providers: unloadingProviders } = useUnloadingProviders();
 
   const isValid = !!(company && stand && unloading && event);
   useEffect(() => onValidityChange(isValid), [isValid, onValidityChange]);
@@ -186,8 +188,9 @@ export default function StepOne({ data, update, onValidityChange }: Props) {
                 )}
               >
                 <option value="" disabled>Choisir un prestataire</option>
-                <option value="Palais">Palais</option>
-                <option value="SVMM">SVMM</option>
+                {unloadingProviders.map((p) => (
+                  <option key={p.id} value={p.name}>{p.name}</option>
+                ))}
                 <option value="Autonome">Déchargement manuel</option>
               </select>
             </div>

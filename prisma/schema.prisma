@@ -378,6 +378,14 @@ model ChatMessage {
 // CONFIGURATION DES ZONES — Adresses et coordonnées GPS
 // ============================================================
 
+model UnloadingProvider {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model ZoneConfig {
   id                 Int      @id @default(autoincrement())
   zone               String   @unique              // Identifiant unique de la zone (ex: "LA_BOCCA")

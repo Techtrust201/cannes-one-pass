@@ -379,7 +379,7 @@ model ChatMessage {
 // ============================================================
 
 model UnloadingProvider {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
   name      String   @unique
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())

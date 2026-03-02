@@ -38,26 +38,16 @@ export default function VehiclesPage() {
   const [editError, setEditError] = useState("");
 
   const fetchProviders = useCallback(async () => {
+    setLoading(true);
     try {
-      const [activeRes, allRes] = await Promise.all([
-        fetch("/api/unloading-providers"),
-        canWrite
-          ? fetch("/api/unloading-providers?all=true")
-          : Promise.resolve(null),
-      ]);
-
-      if (activeRes.ok) {
-        const activeData = await activeRes.json();
-        setProviders(activeData);
-      }
-
-      if (allRes && allRes.ok) {
-        const allData = await allRes.json();
-        setInactiveProviders(
-          Array.isArray(allData)
-            ? allData.filter((p: UnloadingProvider) => !p.isActive)
-            : []
-        );
+      const url = canWrite
+        ? "/api/unloading-providers?all=true"
+        : "/api/unloading-providers";
+      const res = await fetch(url);
+      if (res.ok) {
+        const data: UnloadingProvider[] = await res.json();
+        setProviders(data.filter((p) => p.isActive));
+        setInactiveProviders(data.filter((p) => !p.isActive));
       }
     } catch (err) {
       console.error("Erreur chargement prestataires:", err);
@@ -69,26 +59,6 @@ export default function VehiclesPage() {
   useEffect(() => {
     if (!permLoading) fetchProviders();
   }, [permLoading, fetchProviders]);
-
-  const fetchAll = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/unloading-providers");
-      if (res.ok) {
-        const data = await res.json();
-        setProviders(data.filter((p: UnloadingProvider) => p.isActive));
-        setInactiveProviders(data.filter((p: UnloadingProvider) => !p.isActive));
-      }
-    } catch (err) {
-      console.error("Erreur chargement prestataires:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchAll();
-  }, [fetchAll]);
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
@@ -103,7 +73,7 @@ export default function VehiclesPage() {
       if (res.ok || res.status === 200) {
         setShowCreateForm(false);
         setNewName("");
-        fetchAll();
+        fetchProviders();
       } else {
         const err = await res.json();
         setCreateError(err.error || "Erreur lors de la création");
@@ -139,7 +109,7 @@ export default function VehiclesPage() {
       });
       if (res.ok) {
         cancelEdit();
-        fetchAll();
+        fetchProviders();
       } else {
         const err = await res.json();
         setEditError(err.error || "Erreur lors de la sauvegarde");
@@ -156,7 +126,7 @@ export default function VehiclesPage() {
       const res = await fetch(`/api/unloading-providers/${id}`, {
         method: "DELETE",
       });
-      if (res.ok) fetchAll();
+      if (res.ok) fetchProviders();
     } catch {
       alert("Erreur réseau");
     }
@@ -169,7 +139,7 @@ export default function VehiclesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive: true }),
       });
-      if (res.ok) fetchAll();
+      if (res.ok) fetchProviders();
     } catch {
       alert("Erreur réseau");
     }

@@ -18,12 +18,26 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const showArchived = searchParams.get("archived") === "true";
 
-  // Trouver la zone de destination finale (ex: Palais des Festivals) dynamiquement
+  if (showArchived) {
+    const list = await prisma.accreditation.findMany({
+      where: { isArchived: true },
+      select: {
+        id: true, company: true, stand: true, event: true, status: true,
+        createdAt: true, currentZone: true, isArchived: true,
+        vehicles: {
+          select: { id: true, plate: true, trailerPlate: true, size: true, date: true, vehicleType: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    return Response.json(list);
+  }
+
   const finalZone = await prisma.zoneConfig.findFirst({ where: { isFinalDestination: true, isActive: true } });
   const finalZoneKey = finalZone?.zone || "PALAIS_DES_FESTIVALS";
 
   const list = await prisma.accreditation.findMany({
-    where: { isArchived: showArchived },
+    where: { isArchived: false },
     include: {
       vehicles: {
         include: {
@@ -36,9 +50,8 @@ export async function GET(request: NextRequest) {
       },
     },
   });
-  // Désérialisation unloading + ajout palaisEntryAt/palaisExitAt (le plus récent time slot Palais)
+
   const safeList = list.map((acc) => {
-    // Trouver le time slot Palais le plus récent parmi tous les véhicules
     let palaisEntryAt: Date | null = null;
     let palaisExitAt: Date | null = null;
 
@@ -112,12 +125,16 @@ export async function POST(req: NextRequest) {
       });
     }
     const currentZone = raw.currentZone ?? null;
+
+    const eventRecord = await prisma.event.findUnique({ where: { slug: event } });
+
     const created = await prisma.accreditation.create({
       data: {
         company,
         stand,
         unloading,
         event,
+        eventId: eventRecord?.id ?? null,
         message: message ?? "",
         consent: consent ?? true,
         status: raw.status ?? "ATTENTE",

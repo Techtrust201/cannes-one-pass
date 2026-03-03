@@ -89,6 +89,19 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     }
 
     const updated = await prisma.event.update({ where: { id }, data });
+
+    if (data.isArchived === true) {
+      await prisma.accreditation.updateMany({
+        where: { eventId: id },
+        data: { isArchived: true },
+      });
+    } else if (data.isArchived === false) {
+      await prisma.accreditation.updateMany({
+        where: { eventId: id },
+        data: { isArchived: false },
+      });
+    }
+
     return Response.json(updated);
   } catch (error) {
     console.error("PATCH /api/events/[id] error:", error);
@@ -106,10 +119,16 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
   const { id } = await ctx.params;
 
   try {
-    await prisma.event.update({
-      where: { id },
-      data: { isArchived: true },
-    });
+    await prisma.$transaction([
+      prisma.event.update({
+        where: { id },
+        data: { isArchived: true },
+      }),
+      prisma.accreditation.updateMany({
+        where: { eventId: id },
+        data: { isArchived: true },
+      }),
+    ]);
     return new Response(null, { status: 204 });
   } catch (error) {
     console.error("DELETE /api/events/[id] error:", error);

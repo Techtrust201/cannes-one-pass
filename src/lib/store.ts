@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 
 export async function readAccreditations(): Promise<Accreditation[]> {
   const rows = await prisma.accreditation.findMany({
+    where: { isArchived: false },
     include: {
       vehicles: {
         include: {
@@ -49,6 +50,7 @@ export async function readAccreditations(): Promise<Accreditation[]> {
         entryAt: a.entryAt ?? undefined,
         exitAt: a.exitAt ?? undefined,
         currentZone: a.currentZone ?? null,
+        isArchived: a.isArchived,
         lastStepEntryAt,
         lastStepExitAt,
         lastStepZone,

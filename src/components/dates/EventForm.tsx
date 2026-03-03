@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import type { Event } from "@/types";
-import { Loader2 } from "lucide-react";
+import { Loader2, Download } from "lucide-react";
 import ImageUpload from "./ImageUpload";
 
 type FormData = Omit<Event, "id" | "createdAt" | "updatedAt" | "isActive">;
@@ -367,6 +367,16 @@ export default function EventForm({ event, onSave, onDelete, saving, defaultStar
           {saving && <Loader2 size={16} className="animate-spin" />}
           {isNew ? "Créer l'événement" : "Enregistrer"}
         </button>
+        {!isNew && (
+          <a
+            href={`/api/events/${event!.id}/export-csv`}
+            download
+            className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium text-[#3F4660] hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors"
+          >
+            <Download size={14} />
+            CSV
+          </a>
+        )}
         {!isNew && onDelete && (
           <button
             type="button"

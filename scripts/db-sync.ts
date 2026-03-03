@@ -21,8 +21,8 @@ import { resolve } from "path";
 dotenvConfig({ path: resolve(process.cwd(), ".env.local") });
 dotenvConfig({ path: resolve(process.cwd(), ".env") });
 
-const NEON_URL =
-  "postgresql://palais_des_festivals_owner:npg_ZrkI5FS9HDay@ep-shy-voice-a2x54gid-pooler.eu-central-1.aws.neon.tech/palais_des_festivals?sslmode=require";
+const NEON_URL = process.env.NEON_DATABASE_URL
+  || "postgresql://palais_des_festivals_owner:npg_ZrkI5FS9HDay@ep-shy-voice-a2x54gid-pooler.eu-central-1.aws.neon.tech/palais_des_festivals?sslmode=require";
 const SUPABASE_URL = process.env.DATABASE_URL!;
 
 if (!SUPABASE_URL) {
@@ -45,6 +45,7 @@ const TABLES_ORDERED = [
   { name: "AccreditationHistoryArchive", pk: "id", serial: false },
   { name: "VehicleTimeSlot", pk: "id", serial: true },
   { name: "ChatMessage", pk: "id", serial: true },
+  { name: "UnloadingProvider", pk: "id", serial: false },
 ];
 
 const SKIP_TABLES = ["session"];

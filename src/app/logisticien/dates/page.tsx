@@ -80,7 +80,7 @@ export default function DatesPage() {
   async function handleDelete() {
     if (!selectedEvent) return;
     const confirmed = window.confirm(
-      `Archiver « ${selectedEvent.name} » ? L'événement ne sera plus visible.`
+      `Archiver « ${selectedEvent.name} » ?\n\nL'événement et toutes ses accréditations seront déplacés dans les archives.`
     );
     if (!confirmed) return;
 

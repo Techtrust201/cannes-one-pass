@@ -3,6 +3,14 @@
     {
       "path": "/api/admin/archive-history",
       "schedule": "0 3 1 * *"
+    },
+    {
+      "path": "/api/admin/auto-archive",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/admin/backup",
+      "schedule": "0 4 * * *"
     }
   ]
 }

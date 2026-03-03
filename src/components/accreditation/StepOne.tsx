@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { ImageIcon } from "lucide-react";
 import { useUnloadingProviders } from "@/hooks/useUnloadingProviders";
+import { useTranslation } from "@/components/accreditation/TranslationProvider";
 
 interface Data {
   company: string;
@@ -75,6 +76,7 @@ export default function StepOne({ data, update, onValidityChange }: Props) {
   const { company, stand, unloading, event } = data;
   const { events, loading: eventsLoading } = useActiveEvents();
   const { providers: unloadingProviders } = useUnloadingProviders();
+  const { t } = useTranslation();
 
   const isValid = !!(company && stand && unloading && event);
   useEffect(() => onValidityChange(isValid), [isValid, onValidityChange]);
@@ -142,17 +144,17 @@ export default function StepOne({ data, update, onValidityChange }: Props) {
     <div className="flex flex-col w-full">
       <div className="flex-1 p-0 sm:p-0 flex flex-col justify-between">
         <div>
-          <h2 className="text-lg font-bold mb-4">Identification</h2>
+          <h2 className="text-lg font-bold mb-4">{t.identification}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             <div className="space-y-1 md:col-span-2 lg:col-span-1">
               <label htmlFor="company" className="text-sm font-semibold text-gray-700">
-                Nom du décorateur
+                {t.decoratorName}
               </label>
               <input
                 id="company"
                 value={company}
                 onChange={(e) => update({ company: e.target.value })}
-                placeholder="Nom du décorateur"
+                placeholder={t.decoratorPlaceholder}
                 className={cn(
                   "w-full rounded-md px-3 py-2 shadow-sm focus:ring-primary focus:border-primary",
                   !company.trim() ? "border-red-500" : "border-gray-300"
@@ -161,13 +163,13 @@ export default function StepOne({ data, update, onValidityChange }: Props) {
             </div>
             <div className="space-y-1 md:col-span-2 lg:col-span-1">
               <label htmlFor="stand" className="text-sm font-semibold text-gray-700">
-                Stand desservi
+                {t.standServed}
               </label>
               <input
                 id="stand"
                 value={stand}
                 onChange={(e) => update({ stand: e.target.value })}
-                placeholder="Nom du stand"
+                placeholder={t.standPlaceholder}
                 className={cn(
                   "w-full rounded-md px-3 py-2 shadow-sm focus:ring-primary focus:border-primary",
                   !stand.trim() ? "border-red-500" : "border-gray-300"
@@ -176,7 +178,7 @@ export default function StepOne({ data, update, onValidityChange }: Props) {
             </div>
             <div className="space-y-1 md:col-span-2 lg:col-span-1">
               <label htmlFor="unloading" className="text-sm font-semibold text-gray-700">
-                Déchargement par
+                {t.unloadingBy}
               </label>
               <select
                 id="unloading"
@@ -187,18 +189,18 @@ export default function StepOne({ data, update, onValidityChange }: Props) {
                   !unloading ? "border-red-500" : "border-gray-300"
                 )}
               >
-                <option value="" disabled>Choisir un prestataire</option>
+                <option value="" disabled>{t.chooseProvider}</option>
                 {unloadingProviders.map((p) => (
                   <option key={p.id} value={p.name}>{p.name}</option>
                 ))}
-                <option value="Autonome">Déchargement manuel</option>
+                <option value="Autonome">{t.manualUnloading}</option>
               </select>
             </div>
           </div>
 
           <div className="flex flex-col items-center justify-center w-full">
             <p className="text-sm font-medium mb-2 text-center">
-              Sélectionnez un évènement :
+              {t.selectEvent}
             </p>
             {eventsLoading ? (
               <div className="flex items-center justify-center py-8">
@@ -206,7 +208,7 @@ export default function StepOne({ data, update, onValidityChange }: Props) {
               </div>
             ) : events.length === 0 ? (
               <p className="text-sm text-gray-400 py-4">
-                Aucun événement disponible pour le moment.
+                {t.noEvents}
               </p>
             ) : (
               <div className="w-full max-w-xs sm:max-w-sm md:max-w-md mx-auto">
@@ -281,7 +283,7 @@ export default function StepOne({ data, update, onValidityChange }: Props) {
       </div>
       {!isValid && (
         <p className="text-red-500 text-sm mt-2 text-center">
-          Complétez tous les champs obligatoires pour continuer.
+          {t.completeAllFields}
         </p>
       )}
     </div>

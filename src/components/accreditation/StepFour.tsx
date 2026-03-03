@@ -5,6 +5,7 @@ import Image from "next/image";
 import { CheckCircle, Download, PlusCircle, AlertTriangle } from "lucide-react";
 import type { Vehicle } from "@/types";
 import DuplicateAlert from "@/components/accreditation/DuplicateAlert";
+import { useTranslation } from "@/components/accreditation/TranslationProvider";
 
 interface Props {
   data: {
@@ -27,6 +28,7 @@ export default function StepFour({
   onClearForm,
   onHasSavedChange,
 }: Props) {
+  const { t, lang } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showDuplicateCheck, setShowDuplicateCheck] = useState(false);
@@ -36,9 +38,7 @@ export default function StepFour({
 
   async function handleSave() {
     if (hasSaved) {
-      setInfoMsg(
-        "Vous avez déjà enregistré votre demande. Elle doit être validée par un agent."
-      );
+      setInfoMsg(t.alreadySavedNotice);
       setShowModal(false);
       return;
     }
@@ -47,15 +47,13 @@ export default function StepFour({
       const saveRes = await fetch("/api/accreditations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...data, status: "NOUVEAU" }),
+        body: JSON.stringify({ ...data, language: lang, status: "NOUVEAU" }),
       });
-      if (!saveRes.ok) throw new Error("Erreur enregistrement");
+      if (!saveRes.ok) throw new Error("save error");
       setSuccess(true);
       setHasSaved(true);
       onHasSavedChange(true);
-      setInfoMsg(
-        "Votre demande a bien été enregistrée. Elle doit être validée par un agent."
-      );
+      setInfoMsg(t.alreadySavedNotice);
       setTimeout(() => {
         setShowModal(false);
         setSuccess(false);
@@ -64,7 +62,7 @@ export default function StepFour({
       }, 1200);
     } catch (err) {
       console.error(err);
-      alert("Impossible d'enregistrer la demande");
+      alert(t.saveError);
     } finally {
       setLoading(false);
     }
@@ -81,7 +79,7 @@ export default function StepFour({
           status: "NOUVEAU", // ou "ATTENTE" selon le besoin métier
         }),
       });
-      if (!res.ok) throw new Error("Erreur génération PDF");
+      if (!res.ok) throw new Error("pdf error");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -91,7 +89,7 @@ export default function StepFour({
       URL.revokeObjectURL(url);
     } catch (err) {
       console.error(err);
-      alert("Impossible de télécharger le PDF");
+      alert(t.pdfError);
     } finally {
       setLoading(false);
     }
@@ -99,9 +97,7 @@ export default function StepFour({
 
   function handleSaveClick() {
     if (hasSaved) {
-      setInfoMsg(
-        "Vous avez déjà enregistré votre demande. Elle doit être validée par un agent."
-      );
+      setInfoMsg(t.alreadySavedNotice);
       return;
     }
     // Lancer la vérification de doublons avant d'afficher la modal de confirmation
@@ -125,14 +121,14 @@ export default function StepFour({
         const saveRes = await fetch("/api/accreditations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...data, status: "NOUVEAU" }),
+          body: JSON.stringify({ ...data, language: lang, status: "NOUVEAU" }),
         });
-        if (!saveRes.ok) throw new Error("Erreur enregistrement");
+        if (!saveRes.ok) throw new Error("save error");
         setHasSaved(true);
         onHasSavedChange(true);
       } catch (err) {
         console.error(err);
-        alert("Impossible d'enregistrer la demande");
+        alert(t.saveError);
         return;
       } finally {
         setLoading(false);
@@ -159,7 +155,7 @@ export default function StepFour({
             />
           )}
           <h2 className="text-xl font-bold text-gray-800">
-            {hasSaved ? "Demande enregistrée" : "Demande créée"}
+            {hasSaved ? t.requestSaved : t.requestCreated}
           </h2>
         </div>
 
@@ -169,15 +165,12 @@ export default function StepFour({
         >
           {hasSaved ? (
             <>
-              Votre demande a bien été enregistrée.
+              {t.savedMessage}
               <br />
-              Elle doit être validée par un agent avant d&apos;être utilisable.
+              {t.savedMessage2}
             </>
           ) : (
-            <>
-              Vous recevrez un SMS lorsqu&apos;un logisticien aura validé
-              l&apos;accréditation.
-            </>
+            <>{t.smsNotice}</>
           )}
         </div>
 
@@ -201,10 +194,10 @@ export default function StepFour({
           >
             <PlusCircle size={20} />
             {hasSaved
-              ? "Déjà enregistrée"
+              ? t.alreadySaved
               : loading
                 ? "…"
-                : "Enregistrer la demande"}
+                : t.saveRequest}
           </button>
           <button
             onClick={downloadPdf}
@@ -212,7 +205,7 @@ export default function StepFour({
             className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-base bg-[#3daaa4] text-white shadow hover:bg-[#319b92] transition-all duration-150 disabled:opacity-60"
           >
             <Download size={20} />
-            {loading ? "Génération…" : "Télécharger l'accréditation"}
+            {loading ? t.generatingPdf : t.downloadPdf}
           </button>
           {/* Nouveau bouton après enregistrement */}
           {hasSaved && (
@@ -222,7 +215,7 @@ export default function StepFour({
               className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-base bg-white text-gray-700 border border-gray-300 shadow hover:bg-gray-100 transition-all duration-150 mt-2 disabled:opacity-60"
             >
               <PlusCircle size={20} />
-              Nouvelle demande
+              {t.newRequest}
             </button>
           )}
         </div>
@@ -244,16 +237,15 @@ export default function StepFour({
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 border border-gray-200">
             <h2 className="text-lg font-bold mb-4 text-gray-900 text-center">
-              Confirmer l&apos;enregistrement
+              {t.confirmTitle}
             </h2>
             <p className="mb-6 text-gray-700 leading-relaxed text-center">
-              Cette accréditation sera créée avec le statut <b>NOUVEAU</b>.
+              {t.confirmMsg1}
               <br />
-              Elle devra être validée manuellement par un logisticien avant
-              d&apos;être utilisable.
+              {t.confirmMsg2}
               <br />
               <span className="font-semibold text-orange-600">
-                Un e-mail/SMS vous sera envoyé après validation.
+                {t.confirmMsg3}
               </span>
             </p>
             <div className="flex flex-col sm:flex-row justify-center gap-6 mt-8">
@@ -261,7 +253,7 @@ export default function StepFour({
                 onClick={() => setShowModal(false)}
                 className="w-full sm:w-auto px-6 py-3 rounded-xl border border-gray-400 bg-gray-200 text-gray-800 font-semibold hover:bg-gray-300 transition shadow"
               >
-                Annuler
+                {t.cancel}
               </button>
               <button
                 onClick={handleSave}
@@ -269,10 +261,10 @@ export default function StepFour({
                 disabled={loading || hasSaved || success}
               >
                 {success
-                  ? "Enregistré !"
+                  ? t.savedDone
                   : loading
-                    ? "Enregistrement…"
-                    : "Confirmer l'enregistrement"}
+                    ? t.savingProgress
+                    : t.confirm}
               </button>
             </div>
           </div>

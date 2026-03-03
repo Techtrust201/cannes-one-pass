@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import PhoneInput from "@/components/ui/PhoneInput";
 import { getVehicleWeightLimits, getVehicleTypeLabel, getAllVehicleTypes, getAverageWeight } from "@/lib/vehicle-utils";
 import type { VehicleType } from "@/types";
+import { useTranslation } from "@/components/accreditation/TranslationProvider";
 
 interface Props {
   data: Vehicle;
@@ -21,6 +22,7 @@ const VEHICLE_TYPE_OPTIONS = getAllVehicleTypes().map((vt) => ({
 }));
 
 export default function VehicleForm({ data, update, onValidityChange }: Props) {
+  const { t } = useTranslation();
   const plateRef = useRef<HTMLInputElement>(null);
   const trailerPlateRef = useRef<HTMLInputElement>(null);
 
@@ -82,13 +84,13 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
               className="w-4 h-4"
               alt="Plaque"
             />{" "}
-            Plaque
+            {t.plate}
           </label>
           <input
             ref={plateRef}
             value={data.plate ?? ""}
             onChange={(e) => handleSanitizedPlateChange(e, "plate")}
-            placeholder="XX123YY"
+            placeholder={t.platePlaceholder}
             className={`w-full rounded-md px-3 py-1.5 text-sm shadow-sm focus:ring-primary focus:border-primary ${
               !data.plate ? "border-red-500" : "border-gray-300"
             }`}
@@ -104,7 +106,7 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
               className="w-4 h-4"
               alt="Type de véhicule"
             />{" "}
-            Type de véhicule
+            {t.vehicleType}
           </label>
           <select
             value={data.size ?? ""}
@@ -113,7 +115,7 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
               !data.size ? "border-red-500" : "border-gray-300"
             }`}
           >
-            <option value="">Choisir un type</option>
+            <option value="">{t.chooseType}</option>
             {VEHICLE_TYPE_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label} ({o.limits.emptyWeight}t - {o.limits.maxWeight}t)
@@ -132,8 +134,8 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
                 className="w-4 h-4"
                 alt="Plaque remorque"
               />{" "}
-              Plaque de la remorque
-              <span className="font-normal text-xs text-gray-500">(facultatif)</span>
+              {t.trailerPlate}
+              <span className="font-normal text-xs text-gray-500">({t.optional})</span>
             </label>
             <input
               ref={trailerPlateRef}
@@ -228,7 +230,7 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
               className="w-4 h-4"
               alt="N° du conducteur"
             />{" "}
-            N° du conducteur
+            {t.driverPhone}
           </label>
           <PhoneInput
             value={`${data.phoneCode}${data.phoneNumber}`}
@@ -256,7 +258,7 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
               className="w-4 h-4"
               alt="Date d'arrivée"
             />{" "}
-            Date d&apos;arrivée
+            {t.arrivalDate}
           </label>
           <input
             type="date"
@@ -277,9 +279,9 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
               className="w-4 h-4"
               alt="Heure d'arrivée"
             />{" "}
-            Heure d&apos;arrivée
+            {t.arrivalTime}
             <span className="font-normal text-xs text-gray-500">
-              (optionnel)
+              ({t.optional})
             </span>
           </label>
           <select
@@ -310,7 +312,7 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
               className="w-4 h-4"
               alt="Ville de départ"
             />{" "}
-            Ville de départ
+            {t.departureCity}
           </label>
           <CityAutocomplete
             value={data.city ?? ""}
@@ -324,7 +326,7 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
 
       {/* Unloading */}
       <div>
-        <p className="text-sm font-semibold mb-2">Déchargement</p>
+        <p className="text-sm font-semibold mb-2">{t.unloading}</p>
         <div className="flex gap-6 items-center">
           <label className="inline-flex items-center gap-2 cursor-pointer select-none">
             <Checkbox
@@ -353,7 +355,7 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
               className="w-7 h-6"
               alt="Arrière"
             />
-            <span>Arrière</span>
+            <span>{t.rear}</span>
           </label>
           <label className="inline-flex items-center gap-2 cursor-pointer select-none">
             <Checkbox
@@ -382,7 +384,7 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
               className="w-6 h-6"
               alt="Latéral"
             />
-            <span>Latéral</span>
+            <span>{t.lateral}</span>
           </label>
         </div>
       </div>

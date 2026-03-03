@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import type { Accreditation, Vehicle } from "@/types";
 import { useRouter } from "next/navigation";
-import { Info, PlusCircle, Send, Save, Copy, Check, Loader2 } from "lucide-react";
+import { Info, PlusCircle, Send, Save, Copy, Check, Loader2, Languages } from "lucide-react";
 import AccreditationHistory from "./AccreditationHistory";
 import DailyTimeSlotHistory from "./DailyTimeSlotHistory";
 import AccreditationChat from "./AccreditationChat";
@@ -80,6 +80,33 @@ export default function AccreditationFormCard({ acc }: Props) {
   const [historyVersion, setHistoryVersion] = useState(0);
   const [conflictError, setConflictError] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  const [translatedMessage, setTranslatedMessage] = useState<string | null>(null);
+  const [translatingMsg, setTranslatingMsg] = useState(false);
+
+  async function translateDriverMessage() {
+    if (translatedMessage) {
+      setTranslatedMessage(null);
+      return;
+    }
+    if (!message.trim()) return;
+    setTranslatingMsg(true);
+    try {
+      const res = await fetch("/api/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: message, from: "auto", to: "fr" }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTranslatedMessage(data.translatedText);
+      }
+    } catch (err) {
+      console.error("Translation error:", err);
+    } finally {
+      setTranslatingMsg(false);
+    }
+  }
 
   function copyId() {
     navigator.clipboard.writeText(acc.id).then(() => {
@@ -341,13 +368,35 @@ export default function AccreditationFormCard({ acc }: Props) {
 
             {/* Message */}
             <div className="space-y-1.5 col-span-full">
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Message du conducteur</label>
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Message du conducteur</label>
+                {message.trim() && (
+                  <button
+                    type="button"
+                    onClick={translateDriverMessage}
+                    disabled={translatingMsg}
+                    className="flex items-center gap-1 text-[10px] text-[#4F587E]/70 hover:text-[#4F587E] transition disabled:opacity-50"
+                  >
+                    {translatingMsg ? (
+                      <Loader2 size={10} className="animate-spin" />
+                    ) : (
+                      <Languages size={10} />
+                    )}
+                    {translatedMessage ? "Original" : "Traduire"}
+                  </button>
+                )}
+              </div>
               <textarea
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 min-h-[68px] text-sm bg-white focus:ring-2 focus:ring-blue-400/40 focus:border-blue-400 transition-all duration-150 resize-none placeholder:text-gray-300"
                 value={message}
-                onChange={(e) => setMessage(e.target.value)}
+                onChange={(e) => { setMessage(e.target.value); setTranslatedMessage(null); }}
                 placeholder="Aucun message..."
               />
+              {translatedMessage && (
+                <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-sm text-gray-700 italic">
+                  {translatedMessage}
+                </div>
+              )}
             </div>
 
             {/* Email + inline send */}

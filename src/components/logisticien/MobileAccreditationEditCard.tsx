@@ -13,6 +13,8 @@ import {
   CheckCircle,
   ChevronDown,
   History,
+  Languages,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -104,7 +106,7 @@ function ToastComponent({
 
 // Composant de champ réutilisable
 interface FormFieldProps {
-  label: string;
+  label: React.ReactNode;
   name: string;
   error?: string;
   children: React.ReactNode;
@@ -176,6 +178,34 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
   const [vehicleDialogMode, setVehicleDialogMode] = useState<"edit" | "add">("add");
   const [vehicleDialogTarget, setVehicleDialogTarget] = useState<Vehicle | null>(null);
   const [deletingVehicleId, setDeletingVehicleId] = useState<number | null>(null);
+
+  const [translatedMessage, setTranslatedMessage] = useState<string | null>(null);
+  const [translatingMsg, setTranslatingMsg] = useState(false);
+
+  async function translateDriverMessage() {
+    if (translatedMessage) {
+      setTranslatedMessage(null);
+      return;
+    }
+    const msg = acc.message?.trim();
+    if (!msg) return;
+    setTranslatingMsg(true);
+    try {
+      const res = await fetch("/api/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: msg, from: "auto", to: "fr" }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTranslatedMessage(data.translatedText);
+      }
+    } catch (err) {
+      console.error("Translation error:", err);
+    } finally {
+      setTranslatingMsg(false);
+    }
+  }
 
   // Initialisation du formulaire avec react-hook-form (sans status)
   const {
@@ -401,7 +431,26 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
 
           {/* Message conducteur */}
           <FormField
-            label="Message du conducteur"
+            label={
+              <span className="flex items-center justify-between w-full">
+                <span>Message du conducteur</span>
+                {acc.message?.trim() && (
+                  <button
+                    type="button"
+                    onClick={translateDriverMessage}
+                    disabled={translatingMsg}
+                    className="flex items-center gap-1 text-[10px] text-[#4F587E]/70 hover:text-[#4F587E] transition disabled:opacity-50 font-normal"
+                  >
+                    {translatingMsg ? (
+                      <Loader2 size={10} className="animate-spin" />
+                    ) : (
+                      <Languages size={10} />
+                    )}
+                    {translatedMessage ? "Original" : "Traduire"}
+                  </button>
+                )}
+              </span>
+            }
             name="message"
             error={errors.message?.message}
           >
@@ -420,6 +469,11 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
                 />
               )}
             />
+            {translatedMessage && (
+              <div className="mt-1 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-sm text-gray-700 italic">
+                {translatedMessage}
+              </div>
+            )}
           </FormField>
 
           {/* Bouton enregistrer les infos */}

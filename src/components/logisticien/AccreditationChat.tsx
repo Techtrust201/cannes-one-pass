@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSession } from "@/lib/auth-client";
-import { Send, MessageSquare, ChevronDown, Loader2 } from "lucide-react";
+import { Send, MessageSquare, ChevronDown, Loader2, Languages } from "lucide-react";
+import { LANGUAGES, type LangCode } from "@/lib/translations";
 
 interface ChatMessage {
   id: number;
@@ -15,11 +16,11 @@ interface ChatMessage {
 interface AccreditationChatProps {
   accreditationId: string;
   className?: string;
-  /** Mode compact pour intégration mobile */
   compact?: boolean;
-  /** Démarrer replié (pour mobile) */
   defaultCollapsed?: boolean;
 }
+
+const TRANSLATE_LANGS = LANGUAGES.map((l) => ({ code: l.code, label: l.label, flag: l.flag }));
 
 export default function AccreditationChat({
   accreditationId,
@@ -38,9 +39,30 @@ export default function AccreditationChat({
   const inputRef = useRef<HTMLInputElement>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const [targetLang, setTargetLang] = useState<LangCode>(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("chat_translate_lang");
+      if (stored) return stored as LangCode;
+    }
+    return "fr";
+  });
+  const [translations, setTranslations] = useState<Record<number, string>>({});
+  const [translating, setTranslating] = useState<Record<number, boolean>>({});
+  const [showLangPicker, setShowLangPicker] = useState(false);
+  const langPickerRef = useRef<HTMLDivElement>(null);
+
   const currentUserId = session?.user?.id;
 
-  // ── Charger les messages ──
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (langPickerRef.current && !langPickerRef.current.contains(e.target as Node)) {
+        setShowLangPicker(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
   const fetchMessages = useCallback(async () => {
     try {
       const res = await fetch(
@@ -49,7 +71,6 @@ export default function AccreditationChat({
       if (res.ok) {
         const data = await res.json();
         setMessages((prev) => {
-          // Seulement mettre à jour si les messages ont changé
           if (prev.length !== data.messages.length) return data.messages;
           const lastPrev = prev[prev.length - 1];
           const lastNew = data.messages[data.messages.length - 1];
@@ -64,7 +85,6 @@ export default function AccreditationChat({
     }
   }, [accreditationId]);
 
-  // ── Polling toutes les 5s quand ouvert ──
   useEffect(() => {
     if (!isOpen) return;
     fetchMessages();
@@ -74,14 +94,12 @@ export default function AccreditationChat({
     };
   }, [isOpen, fetchMessages]);
 
-  // ── Auto-scroll vers le bas ──
   useEffect(() => {
     if (isOpen && messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, isOpen]);
 
-  // ── Envoyer un message ──
   const handleSend = useCallback(async () => {
     if (!newMessage.trim() || sending) return;
 
@@ -115,7 +133,34 @@ export default function AccreditationChat({
     }
   };
 
-  // ── Formater l'heure ──
+  const translateMessage = useCallback(async (msgId: number, text: string) => {
+    if (translations[msgId]) {
+      setTranslations((prev) => {
+        const next = { ...prev };
+        delete next[msgId];
+        return next;
+      });
+      return;
+    }
+
+    setTranslating((prev) => ({ ...prev, [msgId]: true }));
+    try {
+      const res = await fetch("/api/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, from: "auto", to: targetLang }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTranslations((prev) => ({ ...prev, [msgId]: data.translatedText }));
+      }
+    } catch (err) {
+      console.error("Translation error:", err);
+    } finally {
+      setTranslating((prev) => ({ ...prev, [msgId]: false }));
+    }
+  }, [targetLang, translations]);
+
   const formatTime = (dateStr: string) => {
     const d = new Date(dateStr);
     return d.toLocaleString("fr-FR", {
@@ -126,7 +171,6 @@ export default function AccreditationChat({
     });
   };
 
-  // ── Regrouper par date ──
   const groupedMessages = messages.reduce<Record<string, ChatMessage[]>>(
     (groups, msg) => {
       const date = new Date(msg.createdAt).toLocaleDateString("fr-FR", {
@@ -141,11 +185,13 @@ export default function AccreditationChat({
     {}
   );
 
+  const currentLang = TRANSLATE_LANGS.find((l) => l.code === targetLang);
+
   return (
     <div
       className={`bg-white rounded-xl border border-gray-200 overflow-hidden ${className}`}
     >
-      {/* ── Header (toggle) ── */}
+      {/* Header */}
       <button
         type="button"
         onClick={() => setIsOpen((v) => !v)}
@@ -168,7 +214,45 @@ export default function AccreditationChat({
 
       {isOpen && (
         <div className="border-t border-gray-100">
-          {/* ── Zone messages ── */}
+          {/* Language selector for translation */}
+          <div className="flex items-center justify-end px-3 py-1.5 border-b border-gray-100 bg-gray-50/80">
+            <div ref={langPickerRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setShowLangPicker((v) => !v)}
+                className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-gray-500 hover:bg-gray-100 transition"
+                title="Langue de traduction"
+              >
+                <Languages size={13} />
+                <span>{currentLang?.flag} {currentLang?.label}</span>
+                <ChevronDown size={11} className={`transition-transform ${showLangPicker ? "rotate-180" : ""}`} />
+              </button>
+              {showLangPicker && (
+                <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[150px] z-50 max-h-[200px] overflow-y-auto">
+                  {TRANSLATE_LANGS.map((l) => (
+                    <button
+                      key={l.code}
+                      type="button"
+                      onClick={() => {
+                        setTargetLang(l.code);
+                        localStorage.setItem("chat_translate_lang", l.code);
+                        setTranslations({});
+                        setShowLangPicker(false);
+                      }}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-gray-50 transition ${
+                        l.code === targetLang ? "bg-gray-100 font-semibold" : ""
+                      }`}
+                    >
+                      <span>{l.flag}</span>
+                      <span>{l.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Messages */}
           <div
             ref={containerRef}
             className={`overflow-y-auto px-3 py-2 space-y-1 bg-gray-50/50 ${
@@ -191,7 +275,6 @@ export default function AccreditationChat({
             ) : (
               Object.entries(groupedMessages).map(([date, msgs]) => (
                 <div key={date}>
-                  {/* Séparateur de date */}
                   <div className="flex items-center gap-2 my-3">
                     <div className="flex-1 h-px bg-gray-200" />
                     <span className="text-[10px] text-gray-400 uppercase font-medium px-2">
@@ -201,6 +284,9 @@ export default function AccreditationChat({
                   </div>
                   {msgs.map((msg) => {
                     const isMe = msg.userId === currentUserId;
+                    const translated = translations[msg.id];
+                    const isTranslating = translating[msg.id];
+
                     return (
                       <div
                         key={msg.id}
@@ -213,27 +299,65 @@ export default function AccreditationChat({
                               : "bg-white text-gray-800 border border-gray-200 rounded-bl-sm"
                           }`}
                         >
-                          {/* Nom de l'agent (seulement pour les autres) */}
                           {!isMe && (
                             <p className="text-[11px] font-semibold text-[#4F587E] mb-0.5">
                               {msg.userName}
                             </p>
                           )}
-                          {/* Message */}
                           <p className="text-sm whitespace-pre-wrap break-words">
                             {msg.message}
                           </p>
-                          {/* Heure */}
-                          <p
-                            className={`text-[10px] mt-1 text-right ${
-                              isMe ? "text-white/70" : "text-gray-400"
-                            }`}
-                          >
-                            {formatTime(msg.createdAt)}
-                            {isMe && (
-                              <span className="ml-1 font-medium">• Vous</span>
+                          {translated && (
+                            <p className={`text-sm italic mt-1 pt-1 whitespace-pre-wrap break-words ${
+                              isMe
+                                ? "border-t border-white/20 text-white/90"
+                                : "border-t border-gray-100 text-gray-600"
+                            }`}>
+                              {translated}
+                            </p>
+                          )}
+                          <div className={`flex items-center gap-1.5 mt-1 ${isMe ? "justify-end" : "justify-between"}`}>
+                            {!isMe && (
+                              <button
+                                type="button"
+                                onClick={() => translateMessage(msg.id, msg.message)}
+                                disabled={isTranslating}
+                                className="text-[10px] text-[#4F587E]/60 hover:text-[#4F587E] transition flex items-center gap-0.5 disabled:opacity-50"
+                              >
+                                {isTranslating ? (
+                                  <Loader2 size={9} className="animate-spin" />
+                                ) : (
+                                  <Languages size={9} />
+                                )}
+                                {translated ? "Original" : "Traduire"}
+                              </button>
                             )}
-                          </p>
+                            {isMe && (
+                              <button
+                                type="button"
+                                onClick={() => translateMessage(msg.id, msg.message)}
+                                disabled={isTranslating}
+                                className="text-[10px] text-white/50 hover:text-white/80 transition flex items-center gap-0.5 disabled:opacity-50 mr-1"
+                              >
+                                {isTranslating ? (
+                                  <Loader2 size={9} className="animate-spin" />
+                                ) : (
+                                  <Languages size={9} />
+                                )}
+                                {translated ? "Original" : "Traduire"}
+                              </button>
+                            )}
+                            <p
+                              className={`text-[10px] text-right ${
+                                isMe ? "text-white/70" : "text-gray-400"
+                              }`}
+                            >
+                              {formatTime(msg.createdAt)}
+                              {isMe && (
+                                <span className="ml-1 font-medium">• Vous</span>
+                              )}
+                            </p>
+                          </div>
                         </div>
                       </div>
                     );
@@ -244,7 +368,7 @@ export default function AccreditationChat({
             <div ref={messagesEndRef} />
           </div>
 
-          {/* ── Input ── */}
+          {/* Input */}
           <div className="flex items-center gap-2 px-3 py-2 border-t border-gray-100 bg-white">
             <input
               ref={inputRef}

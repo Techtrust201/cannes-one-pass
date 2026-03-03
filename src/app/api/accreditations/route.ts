@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
     }
 
     const raw = await req.json();
-    const { company, stand, unloading, event, message, consent, vehicles } =
+    const { company, stand, unloading, event, message, consent, vehicles, language } =
       raw;
     if (
       !company ||
@@ -137,6 +137,7 @@ export async function POST(req: NextRequest) {
         eventId: eventRecord?.id ?? null,
         message: message ?? "",
         consent: consent ?? true,
+        language: language ?? "fr",
         status: raw.status ?? "ATTENTE",
         currentZone: currentZone,
         vehicles: {

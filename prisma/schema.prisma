@@ -239,6 +239,7 @@ model Accreditation {
   sentAt      DateTime?
   currentZone String?
 
+  language    String               @default("fr") @db.VarChar(5)
   isArchived  Boolean              @default(false)
 
   vehicles       Vehicle[]

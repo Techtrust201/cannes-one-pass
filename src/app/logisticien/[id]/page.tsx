@@ -12,10 +12,21 @@ export default async function Page({
 }) {
   const { id } = await params;
 
-  const acc = await prisma.accreditation.findUnique({
-    where: { id },
-    include: { vehicles: true },
-  });
+  async function queryAccreditation() {
+    return prisma.accreditation.findUnique({
+      where: { id },
+      include: { vehicles: true },
+    });
+  }
+
+  let acc;
+  try {
+    acc = await queryAccreditation();
+  } catch (err) {
+    console.warn("[accreditation-detail] First query failed, retrying in 1s:", err);
+    await new Promise((r) => setTimeout(r, 1000));
+    acc = await queryAccreditation();
+  }
   if (!acc) return notFound();
 
   // Correction : garantir que unloading est toujours un tableau pour chaque véhicule

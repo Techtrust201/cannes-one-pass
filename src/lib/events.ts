@@ -50,6 +50,6 @@ export const STATUS_CONFIG: Record<
   },
   archived: {
     label: "Archivé",
-    className: "bg-red-100 text-red-600 border-red-200 line-through",
+    className: "bg-gray-100 text-gray-400 border-gray-200",
   },
 };

@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
           startDate: { lte: new Date(now.getTime() + 365 * 24 * 3600000) },
           endDate: { gte: now },
         }
-      : { isArchived: false };
+      : {};
 
     const events = await prisma.event.findMany({
       where,

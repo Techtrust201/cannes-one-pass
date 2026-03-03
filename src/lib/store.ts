@@ -1,13 +1,12 @@
 import type { Accreditation, Vehicle } from "@/types";
 import prisma from "@/lib/prisma";
 
-export async function readAccreditations(): Promise<Accreditation[]> {
-  const rows = await prisma.accreditation.findMany({
+async function queryAccreditations() {
+  return prisma.accreditation.findMany({
     where: { isArchived: false },
     include: {
       vehicles: {
         include: {
-          // Récupérer le dernier time slot (step le plus récent, toutes zones)
           timeSlots: {
             orderBy: { entryAt: "desc" },
             take: 1,
@@ -16,6 +15,17 @@ export async function readAccreditations(): Promise<Accreditation[]> {
       },
     },
   });
+}
+
+export async function readAccreditations(): Promise<Accreditation[]> {
+  let rows;
+  try {
+    rows = await queryAccreditations();
+  } catch (err) {
+    console.warn("[store] First query failed, retrying in 1s:", err);
+    await new Promise((r) => setTimeout(r, 1000));
+    rows = await queryAccreditations();
+  }
 
   return rows.map(
     (a): Accreditation => {

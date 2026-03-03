@@ -54,7 +54,10 @@ export async function POST(req: NextRequest) {
     for (const accId of ids) {
       try {
         await prisma.$transaction(async (tx) => {
-          const acc = await tx.accreditation.findUnique({ where: { id: accId } });
+          const acc = await tx.accreditation.findUnique({
+            where: { id: accId },
+            include: { vehicles: true },
+          });
           if (!acc) throw new Error("NOT_FOUND");
 
           if (isArchiveAction) {
@@ -83,6 +86,63 @@ export async function POST(req: NextRequest) {
               where: { id: accId, version: acc.version },
               data: updates,
             });
+
+            // Gérer les time slots (historique des créneaux) pour ENTREE/SORTIE
+            if (action !== acc.status && acc.vehicles.length > 0) {
+              const targetVehicle = acc.vehicles[0];
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+
+              if (action === "ENTREE") {
+                const openSlot = await tx.vehicleTimeSlot.findFirst({
+                  where: {
+                    accreditationId: accId,
+                    vehicleId: targetVehicle.id,
+                    date: today,
+                    exitAt: null,
+                  },
+                });
+
+                if (!openSlot) {
+                  const lastSlot = await tx.vehicleTimeSlot.findFirst({
+                    where: {
+                      accreditationId: accId,
+                      vehicleId: targetVehicle.id,
+                      date: today,
+                    },
+                    orderBy: { stepNumber: "desc" },
+                  });
+                  const nextStep = lastSlot ? lastSlot.stepNumber + 1 : 1;
+                  await tx.vehicleTimeSlot.create({
+                    data: {
+                      accreditationId: accId,
+                      vehicleId: targetVehicle.id,
+                      date: today,
+                      stepNumber: nextStep,
+                      zone: "PALAIS_DES_FESTIVALS",
+                      entryAt: now,
+                    },
+                  });
+                }
+              } else if (action === "SORTIE") {
+                const openSlot = await tx.vehicleTimeSlot.findFirst({
+                  where: {
+                    accreditationId: accId,
+                    vehicleId: targetVehicle.id,
+                    exitAt: null,
+                  },
+                  orderBy: { stepNumber: "desc" },
+                });
+
+                if (openSlot) {
+                  await tx.vehicleTimeSlot.update({
+                    where: { id: openSlot.id },
+                    data: { exitAt: now },
+                  });
+                }
+              }
+            }
+
             await writeHistoryDirect(
               createStatusChangeEntry(accId, acc.status, action, currentUserId),
               tx

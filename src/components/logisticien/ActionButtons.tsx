@@ -16,13 +16,8 @@ import {
   Navigation,
 } from "lucide-react";
 import type { Accreditation, AccreditationStatus } from "@/types";
-import {
-  getZoneLabel,
-  getAllZones,
-  getTransferTargets,
-  isFinalDestination,
-  getZoneColors,
-} from "@/lib/zone-utils";
+import { getZoneLabel, getZoneColors } from "@/lib/zone-utils";
+import { useZones } from "@/hooks/useZones";
 
 
 /* ------------------------------------------------------------------ */
@@ -51,6 +46,7 @@ interface Props {
 
 export default function ActionButtons({ acc, onActionComplete }: Props) {
   const router = useRouter();
+  const { allZoneKeys, getTransferTargets, isFinalDestination } = useZones();
   const [loading, setLoading] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<ActionDef | null>(null);
   const [selectedZone, setSelectedZone] = useState<string>("");
@@ -514,7 +510,7 @@ export default function ActionButtons({ acc, onActionComplete }: Props) {
                   className="w-full h-10 rounded-xl border border-gray-200 px-3 text-sm font-medium focus:ring-2 focus:ring-blue-400/40 focus:border-blue-400 transition bg-white"
                 >
                   <option value="">-- Choisir une zone --</option>
-                  {getAllZones().map((zone) => (
+                  {allZoneKeys.map((zone) => (
                     <option key={zone} value={zone}>
                       {getZoneLabel(zone)}
                       {isFinalDestination(zone) ? " (destination finale)" : ""}

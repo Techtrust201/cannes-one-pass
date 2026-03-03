@@ -10,7 +10,8 @@ import {
   Send,
 } from "lucide-react";
 import type { Vehicle } from "@/types";
-import { getAllZones, getZoneLabel, isFinalDestination } from "@/lib/zone-utils";
+import { getZoneLabel } from "@/lib/zone-utils";
+import { useZones } from "@/hooks/useZones";
 import DuplicateAlert from "@/components/accreditation/DuplicateAlert";
 
 interface Props {
@@ -34,6 +35,7 @@ export default function StepFourLog({
   onClearForm,
   onHasSavedChange,
 }: Props) {
+  const { allZoneKeys, isFinalDestination } = useZones();
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [selectedZone, setSelectedZone] = useState<string>("");
@@ -249,7 +251,7 @@ export default function StepFourLog({
             disabled={hasSaved}
           >
             <option value="">-- Choisir une zone --</option>
-            {getAllZones().map((zone) => (
+            {allZoneKeys.map((zone) => (
               <option key={zone} value={zone}>
                 {getZoneLabel(zone)}
                 {isFinalDestination(zone) ? " (destination finale)" : ""}

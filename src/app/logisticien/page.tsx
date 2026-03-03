@@ -1,5 +1,6 @@
 import { readAccreditations } from "@/lib/store";
 import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
 import { FilterBar } from "@/components/logisticien/FilterBar";
 import AccreditationTable from "@/components/logisticien/AccreditationTable";
 import { buildLink } from "@/lib/url";
@@ -242,12 +243,13 @@ export default async function LogisticienDashboard(props: {
     { value: "ABSENT", label: "Absent" },
   ];
 
+  const activeZones = await prisma.zoneConfig.findMany({
+    where: { isActive: true },
+    orderBy: { label: "asc" },
+  });
   const zoneOptions = [
     { value: "", label: "Toutes zones" },
-    { value: "LA_BOCCA", label: "La Bocca" },
-    { value: "PALAIS_DES_FESTIVALS", label: "Palais des festivals" },
-    { value: "PANTIERO", label: "Pantiero" },
-    { value: "MACE", label: "Macé" },
+    ...activeZones.map((z) => ({ value: z.zone, label: z.label })),
   ];
 
   const vehicleTypeOptions = [

@@ -142,7 +142,7 @@ export default function ArchivesPage() {
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-2">
                           <button
-                            onClick={() => router.push(`/logisticien?sel=${acc.id}`)}
+                            onClick={() => router.push(`/logisticien/${acc.id}`)}
                             className="text-xs px-2.5 py-1.5 bg-[#4F587E]/10 text-[#4F587E] rounded-lg hover:bg-[#4F587E]/20 transition font-semibold"
                           >
                             Voir
@@ -179,7 +179,7 @@ export default function ArchivesPage() {
                   </p>
                   <div className="flex gap-2 mt-3">
                     <button
-                      onClick={() => router.push(`/logisticien?sel=${acc.id}`)}
+                      onClick={() => router.push(`/logisticien/${acc.id}`)}
                       className="flex-1 text-xs px-3 py-2 bg-[#4F587E]/10 text-[#4F587E] rounded-lg font-semibold"
                     >
                       Voir

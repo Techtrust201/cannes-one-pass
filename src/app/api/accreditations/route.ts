@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import prisma from "@/lib/prisma";
+import prisma, { withRetry } from "@/lib/prisma";
 // import type { Accreditation } from "@/types";
 import { addHistoryEntry, createCreatedEntry } from "@/lib/history";
 import { requirePermission, getSession } from "@/lib/auth-helpers";
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
   const showArchived = searchParams.get("archived") === "true";
 
   if (showArchived) {
-    const list = await prisma.accreditation.findMany({
+    const list = await withRetry(() => prisma.accreditation.findMany({
       where: { isArchived: true },
       select: {
         id: true, company: true, stand: true, event: true, status: true,
@@ -29,14 +29,14 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: { createdAt: "desc" },
-    });
+    }));
     return Response.json(list);
   }
 
-  const finalZone = await prisma.zoneConfig.findFirst({ where: { isFinalDestination: true, isActive: true } });
+  const finalZone = await withRetry(() => prisma.zoneConfig.findFirst({ where: { isFinalDestination: true, isActive: true } }));
   const finalZoneKey = finalZone?.zone || "PALAIS_DES_FESTIVALS";
 
-  const list = await prisma.accreditation.findMany({
+  const list = await withRetry(() => prisma.accreditation.findMany({
     where: { isArchived: false },
     include: {
       vehicles: {
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
         },
       },
     },
-  });
+  }));
 
   const safeList = list.map((acc) => {
     let palaisEntryAt: Date | null = null;

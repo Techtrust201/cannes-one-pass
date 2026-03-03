@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma, withRetry } from "@/lib/prisma";
 import { requirePermission } from "@/lib/auth-helpers";
 
 function handleAuthError(error: unknown) {
@@ -34,11 +34,11 @@ export async function GET(req: NextRequest) {
         }
       : {};
 
-    const events = await prisma.event.findMany({
+    const events = await withRetry(() => prisma.event.findMany({
       where,
       orderBy: { startDate: "asc" },
       omit: { logoData: true },
-    });
+    }));
 
     if (activeOnly) {
       const visible = events.filter((e) => {

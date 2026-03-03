@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { notFound } from "next/navigation";
 import AccreditationFormCard from "@/components/logisticien/AccreditationFormCard";
 import MobileAccreditationEditCard from "@/components/logisticien/MobileAccreditationEditCard";
-import prisma from "@/lib/prisma";
+import prisma, { withRetry } from "@/lib/prisma";
 import { Accreditation } from "@/types";
 
 export default async function Page({
@@ -12,21 +12,10 @@ export default async function Page({
 }) {
   const { id } = await params;
 
-  async function queryAccreditation() {
-    return prisma.accreditation.findUnique({
-      where: { id },
-      include: { vehicles: true },
-    });
-  }
-
-  let acc;
-  try {
-    acc = await queryAccreditation();
-  } catch (err) {
-    console.warn("[accreditation-detail] First query failed, retrying in 1s:", err);
-    await new Promise((r) => setTimeout(r, 1000));
-    acc = await queryAccreditation();
-  }
+  const acc = await withRetry(() => prisma.accreditation.findUnique({
+    where: { id },
+    include: { vehicles: true },
+  }));
   if (!acc) return notFound();
 
   // Correction : garantir que unloading est toujours un tableau pour chaque véhicule

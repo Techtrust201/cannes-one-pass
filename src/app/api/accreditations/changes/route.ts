@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import prisma from "@/lib/prisma";
+import prisma, { withRetry } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-helpers";
 
 /**
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     : new Date(Date.now() - 30_000);
 
   try {
-    const recentHistory = await prisma.accreditationHistory.findMany({
+    const recentHistory = await withRetry(() => prisma.accreditationHistory.findMany({
       where: {
         createdAt: { gt: since },
       },
@@ -47,8 +47,8 @@ export async function GET(req: NextRequest) {
           },
         },
       },
-      take: 50, // Limiter pour éviter les réponses trop lourdes
-    });
+      take: 50,
+    }));
 
     // Filtrer par zone si spécifié
     const filtered = filterZone

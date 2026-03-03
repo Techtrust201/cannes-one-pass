@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma, withRetry } from "@/lib/prisma";
 import { requireAuth, requirePermission } from "@/lib/auth-helpers";
 
 /**
@@ -20,10 +20,10 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const includeAll = searchParams.get("all") === "true";
 
-    const providers = await prisma.unloadingProvider.findMany({
+    const providers = await withRetry(() => prisma.unloadingProvider.findMany({
       where: includeAll ? {} : { isActive: true },
       orderBy: { name: "asc" },
-    });
+    }));
     return Response.json(providers);
   } catch (error) {
     console.error("GET /api/unloading-providers error:", error);

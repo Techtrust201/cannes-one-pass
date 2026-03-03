@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import prisma from "@/lib/prisma";
+import prisma, { withRetry } from "@/lib/prisma";
 import {
   createStatusChangeEntry,
   createInfoUpdatedEntry,
@@ -24,10 +24,10 @@ export async function GET(
 
   const params = await props.params;
   const { id } = params;
-  const acc = await prisma.accreditation.findUnique({
+  const acc = await withRetry(() => prisma.accreditation.findUnique({
     where: { id },
     include: { vehicles: true },
-  });
+  }));
   if (!acc) return new Response("Not found", { status: 404 });
   // Désérialisation unloading (toujours tableau)
   const safeAcc = {

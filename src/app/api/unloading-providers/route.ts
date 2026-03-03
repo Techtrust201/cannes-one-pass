@@ -27,7 +27,8 @@ export async function GET(req: NextRequest) {
     return Response.json(providers);
   } catch (error) {
     console.error("GET /api/unloading-providers error:", error);
-    return Response.json({ error: "Erreur serveur" }, { status: 500 });
+    const message = error instanceof Error ? error.message : String(error);
+    return Response.json({ error: "Erreur serveur", detail: message }, { status: 500 });
   }
 }
 
@@ -82,6 +83,7 @@ export async function POST(req: NextRequest) {
     return Response.json(created, { status: 201 });
   } catch (error) {
     console.error("POST /api/unloading-providers error:", error);
-    return Response.json({ error: "Erreur serveur" }, { status: 500 });
+    const message = error instanceof Error ? error.message : String(error);
+    return Response.json({ error: "Erreur serveur", detail: message }, { status: 500 });
   }
 }

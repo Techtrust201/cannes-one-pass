@@ -1,5 +1,5 @@
--- CreateTable
-CREATE TABLE "UnloadingProvider" (
+-- CreateTable (idempotent)
+CREATE TABLE IF NOT EXISTS "UnloadingProvider" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
@@ -9,8 +9,8 @@ CREATE TABLE "UnloadingProvider" (
     CONSTRAINT "UnloadingProvider_pkey" PRIMARY KEY ("id")
 );
 
--- CreateIndex
-CREATE UNIQUE INDEX "UnloadingProvider_name_key" ON "UnloadingProvider"("name");
+-- CreateIndex (idempotent)
+CREATE UNIQUE INDEX IF NOT EXISTS "UnloadingProvider_name_key" ON "UnloadingProvider"("name");
 
 -- Seed initial providers
 INSERT INTO "UnloadingProvider" ("id", "name", "isActive", "createdAt", "updatedAt")

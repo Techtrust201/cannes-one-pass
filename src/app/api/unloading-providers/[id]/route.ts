@@ -54,7 +54,8 @@ export async function PATCH(
     return Response.json(updated);
   } catch (error) {
     console.error("PATCH /api/unloading-providers/[id] error:", error);
-    return Response.json({ error: "Erreur serveur" }, { status: 500 });
+    const message = error instanceof Error ? error.message : String(error);
+    return Response.json({ error: "Erreur serveur", detail: message }, { status: 500 });
   }
 }
 
@@ -92,6 +93,7 @@ export async function DELETE(
     return new Response(null, { status: 204 });
   } catch (error) {
     console.error("DELETE /api/unloading-providers/[id] error:", error);
-    return Response.json({ error: "Erreur serveur" }, { status: 500 });
+    const message = error instanceof Error ? error.message : String(error);
+    return Response.json({ error: "Erreur serveur", detail: message }, { status: 500 });
   }
 }

@@ -89,24 +89,24 @@ export default function VehicleEditDialog({
         if (!res.ok) throw new Error("Erreur modification");
         onToast?.("success", "Véhicule modifié");
       } else {
-        const res = await fetch(`/api/accreditations/${accreditationId}/vehicles`, {
+        const res = await fetch(`/api/accreditations/${accreditationId}/duplicate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(formData),
         });
-        if (!res.ok) throw new Error("Erreur ajout");
-        onToast?.("success", "Véhicule ajouté");
+        if (!res.ok) throw new Error("Erreur création");
+        onToast?.("success", "Nouvelle accréditation créée");
       }
       onOpenChange(false);
       onSuccess();
     } catch {
-      onToast?.("error", mode === "edit" ? "Erreur modification véhicule" : "Erreur ajout véhicule");
+      onToast?.("error", mode === "edit" ? "Erreur modification véhicule" : "Erreur création accréditation");
     } finally {
       setSaving(false);
     }
   }, [mode, vehicle, formData, accreditationId, onOpenChange, onSuccess, onToast]);
 
-  const title = mode === "edit" ? "Modifier le véhicule" : "Ajouter un véhicule";
+  const title = mode === "edit" ? "Modifier le véhicule" : "Nouvelle accréditation";
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -122,7 +122,7 @@ export default function VehicleEditDialog({
           <DialogDescription className="text-xs text-gray-500">
             {mode === "edit"
               ? "Modifiez les informations du véhicule ci-dessous."
-              : "Remplissez les informations du nouveau véhicule."}
+              : "Une nouvelle accréditation sera créée avec ce véhicule."}
           </DialogDescription>
         </DialogHeader>
 

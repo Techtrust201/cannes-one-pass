@@ -191,7 +191,7 @@ export default function AccreditationFormCard({ acc }: Props) {
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#4F587E]/10 text-[#4F587E] border border-[#4F587E]/20 hover:bg-[#4F587E]/20 transition"
             >
               <PlusCircle size={14} />
-              Ajouter un véhicule
+              Nouvelle accréditation
             </button>
           </div>
           {acc.vehicles && acc.vehicles.length > 0 ? (

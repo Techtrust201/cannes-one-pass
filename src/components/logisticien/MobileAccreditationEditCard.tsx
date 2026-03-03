@@ -376,7 +376,7 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
                 className="flex items-center gap-1 px-3 py-2 rounded-lg bg-[#4F587E] text-white text-xs font-semibold shadow hover:bg-[#3B4252] transition"
                 aria-label="Ajouter un véhicule"
               >
-                <PlusCircle size={16} /> Ajouter
+                <PlusCircle size={16} /> Nouvelle accréditation
               </button>
             </div>
 

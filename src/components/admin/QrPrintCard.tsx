@@ -9,9 +9,9 @@ interface QrPrintCardProps {
 }
 
 const MAX_TEXT_LENGTH = 400;
-const QR_SIZE_MIN = 180;
-const QR_SIZE_MAX = 400;
-const QR_SIZE_DEFAULT = 280;
+const QR_SIZE_MIN = 200;
+const QR_SIZE_MAX = 600;
+const QR_SIZE_DEFAULT = 320;
 
 export default function QrPrintCard({ qrDataUrl, accreditationUrl }: QrPrintCardProps) {
   const [customText, setCustomText] = useState("");
@@ -62,6 +62,9 @@ export default function QrPrintCard({ qrDataUrl, accreditationUrl }: QrPrintCard
               onChange={(e) => setQrSize(Number(e.target.value))}
               className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-gray-200 accent-[#3F4660]"
             />
+            <p className="text-xs text-gray-500 mt-1">
+              De {QR_SIZE_MIN} à {QR_SIZE_MAX} px
+            </p>
           </div>
         </div>
 
@@ -87,11 +90,11 @@ export default function QrPrintCard({ qrDataUrl, accreditationUrl }: QrPrintCard
         <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-4 print:hidden">
           Aperçu d&apos;impression
         </p>
-        <div className="flex flex-col items-center justify-center min-h-[280px] gap-6 print:min-h-0 print:gap-4">
-          {/* Texte personnalisé — espace réservé, max 4 lignes à l'impression */}
+        <div className="flex flex-col items-center justify-center min-h-[320px] gap-8">
+          {/* Texte personnalisé — espace réservé, marge 20% avant le QR à l'impression */}
           {customText.trim() ? (
-            <div className="w-full max-w-md text-center print:max-h-[140px] print:overflow-hidden print:mb-2">
-              <p className="text-base md:text-lg text-gray-800 whitespace-pre-wrap break-words print:text-lg print:leading-snug">
+            <div className="w-full max-w-lg text-center print:max-h-[110px] print:overflow-hidden print:mb-16">
+              <p className="text-base md:text-lg text-gray-800 whitespace-pre-wrap break-words print:text-lg print:leading-relaxed">
                 {customText.trim()}
               </p>
             </div>
@@ -103,8 +106,8 @@ export default function QrPrintCard({ qrDataUrl, accreditationUrl }: QrPrintCard
             </div>
           )}
 
-          {/* QR code — taille réglable, jamais masqué par le texte */}
-          <div className="flex flex-col items-center gap-2 shrink-0" style={{ minHeight: qrSize }}>
+          {/* QR code — taille réglable, marge 6rem sous le texte à l'impression */}
+          <div className="flex flex-col items-center gap-2 shrink-0 print:mt-24" style={{ minHeight: qrSize }}>
             <img
               src={qrDataUrl}
               alt="QR code formulaire accréditation"

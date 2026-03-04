@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import QRCode from "qrcode";
 import { getBaseUrl } from "@/lib/base-url";
 import QrPrintCard from "@/components/admin/QrPrintCard";
@@ -7,7 +8,10 @@ export const metadata = {
 };
 
 export default async function AdminQrPage() {
-  const baseUrl = getBaseUrl();
+  const headersList = await headers();
+  const host = headersList.get("host") ?? "";
+  const proto = host.includes("localhost") ? "http" : (headersList.get("x-forwarded-proto") ?? "https");
+  const baseUrl = host ? `${proto}://${host}` : getBaseUrl();
   const accreditationUrl = `${baseUrl}/accreditation`;
 
   const qrDataUrl = await QRCode.toDataURL(accreditationUrl, {

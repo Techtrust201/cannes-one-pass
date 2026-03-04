@@ -128,18 +128,54 @@ export default function QrPrintCard({ qrDataUrl, accreditationUrl }: QrPrintCard
         </div>
       </div>
 
-      {/* Styles print : masquer header admin, zone édition, et en-têtes/pieds navigateur */}
+      {/* Styles print agressifs : TOUT masquer sauf [data-print-area] */}
       <style dangerouslySetInnerHTML={{ __html: `
         @page {
           size: auto;
           margin: 0;
         }
         @media print {
-          html, body { margin: 0 !important; padding: 0 !important; }
-          header { display: none !important; }
-          .print\\:hidden { display: none !important; }
-          main { padding: 0.5cm !important; max-width: none !important; }
-          [data-print-area] { box-shadow: none !important; }
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+          }
+          body > * {
+            display: none !important;
+          }
+          body > #__next,
+          body > div {
+            display: block !important;
+          }
+          body * {
+            visibility: hidden !important;
+          }
+          [data-print-area],
+          [data-print-area] * {
+            visibility: visible !important;
+          }
+          [data-print-area] {
+            position: fixed !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            padding: 1cm !important;
+            margin: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+            background: white !important;
+          }
+          [data-print-area] > p:first-child {
+            display: none !important;
+          }
+          header, nav, footer, .print\\:hidden {
+            display: none !important;
+            visibility: hidden !important;
+          }
         }
       `}} />
     </div>

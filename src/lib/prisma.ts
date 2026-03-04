@@ -13,7 +13,7 @@ const adapter = new PrismaPg({
   connectionString,
   max: 5, // Max 5 connexions par instance Vercel (compatible Neon free tier)
   idleTimeoutMillis: 10_000, // Ferme les connexions idle après 10s
-  connectionTimeoutMillis: 30_000, // 30s pour laisser Supabase free tier se reveiller apres inactivite
+  connectionTimeoutMillis: 30_000, // 30s pour laisser la BDD free tier se réveiller après inactivité
 });
 
 export const prisma =

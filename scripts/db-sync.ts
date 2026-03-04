@@ -2,17 +2,17 @@
  * Synchronisation bidirectionnelle entre bases de données PostgreSQL
  *
  * Usage:
- *   npm run db:sync                          # Supabase (primaire) → Neon (backup)
- *   npm run db:sync -- --direction=neon2supa # Neon → Supabase
- *   npm run db:sync -- --direction=supa2neon # Supabase → Neon (défaut)
- *   npm run db:sync -- --verify              # Vérification seule, pas de sync
- *   npm run db:sync -- --force               # Écrase la destination (TRUNCATE + COPY)
+ *   npm run db:sync                              # Primaire → Backup (défaut)
+ *   npm run db:sync -- --direction=backup2primary # Backup → Primaire
+ *   npm run db:sync -- --direction=primary2backup # Primaire → Backup (défaut)
+ *   npm run db:sync -- --verify                   # Vérification seule, pas de sync
+ *   npm run db:sync -- --force                    # Écrase la destination (TRUNCATE + COPY)
  *
- * Ce script :
- *  1. Compare les deux bases table par table
- *  2. Copie les lignes manquantes de la source vers la destination
- *  3. Réinitialise les séquences auto-increment
- *  4. Affiche un rapport de vérification
+ * Variables d'environnement :
+ *   DATABASE_URL        = base primaire
+ *   BACKUP_DATABASE_URL = base de backup
+ *
+ * Pour changer de base primaire, inverser les deux URLs.
  */
 import pg from "pg";
 import { config as dotenvConfig } from "dotenv";
@@ -21,13 +21,25 @@ import { resolve } from "path";
 dotenvConfig({ path: resolve(process.cwd(), ".env.local") });
 dotenvConfig({ path: resolve(process.cwd(), ".env") });
 
-const NEON_URL = process.env.NEON_DATABASE_URL
-  || "postgresql://palais_des_festivals_owner:npg_ZrkI5FS9HDay@ep-shy-voice-a2x54gid-pooler.eu-central-1.aws.neon.tech/palais_des_festivals?sslmode=require";
-const SUPABASE_URL = process.env.DATABASE_URL!;
+const PRIMARY_URL = process.env.DATABASE_URL;
+const BACKUP_URL = process.env.BACKUP_DATABASE_URL;
 
-if (!SUPABASE_URL) {
-  console.error("❌ DATABASE_URL non définie dans .env.local");
+if (!PRIMARY_URL) {
+  console.error("❌ DATABASE_URL non définie");
   process.exit(1);
+}
+if (!BACKUP_URL) {
+  console.error("❌ BACKUP_DATABASE_URL non définie");
+  process.exit(1);
+}
+
+function extractHost(url: string): string {
+  try {
+    const match = url.match(/@([^:/]+)/);
+    return match ? match[1] : url;
+  } catch {
+    return url;
+  }
 }
 
 const TABLES_ORDERED = [
@@ -62,15 +74,15 @@ function escapeLiteral(client: pg.Client, val: unknown): string {
 
 function parseArgs() {
   const args = process.argv.slice(2);
-  let direction: "supa2neon" | "neon2supa" = "supa2neon";
+  let direction: "primary2backup" | "backup2primary" = "primary2backup";
   let verify = false;
   let force = false;
 
   for (const arg of args) {
     if (arg === "--verify") verify = true;
     if (arg === "--force") force = true;
-    if (arg === "--direction=neon2supa") direction = "neon2supa";
-    if (arg === "--direction=supa2neon") direction = "supa2neon";
+    if (arg === "--direction=backup2primary") direction = "backup2primary";
+    if (arg === "--direction=primary2backup") direction = "primary2backup";
   }
 
   return { direction, verify, force };
@@ -97,10 +109,10 @@ async function resetSequence(client: pg.Client, table: string) {
 async function main() {
   const { direction, verify, force } = parseArgs();
 
-  const srcLabel = direction === "supa2neon" ? "Supabase" : "Neon";
-  const dstLabel = direction === "supa2neon" ? "Neon" : "Supabase";
-  const srcUrl = direction === "supa2neon" ? SUPABASE_URL : NEON_URL;
-  const dstUrl = direction === "supa2neon" ? NEON_URL : SUPABASE_URL;
+  const srcUrl = direction === "primary2backup" ? PRIMARY_URL : BACKUP_URL;
+  const dstUrl = direction === "primary2backup" ? BACKUP_URL : PRIMARY_URL;
+  const srcLabel = `Source (${extractHost(srcUrl!)})`;
+  const dstLabel = `Dest (${extractHost(dstUrl!)})`;
 
   console.log(`\n🔄 SYNCHRONISATION DB: ${srcLabel} → ${dstLabel}`);
   if (verify) console.log("   Mode: VÉRIFICATION SEULE");
@@ -112,24 +124,19 @@ async function main() {
 
   try {
     await src.connect();
-    console.log(`✅ Source (${srcLabel}) connectée`);
+    console.log(`✅ ${srcLabel} connectée`);
     await dst.connect();
-    console.log(`✅ Destination (${dstLabel}) connectée\n`);
+    console.log(`✅ ${dstLabel} connectée\n`);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`❌ Erreur de connexion: ${msg}`);
-    console.error(
-      "\n💡 Si Neon est bloqué (quota compute), attendez le 1er du mois pour la réinitialisation."
-    );
     process.exit(1);
   }
 
   let totalInserted = 0;
-  let totalSkipped = 0;
   let totalErrors = 0;
 
   try {
-    // Disable FK on destination
     try {
       await dst.query("SET session_replication_role = 'replica';");
     } catch {
@@ -155,7 +162,6 @@ async function main() {
       }
 
       if (srcCount === dstCount && !force) {
-        // Quick check: compare PKs
         const srcPKs = (
           await src.query(`SELECT "${table.pk}" FROM "${table.name}" ORDER BY "${table.pk}"`)
         ).rows.map((r) => String(r[table.pk]));
@@ -181,23 +187,19 @@ async function main() {
       }
 
       if (force) {
-        // TRUNCATE and re-copy everything
         await dst.query(`TRUNCATE "${table.name}" CASCADE`);
         console.log(`   🗑️  Table vidée`);
       }
 
-      // Get column info from source
       const cols = await getColumnNames(src, table.name);
       const colList = cols.map((c) => `"${c}"`).join(", ");
 
-      // Get existing PKs in destination
       const existingPKs = new Set(
         (
           await dst.query(`SELECT "${table.pk}" FROM "${table.name}"`)
         ).rows.map((r) => String(r[table.pk]))
       );
 
-      // Read all source rows
       const { rows: srcRows } = await src.query(
         `SELECT ${colList} FROM "${table.name}" ORDER BY "${table.pk}"`
       );
@@ -205,7 +207,6 @@ async function main() {
       let inserted = 0;
       const batchSize = 50;
 
-      // Filter rows not in destination
       const newRows = srcRows.filter(
         (r) => !existingPKs.has(String(r[table.pk]))
       );
@@ -232,7 +233,6 @@ async function main() {
           const msg = err instanceof Error ? err.message : String(err);
           console.error(`   ❌ Erreur batch: ${msg.substring(0, 120)}`);
           totalErrors++;
-          // Try row by row
           for (const row of batch) {
             try {
               const singleValues = `(${cols.map((c) => escapeLiteral(dst, row[c])).join(", ")})`;
@@ -255,12 +255,10 @@ async function main() {
       }
     }
 
-    // Re-enable FK
     try {
       await dst.query("SET session_replication_role = 'origin';");
     } catch { /* ignore */ }
 
-    // Final counts
     console.log("\n" + "=".repeat(60));
     console.log("📊 RÉSUMÉ");
     console.log("=".repeat(60));
@@ -270,14 +268,14 @@ async function main() {
       const sc = (await src.query(`SELECT count(*) as c FROM "${table.name}"`)).rows[0].c;
       const dc = (await dst.query(`SELECT count(*) as c FROM "${table.name}"`)).rows[0].c;
       const status = sc === dc ? "✅" : "⚠️ ";
-      console.log(`  ${status} "${table.name}": ${srcLabel}=${sc} | ${dstLabel}=${dc}`);
+      console.log(`  ${status} "${table.name}": Source=${sc} | Dest=${dc}`);
     }
 
     console.log(`\n  Lignes insérées: ${totalInserted}`);
     console.log(`  Erreurs: ${totalErrors}`);
 
     if (totalErrors === 0 && !verify) {
-      console.log(`\n🎉 Synchronisation ${srcLabel} → ${dstLabel} terminée !`);
+      console.log(`\n🎉 Synchronisation terminée !`);
     } else if (verify) {
       console.log(`\n📋 Vérification terminée.`);
     } else {

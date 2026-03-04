@@ -1,10 +1,14 @@
 /**
- * Backup complet Supabase → Neon
+ * Backup complet : Primaire → Backup
  *
- * TRUNCATE toutes les tables sur Neon puis recopie intégralement
- * depuis Supabase. Vérifie l'intégrité à la fin.
+ * TRUNCATE toutes les tables sur la base de backup puis recopie
+ * intégralement depuis la base primaire. Vérifie l'intégrité à la fin.
  *
  * Usage : npx tsx scripts/full-backup-neon.ts
+ *
+ * Variables d'environnement :
+ *   DATABASE_URL        = base primaire (source)
+ *   BACKUP_DATABASE_URL = base de backup (destination)
  */
 import pg from "pg";
 import { config as dotenvConfig } from "dotenv";
@@ -13,15 +17,29 @@ import { resolve } from "path";
 dotenvConfig({ path: resolve(process.cwd(), ".env.local") });
 dotenvConfig({ path: resolve(process.cwd(), ".env") });
 
-const SUPABASE_URL = process.env.DATABASE_URL;
-const NEON_URL =
-  process.env.NEON_DATABASE_URL ||
-  "postgresql://palais_des_festivals_owner:npg_ZrkI5FS9HDay@ep-shy-voice-a2x54gid-pooler.eu-central-1.aws.neon.tech/palais_des_festivals?sslmode=require";
+const PRIMARY_URL = process.env.DATABASE_URL;
+const BACKUP_URL = process.env.BACKUP_DATABASE_URL;
 
-if (!SUPABASE_URL) {
+if (!PRIMARY_URL) {
   console.error("❌ DATABASE_URL non définie");
   process.exit(1);
 }
+if (!BACKUP_URL) {
+  console.error("❌ BACKUP_DATABASE_URL non définie");
+  process.exit(1);
+}
+
+function extractHost(url: string): string {
+  try {
+    const match = url.match(/@([^:/]+)/);
+    return match ? match[1] : url;
+  } catch {
+    return url;
+  }
+}
+
+const srcLabel = extractHost(PRIMARY_URL);
+const dstLabel = extractHost(BACKUP_URL);
 
 const TABLES_ORDERED = [
   { name: "_prisma_migrations", pk: "id", serial: false },
@@ -80,18 +98,20 @@ async function main() {
   const startTime = Date.now();
 
   console.log("\n" + "=".repeat(60));
-  console.log("  BACKUP COMPLET SUPABASE → NEON");
+  console.log("  BACKUP COMPLET : Primaire → Backup");
   console.log("  " + new Date().toISOString());
+  console.log(`  Source  : ${srcLabel}`);
+  console.log(`  Dest    : ${dstLabel}`);
   console.log("=".repeat(60));
 
-  const src = new pg.Client({ connectionString: SUPABASE_URL });
-  const dst = new pg.Client({ connectionString: NEON_URL });
+  const src = new pg.Client({ connectionString: PRIMARY_URL });
+  const dst = new pg.Client({ connectionString: BACKUP_URL });
 
   try {
     await src.connect();
-    console.log("\n✅ Source (Supabase) connectée");
+    console.log(`\n✅ Source (${srcLabel}) connectée`);
     await dst.connect();
-    console.log("✅ Destination (Neon) connectée");
+    console.log(`✅ Destination (${dstLabel}) connectée`);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`\n❌ Erreur de connexion: ${msg}`);
@@ -109,12 +129,12 @@ async function main() {
     const dstCols = await getColumnNames(dst, table.name);
 
     if (srcCols.length === 0) {
-      console.log(`⚠️  "${table.name}" n'existe pas sur Supabase — ignorée`);
+      console.log(`⚠️  "${table.name}" n'existe pas sur la source — ignorée`);
       continue;
     }
     if (dstCols.length === 0) {
       console.error(
-        `❌ "${table.name}" n'existe pas sur Neon ! Lancez prisma migrate deploy d'abord.`
+        `❌ "${table.name}" n'existe pas sur la destination ! Lancez prisma migrate deploy d'abord.`
       );
       process.exit(1);
     }
@@ -122,7 +142,7 @@ async function main() {
     const missingSrc = srcCols.filter((c) => !dstCols.includes(c));
     if (missingSrc.length > 0) {
       console.error(
-        `❌ "${table.name}" : colonnes manquantes sur Neon : ${missingSrc.join(", ")}`
+        `❌ "${table.name}" : colonnes manquantes sur la destination : ${missingSrc.join(", ")}`
       );
       process.exit(1);
     }
@@ -152,7 +172,7 @@ async function main() {
 
   try {
     await dst.query("SET session_replication_role = 'replica';");
-    console.log("🔓 Contraintes FK désactivées sur Neon\n");
+    console.log("🔓 Contraintes FK désactivées sur la destination\n");
   } catch {
     console.log(
       "ℹ️  session_replication_role non supporté, on continue\n"
@@ -186,14 +206,11 @@ async function main() {
 
     console.log(`📋 "${table.name}" — ${srcCount} lignes à copier...`);
 
-    // TRUNCATE destination
     await dst.query(`TRUNCATE "${table.name}" CASCADE`);
 
-    // Récupérer les colonnes depuis la source
     const cols = await getColumnNames(src, table.name);
     const colList = cols.map((c) => `"${c}"`).join(", ");
 
-    // Lire toutes les lignes source
     const { rows: srcRows } = await src.query(
       `SELECT ${colList} FROM "${table.name}" ORDER BY "${table.pk}"`
     );
@@ -235,12 +252,10 @@ async function main() {
       }
     }
 
-    // Reset sequence si serial
     if (table.serial) {
       await resetSequence(dst, table.name);
     }
 
-    // Vérifier le count final sur Neon
     const dstCountRes = await dst.query(
       `SELECT count(*) as c FROM "${table.name}"`
     );
@@ -249,7 +264,7 @@ async function main() {
     const status = dstCount === srcCount ? "OK" : "MISMATCH";
     const icon = status === "OK" ? "✅" : "❌";
     console.log(
-      `   ${icon} ${inserted} insérées, Neon=${dstCount}/${srcCount} ${status !== "OK" ? "⚠️  DIFFÉRENCE !" : ""}`
+      `   ${icon} ${inserted} insérées, Backup=${dstCount}/${srcCount} ${status !== "OK" ? "⚠️  DIFFÉRENCE !" : ""}`
     );
 
     totalInserted += inserted;
@@ -264,10 +279,9 @@ async function main() {
     });
   }
 
-  // Réactiver FK
   try {
     await dst.query("SET session_replication_role = 'origin';");
-    console.log("\n🔒 Contraintes FK réactivées sur Neon");
+    console.log("\n🔒 Contraintes FK réactivées sur la destination");
   } catch {
     /* ignore */
   }
@@ -294,14 +308,13 @@ async function main() {
 
     if (sc !== dc) {
       console.log(
-        `❌ "${table.name}" : Supabase=${sc}, Neon=${dc} — DIFFÉRENCE DE ${sc - dc} LIGNES`
+        `❌ "${table.name}" : Source=${sc}, Backup=${dc} — DIFFÉRENCE DE ${sc - dc} LIGNES`
       );
       allGood = false;
     } else {
       console.log(`✅ "${table.name}" : ${sc} lignes — OK`);
     }
 
-    // Vérifier PKs si la table a des données
     if (sc > 0 && dc > 0) {
       const srcPKs = (
         await src.query(
@@ -319,7 +332,6 @@ async function main() {
         allGood = false;
       }
 
-      // Vérifier dernières PKs aussi
       const srcLastPKs = (
         await src.query(
           `SELECT "${table.pk}" FROM "${table.name}" ORDER BY "${table.pk}" DESC LIMIT 5`
@@ -350,7 +362,7 @@ async function main() {
     const se = parseInt(srcArchEvents.rows[0].c);
     const de = parseInt(dstArchEvents.rows[0].c);
     console.log(
-      `${se === de ? "✅" : "❌"} Events archivés : Supabase=${se}, Neon=${de}`
+      `${se === de ? "✅" : "❌"} Events archivés : Source=${se}, Backup=${de}`
     );
     if (se !== de) allGood = false;
   } catch {
@@ -367,7 +379,7 @@ async function main() {
     const sa = parseInt(srcArchAccred.rows[0].c);
     const da = parseInt(dstArchAccred.rows[0].c);
     console.log(
-      `${sa === da ? "✅" : "❌"} Accreditations archivées : Supabase=${sa}, Neon=${da}`
+      `${sa === da ? "✅" : "❌"} Accreditations archivées : Source=${sa}, Backup=${da}`
     );
     if (sa !== da) allGood = false;
   } catch {
@@ -389,7 +401,7 @@ async function main() {
       const dv = dstSeq.rows[0]?.v;
       if (sv && dv) {
         console.log(
-          `${sv === dv ? "✅" : "⚠️ "} "${table.name}" seq: Supabase=${sv}, Neon=${dv}`
+          `${sv === dv ? "✅" : "⚠️ "} "${table.name}" seq: Source=${sv}, Backup=${dv}`
         );
       }
     } catch {
@@ -409,7 +421,7 @@ async function main() {
   for (const r of tableReport) {
     const icon = r.status === "OK" ? "✅" : "❌";
     console.log(
-      `  ${icon} ${r.name.padEnd(35)} Supabase=${String(r.srcCount).padStart(5)} → Neon=${String(r.dstCount).padStart(5)}  (+${r.inserted})`
+      `  ${icon} ${r.name.padEnd(35)} Source=${String(r.srcCount).padStart(5)} → Backup=${String(r.dstCount).padStart(5)}  (+${r.inserted})`
     );
   }
 

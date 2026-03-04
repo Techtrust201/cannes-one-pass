@@ -52,18 +52,18 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const supabaseUrl = process.env.DATABASE_URL;
-  const neonUrl = process.env.NEON_DATABASE_URL;
+  const primaryUrl = process.env.DATABASE_URL;
+  const backupUrl = process.env.BACKUP_DATABASE_URL;
 
-  if (!supabaseUrl || !neonUrl) {
+  if (!primaryUrl || !backupUrl) {
     return Response.json(
-      { success: false, error: "DATABASE_URL ou NEON_DATABASE_URL manquant" },
+      { success: false, error: "DATABASE_URL ou BACKUP_DATABASE_URL manquant" },
       { status: 500 }
     );
   }
 
-  const src = new pg.Client({ connectionString: supabaseUrl });
-  const dst = new pg.Client({ connectionString: neonUrl });
+  const src = new pg.Client({ connectionString: primaryUrl });
+  const dst = new pg.Client({ connectionString: backupUrl });
 
   let totalInserted = 0;
   let totalErrors = 0;

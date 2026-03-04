@@ -2,6 +2,10 @@ import QRCode from "qrcode";
 import { getBaseUrl } from "@/lib/base-url";
 import QrPrintCard from "@/components/admin/QrPrintCard";
 
+export const metadata = {
+  title: "QR Accréditation",
+};
+
 export default async function AdminQrPage() {
   const baseUrl = getBaseUrl();
   const accreditationUrl = `${baseUrl}/accreditation`;

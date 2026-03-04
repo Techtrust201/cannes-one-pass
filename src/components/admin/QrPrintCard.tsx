@@ -9,9 +9,13 @@ interface QrPrintCardProps {
 }
 
 const MAX_TEXT_LENGTH = 400;
+const QR_SIZE_MIN = 180;
+const QR_SIZE_MAX = 400;
+const QR_SIZE_DEFAULT = 280;
 
 export default function QrPrintCard({ qrDataUrl, accreditationUrl }: QrPrintCardProps) {
   const [customText, setCustomText] = useState("");
+  const [qrSize, setQrSize] = useState(QR_SIZE_DEFAULT);
   const printRef = useRef<HTMLDivElement>(null);
 
   const handlePrint = () => {
@@ -43,7 +47,27 @@ export default function QrPrintCard({ qrDataUrl, accreditationUrl }: QrPrintCard
           <p className="text-xs text-gray-500 mt-1">
             {customText.length}/{MAX_TEXT_LENGTH} caractères — ce texte apparaîtra au-dessus du QR code à l&apos;impression
           </p>
+
+          <div className="mt-6 pt-6 border-t border-gray-100">
+            <label htmlFor="qr-size" className="block text-sm font-medium text-gray-700 mb-2">
+              Taille du QR code : {qrSize} px
+            </label>
+            <input
+              id="qr-size"
+              type="range"
+              min={QR_SIZE_MIN}
+              max={QR_SIZE_MAX}
+              step={20}
+              value={qrSize}
+              onChange={(e) => setQrSize(Number(e.target.value))}
+              className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-gray-200 accent-[#3F4660]"
+            />
+          </div>
         </div>
+
+        <p className="text-xs text-gray-500 print:hidden">
+          Astuce : dans la fenêtre d&apos;impression, décochez « En-têtes et pieds de page » pour masquer l&apos;URL et la date.
+        </p>
 
         <button
           onClick={handlePrint}
@@ -79,33 +103,39 @@ export default function QrPrintCard({ qrDataUrl, accreditationUrl }: QrPrintCard
             </div>
           )}
 
-          {/* QR code — toujours visible, taille fixe */}
-          <div className="flex flex-col items-center gap-2 shrink-0">
+          {/* QR code — taille réglable, jamais masqué par le texte */}
+          <div className="flex flex-col items-center gap-2 shrink-0" style={{ minHeight: qrSize }}>
             <img
               src={qrDataUrl}
               alt="QR code formulaire accréditation"
-              width={280}
-              height={280}
-              className="w-[200px] h-[200px] md:w-[280px] md:h-[280px] print:w-[220px] print:h-[220px]"
+              width={qrSize}
+              height={qrSize}
+              className="object-contain"
+              style={{ width: qrSize, height: qrSize }}
             />
             <p className="text-xs text-gray-500 print:text-sm">
               Scannez pour accéder au formulaire
             </p>
           </div>
 
-          {/* URL en petit — pour vérification */}
-          <p className="text-[10px] text-gray-400 truncate max-w-full px-4 print:text-xs">
+          {/* URL — visible à l'écran uniquement, masquée à l'impression */}
+          <p className="text-[10px] text-gray-400 truncate max-w-full px-4 print:hidden">
             {accreditationUrl}
           </p>
         </div>
       </div>
 
-      {/* Styles print : masquer header admin et zone édition */}
+      {/* Styles print : masquer header admin, zone édition, et en-têtes/pieds navigateur */}
       <style dangerouslySetInnerHTML={{ __html: `
+        @page {
+          size: auto;
+          margin: 0;
+        }
         @media print {
+          html, body { margin: 0 !important; padding: 0 !important; }
           header { display: none !important; }
           .print\\:hidden { display: none !important; }
-          main { padding: 0 !important; max-width: none !important; }
+          main { padding: 0.5cm !important; max-width: none !important; }
           [data-print-area] { box-shadow: none !important; }
         }
       `}} />

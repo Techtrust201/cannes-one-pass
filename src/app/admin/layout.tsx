@@ -70,6 +70,12 @@ export default function AdminLayout({
                 >
                   Logisticien
                 </Link>
+                <Link
+                  href="/admin/qr"
+                  className="text-white/80 hover:text-white text-sm transition-colors min-h-[44px] flex items-center"
+                >
+                  QR Code
+                </Link>
               </nav>
             </div>
 
@@ -118,6 +124,13 @@ export default function AdminLayout({
                 className="block text-white/80 hover:text-white hover:bg-white/10 text-sm transition-colors rounded-lg px-3 py-3 min-h-[44px]"
               >
                 Logisticien
+              </Link>
+              <Link
+                href="/admin/qr"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block text-white/80 hover:text-white hover:bg-white/10 text-sm transition-colors rounded-lg px-3 py-3 min-h-[44px]"
+              >
+                QR Code
               </Link>
               <button
                 onClick={async () => {

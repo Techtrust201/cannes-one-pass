@@ -31,6 +31,7 @@ const FEATURES: { key: Feature; label: string }[] = [
   { key: "BILAN_CARBONE", label: "Bilan carbone" },
   { key: "GESTION_ZONES", label: "Gestion zones" },
   { key: "GESTION_DATES", label: "Gestion dates" },
+  { key: "ARCHIVES", label: "Archivage" },
 ];
 
 const ROLES: { value: UserRole; label: string }[] = [

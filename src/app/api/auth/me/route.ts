@@ -47,6 +47,7 @@ export async function GET(request: NextRequest) {
       "BILAN_CARBONE",
       "GESTION_ZONES",
       "GESTION_DATES",
+      "ARCHIVES",
     ] as const;
 
     const permissions =

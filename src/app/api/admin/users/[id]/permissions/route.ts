@@ -38,6 +38,7 @@ export async function GET(
         "BILAN_CARBONE",
         "GESTION_ZONES",
         "GESTION_DATES",
+        "ARCHIVES",
       ];
       return NextResponse.json(
         allFeatures.map((feature) => ({

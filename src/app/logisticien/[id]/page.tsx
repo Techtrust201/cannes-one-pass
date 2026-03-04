@@ -1,4 +1,5 @@
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 import { notFound } from "next/navigation";
 import AccreditationFormCard from "@/components/logisticien/AccreditationFormCard";
 import MobileAccreditationEditCard from "@/components/logisticien/MobileAccreditationEditCard";

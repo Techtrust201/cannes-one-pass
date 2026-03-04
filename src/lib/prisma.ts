@@ -13,7 +13,7 @@ const adapter = new PrismaPg({
   connectionString,
   max: 5, // Max 5 connexions par instance Vercel (compatible Neon free tier)
   idleTimeoutMillis: 10_000, // Ferme les connexions idle après 10s
-  connectionTimeoutMillis: 10_000, // Timeout si connexion impossible en 10s (cold start Vercel + Supabase)
+  connectionTimeoutMillis: 30_000, // 30s pour laisser Supabase free tier se reveiller apres inactivite
 });
 
 export const prisma =
@@ -26,7 +26,7 @@ export const prisma =
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
-export async function withRetry<T>(fn: () => Promise<T>, retries = 1, delayMs = 1000): Promise<T> {
+export async function withRetry<T>(fn: () => Promise<T>, retries = 2, delayMs = 2000): Promise<T> {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       return await fn();

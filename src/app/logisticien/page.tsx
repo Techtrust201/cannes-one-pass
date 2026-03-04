@@ -1,3 +1,5 @@
+export const maxDuration = 60;
+
 import { readAccreditations } from "@/lib/store";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";

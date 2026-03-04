@@ -23,7 +23,6 @@ export function FilterBar({ searchParams, statusOptions, zoneOptions, vehicleTyp
   const [mobileSearch, setMobileSearch] = useState(q as string);
   const popoverRef = useRef<HTMLDivElement>(null);
 
-  const activeFiltersCount = [status, zone, from, to, q, vehicleType].filter(Boolean).length;
   const activeFiltersCountExcludingSearch = [status, zone, from, to, vehicleType].filter(Boolean).length;
 
   useEffect(() => {
@@ -117,33 +116,56 @@ export function FilterBar({ searchParams, statusOptions, zoneOptions, vehicleTyp
 
   return (
     <>
-      {/* ===== MOBILE/TABLETTE : Recherche sticky + bouton Filtres + drawer ===== */}
-      <div className="block md:hidden w-full sticky top-0 z-30 bg-gray-50 py-2">
+      {/* ===== Barre commune (mobile + desktop) : recherche sticky + bouton Filtres ===== */}
+      <div className="w-full sticky top-0 z-30 bg-gray-50 py-2 relative">
         <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              value={mobileSearch}
-              onChange={(e) => setMobileSearch(e.target.value)}
-              placeholder="ID, plaque, statut, date..."
-              className="w-full pl-10 pr-9 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm bg-white"
-            />
-            {mobileSearch && (
-              <button
-                type="button"
-                onClick={() => setMobileSearch("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
+          {/* Barre de recherche centrée */}
+          <div className="flex-1 min-w-0 flex justify-center">
+            <div className="relative w-full max-w-xl">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                value={mobileSearch}
+                onChange={(e) => setMobileSearch(e.target.value)}
+                placeholder="ID, plaque, statut, date..."
+                className="w-full pl-10 pr-9 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm bg-white"
+              />
+              {mobileSearch && (
+                <button
+                  type="button"
+                  onClick={() => setMobileSearch("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
           </div>
 
+          {/* Bouton Filtres mobile — ouvre le drawer */}
           <button
             type="button"
             onClick={() => setIsMobileFilterOpen(true)}
-            className={`relative flex items-center gap-1.5 px-3 py-2.5 font-semibold rounded-xl transition shadow-md text-sm min-h-[42px] shrink-0 ${
+            className={`md:hidden relative flex items-center gap-1.5 px-3 py-2.5 font-semibold rounded-xl transition shadow-md text-sm min-h-[42px] shrink-0 ${
+              activeFiltersCountExcludingSearch > 0
+                ? "bg-[#4F587E] text-white ring-2 ring-[#FFAA00] ring-offset-1"
+                : "bg-[#4F587E] text-white hover:bg-[#3B4252] active:bg-[#2d3347]"
+            }`}
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            <span>Filtres</span>
+            {activeFiltersCountExcludingSearch > 0 && (
+              <span className="inline-flex items-center justify-center w-5 h-5 bg-[#FFAA00] text-white rounded-full text-[10px] font-bold">
+                {activeFiltersCountExcludingSearch}
+              </span>
+            )}
+          </button>
+
+          {/* Bouton Filtres desktop — ouvre le popover */}
+          <button
+            type="button"
+            onClick={() => setIsFilterOpen((v) => !v)}
+            className={`hidden md:flex relative items-center gap-1.5 px-3 py-2.5 font-semibold rounded-xl transition shadow-md text-sm min-h-[42px] shrink-0 ${
               activeFiltersCountExcludingSearch > 0
                 ? "bg-[#4F587E] text-white ring-2 ring-[#FFAA00] ring-offset-1"
                 : "bg-[#4F587E] text-white hover:bg-[#3B4252] active:bg-[#2d3347]"
@@ -159,7 +181,7 @@ export function FilterBar({ searchParams, statusOptions, zoneOptions, vehicleTyp
           </button>
         </div>
 
-        {/* Chips de filtres actifs */}
+        {/* Chips de filtres actifs — mobile + desktop */}
         {activeChips.length > 0 && (
           <div className="flex items-center gap-1.5 mt-2 overflow-x-auto pb-1 scrollbar-none">
             {activeChips.map(({ key, value }) => (
@@ -355,30 +377,12 @@ export function FilterBar({ searchParams, statusOptions, zoneOptions, vehicleTyp
           </>,
           document.body
         )}
-      </div>
 
-      {/* ===== DESKTOP : bouton + popover flottant ===== */}
-      <div className="hidden md:block w-full mb-4 relative">
-        <div className="flex justify-end mb-2">
-          <button
-            type="button"
-            onClick={() => setIsFilterOpen((v) => !v)}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#4F587E] text-white font-semibold rounded-xl hover:bg-[#3B4252] focus:ring-2 focus:ring-blue-400 transition shadow-md text-sm"
-          >
-            <Filter className="w-4 h-4 text-blue-200" />
-            Filtrer
-            {activeFiltersCount > 0 && (
-              <span className="inline-flex items-center justify-center w-5 h-5 bg-white text-[#4F587E] rounded-full text-xs font-bold">
-                {activeFiltersCount}
-              </span>
-            )}
-          </button>
-        </div>
+        {/* ===== DESKTOP : popover (recherche dans la barre, pas ici) ===== */}
         {isFilterOpen && (
           <div
             ref={popoverRef}
-            className="absolute right-0 z-50 mt-1 bg-white rounded-2xl shadow-2xl border border-gray-200 p-6 animate-fade-in min-w-[520px]"
-            style={{ top: "50px" }}
+            className="hidden md:block absolute right-0 top-full z-50 mt-1 bg-white rounded-2xl shadow-2xl border border-gray-200 p-6 animate-fade-in min-w-[520px]"
           >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
@@ -397,16 +401,7 @@ export function FilterBar({ searchParams, statusOptions, zoneOptions, vehicleTyp
               </button>
             </div>
             <form method="get" className="space-y-5">
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="text"
-                  name="q"
-                  defaultValue={q}
-                  placeholder="Rechercher par ID, plaque, statut, date..."
-                  className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 placeholder-gray-400 bg-gray-50 text-base"
-                />
-              </div>
+              <input type="hidden" name="q" value={mobileSearch} />
               <div className="grid grid-cols-1 md:grid-cols-5 gap-5">
                 <div>
                   <label

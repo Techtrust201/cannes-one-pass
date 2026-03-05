@@ -112,7 +112,29 @@ export async function POST(req: NextRequest) {
             if (action === "SORTIE") updates.exitAt = now;
 
             // Zone effective pour les ZoneMovements et time slots
-            const effectiveZone = (action === "ATTENTE" && zone) ? zone : acc.currentZone;
+            let effectiveZone: string | null =
+              (action === "ATTENTE" && zone) ? zone : (acc.currentZone ?? null);
+
+            // Fallback : si currentZone est vide, récupérer la zone du dernier ZoneMovement ou VehicleTimeSlot
+            if (!effectiveZone && (action === "ENTREE" || action === "SORTIE")) {
+              const lastMovement = await tx.zoneMovement.findFirst({
+                where: { accreditationId: accId },
+                orderBy: { timestamp: "desc" },
+              });
+              if (lastMovement?.toZone) effectiveZone = lastMovement.toZone;
+              if (!effectiveZone && acc.vehicles.length > 0) {
+                const lastSlot = await tx.vehicleTimeSlot.findFirst({
+                  where: { accreditationId: accId, vehicleId: acc.vehicles[0].id },
+                  orderBy: { entryAt: "desc" },
+                });
+                if (lastSlot?.zone) effectiveZone = lastSlot.zone;
+              }
+            }
+
+            // ENTREE/SORTIE sans zone connue : refuser pour éviter d'écraser avec Palais
+            if ((action === "ENTREE" || action === "SORTIE") && !effectiveZone) {
+              throw new Error("Zone inconnue — vérifiez que l'accréditation a une zone assignée");
+            }
 
             await tx.accreditation.update({
               where: { id: accId, version: acc.version },

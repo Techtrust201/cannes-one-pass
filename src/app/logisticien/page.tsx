@@ -9,7 +9,7 @@ import { buildLink } from "@/lib/url";
 import AccreditationFormCard from "@/components/logisticien/AccreditationFormCard";
 import AutoRefreshOnSSE from "@/components/logisticien/AutoRefreshOnSSE";
 import type { SortDirection } from "@/components/ui/table";
-import { parseVehicleDate } from "@/lib/date-utils";
+import { parseVehicleDate, parseSearchDate, formatTimeForSearch } from "@/lib/date-utils";
 
 // --- Utilitaire de normalisation accent/casse/espaces/ligatures ---
 const slug = (s: unknown) =>
@@ -50,8 +50,23 @@ export default async function LogisticienDashboard(props: {
   let filtered = data;
   if (q && q.trim()) {
     const needle = slug(q);
-    filtered = filtered.filter((acc) =>
-      [
+    const queryAsDate = parseSearchDate(q);
+
+    filtered = filtered.filter((acc) => {
+      // Match par date exacte si la requête ressemble à une date (ex. 04/03/2026 ou 2026-03-04)
+      if (queryAsDate) {
+        const accDate = parseVehicleDate(acc.vehicles?.[0]?.date);
+        if (accDate && accDate.getTime() === queryAsDate.getTime()) return true;
+      }
+
+      // Champs texte + date brute + horaires (entrée/sortie) pour la recherche texte
+      const timeHay = [
+        ...formatTimeForSearch(acc.lastStepEntryAt),
+        ...formatTimeForSearch(acc.lastStepExitAt),
+        ...formatTimeForSearch(acc.entryAt),
+        ...formatTimeForSearch(acc.exitAt),
+      ];
+      const haystack = [
         acc.id,
         acc.status,
         acc.company,
@@ -59,11 +74,13 @@ export default async function LogisticienDashboard(props: {
         acc.event,
         acc.vehicles?.[0]?.date,
         ...(acc.vehicles?.flatMap((v) => [v.plate, v.trailerPlate]) ?? []),
+        ...timeHay,
       ]
         .filter(Boolean)
-        .map(slug)
-        .some((hay) => hay.includes(needle))
-    );
+        .map((x) => slug(String(x)));
+
+      return haystack.some((hay) => hay.includes(needle));
+    });
   }
 
   if (status && status !== "all") {

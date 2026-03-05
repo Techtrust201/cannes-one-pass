@@ -127,7 +127,7 @@ export function FilterBar({ searchParams, statusOptions, zoneOptions, vehicleTyp
                 type="text"
                 value={mobileSearch}
                 onChange={(e) => setMobileSearch(e.target.value)}
-                placeholder="ID, plaque, statut, date..."
+                placeholder="ID, plaque, statut, date (04/03/2026), heure (14:30)..."
                 className="w-full pl-10 pr-9 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm bg-white"
               />
               {mobileSearch && (
@@ -241,7 +241,7 @@ export function FilterBar({ searchParams, statusOptions, zoneOptions, vehicleTyp
               <form onSubmit={handleMobileFilterSubmit} className="flex flex-col flex-1 min-h-0">
                 {/* Scrollable filter fields */}
                 <div className="flex-1 overflow-y-auto px-4 pt-2 pb-3 flex flex-col gap-3">
-                  {/* Recherche */}
+                  {/* Recherche (synchronisé avec la barre sticky) */}
                   <div className="flex flex-col gap-1.5">
                     <label htmlFor="q-mobile" className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
                       Recherche
@@ -252,8 +252,9 @@ export function FilterBar({ searchParams, statusOptions, zoneOptions, vehicleTyp
                         id="q-mobile"
                         type="text"
                         name="q"
-                        defaultValue={q as string}
-                        placeholder="ID, plaque, statut, date..."
+                        value={mobileSearch}
+                        onChange={(e) => setMobileSearch(e.target.value)}
+                        placeholder="ID, plaque, statut, date (04/03/2026), heure (14:30)..."
                         className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm bg-gray-50 focus:bg-white transition"
                       />
                     </div>

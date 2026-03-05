@@ -8,7 +8,7 @@ import { X, ChevronsLeft, ChevronsRight } from "lucide-react";
 import MobileNavbar from "@/components/logisticien/MobileNavbar";
 import { usePermissions } from "@/hooks/usePermissions";
 import { authClient } from "@/lib/auth-client";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";
 
@@ -22,6 +22,7 @@ export default function LogisticienLayout({
   const { user, hasPermission, isSuperAdmin, loading } =
     usePermissions();
   const router = useRouter();
+  const pathname = usePathname();
 
   // Restaurer l'état collapsed depuis localStorage
   useEffect(() => {
@@ -45,6 +46,11 @@ export default function LogisticienLayout({
         <div className="animate-spin h-8 w-8 border-4 border-[#3F4660] border-t-transparent rounded-full" />
       </div>
     );
+  }
+
+  if (!user) {
+    router.replace(`/login?callbackUrl=${encodeURIComponent(pathname || "/logisticien")}`);
+    return null;
   }
 
   return (

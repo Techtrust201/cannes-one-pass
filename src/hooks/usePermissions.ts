@@ -29,7 +29,7 @@ export function usePermissions() {
       const response = await fetch("/api/auth/me");
 
       if (!response.ok) {
-        if (response.status === 401) {
+        if (response.status === 401 || response.status === 403) {
           setUser(null);
           return;
         }
@@ -39,6 +39,7 @@ export function usePermissions() {
       const data = await response.json();
       setUser(data);
     } catch (err) {
+      setUser(null);
       setError(
         err instanceof Error ? err.message : "Erreur inconnue"
       );

@@ -6,9 +6,16 @@ import { writeHistoryDirect } from "@/lib/history-server";
 
 const VALID_STATUSES = ["ATTENTE", "ENTREE", "SORTIE", "NOUVEAU", "REFUS", "ABSENT"];
 
+const VALID_BULK_TRANSITIONS: Record<string, string[]> = {
+  ATTENTE: ["NOUVEAU"],
+  ENTREE:  ["ATTENTE"],
+  SORTIE:  ["ENTREE"],
+  REFUS:   ["NOUVEAU"],
+};
+
 /**
  * POST /api/accreditations/bulk — Actions groupées sur plusieurs accréditations
- * Body: { ids: string[], action: "ATTENTE" | "ENTREE" | "SORTIE" | "ARCHIVE" | "UNARCHIVE" }
+ * Body: { ids: string[], action: string, zone?: string }
  */
 export async function POST(req: NextRequest) {
   let currentUserId: string | undefined;
@@ -23,7 +30,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { ids, action } = body;
+  const { ids, action, zone } = body;
 
   if (!Array.isArray(ids) || ids.length === 0) {
     return Response.json({ error: "Le champ 'ids' est requis et ne doit pas être vide" }, { status: 400 });
@@ -36,6 +43,14 @@ export async function POST(req: NextRequest) {
   const isArchiveAction = action === "ARCHIVE" || action === "UNARCHIVE";
   if (!isArchiveAction && !VALID_STATUSES.includes(action)) {
     return Response.json({ error: "Action invalide" }, { status: 400 });
+  }
+
+  // Valider la zone si fournie (ex: validation groupée NOUVEAU -> ATTENTE avec zone)
+  if (zone) {
+    const validZone = await prisma.zoneConfig.findUnique({ where: { zone } });
+    if (!validZone || !validZone.isActive) {
+      return Response.json({ error: "Zone invalide" }, { status: 400 });
+    }
   }
 
   // Vérifier la permission ARCHIVES pour les actions d'archivage
@@ -60,6 +75,14 @@ export async function POST(req: NextRequest) {
           });
           if (!acc) throw new Error("NOT_FOUND");
 
+          // Valider la transition de statut
+          if (!isArchiveAction) {
+            const allowedFrom = VALID_BULK_TRANSITIONS[action];
+            if (allowedFrom && !allowedFrom.includes(acc.status)) {
+              throw new Error(`INVALID_TRANSITION:${acc.status}->${action}`);
+            }
+          }
+
           if (isArchiveAction) {
             const isArchive = action === "ARCHIVE";
             await tx.accreditation.update({
@@ -79,13 +102,53 @@ export async function POST(req: NextRequest) {
               status: action,
               version: acc.version + 1,
             };
+
+            // Pour ATTENTE (validation de NOUVEAU) : assigner la zone si fournie
+            if (action === "ATTENTE" && zone) {
+              updates.currentZone = zone;
+            }
+
             if (action === "ENTREE" && !acc.entryAt) updates.entryAt = now;
             if (action === "SORTIE") updates.exitAt = now;
+
+            // Zone effective pour les ZoneMovements et time slots
+            const effectiveZone = (action === "ATTENTE" && zone) ? zone : acc.currentZone;
 
             await tx.accreditation.update({
               where: { id: accId, version: acc.version },
               data: updates,
             });
+
+            // Créer les ZoneMovements (aligné sur le PATCH individuel)
+            if (action !== acc.status && effectiveZone) {
+              if (action === "ATTENTE" && zone && !acc.currentZone) {
+                await tx.zoneMovement.create({
+                  data: {
+                    accreditationId: accId,
+                    toZone: zone,
+                    action: "ENTRY",
+                    fromZone: null,
+                  },
+                });
+              } else if (action === "ENTREE") {
+                await tx.zoneMovement.create({
+                  data: {
+                    accreditationId: accId,
+                    toZone: effectiveZone,
+                    action: "ENTRY",
+                  },
+                });
+              } else if (action === "SORTIE") {
+                await tx.zoneMovement.create({
+                  data: {
+                    accreditationId: accId,
+                    fromZone: effectiveZone,
+                    toZone: effectiveZone,
+                    action: "EXIT",
+                  },
+                });
+              }
+            }
 
             // Gérer les time slots (historique des créneaux) pour ENTREE/SORTIE
             if (action !== acc.status && acc.vehicles.length > 0) {
@@ -119,7 +182,7 @@ export async function POST(req: NextRequest) {
                       vehicleId: targetVehicle.id,
                       date: today,
                       stepNumber: nextStep,
-                      zone: "PALAIS_DES_FESTIVALS",
+                      zone: effectiveZone || "PALAIS_DES_FESTIVALS",
                       entryAt: now,
                     },
                   });
@@ -147,6 +210,38 @@ export async function POST(req: NextRequest) {
               createStatusChangeEntry(accId, acc.status, action, currentUserId),
               tx
             );
+
+            // Historique de zone si applicable
+            if (action !== acc.status && effectiveZone && (action === "ENTREE" || action === "SORTIE")) {
+              await tx.accreditationHistory.create({
+                data: {
+                  accreditationId: accId,
+                  action: "ZONE_CHANGED",
+                  field: "currentZone",
+                  oldValue: effectiveZone,
+                  newValue: effectiveZone,
+                  description: action === "ENTREE"
+                    ? `Entrée en zone (action groupée)`
+                    : `Sortie de zone (action groupée)`,
+                  userId: currentUserId,
+                },
+              });
+            }
+
+            // Historique d'assignation de zone lors de la validation (NOUVEAU -> ATTENTE)
+            if (action === "ATTENTE" && zone) {
+              await tx.accreditationHistory.create({
+                data: {
+                  accreditationId: accId,
+                  action: "ZONE_CHANGED",
+                  field: "currentZone",
+                  oldValue: acc.currentZone ?? "",
+                  newValue: zone,
+                  description: `Zone assignée : ${zone} (validation groupée)`,
+                  userId: currentUserId,
+                },
+              });
+            }
           }
         });
         results.push({ id: accId, success: true });

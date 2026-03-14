@@ -30,7 +30,10 @@ export async function GET(req: NextRequest) {
       ? {
           isArchived: false,
           startDate: { lte: new Date(now.getTime() + 365 * 24 * 3600000) },
-          endDate: { gte: now },
+          OR: [
+            { teardownEndDate: { not: null, gte: now } },
+            { teardownEndDate: null, endDate: { gte: now } },
+          ],
         }
       : {};
 
@@ -44,7 +47,7 @@ export async function GET(req: NextRequest) {
       const visible = events.filter((e) => {
         const activation = new Date(e.startDate);
         activation.setDate(activation.getDate() - e.activationDays);
-        return now >= activation && now <= e.endDate;
+        return now >= activation && now <= (e.teardownEndDate ?? e.endDate);
       });
       return Response.json(visible);
     }

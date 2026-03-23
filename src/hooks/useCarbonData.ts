@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { DateRange } from "@/app/logisticien/carbon/page";
 
 export interface CarbonDataEntry {
@@ -72,8 +72,9 @@ export function useCarbonData(
   const [error, setError] = useState<string | null>(null);
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
   const [isSearching, setIsSearching] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  // 🔧 FIX: Debounce pour la recherche (500ms)
+  // Debounce pour la recherche (500ms)
   useEffect(() => {
     setIsSearching(true);
     const timer = setTimeout(() => {
@@ -88,6 +89,10 @@ export function useCarbonData(
   }, [searchQuery]);
 
   const fetchData = async () => {
+    // Annuler la requête précédente si elle est en cours
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
     try {
       setLoading(true);
       setError(null);
@@ -106,7 +111,10 @@ export function useCarbonData(
         headers: {
           "Content-Type": "application/json",
         },
+        signal,
       });
+
+      if (signal.aborted) return;
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -129,6 +137,7 @@ export function useCarbonData(
 
       setData(result.data);
     } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
       console.error("Erreur useCarbonData:", err);
       setError(err instanceof Error ? err.message : "Erreur inconnue");
 
@@ -146,7 +155,7 @@ export function useCarbonData(
         total: 0,
       });
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
   };
 

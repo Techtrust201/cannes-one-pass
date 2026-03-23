@@ -155,29 +155,28 @@ function mapCountryToFrench(country: string | null, fallbackCity?: string): stri
   return fallbackCity || "Origine non renseignée";
 }
 
-// ── Distance depuis une ville (base locale prioritaire) ──────────────
-async function getDistanceFromCity(
-  cityName: string,
-  apiOrigin: string
-): Promise<number> {
-  // 1. Base locale (< 1ms)
-  const match = findCity(cityName);
-  if (match) return match.d;
+/** Distance depuis une ville — base locale uniquement (pas de fetch, évite timeout) */
+function getDistanceFromCitySync(cityName: string): number {
+  const match = findCity(cityName?.trim() || "");
+  return match ? match.d : 0;
+}
 
-  // 2. Fallback API (rare)
-  try {
-    const resp = await fetch(
-      `${apiOrigin}/api/distance?city=${encodeURIComponent(cityName)}`
-    );
-    if (resp.ok) {
-      const data = await resp.json();
-      if (data.distance > 0) return data.distance;
+/** Construit un cache ville → km pour toutes les villes uniques des véhicules */
+function buildCityDistanceCache(
+  accreditations: Array<{ vehicles: Array<{ city: string }> }>
+): Map<string, number> {
+  const cache = new Map<string, number>();
+  const seen = new Set<string>();
+  for (const acc of accreditations) {
+    for (const v of acc.vehicles) {
+      const city = (v.city || "").trim();
+      if (city && !seen.has(city)) {
+        seen.add(city);
+        cache.set(city, getDistanceFromCitySync(city));
+      }
     }
-  } catch {
-    // Ignore
   }
-
-  return 0;
+  return cache;
 }
 
 // ── Parsing date (supporte ISO YYYY-MM-DD et dd/mm/yyyy) ────────────
@@ -248,13 +247,16 @@ export async function GET(req: NextRequest) {
     // Charger les coordonnées des zones pour les calculs inter-zones
     const zoneCoords = await getZoneCoords();
 
+    // Cache distance par ville (findCity uniquement, pas de fetch)
+    const cityDistanceCache = buildCityDistanceCache(accreditations);
+
     const carbonData: CarbonDataEntry[] = [];
 
     for (const acc of accreditations) {
       for (const vehicle of acc.vehicles) {
         const vehicleType = mapVehicleType(vehicle.vehicleType || null, vehicle.size);
 
-        // Distance : estimatedKms > kms (texte) > base locale > API
+        // Distance : estimatedKms > kms (texte) > cache base locale
         let km = 0;
         if (vehicle.estimatedKms && vehicle.estimatedKms > 0) {
           km = vehicle.estimatedKms;
@@ -263,7 +265,8 @@ export async function GET(req: NextRequest) {
           if (parsed > 0) km = parsed;
         }
         if (km === 0 && vehicle.city) {
-          km = await getDistanceFromCity(vehicle.city, req.nextUrl.origin);
+          const cityKey = vehicle.city.trim();
+          km = cityDistanceCache.get(cityKey) ?? getDistanceFromCitySync(vehicle.city);
         }
 
         // ── Calcul inter-zones pour les allers-retours (time slots) ──

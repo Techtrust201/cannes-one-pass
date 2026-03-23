@@ -1,15 +1,17 @@
 "use client";
 
-import { Search, Download, RefreshCw } from "lucide-react";
+import { Search, Download, RefreshCw, ChevronDown } from "lucide-react";
 import type { DateRange } from "@/app/logisticien/carbon/page";
-import { useMemo } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 
 interface CarbonHeaderProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   dateRange: DateRange;
   onDateRangeChange: (range: DateRange) => void;
-  onExport: () => void;
+  onExportPdf: () => void;
+  onExportCsvDetail: () => void;
+  onExportCsvSimplified: () => void;
   loading?: boolean;
   isSearching?: boolean;
   onRefresh?: () => void;
@@ -64,12 +66,26 @@ export default function CarbonHeader({
   onSearchChange,
   dateRange,
   onDateRangeChange,
-  onExport,
+  onExportPdf,
+  onExportCsvDetail,
+  onExportCsvSimplified,
   loading = false,
   isSearching = false,
   onRefresh,
 }: CarbonHeaderProps) {
   const presets = useMemo(() => buildPresets(), []);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setExportMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Détermine quel preset est actif (comparaison exacte start+end)
   const activePreset = useMemo(() => {
@@ -81,8 +97,29 @@ export default function CarbonHeader({
   return (
     <div className="bg-white border-b border-gray-200 px-3 md:px-6 py-3 md:py-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4">
-        {/* Recherche */}
-        <div className="relative w-full md:flex-shrink-0 md:w-auto">
+        {/* Recherche + Presets événement */}
+        <div className="flex flex-col gap-2 w-full md:w-auto md:flex-shrink-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-gray-500 shrink-0">Événement :</span>
+            {(["", "MIPIM", "IT & HRM"] as const).map((preset) => {
+              const isActive = searchQuery === preset;
+              const label = preset || "Tous";
+              return (
+                <button
+                  key={preset || "all"}
+                  onClick={() => onSearchChange(preset)}
+                  className={`px-2.5 py-1 text-xs rounded font-medium transition-colors ${
+                    isActive
+                      ? "bg-emerald-600 text-white"
+                      : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          <div className="relative w-full md:w-80">
           <Search
             className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors ${
               isSearching ? "text-blue-500 animate-pulse" : "text-gray-400"
@@ -93,7 +130,7 @@ export default function CarbonHeader({
             placeholder="Rechercher entreprise, événement, plaque..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className={`pl-10 pr-10 py-2.5 border-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full md:w-80 bg-gray-50 focus:bg-white transition-all ${
+            className={`pl-10 pr-10 py-2.5 border-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full bg-gray-50 focus:bg-white transition-all ${
               isSearching ? "border-blue-300" : "border-gray-300"
             }`}
           />
@@ -111,6 +148,7 @@ export default function CarbonHeader({
               <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent" />
             </div>
           )}
+          </div>
         </div>
 
         {/* Dates */}
@@ -177,14 +215,48 @@ export default function CarbonHeader({
               />
             </button>
           )}
-          <button
-            onClick={onExport}
-            disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 min-h-[40px]"
-          >
-            <Download className="w-4 h-4" />
-            <span className="hidden sm:inline">Exporter</span>
-          </button>
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setExportMenuOpen(!exportMenuOpen)}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 min-h-[40px]"
+            >
+              <Download className="w-4 h-4" />
+              <span className="hidden sm:inline">Exporter</span>
+              <ChevronDown className="w-4 h-4" />
+            </button>
+            {exportMenuOpen && (
+              <div className="absolute right-0 mt-1 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                <button
+                  onClick={() => {
+                    onExportPdf();
+                    setExportMenuOpen(false);
+                  }}
+                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                >
+                  Exporter en PDF
+                </button>
+                <button
+                  onClick={() => {
+                    onExportCsvDetail();
+                    setExportMenuOpen(false);
+                  }}
+                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                >
+                  Exporter en CSV détaillé
+                </button>
+                <button
+                  onClick={() => {
+                    onExportCsvSimplified();
+                    setExportMenuOpen(false);
+                  }}
+                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                >
+                  Exporter en CSV simplifié + PNG
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

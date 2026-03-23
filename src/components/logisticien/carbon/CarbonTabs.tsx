@@ -7,7 +7,7 @@ interface CarbonTabsProps {
   onTabChange: (tab: CarbonTab) => void;
 }
 
-const tabs: CarbonTab[] = ["Tableau", "Camembert", "Bâtons", "Liste"];
+const tabs: CarbonTab[] = ["Tableau", "Camembert", "Bâtons", "Liste", "Par événement"];
 
 export default function CarbonTabs({
   activeTab,

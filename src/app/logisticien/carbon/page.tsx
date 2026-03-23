@@ -8,6 +8,7 @@ import TableauTab from "@/components/logisticien/carbon/TableauTab";
 import CamembertTab from "@/components/logisticien/carbon/CamembertTab";
 import BatonsTab from "@/components/logisticien/carbon/BatonsTab";
 import ListeTab from "@/components/logisticien/carbon/ListeTab";
+import EventDetailTab from "@/components/logisticien/carbon/EventDetailTab";
 import { useCarbonData } from "@/hooks/useCarbonData";
 
 export type DateRange = {
@@ -15,7 +16,7 @@ export type DateRange = {
   end: string;
 };
 
-export type CarbonTab = "Tableau" | "Camembert" | "Bâtons" | "Liste";
+export type CarbonTab = "Tableau" | "Camembert" | "Bâtons" | "Liste" | "Par événement";
 
 function getDefaultDateRange(): DateRange {
   const today = new Date();
@@ -39,12 +40,74 @@ export default function CarbonPage() {
     searchQuery
   );
 
-  const handleExport = async () => {
+  const handleExportPdf = async () => {
     try {
       const { exportToPDF } = await import("@/lib/carbonExport");
       await exportToPDF(activeTab);
     } catch (error) {
-      console.error("Erreur lors de l'export:", error);
+      console.error("Erreur lors de l'export PDF:", error);
+      alert("Erreur lors de l'export. Veuillez réessayer.");
+    }
+  };
+
+  const handleExportCsvDetail = async () => {
+    if (!data?.detailed) {
+      alert("Aucune donnée à exporter.");
+      return;
+    }
+    try {
+      const { exportDetailedCsv } = await import("@/lib/carbonCsvExport");
+      exportDetailedCsv(data.detailed, searchQuery);
+    } catch (error) {
+      console.error("Erreur export CSV détaillé:", error);
+      alert("Erreur lors de l'export CSV.");
+    }
+  };
+
+  const handleExportCsvSimplified = async () => {
+    try {
+      if (!data) {
+        alert("Aucune donnée à exporter.");
+        return;
+      }
+      const {
+        exportSimplifiedCsv,
+        exportChartAsPng,
+      } = await import("@/lib/carbonCsvExport");
+
+      const bySociete: Record<
+        string,
+        { nbVehicules: number; kgCO2eq: number; gabarits: Set<string> }
+      > = {};
+      for (const e of data.detailed) {
+        const key = e.entreprise || "Non renseigné";
+        if (!bySociete[key]) {
+          bySociete[key] = { nbVehicules: 0, kgCO2eq: 0, gabarits: new Set() };
+        }
+        bySociete[key].nbVehicules += 1;
+        bySociete[key].kgCO2eq += e.kgCO2eq;
+        bySociete[key].gabarits.add(e.type);
+      }
+      const societeRows = Object.entries(bySociete).map(([societe, v]) => ({
+        societe,
+        nbVehicules: v.nbVehicules,
+        gabarits: Array.from(v.gabarits).sort().join(", "),
+        kgCO2eq: v.kgCO2eq,
+      }));
+
+      const totalKm = data.detailed.reduce((s, e) => s + e.km, 0);
+      const totalKgCO2eq = data.detailed.reduce((s, e) => s + e.kgCO2eq, 0);
+
+      exportSimplifiedCsv(
+        data.aggregations.type,
+        societeRows,
+        data.total,
+        totalKm,
+        totalKgCO2eq
+      );
+      await exportChartAsPng();
+    } catch (error) {
+      console.error("Erreur export CSV simplifié:", error);
       alert("Erreur lors de l'export. Veuillez réessayer.");
     }
   };
@@ -97,6 +160,8 @@ export default function CarbonPage() {
         return <BatonsTab {...commonProps} />;
       case "Liste":
         return <ListeTab {...commonProps} />;
+      case "Par événement":
+        return <EventDetailTab {...commonProps} />;
       default:
         return <TableauTab {...commonProps} />;
     }
@@ -109,7 +174,9 @@ export default function CarbonPage() {
         onSearchChange={setSearchQuery}
         dateRange={dateRange}
         onDateRangeChange={setDateRange}
-        onExport={handleExport}
+        onExportPdf={handleExportPdf}
+        onExportCsvDetail={handleExportCsvDetail}
+        onExportCsvSimplified={handleExportCsvSimplified}
         loading={loading}
         isSearching={isSearching}
         onRefresh={refetch}

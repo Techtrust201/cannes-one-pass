@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { searchCities, type CitySearchResult } from "@/lib/city-search";
+import { searchCities, findCity, type CitySearchResult } from "@/lib/city-search";
 
 interface Props {
   value: string;
@@ -177,6 +177,27 @@ export default function CityAutocomplete({
         className={className}
         onFocus={() => {
           if (value && allResults.length > 0) setOpen(true);
+        }}
+        onBlur={() => {
+          // Si l'utilisateur a tapé du texte sans sélectionner une suggestion,
+          // tenter un findCity pour auto-remplir country/estimatedKms
+          setTimeout(() => {
+            if (!value || !onCitySelect) return;
+            const trimmed = value.trim();
+            // Extraire la partie ville si format "Ville, Pays"
+            const commaIdx = trimmed.indexOf(", ");
+            const cityPart = commaIdx > 0 ? trimmed.substring(0, commaIdx) : trimmed;
+            const match = findCity(cityPart) || findCity(trimmed);
+            if (match) {
+              onCitySelect({
+                name: match.n,
+                country: match.p,
+                distance: match.d,
+                lat: match.lat,
+                lng: match.lng,
+              });
+            }
+          }, 200);
         }}
         autoComplete="off"
         role="combobox"

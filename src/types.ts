@@ -43,6 +43,10 @@ export interface ZoneMovement {
 // --- Types de véhicules ---
 export type VehicleType = "PORTEUR" | "PORTEUR_ARTICULE" | "SEMI_REMORQUE";
 
+export type CountryRegion =
+  | "FRANCE" | "ESPAGNE" | "ITALIE" | "ALLEMAGNE" | "BELGIQUE"
+  | "SUISSE" | "ROYAUME_UNI" | "PAYS_BAS" | "PORTUGAL" | "AUTRE";
+
 export interface Vehicle {
   id: number;
   plate: string;
@@ -55,6 +59,8 @@ export interface Vehicle {
   unloading: ("lat" | "rear")[];
   kms?: string;
   vehicleType?: VehicleType;
+  country?: CountryRegion;
+  estimatedKms?: number;
   trailerPlate?: string;
   emptyWeight?: number;
   maxWeight?: number;

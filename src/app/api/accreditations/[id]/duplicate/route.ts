@@ -66,6 +66,8 @@ export async function POST(
             unloading: JSON.stringify(v.unloading),
             kms: (v.kms as string) ?? "",
             vehicleType: v.vehicleType ?? null,
+            country: v.country ?? null,
+            estimatedKms: v.estimatedKms != null ? Number(v.estimatedKms) : 0,
             trailerPlate: v.trailerPlate ?? null,
             emptyWeight: v.emptyWeight != null ? Number(v.emptyWeight) : null,
             maxWeight: v.maxWeight != null ? Number(v.maxWeight) : null,

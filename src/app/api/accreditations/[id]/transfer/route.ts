@@ -1,7 +1,11 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 
-/* POST - Transférer une accréditation vers une autre zone */
+/* POST - Transférer une accréditation vers une autre zone
+ * Crée aussi les TimeSlots nécessaires pour tracer le déplacement dans le bilan carbone :
+ *   1. Clôture le TimeSlot ouvert dans la zone de départ (exitAt)
+ *   2. Crée un nouveau TimeSlot dans la zone d'arrivée (entryAt)
+ */
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -51,6 +55,55 @@ export async function POST(
           action: "TRANSFER",
         },
       });
+
+      // 5b. TimeSlots pour le bilan carbone — tracer le déplacement zone→zone
+      const accWithVehicles = await tx.accreditation.findUnique({
+        where: { id },
+        include: { vehicles: true },
+      });
+      if (accWithVehicles && accWithVehicles.vehicles.length > 0) {
+        const targetVehicle = accWithVehicles.vehicles[0];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const now = new Date();
+
+        // Clôturer le TimeSlot ouvert dans l'ancienne zone
+        const openSlot = await tx.vehicleTimeSlot.findFirst({
+          where: {
+            accreditationId: id,
+            vehicleId: targetVehicle.id,
+            exitAt: null,
+          },
+          orderBy: { stepNumber: "desc" },
+        });
+        if (openSlot) {
+          await tx.vehicleTimeSlot.update({
+            where: { id: openSlot.id },
+            data: { exitAt: now },
+          });
+        }
+
+        // Créer un nouveau TimeSlot dans la zone d'arrivée
+        const lastSlot = await tx.vehicleTimeSlot.findFirst({
+          where: {
+            accreditationId: id,
+            vehicleId: targetVehicle.id,
+            date: today,
+          },
+          orderBy: { stepNumber: "desc" },
+        });
+        const nextStep = lastSlot ? lastSlot.stepNumber + 1 : 1;
+        await tx.vehicleTimeSlot.create({
+          data: {
+            accreditationId: id,
+            vehicleId: targetVehicle.id,
+            date: today,
+            stepNumber: nextStep,
+            zone: targetZone,
+            entryAt: now,
+          },
+        });
+      }
 
       // 6. Mettre à jour l'accréditation avec incrémentation de version
       await tx.accreditation.update({

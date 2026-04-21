@@ -37,7 +37,9 @@ async function getZoneCoords(): Promise<Record<string, ZoneCoords>> {
   if (zoneCoordCache && now - zoneCoordCacheTime < ZONE_CACHE_TTL) {
     return zoneCoordCache;
   }
-  const zones = await prisma.zoneConfig.findMany({ where: { isActive: true } });
+  // Charger TOUTES les zones (actives + inactives) pour le bilan carbone historique.
+  // Une zone désactivée peut encore avoir des timeSlots passés qu'il faut comptabiliser.
+  const zones = await prisma.zoneConfig.findMany();
   const coords: Record<string, ZoneCoords> = {};
   for (const z of zones) {
     coords[z.zone] = { lat: z.latitude, lng: z.longitude };
@@ -193,6 +195,7 @@ function resolveCity(rawCity: string): ResolvedCity {
     "Pegomas": "Pégomas", "PUGET": "Puget-sur-Argens",
     "CARROS": "Carros", "carros": "Carros",
     "Cannes": "Cannes", "Brignais": "Brignais",
+    "BFAOUBCLIN": "Dublin",
     "Varsovie": "Varsovie", "Pologne": "Pologne",
     "République Tchéque": "République tchèque",
     "Royaume-Unis": "Royaume-Uni",
@@ -312,6 +315,10 @@ function resolveCity(rawCity: string): ResolvedCity {
     // Pays-Bas
     "meppel": { country: "Pays-Bas", distance: 1280 },
     "boxtel": { country: "Pays-Bas", distance: 1150 },
+    // France — divers
+    "poissy": { country: "France", distance: 880 },
+    // Belgique — divers
+    "andenne": { country: "Belgique", distance: 980 },
     // Roumanie
     "rovinari": { country: "Roumanie", distance: 1850 },
     // Pologne

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import prisma, { withRetry } from "@/lib/prisma";
-import { requireAuth } from "@/lib/auth-helpers";
+import { requireAuth, getAccessibleEventIds } from "@/lib/auth-helpers";
 
 /**
  * GET /api/accreditations/changes?since=ISO_TIMESTAMP&zone=ZONE
@@ -13,14 +13,20 @@ import { requireAuth } from "@/lib/auth-helpers";
  */
 export async function GET(req: NextRequest) {
   // Vérifier que l'utilisateur est authentifié
+  let currentUserId: string | undefined;
   try {
-    await requireAuth(req);
+    const { session } = await requireAuth(req);
+    currentUserId = session.user.id;
   } catch (error) {
     if (error instanceof Response) {
       return new Response(error.body, { status: error.status, statusText: error.statusText });
     }
     return new Response("Non autorisé", { status: 401 });
   }
+
+  // Scoping multi-tenant : ne renvoyer que les changements d'accréditations
+  // appartenant aux events accessibles à l'utilisateur.
+  const accessibleEventIds = await getAccessibleEventIds(currentUserId!);
 
   const { searchParams } = new URL(req.url);
   const sinceParam = searchParams.get("since");
@@ -32,9 +38,15 @@ export async function GET(req: NextRequest) {
     : new Date(Date.now() - 30_000);
 
   try {
+    const accessFilter =
+      accessibleEventIds === "ALL"
+        ? {}
+        : { accreditation: { eventId: { in: accessibleEventIds } } };
+
     const recentHistory = await withRetry(() => prisma.accreditationHistory.findMany({
       where: {
         createdAt: { gt: since },
+        ...accessFilter,
       },
       orderBy: { createdAt: "asc" },
       include: {

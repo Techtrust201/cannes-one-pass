@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/lib/auth-helpers";
+import { requirePermission, getAccessibleEventIds, canAccessEvent } from "@/lib/auth-helpers";
 import { createStatusChangeEntry, createArchivedEntry } from "@/lib/history";
 import { writeHistoryDirect } from "@/lib/history-server";
 
@@ -62,11 +62,30 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // RBAC : filtrer pour ne traiter que les accréditations dans les events
+  // accessibles à l'utilisateur. Les autres sont renvoyées comme "failed".
+  const accessibleEventIds = await getAccessibleEventIds(currentUserId!);
+
   try {
     const results: { id: string; success: boolean; error?: string }[] = [];
 
     // Traiter chaque accréditation dans une transaction
     for (const accId of ids) {
+      // Pré-vérification RBAC rapide
+      if (accessibleEventIds !== "ALL") {
+        const pre = await prisma.accreditation.findUnique({
+          where: { id: accId },
+          select: { eventId: true },
+        });
+        if (!pre) {
+          results.push({ id: accId, success: false, error: "NOT_FOUND" });
+          continue;
+        }
+        if (!canAccessEvent(accessibleEventIds, pre.eventId)) {
+          results.push({ id: accId, success: false, error: "FORBIDDEN" });
+          continue;
+        }
+      }
       try {
         await prisma.$transaction(async (tx) => {
           const acc = await tx.accreditation.findUnique({

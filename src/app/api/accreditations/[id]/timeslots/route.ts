@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/auth-helpers";
+import { assertAccreditationAccess } from "@/lib/rbac";
 
 /**
  * GET /api/accreditations/[id]/timeslots — Lister les créneaux horaires par jour
@@ -38,8 +39,10 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  let currentUserId: string | undefined;
   try {
-    await requirePermission(req, "LISTE", "read");
+    const session = await requirePermission(req, "LISTE", "read");
+    currentUserId = session.user.id;
   } catch (error) {
     if (error instanceof Response) {
       return new Response(error.body, { status: error.status, statusText: error.statusText });
@@ -48,6 +51,13 @@ export async function GET(
   }
 
   const { id } = await params;
+
+  try {
+    await assertAccreditationAccess(currentUserId!, id);
+  } catch (err) {
+    if (err instanceof Response) return err;
+    throw err;
+  }
 
   try {
     const timeSlots = await prisma.vehicleTimeSlot.findMany({

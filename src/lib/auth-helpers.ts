@@ -114,6 +114,84 @@ export async function requirePermission(
   return session;
 }
 
+// ============================================================
+// Multi-tenant — Scoping des events par Espace (Organization)
+// ============================================================
+
+/** Valeur spéciale renvoyée par les helpers quand l'utilisateur a accès à tout
+ * (typiquement un SUPER_ADMIN). Les appelants doivent skip le filtre
+ * `where: { eventId: { in: ... } }` dans ce cas. */
+export type AccessibleIds = string[] | "ALL";
+
+/** Utilitaire : renvoie true si l'utilisateur a accès à l'event donné. */
+export function canAccessEvent(accessibleEventIds: AccessibleIds, eventId: string | null | undefined): boolean {
+  if (accessibleEventIds === "ALL") return true;
+  if (!eventId) return false;
+  return accessibleEventIds.includes(eventId);
+}
+
+/**
+ * Retourne la liste des eventIds auxquels l'utilisateur a accès.
+ * - Un SUPER_ADMIN a accès à tout → "ALL".
+ * - Sinon : union des events rattachés à ses Espaces + ses grants UserEvent.
+ */
+export async function getAccessibleEventIds(userId: string): Promise<AccessibleIds> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      role: true,
+      isActive: true,
+      organizations: {
+        select: {
+          organization: {
+            select: {
+              events: { select: { id: true } },
+            },
+          },
+        },
+      },
+      eventGrants: { select: { eventId: true } },
+    },
+  });
+
+  if (!user || !user.isActive) return [];
+  if (user.role === "SUPER_ADMIN") return "ALL";
+
+  const fromOrgs = user.organizations.flatMap((link) =>
+    link.organization.events.map((e) => e.id)
+  );
+  const fromGrants = user.eventGrants.map((g) => g.eventId);
+  return Array.from(new Set([...fromOrgs, ...fromGrants]));
+}
+
+/**
+ * Retourne la liste des organizationIds auxquels l'utilisateur a accès en
+ * lecture. Un SUPER_ADMIN a accès à toutes les Organisations.
+ */
+export async function getAccessibleOrganizationIds(userId: string): Promise<AccessibleIds> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      role: true,
+      isActive: true,
+      organizations: { select: { organizationId: true } },
+    },
+  });
+  if (!user || !user.isActive) return [];
+  if (user.role === "SUPER_ADMIN") return "ALL";
+  return user.organizations.map((o) => o.organizationId);
+}
+
+/**
+ * Version pratique : exige une auth active et retourne aussi les eventIds
+ * accessibles. Combine `requireAuth` + `getAccessibleEventIds`.
+ */
+export async function requireAuthWithEvents(request: Request) {
+  const { session, role } = await requireAuth(request);
+  const accessibleEventIds = await getAccessibleEventIds(session.user.id);
+  return { session, role, accessibleEventIds };
+}
+
 /**
  * Récupère toutes les permissions d'un utilisateur.
  */
@@ -137,6 +215,7 @@ export async function getUserPermissions(userId: string) {
       "GESTION_ZONES",
       "GESTION_DATES",
       "ARCHIVES",
+      "GESTION_ESPACES",
     ];
     return allFeatures.map((feature) => ({
       feature,

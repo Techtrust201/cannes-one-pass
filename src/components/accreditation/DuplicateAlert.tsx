@@ -22,6 +22,8 @@ interface DuplicateInfo {
 interface DuplicateAlertProps {
   company: string;
   plate: string;
+  /** Slug événement (identique au formulaire public / POST accréditations) */
+  event: string;
   trailerPlate?: string;
   onConfirm: () => void;
   onCancel: () => void;
@@ -39,6 +41,7 @@ const STATUS_LABELS: Record<string, string> = {
 export default function DuplicateAlert({
   company,
   plate,
+  event,
   trailerPlate,
   onConfirm,
   onCancel,
@@ -53,7 +56,7 @@ export default function DuplicateAlert({
         const res = await fetch("/api/accreditations/check-duplicate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ company, plate, trailerPlate }),
+          body: JSON.stringify({ company, plate, event, trailerPlate }),
         });
         if (res.ok) {
           const data = await res.json();
@@ -67,7 +70,7 @@ export default function DuplicateAlert({
     };
 
     checkDuplicates();
-  }, [company, plate, trailerPlate]);
+  }, [company, plate, event, trailerPlate]);
 
   // Auto-confirm si aucun doublon trouvé — via useEffect pour éviter le setState pendant le render
   const autoConfirmed = useRef(false);

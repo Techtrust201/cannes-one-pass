@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/auth-helpers";
+import { assertEventAccess } from "@/lib/rbac";
 
 function handleAuthError(error: unknown) {
   if (error instanceof Response)
@@ -14,13 +15,22 @@ function handleAuthError(error: unknown) {
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function GET(req: NextRequest, ctx: Ctx) {
+  let currentUserId: string | undefined;
   try {
-    await requirePermission(req, "GESTION_DATES", "read");
+    const session = await requirePermission(req, "GESTION_DATES", "read");
+    currentUserId = session.user.id;
   } catch (error) {
     return handleAuthError(error);
   }
 
   const { id } = await ctx.params;
+
+  try {
+    await assertEventAccess(currentUserId!, id);
+  } catch (err) {
+    if (err instanceof Response) return err;
+    throw err;
+  }
 
   try {
     const event = await prisma.event.findUnique({ where: { id }, omit: { logoData: true } });
@@ -34,13 +44,22 @@ export async function GET(req: NextRequest, ctx: Ctx) {
 }
 
 export async function PATCH(req: NextRequest, ctx: Ctx) {
+  let currentUserId: string | undefined;
   try {
-    await requirePermission(req, "GESTION_DATES", "write");
+    const session = await requirePermission(req, "GESTION_DATES", "write");
+    currentUserId = session.user.id;
   } catch (error) {
     return handleAuthError(error);
   }
 
   const { id } = await ctx.params;
+
+  try {
+    await assertEventAccess(currentUserId!, id);
+  } catch (err) {
+    if (err instanceof Response) return err;
+    throw err;
+  }
 
   try {
     const body = await req.json();
@@ -110,13 +129,22 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
 }
 
 export async function DELETE(req: NextRequest, ctx: Ctx) {
+  let currentUserId: string | undefined;
   try {
-    await requirePermission(req, "GESTION_DATES", "write");
+    const session = await requirePermission(req, "GESTION_DATES", "write");
+    currentUserId = session.user.id;
   } catch (error) {
     return handleAuthError(error);
   }
 
   const { id } = await ctx.params;
+
+  try {
+    await assertEventAccess(currentUserId!, id);
+  } catch (err) {
+    if (err instanceof Response) return err;
+    throw err;
+  }
 
   try {
     await prisma.$transaction([

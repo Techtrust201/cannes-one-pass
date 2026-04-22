@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma, withRetry } from "@/lib/prisma";
-import { requirePermission } from "@/lib/auth-helpers";
+import { requirePermission, getAccessibleEventIds } from "@/lib/auth-helpers";
 
 function handleAuthError(error: unknown) {
   if (error instanceof Response)
@@ -13,11 +13,13 @@ function handleAuthError(error: unknown) {
 
 export async function GET(req: NextRequest) {
   const activeOnly = req.nextUrl.searchParams.get("active") === "true";
+  let currentUserId: string | undefined;
 
   // L'endpoint ?active=true est public (pour Step 1 accreditation)
   if (!activeOnly) {
     try {
-      await requirePermission(req, "GESTION_DATES", "read");
+      const session = await requirePermission(req, "GESTION_DATES", "read");
+      currentUserId = session.user.id;
     } catch (error) {
       return handleAuthError(error);
     }
@@ -25,6 +27,16 @@ export async function GET(req: NextRequest) {
 
   try {
     const now = new Date();
+
+    const scopeFilter: Record<string, unknown> = {};
+    // Sur les endpoints non-publics, restreindre au périmètre du user
+    // (Espaces + grants). Endpoint ?active=true reste public (formulaire exposant).
+    if (!activeOnly && currentUserId) {
+      const accessibleIds = await getAccessibleEventIds(currentUserId);
+      if (accessibleIds !== "ALL") {
+        scopeFilter.id = { in: accessibleIds };
+      }
+    }
 
     const where = activeOnly
       ? {
@@ -35,7 +47,7 @@ export async function GET(req: NextRequest) {
             { teardownEndDate: null, endDate: { gte: now } },
           ],
         }
-      : {};
+      : scopeFilter;
 
     const events = await withRetry(() => prisma.event.findMany({
       where,

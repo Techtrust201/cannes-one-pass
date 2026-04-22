@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
+import { requirePermission } from "@/lib/auth-helpers";
+import { assertAccreditationAccess } from "@/lib/rbac";
 
 /**
  * Décompresse le champ `summary` JSON compact d'une entrée archivée.
@@ -32,7 +34,25 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  let currentUserId: string | undefined;
+  try {
+    const session = await requirePermission(req, "LISTE", "read");
+    currentUserId = session.user.id;
+  } catch (error) {
+    if (error instanceof Response) {
+      return new Response(error.body, { status: error.status, statusText: error.statusText });
+    }
+    return new Response("Non autorisé", { status: 401 });
+  }
+
   const { id: accreditationId } = await params;
+
+  try {
+    await assertAccreditationAccess(currentUserId!, accreditationId);
+  } catch (err) {
+    if (err instanceof Response) return err;
+    throw err;
+  }
 
   try {
     // 1. Récupérer l'historique récent (table principale)
@@ -81,6 +101,9 @@ export async function GET(
       userName: h.userId ? (userMap.get(h.userId)?.name ?? null) : null,
       userEmail: h.userId ? (userMap.get(h.userId)?.email ?? null) : null,
       isArchived: false,
+      actorSource: h.actorSource,
+      changeReason: h.changeReason,
+      diff: h.diff,
     }));
 
     // 5. Normaliser l'historique archivé (décompresser summary)
@@ -118,7 +141,26 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  let currentUserId: string | undefined;
+  try {
+    const session = await requirePermission(req, "LISTE", "write");
+    currentUserId = session.user.id;
+  } catch (error) {
+    if (error instanceof Response) {
+      return new Response(error.body, { status: error.status, statusText: error.statusText });
+    }
+    return new Response("Non autorisé", { status: 401 });
+  }
+
   const { id: accreditationId } = await params;
+
+  try {
+    await assertAccreditationAccess(currentUserId!, accreditationId);
+  } catch (err) {
+    if (err instanceof Response) return err;
+    throw err;
+  }
+
   const body = await req.json();
   const { action, field, oldValue, newValue, description, userId, userAgent } =
     body;

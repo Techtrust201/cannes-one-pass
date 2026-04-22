@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
+import { requirePermission } from "@/lib/auth-helpers";
+import { assertAccreditationAccess } from "@/lib/rbac";
 
 /* POST - Transférer une accréditation vers une autre zone
  * Crée aussi les TimeSlots nécessaires pour tracer le déplacement dans le bilan carbone :
@@ -10,7 +12,26 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  let currentUserId: string | undefined;
+  try {
+    const session = await requirePermission(req, "LISTE", "write");
+    currentUserId = session.user.id;
+  } catch (error) {
+    if (error instanceof Response) {
+      return new Response(error.body, { status: error.status, statusText: error.statusText });
+    }
+    return new Response("Non autorisé", { status: 401 });
+  }
+
   const { id } = await params;
+
+  try {
+    await assertAccreditationAccess(currentUserId!, id);
+  } catch (err) {
+    if (err instanceof Response) return err;
+    throw err;
+  }
+
   const body = await req.json();
   const { targetZone, reason, version } = body;
 

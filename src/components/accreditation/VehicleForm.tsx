@@ -240,15 +240,11 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
           </label>
           <PhoneInput
             value={`${data.phoneCode}${data.phoneNumber}`}
-            onChange={(phone) => {
-              // Extraire l'indicatif et le numéro pour rétro-compatibilité
-              // Le phone est au format "+33612345678"
-              const match = phone.match(/^(\+\d{1,4})(.*)$/);
-              if (match) {
-                update({ phoneCode: match[1], phoneNumber: match[2].replace(/\s/g, "") });
-              } else {
-                update({ phoneNumber: phone.replace(/[^\d]/g, "") });
-              }
+            onChange={({ dialCode, nationalNumber }) => {
+              update({
+                phoneCode: `+${dialCode}`,
+                phoneNumber: nationalNumber,
+              });
             }}
             error={!data.phoneNumber}
             placeholder="612345678"

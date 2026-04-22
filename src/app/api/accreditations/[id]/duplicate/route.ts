@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { requirePermission } from "@/lib/auth-helpers";
+import { assertAccreditationAccess } from "@/lib/rbac";
 import { addHistoryEntry, createCreatedEntry } from "@/lib/history";
 
 /**
@@ -25,6 +26,13 @@ export async function POST(
   }
 
   const { id: parentId } = await props.params;
+
+  try {
+    await assertAccreditationAccess(currentUserId!, parentId);
+  } catch (err) {
+    if (err instanceof Response) return err;
+    throw err;
+  }
 
   try {
     const parent = await prisma.accreditation.findUnique({

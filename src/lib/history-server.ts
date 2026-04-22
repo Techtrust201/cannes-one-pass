@@ -29,6 +29,12 @@ export async function writeHistoryDirect(
       description: data.description,
       userId: data.userId ?? null,
       userAgent: data.userAgent ?? null,
+      // Audit-log étendu (valeurs par défaut en base si non fournies)
+      actorSource: data.actorSource ?? "SYSTEM",
+      changeReason: data.changeReason ?? null,
+      diff: data.diff !== undefined
+        ? (data.diff as unknown as object)
+        : undefined,
     },
   });
 }

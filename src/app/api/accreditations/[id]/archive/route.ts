@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/auth-helpers";
+import { assertAccreditationAccess } from "@/lib/rbac";
 import { createArchivedEntry } from "@/lib/history";
 import { writeHistoryDirect } from "@/lib/history-server";
 
@@ -24,6 +25,14 @@ export async function POST(
   }
 
   const { id } = await params;
+
+  try {
+    await assertAccreditationAccess(currentUserId!, id);
+  } catch (err) {
+    if (err instanceof Response) return err;
+    throw err;
+  }
+
   const body = await req.json();
   const { archive } = body;
 

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { requirePermission } from "@/lib/auth-helpers";
+import { assertAccreditationAccess } from "@/lib/rbac";
 
 // Zones validées dynamiquement via la table ZoneConfig
 const VALID_ACTIONS = ["ENTRY", "EXIT"] as const;
@@ -10,8 +11,10 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  let currentUserId: string | undefined;
   try {
-    await requirePermission(_req, "GESTION_ZONES", "read");
+    const session = await requirePermission(_req, "GESTION_ZONES", "read");
+    currentUserId = session.user.id;
   } catch (error) {
     if (error instanceof Response) {
       return new Response(error.body, { status: error.status, statusText: error.statusText });
@@ -20,6 +23,14 @@ export async function GET(
   }
 
   const { id } = await params;
+
+  try {
+    await assertAccreditationAccess(currentUserId!, id);
+  } catch (err) {
+    if (err instanceof Response) return err;
+    throw err;
+  }
+
   const movements = await prisma.zoneMovement.findMany({
     where: { accreditationId: id },
     orderBy: { timestamp: "asc" },
@@ -44,6 +55,14 @@ export async function POST(
   }
 
   const { id } = await params;
+
+  try {
+    await assertAccreditationAccess(currentUserId!, id);
+  } catch (err) {
+    if (err instanceof Response) return err;
+    throw err;
+  }
+
   const body = await req.json();
   const { action, zone, version } = body;
 

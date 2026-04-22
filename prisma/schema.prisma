@@ -29,6 +29,7 @@ enum Feature {
   GESTION_ZONES
   GESTION_DATES
   ARCHIVES
+  GESTION_ESPACES
 }
 
 // ============================================================
@@ -58,6 +59,24 @@ enum HistoryAction {
   VEHICLE_RETURN
   ARCHIVED
   CHAT_MESSAGE
+}
+
+enum ActorSource {
+  PUBLIC_FORM     // Formulaire public (exposant) — non authentifié
+  LOGISTICIEN     // Agent logistique authentifié
+  CSV_IMPORT      // Import CSV par un admin
+  AUTO_DEDUCTION  // Règle auto (ex: déduction de catégorie)
+  SUPER_ADMIN     // Action d'un super-admin
+  MIGRATION       // Script de migration (ex: fix-phone-split)
+  SYSTEM          // Autres actions système
+}
+
+enum EmplacementCategory {
+  STAND_NU
+  STAND_CLE_EN_MAIN
+  BATEAU_TERRE
+  BATEAU_FLOT
+  TENTE_STRUCTURE
 }
 
 enum VehicleType {
@@ -113,6 +132,10 @@ model User {
   // Relations custom
   permissions   UserPermission[]
   chatMessages  ChatMessage[]
+
+  // Multi-tenant
+  organizations UserOrganization[]
+  eventGrants   UserEvent[]
 
   @@map("user")
 }
@@ -180,6 +203,56 @@ model UserPermission {
 }
 
 // ============================================================
+// MULTI-TENANT — Espaces (Organization) regroupant plusieurs Events
+// ============================================================
+
+model Organization {
+  id            String    @id @default(uuid())
+  name          String
+  slug          String    @unique
+  logo          String?
+  logoData      Bytes?
+  logoMimeType  String?
+  color         String    @default("#4F587E")
+  description   String?   @db.Text
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  events        Event[]
+  members       UserOrganization[]
+
+  @@index([isActive])
+}
+
+model UserOrganization {
+  userId         String
+  organizationId String
+  createdAt      DateTime     @default(now())
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@id([userId, organizationId])
+  @@index([userId])
+  @@index([organizationId])
+}
+
+/// Grant exceptionnel d'un event hors des Espaces auxquels l'utilisateur appartient.
+/// Cas d'usage : un employé du Palais détaché ponctuellement sur un event d'un autre
+/// Espace (ex: Yachting de RX) sans devenir membre de l'Espace entier.
+model UserEvent {
+  userId    String
+  eventId   String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@id([userId, eventId])
+  @@index([userId])
+  @@index([eventId])
+}
+
+// ============================================================
 // MODÈLES MÉTIER (existants)
 // ============================================================
 
@@ -214,9 +287,14 @@ model Event {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
+  organizationId    String?
+  organization      Organization? @relation(fields: [organizationId], references: [id])
+
   accreditations    Accreditation[]
+  userGrants        UserEvent[]
 
   @@index([isArchived, startDate])
+  @@index([organizationId])
 }
 
 model Accreditation {
@@ -241,6 +319,10 @@ model Accreditation {
 
   language    String               @default("fr") @db.VarChar(5)
   isArchived  Boolean              @default(false)
+
+  // Catégorie d'emplacement (stand, bateau, tente, etc.)
+  category        EmplacementCategory?
+  categorySource  ActorSource?         // Qui a fixé la valeur actuelle (AUTO_DEDUCTION, PUBLIC_FORM, LOGISTICIEN, CSV_IMPORT, SUPER_ADMIN)
 
   vehicles       Vehicle[]
   emailHistory   AccreditationEmailHistory[]
@@ -318,8 +400,14 @@ model AccreditationHistory {
   userAgent       String?         // User agent pour tracer l'origine
   createdAt       DateTime        @default(now())
 
+  // Audit-log étendu
+  actorSource     ActorSource     @default(SYSTEM)
+  changeReason    String?         @db.Text       // Raison optionnelle (ex: "Import CSV Yachting 2026")
+  diff            Json?                           // { before: {...}, after: {...} } pour update riches
+
   @@index([createdAt])                    // Accélère le polling /changes et l'archivage
   @@index([accreditationId, createdAt])   // Accélère la lecture d'historique par accréditation
+  @@index([actorSource])
 }
 
 // ============================================================

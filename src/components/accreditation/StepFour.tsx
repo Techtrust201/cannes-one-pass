@@ -226,6 +226,7 @@ export default function StepFour({
         <DuplicateAlert
           company={data.company}
           plate={data.vehicles[0]?.plate || ""}
+          event={data.event}
           trailerPlate={data.vehicles[0]?.trailerPlate}
           onConfirm={handleDuplicateConfirm}
           onCancel={handleDuplicateCancel}

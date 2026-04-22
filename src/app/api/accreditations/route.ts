@@ -2,11 +2,13 @@ import { NextRequest } from "next/server";
 import prisma, { withRetry } from "@/lib/prisma";
 // import type { Accreditation } from "@/types";
 import { addHistoryEntry, createCreatedEntry } from "@/lib/history";
-import { requirePermission, getSession } from "@/lib/auth-helpers";
+import { requirePermission, getSession, getAccessibleEventIds } from "@/lib/auth-helpers";
 
 export async function GET(request: NextRequest) {
+  let currentUserId: string | undefined;
   try {
-    await requirePermission(request, "LISTE", "read");
+    const session = await requirePermission(request, "LISTE", "read");
+    currentUserId = session.user.id;
   } catch (error) {
     if (error instanceof Response) {
       return new Response(error.body, { status: error.status, statusText: error.statusText });
@@ -14,13 +16,18 @@ export async function GET(request: NextRequest) {
     return new Response("Non autorisé", { status: 401 });
   }
 
+  // Scoping multi-tenant : restreindre aux events accessibles sauf SUPER_ADMIN.
+  const accessibleEventIds = await getAccessibleEventIds(currentUserId!);
+  const eventScopeFilter =
+    accessibleEventIds === "ALL" ? {} : { eventId: { in: accessibleEventIds } };
+
   // Par défaut, exclure les accréditations archivées
   const { searchParams } = new URL(request.url);
   const showArchived = searchParams.get("archived") === "true";
 
   if (showArchived) {
     const list = await withRetry(() => prisma.accreditation.findMany({
-      where: { isArchived: true },
+      where: { isArchived: true, ...eventScopeFilter },
       select: {
         id: true, company: true, stand: true, event: true, status: true,
         createdAt: true, currentZone: true, isArchived: true,
@@ -37,7 +44,7 @@ export async function GET(request: NextRequest) {
   const finalZoneKey = finalZone?.zone || "PALAIS_DES_FESTIVALS";
 
   const list = await withRetry(() => prisma.accreditation.findMany({
-    where: { isArchived: false },
+    where: { isArchived: false, ...eventScopeFilter },
     include: {
       vehicles: {
         include: {
@@ -92,9 +99,17 @@ export async function POST(req: NextRequest) {
   try {
     // Tenter de récupérer la session (optionnel, le formulaire public n'est pas authentifié)
     let currentUserId: string | undefined;
+    let currentUserRole: "SUPER_ADMIN" | "ADMIN" | "USER" | undefined;
     try {
       const session = await getSession(req);
       currentUserId = session?.user?.id;
+      if (currentUserId) {
+        const u = await prisma.user.findUnique({
+          where: { id: currentUserId },
+          select: { role: true },
+        });
+        currentUserRole = u?.role;
+      }
     } catch {
       // Pas de session = formulaire public
     }
@@ -128,6 +143,29 @@ export async function POST(req: NextRequest) {
 
     const eventRecord = await prisma.event.findUnique({ where: { slug: event } });
 
+    // Catégorie : soit fournie explicitement par le client (override manuel),
+    // soit déduite automatiquement depuis stand + zone.
+    const { deriveCategory, CSV_TO_ENUM } = await import("@/lib/category-rules");
+    const { inferActorSource: inferSource } = await import("@/lib/accreditation-audit");
+    let category: "STAND_NU" | "STAND_CLE_EN_MAIN" | "BATEAU_TERRE" | "BATEAU_FLOT" | "TENTE_STRUCTURE" | null = null;
+    let categorySource: "PUBLIC_FORM" | "LOGISTICIEN" | "SUPER_ADMIN" | "AUTO_DEDUCTION" | null = null;
+    const rawCategory = (raw.category as string | undefined)?.trim().toLowerCase();
+    if (rawCategory && CSV_TO_ENUM[rawCategory]) {
+      category = CSV_TO_ENUM[rawCategory];
+      const inferred = inferSource(currentUserId, currentUserRole);
+      // Seules les sources "saisie" sont admises pour la catégorie (pas MIGRATION/SYSTEM/CSV via ce POST)
+      categorySource =
+        inferred === "PUBLIC_FORM" || inferred === "LOGISTICIEN" || inferred === "SUPER_ADMIN"
+          ? inferred
+          : "LOGISTICIEN";
+    } else {
+      const derived = deriveCategory({ stand, zone: currentZone });
+      if (derived) {
+        category = derived;
+        categorySource = "AUTO_DEDUCTION";
+      }
+    }
+
     const created = await prisma.accreditation.create({
       data: {
         company,
@@ -140,6 +178,8 @@ export async function POST(req: NextRequest) {
         language: language ?? "fr",
         status: raw.status ?? "ATTENTE",
         currentZone: currentZone,
+        category,
+        categorySource,
         vehicles: {
           create: vehicles.map((v: Record<string, unknown>) => ({
             plate: v.plate as string,
@@ -173,8 +213,13 @@ export async function POST(req: NextRequest) {
       },
       include: { vehicles: true },
     });
-    // Ajout historique création
-    await addHistoryEntry(createCreatedEntry(created.id, currentUserId));
+    // Ajout historique création avec la source adéquate (PUBLIC_FORM si pas
+    // de session, SUPER_ADMIN ou LOGISTICIEN sinon)
+    const { inferActorSource } = await import("@/lib/accreditation-audit");
+    const actorSource = inferActorSource(currentUserId, currentUserRole);
+    await addHistoryEntry(
+      createCreatedEntry(created.id, currentUserId, actorSource)
+    );
     // Désérialisation unloading pour la réponse
     const safeCreated = {
       ...created,

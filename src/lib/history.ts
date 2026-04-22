@@ -1,4 +1,4 @@
-import type { HistoryAction } from "@prisma/client";
+import type { HistoryAction, ActorSource } from "@prisma/client";
 
 export interface HistoryEntryData {
   accreditationId: string;
@@ -9,6 +9,12 @@ export interface HistoryEntryData {
   description: string;
   userId?: string;
   userAgent?: string;
+  /** Source de l'action (optionnel, défaut SYSTEM). Voir enum ActorSource. */
+  actorSource?: ActorSource;
+  /** Raison optionnelle du changement (ex: "Import CSV Yachting 2026") */
+  changeReason?: string;
+  /** Diff riche { before, after } pour les updates complexes */
+  diff?: { before?: unknown; after?: unknown };
 }
 
 // ─── Traductions lisibles ────────────────────────────────────────────
@@ -116,7 +122,8 @@ export function createStatusChangeEntry(
   accreditationId: string,
   oldStatus: string,
   newStatus: string,
-  userId?: string
+  userId?: string,
+  actorSource?: ActorSource
 ): HistoryEntryData {
   return {
     accreditationId,
@@ -128,6 +135,7 @@ export function createStatusChangeEntry(
     userId,
     userAgent:
       typeof window !== "undefined" ? window.navigator.userAgent : undefined,
+    actorSource,
   };
 }
 
@@ -187,7 +195,8 @@ export function createInfoUpdatedEntry(
   field: string,
   oldValue: string,
   newValue: string,
-  userId?: string
+  userId?: string,
+  actorSource?: ActorSource
 ): HistoryEntryData {
   const label = translateField(field);
   const oldDisplay = translateValue(field, oldValue);
@@ -205,6 +214,7 @@ export function createInfoUpdatedEntry(
       userId,
       userAgent:
         typeof window !== "undefined" ? window.navigator.userAgent : undefined,
+      actorSource,
     };
   }
 
@@ -218,12 +228,14 @@ export function createInfoUpdatedEntry(
     userId,
     userAgent:
       typeof window !== "undefined" ? window.navigator.userAgent : undefined,
+    actorSource,
   };
 }
 
 export function createCreatedEntry(
   accreditationId: string,
-  userId?: string
+  userId?: string,
+  actorSource?: ActorSource
 ): HistoryEntryData {
   return {
     accreditationId,
@@ -232,6 +244,7 @@ export function createCreatedEntry(
     userId,
     userAgent:
       typeof window !== "undefined" ? window.navigator.userAgent : undefined,
+    actorSource,
   };
 }
 
@@ -257,7 +270,8 @@ export function createVehicleReturnEntry(
 export function createArchivedEntry(
   accreditationId: string,
   archived: boolean,
-  userId?: string
+  userId?: string,
+  actorSource?: ActorSource
 ): HistoryEntryData {
   return {
     accreditationId,
@@ -269,5 +283,6 @@ export function createArchivedEntry(
     userId,
     userAgent:
       typeof window !== "undefined" ? window.navigator.userAgent : undefined,
+    actorSource,
   };
 }

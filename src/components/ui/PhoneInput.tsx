@@ -11,11 +11,27 @@ import "react-international-phone/style.css";
 import type { CountryIso2 } from "react-international-phone";
 import { ChevronDown, Search } from "lucide-react";
 
+export interface PhoneInputChangeData {
+  /** Full international phone value in E.164 format, e.g. "+33612345678" */
+  phone: string;
+  /** Country dial code without "+" prefix, e.g. "33" for France */
+  dialCode: string;
+  /** National phone number only (without dial code and without "+"), e.g. "612345678" */
+  nationalNumber: string;
+  /** ISO2 country code, e.g. "fr" */
+  iso2: string;
+}
+
 interface PhoneInputProps {
   /** Full international phone value, e.g. "+33612345678" */
   value: string;
-  /** Called with full phone string (including dial code) */
-  onChange: (phone: string) => void;
+  /**
+   * Called whenever the phone value changes. Receives a structured payload so
+   * callers do not have to parse the E.164 string themselves (which is error
+   * prone: a greedy regex can split "+33760640775" as "+3376" + "0640775" and
+   * silently drop a digit when the leading "0" is later stripped).
+   */
+  onChange: (data: PhoneInputChangeData) => void;
   placeholder?: string;
   required?: boolean;
   error?: boolean;
@@ -53,7 +69,19 @@ export default function PhoneInput({
     countries: defaultCountries,
     preferredCountries: PREFERRED_COUNTRIES,
     forceDialCode: true,
-    onChange: (data) => onChange(data.phone),
+    onChange: (data) => {
+      const dialCode = data.country.dialCode;
+      const digitsOnly = data.phone.replace(/\D/g, "");
+      const nationalNumber = digitsOnly.startsWith(dialCode)
+        ? digitsOnly.slice(dialCode.length)
+        : digitsOnly;
+      onChange({
+        phone: data.phone,
+        dialCode,
+        nationalNumber,
+        iso2: data.country.iso2,
+      });
+    },
   });
 
   // Close dropdown on click outside

@@ -7,14 +7,18 @@ import {
 } from "@/lib/history";
 import { writeHistoryDirect } from "@/lib/history-server";
 import { requirePermission } from "@/lib/auth-helpers";
+import { assertAccreditationAccess } from "@/lib/rbac";
+import { inferActorSource } from "@/lib/accreditation-audit";
 
 /* ----------------------- GET ----------------------- */
 export async function GET(
   _req: NextRequest,
   props: { params: Promise<{ id: string }> }
 ) {
+  let currentUserId: string | undefined;
   try {
-    await requirePermission(_req, "LISTE", "read");
+    const session = await requirePermission(_req, "LISTE", "read");
+    currentUserId = session.user.id;
   } catch (error) {
     if (error instanceof Response) {
       return new Response(error.body, { status: error.status, statusText: error.statusText });
@@ -24,6 +28,14 @@ export async function GET(
 
   const params = await props.params;
   const { id } = params;
+
+  try {
+    await assertAccreditationAccess(currentUserId!, id);
+  } catch (err) {
+    if (err instanceof Response) return err;
+    throw err;
+  }
+
   const acc = await withRetry(() => prisma.accreditation.findUnique({
     where: { id },
     include: { vehicles: true },
@@ -63,8 +75,23 @@ export async function PATCH(
   }
 
   const { id: accreditationId } = await params;
+
+  try {
+    await assertAccreditationAccess(currentUserId!, accreditationId);
+  } catch (err) {
+    if (err instanceof Response) return err;
+    throw err;
+  }
+
+  // Déterminer la source pour tracer dans l'audit-log
+  const currentUser = await prisma.user.findUnique({
+    where: { id: currentUserId! },
+    select: { role: true },
+  });
+  const actorSource = inferActorSource(currentUserId, currentUser?.role);
+
   const body = await req.json();
-  const { status, company, stand, unloading, event, message, vehicles, currentZone, version } = body;
+  const { status, company, stand, unloading, event, message, vehicles, currentZone, version, category: rawCategory } = body;
 
   if (
     !status ||
@@ -108,6 +135,19 @@ export async function PATCH(
 
       if (currentZone !== undefined) {
         updates.currentZone = currentZone;
+      }
+
+      // Catégorie : override manuel par l'utilisateur (si fournie)
+      if (rawCategory !== undefined) {
+        const { CSV_TO_ENUM } = await import("@/lib/category-rules");
+        const normalized = typeof rawCategory === "string" ? rawCategory.toLowerCase().trim() : "";
+        if (normalized && CSV_TO_ENUM[normalized]) {
+          updates.category = CSV_TO_ENUM[normalized];
+          updates.categorySource = actorSource;
+        } else if (rawCategory === null || normalized === "") {
+          updates.category = null;
+          updates.categorySource = null;
+        }
       }
 
       if (status === "ENTREE" && !acc.entryAt) updates.entryAt = new Date();
@@ -223,35 +263,36 @@ export async function PATCH(
             "currentZone",
             acc.currentZone ?? "",
             currentZone,
-            currentUserId
+            currentUserId,
+            actorSource
           )
         );
       }
 
       if (status !== acc.status) {
         historyEntries.push(
-          createStatusChangeEntry(accreditationId, acc.status, status, currentUserId)
+          createStatusChangeEntry(accreditationId, acc.status, status, currentUserId, actorSource)
         );
       }
 
       if (company && company !== acc.company) {
         historyEntries.push(
-          createInfoUpdatedEntry(accreditationId, "company", acc.company, company, currentUserId)
+          createInfoUpdatedEntry(accreditationId, "company", acc.company, company, currentUserId, actorSource)
         );
       }
       if (stand && stand !== acc.stand) {
         historyEntries.push(
-          createInfoUpdatedEntry(accreditationId, "stand", acc.stand, stand, currentUserId)
+          createInfoUpdatedEntry(accreditationId, "stand", acc.stand, stand, currentUserId, actorSource)
         );
       }
       if (unloading && unloading !== acc.unloading) {
         historyEntries.push(
-          createInfoUpdatedEntry(accreditationId, "unloading", acc.unloading, unloading, currentUserId)
+          createInfoUpdatedEntry(accreditationId, "unloading", acc.unloading, unloading, currentUserId, actorSource)
         );
       }
       if (event && event !== acc.event) {
         historyEntries.push(
-          createInfoUpdatedEntry(accreditationId, "event", acc.event, event, currentUserId)
+          createInfoUpdatedEntry(accreditationId, "event", acc.event, event, currentUserId, actorSource)
         );
       }
       if (message !== acc.message) {
@@ -261,7 +302,8 @@ export async function PATCH(
             "message",
             acc.message || "",
             message || "",
-            currentUserId
+            currentUserId,
+            actorSource
           )
         );
       }
@@ -301,7 +343,8 @@ export async function PATCH(
             "vehicles",
             JSON.stringify(acc.vehicles),
             JSON.stringify(vehicles),
-            currentUserId
+            currentUserId,
+            actorSource
           )
         );
       }
@@ -357,8 +400,10 @@ export async function DELETE(
   _req: NextRequest,
   props: { params: Promise<{ id: string }> }
 ) {
+  let currentUserId: string | undefined;
   try {
-    await requirePermission(_req, "LISTE", "write");
+    const session = await requirePermission(_req, "LISTE", "write");
+    currentUserId = session.user.id;
   } catch (error) {
     if (error instanceof Response) {
       return new Response(error.body, { status: error.status, statusText: error.statusText });
@@ -368,6 +413,14 @@ export async function DELETE(
 
   const params = await props.params;
   const { id } = params;
+
+  try {
+    await assertAccreditationAccess(currentUserId!, id);
+  } catch (err) {
+    if (err instanceof Response) return err;
+    throw err;
+  }
+
   try {
     await prisma.accreditation.delete({ where: { id } });
     return new Response(null, { status: 204 });

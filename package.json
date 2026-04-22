@@ -11,6 +11,8 @@
     "prisma": "prisma",
     "postinstall": "prisma generate",
     "seed": "npx tsx scripts/seed-users.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "db:sync": "npx tsx scripts/db-sync.ts -- --direction=primary2backup",
     "db:sync:reverse": "npx tsx scripts/db-sync.ts -- --direction=backup2primary",
     "db:sync:verify": "npx tsx scripts/db-sync.ts -- --verify",
@@ -39,9 +41,11 @@
     "better-auth": "^1.4.18",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "csv-parse": "^6.2.1",
     "embla-carousel-react": "^8.6.0",
     "google-translate-api-x": "^10.7.2",
     "html-to-image": "^1.11.13",
+    "libphonenumber-js": "^1.12.41",
     "lucide-react": "^0.522.0",
     "next": "15.3.9",
     "node-geocoder": "^4.4.1",
@@ -70,6 +74,7 @@
     "shadcn-ui": "^0.9.5",
     "tailwindcss": "^4",
     "tw-animate-css": "^1.3.4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.5"
   }
 }

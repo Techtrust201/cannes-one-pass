@@ -1,10 +1,19 @@
-/** Formate un numéro de téléphone (code + numéro) en format international */
+/**
+ * Formate un numéro de téléphone (indicatif + numéro local) en E.164.
+ *
+ * Règles :
+ * - On retire tout caractère non numérique de l'indicatif et du numéro.
+ * - Si le numéro commence par un `0` (trunk prefix national) ET que
+ *   l'indicatif est un dial code E.164 valide (1 à 3 chiffres), on retire
+ *   le `0`. Sinon on garde le numéro tel quel : cela évite de corrompre
+ *   silencieusement des données si le couple (phoneCode, phoneNumber) a été
+ *   mal découpé en amont (ex: phoneCode="+3376", phoneNumber="0640775").
+ */
 export function formatPhoneNumber(phoneCode: string, phoneNumber: string): string {
-  // Nettoyer le code (retirer +)
   const cleanCode = phoneCode.replace(/[^0-9]/g, "");
-  // Nettoyer le numéro (retirer 0 initial si code international)
   let cleanNumber = phoneNumber.replace(/[^0-9]/g, "");
-  if (cleanNumber.startsWith("0") && cleanCode) {
+  const isStandardDialCode = cleanCode.length >= 1 && cleanCode.length <= 3;
+  if (isStandardDialCode && cleanNumber.startsWith("0")) {
     cleanNumber = cleanNumber.slice(1);
   }
   return `+${cleanCode}${cleanNumber}`;
@@ -17,7 +26,6 @@ export function getTelLink(phoneCode: string, phoneNumber: string): string {
 
 /** Retourne un lien WhatsApp pour contacter le chauffeur */
 export function getWhatsAppLink(phoneCode: string, phoneNumber: string): string {
-  // wa.me attend le numéro sans le + 
   const number = formatPhoneNumber(phoneCode, phoneNumber).replace("+", "");
   return `https://wa.me/${number}`;
 }

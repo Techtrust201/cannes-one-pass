@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { requirePermission } from "@/lib/auth-helpers";
+import { assertVehicleAccess } from "@/lib/rbac";
 import { createVehicleRemovedEntry } from "@/lib/history";
 import { writeHistoryDirect } from "@/lib/history-server";
 
@@ -20,6 +21,14 @@ export async function PATCH(
   }
 
   const params = await props.params;
+
+  try {
+    await assertVehicleAccess(currentUserId!, Number(params.id));
+  } catch (err) {
+    if (err instanceof Response) return err;
+    throw err;
+  }
+
   try {
     const data = await req.json();
     const updated = await prisma.vehicle.update({
@@ -65,6 +74,14 @@ export async function DELETE(
   }
 
   const params = await props.params;
+
+  try {
+    await assertVehicleAccess(currentUserId!, Number(params.id));
+  } catch (err) {
+    if (err instanceof Response) return err;
+    throw err;
+  }
+
   try {
     // Récupérer le véhicule avant suppression pour l'historique
     const vehicle = await prisma.vehicle.findUnique({

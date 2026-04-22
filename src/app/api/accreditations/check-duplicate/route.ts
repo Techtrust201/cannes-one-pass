@@ -1,19 +1,48 @@
 import { NextRequest } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 /**
  * POST /api/accreditations/check-duplicate — Vérifier les doublons
- * Body: { company: string, plate: string, trailerPlate?: string }
- * Retourne les accréditations existantes qui correspondent.
+ * Body: { company: string, plate: string, event: string (slug), trailerPlate?: string }
+ * Retourne les accréditations existantes qui correspondent (même événement uniquement).
  */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { company, plate, trailerPlate } = body;
+    const { company, plate, trailerPlate, event } = body;
 
     if (!company || !plate) {
       return Response.json({ duplicates: [] });
     }
+
+    if (!event || typeof event !== "string" || !event.trim()) {
+      return Response.json(
+        { error: "Le champ event (slug) est requis pour la détection de doublons" },
+        { status: 400 }
+      );
+    }
+
+    const eventSlug = event.trim();
+    const eventRecord = await prisma.event.findUnique({
+      where: { slug: eventSlug },
+      select: { id: true },
+    });
+
+    // Limiter au périmètre événement : évite de révéler des doublons d'autres salons / espaces.
+    const eventScope: Prisma.AccreditationWhereInput = eventRecord
+      ? {
+          OR: [
+            { eventId: eventRecord.id },
+            {
+              AND: [
+                { eventId: null },
+                { event: { equals: eventSlug, mode: Prisma.QueryMode.insensitive } },
+              ],
+            },
+          ],
+        }
+      : { event: { equals: eventSlug, mode: Prisma.QueryMode.insensitive } };
 
     // Normaliser : minuscule, trim
     const normalizedCompany = company.trim().toLowerCase();
@@ -23,6 +52,7 @@ export async function POST(req: NextRequest) {
     const candidates = await prisma.accreditation.findMany({
       where: {
         isArchived: false,
+        ...eventScope,
         company: { equals: company.trim(), mode: "insensitive" },
         vehicles: {
           some: {

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { use } from "react";
 import type { Feature, UserRole } from "@prisma/client";
 import { PasswordInput } from "@/components/ui/PasswordInput";
+import UserEspacesSection from "@/components/admin/UserEspacesSection";
 
 interface UserPermission {
   feature: Feature;
@@ -32,6 +33,7 @@ const FEATURES: { key: Feature; label: string }[] = [
   { key: "GESTION_ZONES", label: "Gestion zones" },
   { key: "GESTION_DATES", label: "Gestion dates" },
   { key: "ARCHIVES", label: "Archivage" },
+  { key: "GESTION_ESPACES", label: "Gestion des Espaces" },
 ];
 
 const ROLES: { value: UserRole; label: string }[] = [
@@ -551,6 +553,9 @@ export default function EditUserPage({
           )}
         </div>
       </div>
+
+      {/* Section Espaces (multi-tenant) */}
+      <UserEspacesSection userId={id} />
 
       {/* Section Gestion du mot de passe */}
       <div className="mt-4 md:mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">

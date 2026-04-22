@@ -65,6 +65,18 @@ export default function AdminLayout({
                   Utilisateurs
                 </Link>
                 <Link
+                  href="/admin/espaces"
+                  className="text-white/80 hover:text-white text-sm transition-colors min-h-[44px] flex items-center"
+                >
+                  Espaces
+                </Link>
+                <Link
+                  href="/admin/accreditations/import"
+                  className="text-white/80 hover:text-white text-sm transition-colors min-h-[44px] flex items-center"
+                >
+                  Import CSV
+                </Link>
+                <Link
                   href="/logisticien"
                   className="text-white/80 hover:text-white text-sm transition-colors min-h-[44px] flex items-center"
                 >
@@ -117,6 +129,20 @@ export default function AdminLayout({
                 className="block text-white/80 hover:text-white hover:bg-white/10 text-sm transition-colors rounded-lg px-3 py-3 min-h-[44px]"
               >
                 Utilisateurs
+              </Link>
+              <Link
+                href="/admin/espaces"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block text-white/80 hover:text-white hover:bg-white/10 text-sm transition-colors rounded-lg px-3 py-3 min-h-[44px]"
+              >
+                Espaces
+              </Link>
+              <Link
+                href="/admin/accreditations/import"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block text-white/80 hover:text-white hover:bg-white/10 text-sm transition-colors rounded-lg px-3 py-3 min-h-[44px]"
+              >
+                Import CSV
               </Link>
               <Link
                 href="/logisticien"

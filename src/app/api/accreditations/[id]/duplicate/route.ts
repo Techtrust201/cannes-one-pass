@@ -43,7 +43,8 @@ export async function POST(
     }
 
     const v = await req.json();
-    if (!v.plate || !v.size || !v.phoneCode || !v.phoneNumber || !v.date || !v.city || !v.unloading) {
+    // Plaque et gabarit optionnels (vision Killian) — peuvent être remplis sur place.
+    if (!v.phoneCode || !v.phoneNumber || !v.date || !v.city || !v.unloading) {
       return Response.json({ error: "Champs véhicule manquants" }, { status: 400 });
     }
 
@@ -64,8 +65,8 @@ export async function POST(
         currentZone: null,
         vehicles: {
           create: {
-            plate: v.plate as string,
-            size: v.size as string,
+            plate: ((v.plate as string) ?? "").trim(),
+            size: ((v.size as string) ?? "").trim(),
             phoneCode: v.phoneCode as string,
             phoneNumber: v.phoneNumber as string,
             date: v.date as string,

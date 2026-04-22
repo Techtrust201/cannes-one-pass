@@ -13,6 +13,8 @@ interface Props {
     stand: string;
     unloading: string;
     event: string;
+    /** Secteur de dépose (clé ZoneConfig) — vision Killian */
+    currentZone?: string;
     vehicles: Vehicle[];
     message: string;
     consent: boolean;
@@ -36,6 +38,15 @@ export default function StepFour({
   const [hasSaved, setHasSaved] = useState(false);
   const [infoMsg, setInfoMsg] = useState("");
 
+  // Reconstruit un DateTime ISO à partir d'une date "YYYY-MM-DD" et d'une heure
+  // "HH:MM" saisies par l'exposant. Retourne null si incomplet.
+  function toIso(date?: string, time?: string): string | null {
+    if (!date) return null;
+    const t = time && /^\d{1,2}:\d{2}$/.test(time) ? time : "00:00";
+    const d = new Date(`${date}T${t}:00`);
+    return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  }
+
   async function handleSave() {
     if (hasSaved) {
       setInfoMsg(t.alreadySavedNotice);
@@ -44,10 +55,23 @@ export default function StepFour({
     }
     try {
       setLoading(true);
+      // Enrichir chaque véhicule avec arrivalDate / departureDate ISO
+      // (vision Killian : Vehicle.arrivalDate / Vehicle.departureDate sont la
+      // source de vérité date+heure).
+      const vehiclesWithIso = data.vehicles.map((v) => ({
+        ...v,
+        arrivalDate: toIso(v.date, v.time),
+        departureDate: toIso(v.returnDate, v.returnTime),
+      }));
       const saveRes = await fetch("/api/accreditations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...data, language: lang, status: "NOUVEAU" }),
+        body: JSON.stringify({
+          ...data,
+          vehicles: vehiclesWithIso,
+          language: lang,
+          status: "NOUVEAU",
+        }),
       });
       if (!saveRes.ok) throw new Error("save error");
       setSuccess(true);

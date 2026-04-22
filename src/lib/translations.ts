@@ -82,6 +82,19 @@ export interface T {
   alreadySavedNotice: string;
   saveError: string;
   pdfError: string;
+
+  // Footer / aide
+  needHelp?: string;
+
+  // Step 1 — Secteur (vision Killian : stand/secteur pilotent les créneaux)
+  sector?: string;
+  chooseSector?: string;
+
+  // Step 2 — Récupération (vision Killian : date/heure obligatoires)
+  returnDate?: string;
+  returnTime?: string;
+  dropOffHeader?: string;
+  pickUpHeader?: string;
 }
 
 const fr: T = {
@@ -141,6 +154,13 @@ const fr: T = {
   alreadySavedNotice: "Vous avez déjà enregistré votre demande. Elle doit être validée par un agent.",
   saveError: "Impossible d'enregistrer la demande",
   pdfError: "Impossible de télécharger le PDF",
+  needHelp: "Besoin d'aide ?",
+  sector: "Secteur",
+  chooseSector: "Choisir un secteur",
+  returnDate: "Date de récupération",
+  returnTime: "Heure de récupération",
+  dropOffHeader: "Dépose",
+  pickUpHeader: "Récupération",
 };
 
 const en: T = {
@@ -200,6 +220,13 @@ const en: T = {
   alreadySavedNotice: "You have already saved your request. It must be validated by an agent.",
   saveError: "Unable to save the request",
   pdfError: "Unable to download the PDF",
+  needHelp: "Need help?",
+  sector: "Sector",
+  chooseSector: "Choose a sector",
+  returnDate: "Return date",
+  returnTime: "Return time",
+  dropOffHeader: "Drop-off",
+  pickUpHeader: "Pick-up",
 };
 
 const de: T = {

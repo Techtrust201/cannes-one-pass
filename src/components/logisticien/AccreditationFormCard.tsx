@@ -7,6 +7,7 @@ import { Info, PlusCircle, Send, Save, Copy, Check, Loader2, Languages } from "l
 import AccreditationHistory from "./AccreditationHistory";
 import DailyTimeSlotHistory from "./DailyTimeSlotHistory";
 import AccreditationChat from "./AccreditationChat";
+import CategoryBadge from "@/components/accreditation/CategoryBadge";
 import VehicleCard from "./VehicleCard";
 import VehicleEditDialog from "./VehicleEditDialog";
 import ActionButtons from "./ActionButtons";
@@ -287,8 +288,8 @@ export default function AccreditationFormCard({ acc }: Props) {
 
         {/* ── Form grid — informations éditables ── */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-6 overflow-hidden">
-          {/* ID Badge */}
-          <div className="px-5 pt-5 pb-3 border-b border-gray-100 flex items-center gap-3">
+          {/* ID Badge + Catégorie d'emplacement */}
+          <div className="px-5 pt-5 pb-3 border-b border-gray-100 flex items-center gap-3 flex-wrap">
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">ID</span>
             <button
               onClick={copyId}
@@ -302,6 +303,10 @@ export default function AccreditationFormCard({ acc }: Props) {
                 <Copy size={12} className="text-gray-400 group-hover:text-gray-600 shrink-0" />
               )}
             </button>
+            {/* Badge catégorie — auto-déduit ou défini manuellement (vision Killian) */}
+            {acc.category && (
+              <CategoryBadge category={acc.category} source={acc.categorySource} />
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4 p-5 text-sm">

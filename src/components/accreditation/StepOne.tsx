@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { ImageIcon } from "lucide-react";
 import { useUnloadingProviders } from "@/hooks/useUnloadingProviders";
+import { useZones } from "@/hooks/useZones";
 import { useTranslation } from "@/components/accreditation/TranslationProvider";
 
 interface Data {
@@ -20,6 +21,8 @@ interface Data {
   stand: string;
   unloading: string;
   event: string;
+  /** Clé ZoneConfig (secteur de dépose) — vision Killian : stand/secteur pilotent les créneaux */
+  currentZone: string;
 }
 
 interface Props {
@@ -73,12 +76,21 @@ function useActiveEvents(): { events: EventOption[]; loading: boolean } {
 }
 
 export default function StepOne({ data, update, onValidityChange }: Props) {
-  const { company, stand, unloading, event } = data;
+  const { company, stand, unloading, event, currentZone } = data;
   const { events, loading: eventsLoading } = useActiveEvents();
   const { providers: unloadingProviders } = useUnloadingProviders();
+  const { zones } = useZones();
   const { t } = useTranslation();
 
-  const isValid = !!(company && stand && unloading && event);
+  // Secteur obligatoire (vision Killian) — sauf si aucune zone active en base.
+  const sectorRequired = zones.length > 0;
+  const isValid = !!(
+    company &&
+    stand &&
+    unloading &&
+    event &&
+    (!sectorRequired || currentZone)
+  );
   useEffect(() => onValidityChange(isValid), [isValid, onValidityChange]);
 
   const [carouselApi, setCarouselApi] = useState<CarouselApi | null>(null);
@@ -145,7 +157,7 @@ export default function StepOne({ data, update, onValidityChange }: Props) {
       <div className="flex-1 p-0 sm:p-0 flex flex-col justify-between">
         <div>
           <h2 className="text-lg font-bold mb-4">{t.identification}</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div className="space-y-1 md:col-span-2 lg:col-span-1">
               <label htmlFor="company" className="text-sm font-semibold text-gray-700">
                 {t.decoratorName}
@@ -196,6 +208,32 @@ export default function StepOne({ data, update, onValidityChange }: Props) {
                 <option value="Autonome">{t.manualUnloading}</option>
               </select>
             </div>
+            {/* Secteur (vision Killian) — pilote les créneaux et la catégorie auto */}
+            {zones.length > 0 && (
+              <div className="space-y-1 md:col-span-2 lg:col-span-1">
+                <label htmlFor="currentZone" className="text-sm font-semibold text-gray-700">
+                  {t.sector ?? "Secteur"}
+                </label>
+                <select
+                  id="currentZone"
+                  value={currentZone ?? ""}
+                  onChange={(e) => update({ currentZone: e.target.value })}
+                  className={cn(
+                    "w-full rounded-md px-3 py-2 shadow-sm bg-white focus:ring-primary focus:border-primary",
+                    !currentZone ? "border-red-500" : "border-gray-300"
+                  )}
+                >
+                  <option value="" disabled>
+                    {t.chooseSector ?? "Choisir un secteur"}
+                  </option>
+                  {zones.map((z) => (
+                    <option key={z.zone} value={z.zone}>
+                      {z.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col items-center justify-center w-full">

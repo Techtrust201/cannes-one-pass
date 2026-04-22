@@ -55,6 +55,21 @@ export function deriveCategory(hints: CategoryHints): EmplacementCategory | null
 
   if (!stand && !zone) return null;
 
+  // 0. Mentions explicites "clé en main" / "turnkey" sur le stand
+  //    Ex : "PALAIS-CLE A12", "STAND CLE EN MAIN 5", "TURNKEY-B3"
+  if (stand) {
+    const collapsed = stand.replace(/[-_\s]+/g, " ");
+    if (
+      collapsed.includes("CLE EN MAIN") ||
+      collapsed.includes("CLEENMAIN") ||
+      /\bCLE\b/.test(collapsed) ||
+      collapsed.includes("TURNKEY") ||
+      collapsed.startsWith("CLEM")
+    ) {
+      return "STAND_CLE_EN_MAIN";
+    }
+  }
+
   // 1. Préfixe de stand
   if (stand) {
     if (stand.startsWith("JETEE")) return "BATEAU_FLOT";

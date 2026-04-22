@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import type { Vehicle } from "@/types";
 import CityAutocomplete from "@/components/CityAutocomplete";
 import Image from "next/image";
@@ -19,6 +19,17 @@ interface Props {
   data: Vehicle;
   update: (patch: Partial<Vehicle>) => void;
   onValidityChange: (v: boolean) => void;
+  /**
+   * Slug de l'événement sélectionné — si fourni, les créneaux de dépose /
+   * récupération seront bornés à partir de GET /api/events/[slug]/timeslots
+   * (vision Killian : stand/secteur/event pilotent les créneaux).
+   */
+  eventSlug?: string;
+}
+
+interface EventTimeslots {
+  dropOff: { earliest: string | null; latest: string | null; hoursPerDay: string[] };
+  pickUp: { earliest: string | null; latest: string | null; hoursPerDay: string[] };
 }
 
 const VEHICLE_TYPE_OPTIONS = getAllVehicleTypes().map((vt) => ({
@@ -27,16 +38,54 @@ const VEHICLE_TYPE_OPTIONS = getAllVehicleTypes().map((vt) => ({
   limits: getVehicleWeightLimits(vt),
 }));
 
-export default function VehicleForm({ data, update, onValidityChange }: Props) {
+export default function VehicleForm({ data, update, onValidityChange, eventSlug }: Props) {
   const { t } = useTranslation();
   const plateRef = useRef<HTMLInputElement>(null);
   const trailerPlateRef = useRef<HTMLInputElement>(null);
 
+  // Créneaux proposés selon l'event — fallback: liste complète 00:00-23:30.
+  const [timeslots, setTimeslots] = useState<EventTimeslots | null>(null);
+  useEffect(() => {
+    if (!eventSlug) {
+      setTimeslots(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/events/${encodeURIComponent(eventSlug)}/timeslots`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => { if (!cancelled) setTimeslots(json); })
+      .catch(() => { if (!cancelled) setTimeslots(null); });
+    return () => { cancelled = true; };
+  }, [eventSlug]);
+
+  const FALLBACK_HOURS = useMemo(
+    () =>
+      Array.from({ length: 48 }).map((_, i) => {
+        const hh = String(Math.floor(i / 2)).padStart(2, "0");
+        const mm = i % 2 === 0 ? "00" : "30";
+        return `${hh}:${mm}`;
+      }),
+    []
+  );
+  const dropOffHours = timeslots?.dropOff.hoursPerDay ?? FALLBACK_HOURS;
+  const pickUpHours = timeslots?.pickUp.hoursPerDay ?? FALLBACK_HOURS;
+
+  // Bornes de dates pour input type=\"date\" (YYYY-MM-DD).
+  const toYmd = (iso: string | null | undefined) =>
+    iso ? iso.slice(0, 10) : undefined;
+  const dropOffMin = toYmd(timeslots?.dropOff.earliest);
+  const dropOffMax = toYmd(timeslots?.dropOff.latest);
+  const pickUpMin = toYmd(timeslots?.pickUp.earliest) ?? data.date ?? undefined;
+  const pickUpMax = toYmd(timeslots?.pickUp.latest);
+
+  // Vision Killian : plaque et gabarit (size) sont optionnels, heure de dépose
+  // et date+heure de récupération obligatoires.
   const valid =
-    (data.plate ?? "").trim() &&
-    (data.size ?? "").trim() &&
     (data.phoneNumber ?? "").trim() &&
     (data.date ?? "").trim() &&
+    (data.time ?? "").trim() &&
+    (data.returnDate ?? "").trim() &&
+    (data.returnTime ?? "").trim() &&
     (data.city ?? "").trim() &&
     Array.isArray(data.unloading) &&
     data.unloading.length > 0;
@@ -80,7 +129,7 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-1">
-        {/* Plaque */}
+        {/* Plaque — optionnelle (peut être attribuée sur place) */}
         <div>
           <label className="text-sm font-semibold flex items-center gap-1 mb-1">
             <Image
@@ -91,18 +140,17 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
               alt="Plaque"
             />{" "}
             {t.plate}
+            <span className="font-normal text-xs text-gray-500">({t.optional})</span>
           </label>
           <input
             ref={plateRef}
             value={data.plate ?? ""}
             onChange={(e) => handleSanitizedPlateChange(e, "plate")}
             placeholder={t.platePlaceholder}
-            className={`w-full rounded-md px-3 py-1.5 text-sm shadow-sm focus:ring-primary focus:border-primary ${
-              !data.plate ? "border-red-500" : "border-gray-300"
-            }`}
+            className="w-full rounded-md px-3 py-1.5 text-sm shadow-sm focus:ring-primary focus:border-primary border-gray-300"
           />
         </div>
-        {/* Type de véhicule */}
+        {/* Type de véhicule (gabarit) — optionnel, peut être précisé sur place */}
         <div>
           <label className="text-sm font-semibold flex items-center gap-1 mb-1">
             <Image
@@ -113,13 +161,12 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
               alt="Type de véhicule"
             />{" "}
             {t.vehicleType}
+            <span className="font-normal text-xs text-gray-500">({t.optional})</span>
           </label>
           <select
             value={data.size ?? ""}
             onChange={(e) => handleVehicleTypeChange(e.target.value)}
-            className={`w-full rounded-md px-3 py-1.5 text-sm shadow-sm bg-white focus:ring-primary focus:border-primary ${
-              !data.size ? "border-red-500" : "border-gray-300"
-            }`}
+            className="w-full rounded-md px-3 py-1.5 text-sm shadow-sm bg-white focus:ring-primary focus:border-primary border-gray-300"
           >
             <option value="">{t.chooseType}</option>
             {VEHICLE_TYPE_OPTIONS.map((o) => (
@@ -250,7 +297,7 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
             placeholder="612345678"
           />
         </div>
-        {/* Date */}
+        {/* Dépose : Date */}
         <div>
           <label className="text-sm font-semibold flex items-center gap-1 mb-1">
             <Image
@@ -258,20 +305,25 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
               width={16}
               height={16}
               className="w-4 h-4"
-              alt="Date d'arrivée"
+              alt="Date de dépose"
             />{" "}
             {t.arrivalDate}
+            <span className="text-[10px] text-gray-400 uppercase">
+              ({t.dropOffHeader ?? "dépose"})
+            </span>
           </label>
           <input
             type="date"
             value={data.date ?? ""}
             onChange={(e) => update({ date: e.target.value })}
+            min={dropOffMin}
+            max={dropOffMax}
             className={`w-full rounded-md px-3 py-1.5 text-sm shadow-sm focus:ring-primary focus:border-primary ${
               !data.date ? "border-red-500" : "border-gray-300"
             }`}
           />
         </div>
-        {/* Time */}
+        {/* Dépose : Heure (obligatoire) */}
         <div>
           <label className="text-sm font-semibold flex items-center gap-1 mb-1">
             <Image
@@ -279,29 +331,82 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
               width={16}
               height={16}
               className="w-4 h-4"
-              alt="Heure d'arrivée"
+              alt="Heure de dépose"
             />{" "}
             {t.arrivalTime}
-            <span className="font-normal text-xs text-gray-500">
-              ({t.optional})
+            <span className="text-[10px] text-gray-400 uppercase">
+              ({t.dropOffHeader ?? "dépose"})
             </span>
           </label>
           <select
             value={data.time}
             onChange={(e) => update({ time: e.target.value })}
-            className="w-full rounded-md px-3 py-1.5 text-sm shadow-sm bg-white border-gray-300 focus:ring-primary focus:border-primary"
+            className={`w-full rounded-md px-3 py-1.5 text-sm shadow-sm bg-white focus:ring-primary focus:border-primary ${
+              !(data.time ?? "").trim() ? "border-red-500" : "border-gray-300"
+            }`}
           >
             <option value="">--:--</option>
-            {Array.from({ length: 48 }).map((_, i) => {
-              const hh = String(Math.floor(i / 2)).padStart(2, "0");
-              const mm = i % 2 === 0 ? "00" : "30";
-              const val = `${hh}:${mm}`;
-              return (
-                <option key={val} value={val}>
-                  {val}
-                </option>
-              );
-            })}
+            {dropOffHours.map((val) => (
+              <option key={val} value={val}>
+                {val}
+              </option>
+            ))}
+          </select>
+        </div>
+        {/* Récupération : Date (obligatoire — vision Killian) */}
+        <div>
+          <label className="text-sm font-semibold flex items-center gap-1 mb-1">
+            <Image
+              src="/accreditation/pict_page2/Vector (10).svg"
+              width={16}
+              height={16}
+              className="w-4 h-4"
+              alt="Date de récupération"
+            />{" "}
+            {t.returnDate ?? "Date de récupération"}
+            <span className="text-[10px] text-gray-400 uppercase">
+              ({t.pickUpHeader ?? "récupération"})
+            </span>
+          </label>
+          <input
+            type="date"
+            value={data.returnDate ?? ""}
+            onChange={(e) => update({ returnDate: e.target.value })}
+            min={pickUpMin}
+            max={pickUpMax}
+            className={`w-full rounded-md px-3 py-1.5 text-sm shadow-sm focus:ring-primary focus:border-primary ${
+              !(data.returnDate ?? "").trim() ? "border-red-500" : "border-gray-300"
+            }`}
+          />
+        </div>
+        {/* Récupération : Heure (obligatoire — vision Killian) */}
+        <div>
+          <label className="text-sm font-semibold flex items-center gap-1 mb-1">
+            <Image
+              src="/accreditation/pict_page2/Vector (11).svg"
+              width={16}
+              height={16}
+              className="w-4 h-4"
+              alt="Heure de récupération"
+            />{" "}
+            {t.returnTime ?? "Heure de récupération"}
+            <span className="text-[10px] text-gray-400 uppercase">
+              ({t.pickUpHeader ?? "récupération"})
+            </span>
+          </label>
+          <select
+            value={data.returnTime ?? ""}
+            onChange={(e) => update({ returnTime: e.target.value })}
+            className={`w-full rounded-md px-3 py-1.5 text-sm shadow-sm bg-white focus:ring-primary focus:border-primary ${
+              !(data.returnTime ?? "").trim() ? "border-red-500" : "border-gray-300"
+            }`}
+          >
+            <option value="">--:--</option>
+            {pickUpHours.map((val) => (
+              <option key={val} value={val}>
+                {val}
+              </option>
+            ))}
           </select>
         </div>
         {/* City */}

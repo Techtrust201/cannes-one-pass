@@ -14,7 +14,14 @@ import { useState, useEffect, Suspense, useCallback } from "react";
 import type { Vehicle } from "@/types";
 
 type FormData = {
-  stepOne: { company: string; stand: string; unloading: string; event: string };
+  stepOne: {
+    company: string;
+    stand: string;
+    unloading: string;
+    event: string;
+    /** Secteur / zone de dépose (vision Killian) — clé ZoneConfig */
+    currentZone: string;
+  };
   vehicle: Vehicle;
   stepThree: { message: string; consent: boolean };
 };
@@ -67,7 +74,7 @@ function AccreditationPageContent() {
 
   function getDefaultFormData(): FormData {
     return {
-      stepOne: { company: "", stand: "", unloading: "", event: "" },
+      stepOne: { company: "", stand: "", unloading: "", event: "", currentZone: "" },
       vehicle: {
         id: 1,
         plate: "",
@@ -76,6 +83,8 @@ function AccreditationPageContent() {
         phoneNumber: "",
         date: "",
         time: "",
+        returnDate: "",
+        returnTime: "",
         city: "",
         unloading: [],
       },
@@ -235,6 +244,7 @@ function AccreditationPageContent() {
                       data={formData.vehicle}
                       update={(patch) => updateForm("vehicle", patch)}
                       onValidityChange={setStepValid}
+                      eventSlug={formData.stepOne.event}
                     />
                   )}
                   {step === 3 && (
@@ -288,10 +298,23 @@ function AccreditationPageContent() {
       </main>
 
       {/* Footer */}
-      <footer className="fixed bottom-0 left-0 w-full py-3 px-6 bg-[#353c52] flex items-center shadow-md">
+      <footer className="fixed bottom-0 left-0 w-full py-3 px-6 bg-[#353c52] flex items-center justify-between shadow-md">
         <Link href="/" className="text-white text-sm hover:underline">
           &lt; {t.exit}
         </Link>
+        {/* Lien d'aide simple (mailto) — vision Killian : pas d'usine à gaz cette année */}
+        {(() => {
+          const helpEmail = process.env.NEXT_PUBLIC_HELP_EMAIL ?? "contact@palaisdesfestivals.com";
+          const subject = encodeURIComponent("Aide demande d'accréditation");
+          return (
+            <a
+              href={`mailto:${helpEmail}?subject=${subject}`}
+              className="text-white text-sm hover:underline opacity-80"
+            >
+              {t.needHelp ?? "Need help?"}
+            </a>
+          );
+        })()}
       </footer>
     </div>
   );

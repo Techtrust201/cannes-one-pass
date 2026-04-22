@@ -36,4 +36,15 @@ describe("deriveCategory", () => {
     expect(deriveCategory({ stand: "jetee 12" })).toBe("BATEAU_FLOT");
     expect(deriveCategory({ stand: "  Palais  " })).toBe("STAND_NU");
   });
+
+  it("déduit STAND_CLE_EN_MAIN quand 'clé en main' est mentionné", () => {
+    expect(deriveCategory({ stand: "PALAIS-CLE A12" })).toBe("STAND_CLE_EN_MAIN");
+    expect(deriveCategory({ stand: "STAND CLE EN MAIN 5" })).toBe("STAND_CLE_EN_MAIN");
+    expect(deriveCategory({ stand: "TURNKEY-B3" })).toBe("STAND_CLE_EN_MAIN");
+  });
+
+  it("priorise CLE_EN_MAIN sur le préfixe PALAIS classique", () => {
+    // PALAIS-A12 → STAND_NU normalement, mais avec CLE → STAND_CLE_EN_MAIN
+    expect(deriveCategory({ stand: "PALAIS CLE 42" })).toBe("STAND_CLE_EN_MAIN");
+  });
 });

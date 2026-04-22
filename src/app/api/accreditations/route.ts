@@ -31,6 +31,7 @@ export async function GET(request: NextRequest) {
       select: {
         id: true, company: true, stand: true, event: true, status: true,
         createdAt: true, currentZone: true, isArchived: true,
+        category: true, categorySource: true,
         vehicles: {
           select: { id: true, plate: true, trailerPlate: true, size: true, date: true, vehicleType: true },
         },
@@ -117,6 +118,8 @@ export async function POST(req: NextRequest) {
     const raw = await req.json();
     const { company, stand, unloading, event, message, consent, vehicles, language } =
       raw;
+    // Vision Killian (2026) : plaque et gabarit (size) optionnels — la plaque
+    // peut être attribuée sur place, le gabarit peut être précisé plus tard.
     if (
       !company ||
       !stand ||
@@ -126,8 +129,6 @@ export async function POST(req: NextRequest) {
       vehicles.length === 0 ||
       vehicles.some(
         (v) =>
-          !v.plate ||
-          !v.size ||
           !v.phoneCode ||
           !v.phoneNumber ||
           !v.date ||
@@ -182,8 +183,10 @@ export async function POST(req: NextRequest) {
         categorySource,
         vehicles: {
           create: vehicles.map((v: Record<string, unknown>) => ({
-            plate: v.plate as string,
-            size: v.size as string,
+            // Colonnes non-nullables en base : on stocke "" quand l'exposant n'a
+            // pas encore l'info (plaque attribuée sur place, gabarit à préciser).
+            plate: ((v.plate as string) ?? "").trim(),
+            size: ((v.size as string) ?? "").trim(),
             phoneCode: v.phoneCode as string,
             phoneNumber: v.phoneNumber as string,
             date: v.date as string,
@@ -194,6 +197,8 @@ export async function POST(req: NextRequest) {
             vehicleType: (v.vehicleType as "PORTEUR" | "PORTEUR_ARTICULE" | "SEMI_REMORQUE") ?? null,
             country: (v.country as "FRANCE" | "ESPAGNE" | "ITALIE" | "ALLEMAGNE" | "BELGIQUE" | "SUISSE" | "ROYAUME_UNI" | "PAYS_BAS" | "PORTUGAL" | "AUTRE") ?? null,
             estimatedKms: v.estimatedKms != null ? Number(v.estimatedKms) : 0,
+            arrivalDate: v.arrivalDate ? new Date(v.arrivalDate as string) : null,
+            departureDate: v.departureDate ? new Date(v.departureDate as string) : null,
             trailerPlate: (v.trailerPlate as string) ?? null,
             emptyWeight: v.emptyWeight != null ? Number(v.emptyWeight) : null,
             maxWeight: v.maxWeight != null ? Number(v.maxWeight) : null,

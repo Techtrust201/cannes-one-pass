@@ -1,17 +1,9 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireRole, hasPermission } from "@/lib/auth-helpers";
-
-async function requireEspaceAdmin(
-  request: NextRequest,
-  mode: "read" | "write"
-) {
-  const { session, role } = await requireRole(request, "USER");
-  if (role === "SUPER_ADMIN") return session;
-  const allowed = await hasPermission(session.user.id, "GESTION_ESPACES", mode);
-  if (!allowed) throw new Response("Accès refusé", { status: 403 });
-  return session;
-}
+import {
+  requireEspaceManagement,
+  requireOrganizationMembership,
+} from "@/lib/auth-helpers";
 
 function handleAuthError(error: unknown) {
   if (error instanceof Response)
@@ -33,13 +25,23 @@ function normalizeSlug(input: string): string {
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function GET(req: NextRequest, ctx: Ctx) {
+  let sessionUserId: string;
+  let role: import("@prisma/client").UserRole;
   try {
-    await requireEspaceAdmin(req, "read");
+    const authCtx = await requireEspaceManagement(req, "read");
+    sessionUserId = authCtx.session.user.id;
+    role = authCtx.role;
   } catch (err) {
     return handleAuthError(err);
   }
 
   const { id } = await ctx.params;
+  try {
+    await requireOrganizationMembership(sessionUserId, role, id);
+  } catch (err) {
+    return handleAuthError(err);
+  }
+
   try {
     const org = await prisma.organization.findUnique({
       where: { id },
@@ -69,13 +71,23 @@ export async function GET(req: NextRequest, ctx: Ctx) {
 }
 
 export async function PATCH(req: NextRequest, ctx: Ctx) {
+  let sessionUserId: string;
+  let role: import("@prisma/client").UserRole;
   try {
-    await requireEspaceAdmin(req, "write");
+    const authCtx = await requireEspaceManagement(req, "write");
+    sessionUserId = authCtx.session.user.id;
+    role = authCtx.role;
   } catch (err) {
     return handleAuthError(err);
   }
 
   const { id } = await ctx.params;
+  try {
+    await requireOrganizationMembership(sessionUserId, role, id);
+  } catch (err) {
+    return handleAuthError(err);
+  }
+
   try {
     const body = await req.json();
     const data: Record<string, unknown> = {};
@@ -115,10 +127,19 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
 }
 
 export async function DELETE(req: NextRequest, ctx: Ctx) {
+  let role: import("@prisma/client").UserRole;
   try {
-    await requireEspaceAdmin(req, "write");
+    const authCtx = await requireEspaceManagement(req, "write");
+    role = authCtx.role;
   } catch (err) {
     return handleAuthError(err);
+  }
+
+  if (role !== "SUPER_ADMIN") {
+    return Response.json(
+      { error: "Seuls les Super Admins peuvent supprimer un Espace." },
+      { status: 403 }
+    );
   }
 
   const { id } = await ctx.params;

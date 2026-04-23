@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Menu, X } from "lucide-react";
@@ -13,8 +13,16 @@ export default function AdminLayout({
   children: ReactNode;
 }) {
   const router = useRouter();
-  const { user, loading } = usePermissions();
+  const pathname = usePathname();
+  const { user, loading, hasPermission } = usePermissions();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const isSuperAdmin = user?.role === "SUPER_ADMIN";
+  const canManageEspaces = hasPermission("GESTION_ESPACES", "write");
+  const isEspacesRoute = pathname?.startsWith("/admin/espaces") ?? false;
+  const canAccessAdmin =
+    user &&
+    (isSuperAdmin || (isEspacesRoute && canManageEspaces));
 
   if (loading) {
     return (
@@ -24,7 +32,7 @@ export default function AdminLayout({
     );
   }
 
-  if (!user || user.role !== "SUPER_ADMIN") {
+  if (!user || !canAccessAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -32,7 +40,9 @@ export default function AdminLayout({
             Accès refusé
           </h1>
           <p className="text-gray-600 mb-4">
-            Vous devez être Super Admin pour accéder à cette page.
+            {!user
+              ? "Vous devez être connecté pour accéder à cette page."
+              : "Cette page est réservée aux Super Admins, ou aux gestionnaires disposant de la permission « Gestion des Espaces » en écriture pour la section Espaces uniquement."}
           </p>
           <Link
             href="/logisticien"
@@ -123,13 +133,15 @@ export default function AdminLayout({
               <div className="text-sm text-white/70 px-1 py-2 truncate">
                 {user.name}
               </div>
-              <Link
-                href="/admin/users"
-                onClick={() => setMobileMenuOpen(false)}
-                className="block text-white/80 hover:text-white hover:bg-white/10 text-sm transition-colors rounded-lg px-3 py-3 min-h-[44px]"
-              >
-                Utilisateurs
-              </Link>
+              {isSuperAdmin && (
+                <Link
+                  href="/admin/users"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block text-white/80 hover:text-white hover:bg-white/10 text-sm transition-colors rounded-lg px-3 py-3 min-h-[44px]"
+                >
+                  Utilisateurs
+                </Link>
+              )}
               <Link
                 href="/admin/espaces"
                 onClick={() => setMobileMenuOpen(false)}
@@ -137,26 +149,30 @@ export default function AdminLayout({
               >
                 Espaces
               </Link>
-              <Link
-                href="/admin/accreditations/import"
-                onClick={() => setMobileMenuOpen(false)}
-                className="block text-white/80 hover:text-white hover:bg-white/10 text-sm transition-colors rounded-lg px-3 py-3 min-h-[44px]"
-              >
-                Import CSV
-              </Link>
+              {isSuperAdmin && (
+                <>
+                  <Link
+                    href="/admin/accreditations/import"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block text-white/80 hover:text-white hover:bg-white/10 text-sm transition-colors rounded-lg px-3 py-3 min-h-[44px]"
+                  >
+                    Import CSV
+                  </Link>
+                  <Link
+                    href="/admin/qr"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block text-white/80 hover:text-white hover:bg-white/10 text-sm transition-colors rounded-lg px-3 py-3 min-h-[44px]"
+                  >
+                    QR Code
+                  </Link>
+                </>
+              )}
               <Link
                 href="/logisticien"
                 onClick={() => setMobileMenuOpen(false)}
                 className="block text-white/80 hover:text-white hover:bg-white/10 text-sm transition-colors rounded-lg px-3 py-3 min-h-[44px]"
               >
                 Logisticien
-              </Link>
-              <Link
-                href="/admin/qr"
-                onClick={() => setMobileMenuOpen(false)}
-                className="block text-white/80 hover:text-white hover:bg-white/10 text-sm transition-colors rounded-lg px-3 py-3 min-h-[44px]"
-              >
-                QR Code
               </Link>
               <button
                 onClick={async () => {

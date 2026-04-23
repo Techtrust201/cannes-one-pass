@@ -183,6 +183,37 @@ export async function getAccessibleOrganizationIds(userId: string): Promise<Acce
 }
 
 /**
+ * Vérifie que l'utilisateur peut gérer les Espaces (admin UI / API).
+ * SUPER_ADMIN : toujours ; sinon permission GESTION_ESPACES.
+ */
+export async function requireEspaceManagement(
+  request: Request,
+  mode: "read" | "write"
+) {
+  const { session, role } = await requireRole(request, "USER");
+  if (role === "SUPER_ADMIN") return { session, role };
+  const allowed = await hasPermission(session.user.id, "GESTION_ESPACES", mode);
+  if (!allowed) throw new Response("Accès refusé", { status: 403 });
+  return { session, role };
+}
+
+/**
+ * Pour un non–super-admin : l'Espace doit être dans ses organisations membres.
+ */
+export async function requireOrganizationMembership(
+  userId: string,
+  role: UserRole,
+  organizationId: string
+): Promise<void> {
+  if (role === "SUPER_ADMIN") return;
+  const accessible = await getAccessibleOrganizationIds(userId);
+  if (accessible === "ALL") return;
+  if (!accessible.includes(organizationId)) {
+    throw new Response("Accès refusé à cet espace", { status: 403 });
+  }
+}
+
+/**
  * Version pratique : exige une auth active et retourne aussi les eventIds
  * accessibles. Combine `requireAuth` + `getAccessibleEventIds`.
  */

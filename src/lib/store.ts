@@ -1,9 +1,20 @@
 import type { Accreditation, Vehicle } from "@/types";
 import prisma, { withRetry } from "@/lib/prisma";
+import type { AccessibleIds } from "@/lib/auth-helpers";
 
-export async function readAccreditations(): Promise<Accreditation[]> {
+export async function readAccreditations(options?: {
+  accessibleEventIds?: AccessibleIds;
+}): Promise<Accreditation[]> {
+  const scope = options?.accessibleEventIds ?? "ALL";
+  const tenantFilter =
+    scope === "ALL"
+      ? {}
+      : scope.length === 0
+        ? { eventId: { in: [] as string[] } }
+        : { eventId: { in: scope } };
+
   const rows = await withRetry(() => prisma.accreditation.findMany({
-    where: { isArchived: false },
+    where: { isArchived: false, ...tenantFilter },
     include: {
       vehicles: {
         include: {

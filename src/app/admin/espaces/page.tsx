@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, Users, Calendar, Building2, Search } from "lucide-react";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface OrganizationSummary {
   id: string;
@@ -18,6 +19,8 @@ interface OrganizationSummary {
 }
 
 export default function EspacesListPage() {
+  const { user } = usePermissions();
+  const isSuperAdmin = user?.role === "SUPER_ADMIN";
   const [orgs, setOrgs] = useState<OrganizationSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,12 +60,14 @@ export default function EspacesListPage() {
             Regroupements d&apos;events par organisation (Palais, RX, etc.)
           </p>
         </div>
-        <Link
-          href="/admin/espaces/nouveau"
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#4F587E] text-white font-semibold text-sm hover:bg-[#3B4252] transition shadow-sm min-h-[44px]"
-        >
-          <Plus size={16} /> Nouvel Espace
-        </Link>
+        {isSuperAdmin && (
+          <Link
+            href="/admin/espaces/nouveau"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#4F587E] text-white font-semibold text-sm hover:bg-[#3B4252] transition shadow-sm min-h-[44px]"
+          >
+            <Plus size={16} /> Nouvel Espace
+          </Link>
+        )}
       </div>
 
       <div className="relative">

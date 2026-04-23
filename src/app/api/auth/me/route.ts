@@ -48,6 +48,7 @@ export async function GET(request: NextRequest) {
       "GESTION_ZONES",
       "GESTION_DATES",
       "ARCHIVES",
+      "GESTION_ESPACES",
     ] as const;
 
     const permissions =

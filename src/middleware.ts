@@ -72,9 +72,14 @@ export async function middleware(request: NextRequest) {
       try {
         const decoded = JSON.parse(decodeURIComponent(sessionData));
         const role = decoded?.user?.role;
-        if (role !== "SUPER_ADMIN") {
-          return NextResponse.redirect(new URL("/logisticien", request.url));
+        if (role === "SUPER_ADMIN") {
+          return NextResponse.next();
         }
+        // Gestionnaires d'espaces : accès limité à /admin/espaces (RBAC détaillé dans le layout)
+        if (pathname.startsWith("/admin/espaces")) {
+          return NextResponse.next();
+        }
+        return NextResponse.redirect(new URL("/logisticien", request.url));
       } catch {
         // Cookie illisible, laisser passer — la page fera la vérif côté serveur
       }

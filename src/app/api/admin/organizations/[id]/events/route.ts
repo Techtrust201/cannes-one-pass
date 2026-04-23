@@ -1,14 +1,10 @@
 import { NextRequest } from "next/server";
+import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireRole, hasPermission } from "@/lib/auth-helpers";
-
-async function requireEspaceAdmin(request: NextRequest) {
-  const { session, role } = await requireRole(request, "USER");
-  if (role === "SUPER_ADMIN") return session;
-  const allowed = await hasPermission(session.user.id, "GESTION_ESPACES", "write");
-  if (!allowed) throw new Response("Accès refusé", { status: 403 });
-  return session;
-}
+import {
+  requireEspaceManagement,
+  requireOrganizationMembership,
+} from "@/lib/auth-helpers";
 
 function handleAuthError(error: unknown) {
   if (error instanceof Response)
@@ -31,17 +27,49 @@ type Ctx = { params: Promise<{ id: string }> };
  * ce qu'un super-admin les rattache ailleurs.
  */
 export async function PUT(req: NextRequest, ctx: Ctx) {
+  let sessionUserId: string;
+  let role: UserRole;
   try {
-    await requireEspaceAdmin(req);
+    const authCtx = await requireEspaceManagement(req, "write");
+    sessionUserId = authCtx.session.user.id;
+    role = authCtx.role;
   } catch (err) {
     return handleAuthError(err);
   }
 
   const { id: organizationId } = await ctx.params;
+  try {
+    await requireOrganizationMembership(sessionUserId, role, organizationId);
+  } catch (err) {
+    return handleAuthError(err);
+  }
+
   const body = await req.json();
   const eventIds: string[] = Array.isArray(body.eventIds) ? body.eventIds : [];
 
   try {
+    if (role !== "SUPER_ADMIN" && eventIds.length > 0) {
+      const events = await prisma.event.findMany({
+        where: { id: { in: eventIds } },
+        select: { id: true, organizationId: true },
+      });
+      if (events.length !== eventIds.length) {
+        return Response.json({ error: "Un ou plusieurs événements sont introuvables." }, { status: 400 });
+      }
+      const steals = events.filter(
+        (e) => e.organizationId != null && e.organizationId !== organizationId
+      );
+      if (steals.length > 0) {
+        return Response.json(
+          {
+            error:
+              "Seul un Super Admin peut rattacher des événements déjà affectés à un autre Espace.",
+          },
+          { status: 403 }
+        );
+      }
+    }
+
     await prisma.$transaction(async (tx) => {
       // 1. Détacher les events qui étaient rattachés mais ne sont plus dans la liste
       await tx.event.updateMany({

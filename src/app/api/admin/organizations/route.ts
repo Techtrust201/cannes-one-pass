@@ -1,22 +1,10 @@
 import { NextRequest } from "next/server";
+import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireRole, hasPermission } from "@/lib/auth-helpers";
-
-/**
- * Vérifie que l'utilisateur peut gérer les Espaces :
- * - SUPER_ADMIN toujours autorisé
- * - Sinon : permission GESTION_ESPACES en écriture
- */
-async function requireEspaceAdmin(
-  request: NextRequest,
-  mode: "read" | "write"
-) {
-  const { session, role } = await requireRole(request, "USER");
-  if (role === "SUPER_ADMIN") return session;
-  const allowed = await hasPermission(session.user.id, "GESTION_ESPACES", mode);
-  if (!allowed) throw new Response("Accès refusé", { status: 403 });
-  return session;
-}
+import {
+  requireEspaceManagement,
+  getAccessibleOrganizationIds,
+} from "@/lib/auth-helpers";
 
 function handleAuthError(error: unknown) {
   if (error instanceof Response)
@@ -35,28 +23,41 @@ function normalizeSlug(input: string): string {
     .replace(/[^a-z0-9-]/g, "");
 }
 
+const orgListSelect = {
+  id: true,
+  name: true,
+  slug: true,
+  logo: true,
+  color: true,
+  description: true,
+  isActive: true,
+  createdAt: true,
+  updatedAt: true,
+  _count: { select: { events: true, members: true } },
+} as const;
+
 export async function GET(req: NextRequest) {
+  let sessionUserId: string;
+  let role: UserRole;
   try {
-    await requireEspaceAdmin(req, "read");
+    const ctx = await requireEspaceManagement(req, "read");
+    sessionUserId = ctx.session.user.id;
+    role = ctx.role;
   } catch (err) {
     return handleAuthError(err);
   }
 
   try {
+    const accessible = await getAccessibleOrganizationIds(sessionUserId);
+    const orgWhere =
+      role === "SUPER_ADMIN" || accessible === "ALL"
+        ? {}
+        : { id: { in: accessible } };
+
     const orgs = await prisma.organization.findMany({
+      where: orgWhere,
       orderBy: { name: "asc" },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        logo: true,
-        color: true,
-        description: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true,
-        _count: { select: { events: true, members: true } },
-      },
+      select: orgListSelect,
     });
     return Response.json(orgs);
   } catch (error) {
@@ -66,10 +67,19 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  let role: UserRole;
   try {
-    await requireEspaceAdmin(req, "write");
+    const ctx = await requireEspaceManagement(req, "write");
+    role = ctx.role;
   } catch (err) {
     return handleAuthError(err);
+  }
+
+  if (role !== "SUPER_ADMIN") {
+    return Response.json(
+      { error: "Seuls les Super Admins peuvent créer un Espace." },
+      { status: 403 }
+    );
   }
 
   try {

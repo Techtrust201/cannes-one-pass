@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2, Save } from "lucide-react";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const PRESET_COLORS = [
   "#4F587E", "#3DAAA4", "#E07A5F", "#81B29A",
@@ -20,6 +21,15 @@ function normalizeSlug(input: string): string {
 
 export default function NewEspacePage() {
   const router = useRouter();
+  const { user, loading: permLoading } = usePermissions();
+
+  useEffect(() => {
+    if (permLoading) return;
+    if (user?.role !== "SUPER_ADMIN") {
+      router.replace("/admin/espaces");
+    }
+  }, [permLoading, user?.role, router]);
+
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
@@ -59,6 +69,14 @@ export default function NewEspacePage() {
       setError(err instanceof Error ? err.message : "Erreur inconnue");
       setSaving(false);
     }
+  }
+
+  if (permLoading || user?.role !== "SUPER_ADMIN") {
+    return (
+      <div className="flex items-center justify-center min-h-[40vh]">
+        <Loader2 className="animate-spin text-gray-400" size={28} aria-label="Chargement" />
+      </div>
+    );
   }
 
   return (

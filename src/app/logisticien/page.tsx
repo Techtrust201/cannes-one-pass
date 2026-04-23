@@ -1,8 +1,11 @@
 export const maxDuration = 60;
 
+import { headers } from "next/headers";
 import { readAccreditations } from "@/lib/store";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+import { getAccessibleEventIds } from "@/lib/auth-helpers";
 import { FilterBar } from "@/components/logisticien/FilterBar";
 import AccreditationTable from "@/components/logisticien/AccreditationTable";
 import { buildLink } from "@/lib/url";
@@ -31,7 +34,14 @@ export default async function LogisticienDashboard(props: {
 }) {
   // Next.js 15 : searchParams est une Promise → on attend son résultat.
   const paramsObj = await props.searchParams;
-  const data = await readAccreditations();
+
+  const hdrs = await headers();
+  const session = await auth.api.getSession({ headers: hdrs });
+  if (!session?.user?.id) {
+    redirect("/login");
+  }
+  const accessibleEventIds = await getAccessibleEventIds(session.user.id);
+  const data = await readAccreditations({ accessibleEventIds });
 
   const {
     q = "",

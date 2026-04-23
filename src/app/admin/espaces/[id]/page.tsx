@@ -15,6 +15,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import MultiSelectDialog from "@/components/admin/MultiSelectDialog";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface EventInOrg {
   id: string;
@@ -54,6 +55,8 @@ export default function EspaceDetailPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
+  const { user } = usePermissions();
+  const isSuperAdmin = user?.role === "SUPER_ADMIN";
   const [tab, setTab] = useState<Tab>("infos");
   const [org, setOrg] = useState<OrganizationDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -153,9 +156,18 @@ export default function EspaceDetailPage({
       </div>
 
       {/* Contenu */}
-      {tab === "infos" && <InfosTab org={org} onSaved={reload} onDeleted={() => router.push("/admin/espaces")} />}
+      {tab === "infos" && (
+        <InfosTab
+          org={org}
+          onSaved={reload}
+          onDeleted={() => router.push("/admin/espaces")}
+          canDeleteSpace={isSuperAdmin}
+        />
+      )}
       {tab === "events" && <EventsTab org={org} onSaved={reload} />}
-      {tab === "members" && <MembersTab org={org} onSaved={reload} />}
+      {tab === "members" && (
+        <MembersTab org={org} onSaved={reload} canManageMembers={isSuperAdmin} />
+      )}
     </div>
   );
 }
@@ -164,10 +176,12 @@ function InfosTab({
   org,
   onSaved,
   onDeleted,
+  canDeleteSpace,
 }: {
   org: OrganizationDetail;
   onSaved: () => void;
   onDeleted: () => void;
+  canDeleteSpace: boolean;
 }) {
   const [name, setName] = useState(org.name);
   const [slug, setSlug] = useState(org.slug);
@@ -286,14 +300,18 @@ function InfosTab({
       )}
 
       <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">
-        <button
-          type="button"
-          onClick={() => setConfirmDelete(true)}
-          disabled={saving}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-red-200 text-red-700 font-semibold text-sm hover:bg-red-50 transition disabled:opacity-50 min-h-[44px]"
-        >
-          <Trash2 size={14} /> Supprimer
-        </button>
+        {canDeleteSpace ? (
+          <button
+            type="button"
+            onClick={() => setConfirmDelete(true)}
+            disabled={saving}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-red-200 text-red-700 font-semibold text-sm hover:bg-red-50 transition disabled:opacity-50 min-h-[44px]"
+          >
+            <Trash2 size={14} /> Supprimer
+          </button>
+        ) : (
+          <div className="min-h-[44px]" />
+        )}
         <div className="flex-1" />
         <button
           type="button"
@@ -306,7 +324,7 @@ function InfosTab({
         </button>
       </div>
 
-      {confirmDelete && (
+      {canDeleteSpace && confirmDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
             <div className="flex items-center gap-3">
@@ -441,20 +459,23 @@ function EventsTab({
 function MembersTab({
   org,
   onSaved,
+  canManageMembers,
 }: {
   org: OrganizationDetail;
   onSaved: () => void;
+  canManageMembers: boolean;
 }) {
   const [allUsers, setAllUsers] = useState<UserInOrg[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    if (!canManageMembers) return;
     (async () => {
       const res = await fetch("/api/admin/users");
       if (res.ok) setAllUsers(await res.json());
     })();
-  }, []);
+  }, [canManageMembers]);
 
   async function saveSelection(userIds: string[]) {
     setSaving(true);
@@ -478,12 +499,18 @@ function MembersTab({
           <Users size={14} className="inline -mt-0.5 mr-1" />
           Utilisateurs membres de cet Espace
         </p>
-        <button
-          onClick={() => setDialogOpen(true)}
-          className="text-sm font-semibold text-[#4F587E] hover:underline min-h-[44px] px-2"
-        >
-          Gérer la liste
-        </button>
+        {canManageMembers ? (
+          <button
+            onClick={() => setDialogOpen(true)}
+            className="text-sm font-semibold text-[#4F587E] hover:underline min-h-[44px] px-2"
+          >
+            Gérer la liste
+          </button>
+        ) : (
+          <p className="text-xs text-gray-500 max-w-md text-right">
+            Seul un Super Admin peut ajouter ou retirer des membres.
+          </p>
+        )}
       </div>
 
       {org.members.length === 0 ? (
@@ -518,20 +545,22 @@ function MembersTab({
         </div>
       )}
 
-      <MultiSelectDialog
-        open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
-        title="Membres de cet Espace"
-        description="Les membres voient automatiquement tous les events rattachés à cet Espace."
-        items={allUsers.map((u) => ({
-          id: u.id,
-          label: u.name,
-          sublabel: `${u.email} — ${u.role}`,
-        }))}
-        initialSelection={org.members.map(({ user }) => user.id)}
-        onSave={saveSelection}
-        saving={saving}
-      />
+      {canManageMembers && (
+        <MultiSelectDialog
+          open={dialogOpen}
+          onClose={() => setDialogOpen(false)}
+          title="Membres de cet Espace"
+          description="Les membres voient automatiquement tous les events rattachés à cet Espace."
+          items={allUsers.map((u) => ({
+            id: u.id,
+            label: u.name,
+            sublabel: `${u.email} — ${u.role}`,
+          }))}
+          initialSelection={org.members.map(({ user }) => user.id)}
+          onSave={saveSelection}
+          saving={saving}
+        />
+      )}
     </div>
   );
 }

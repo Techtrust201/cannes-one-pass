@@ -5,12 +5,16 @@ import { readAccreditations } from "@/lib/store";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { getAccessibleEventIds } from "@/lib/auth-helpers";
+import {
+  getAccessibleEventIdsForEspace,
+  getAvailableEspacesForUser,
+} from "@/lib/auth-helpers";
 import { FilterBar } from "@/components/logisticien/FilterBar";
 import AccreditationTable from "@/components/logisticien/AccreditationTable";
 import { buildLink } from "@/lib/url";
 import AccreditationFormCard from "@/components/logisticien/AccreditationFormCard";
 import AutoRefreshOnSSE from "@/components/logisticien/AutoRefreshOnSSE";
+import NoEspaceState from "@/components/logisticien/NoEspaceState";
 import type { SortDirection } from "@/components/ui/table";
 import { parseVehicleDate, parseSearchDate, formatTimeForSearch } from "@/lib/date-utils";
 
@@ -40,7 +44,64 @@ export default async function LogisticienDashboard(props: {
   if (!session?.user?.id) {
     redirect("/login");
   }
-  const accessibleEventIds = await getAccessibleEventIds(session.user.id);
+
+  const currentUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { role: true, isActive: true },
+  });
+  if (!currentUser || !currentUser.isActive) {
+    redirect("/login");
+  }
+  const isSuperAdmin = currentUser.role === "SUPER_ADMIN";
+  const espaceParam = paramsObj.espace?.trim() || null;
+  const availableEspaces = await getAvailableEspacesForUser(session.user.id);
+
+  // Cas 1 : utilisateur standard sans aucune organisation → message dédié.
+  if (!isSuperAdmin && availableEspaces.length === 0) {
+    return (
+      <div className="min-h-screen sm:h-screen flex flex-col">
+        <NoEspaceState mode="none" />
+      </div>
+    );
+  }
+
+  // Cas 2 : un seul espace → redirect auto pour figer l'URL ergonomique.
+  if (!espaceParam && !isSuperAdmin && availableEspaces.length === 1) {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(paramsObj)) {
+      if (v === undefined || v === null || v === "") continue;
+      qs.set(k, String(v));
+    }
+    qs.set("espace", availableEspaces[0].slug);
+    redirect(`/logisticien?${qs.toString()}`);
+  }
+
+  // Cas 3 : utilisateur multi-org sans `espace` → sélecteur.
+  if (!espaceParam && !isSuperAdmin && availableEspaces.length > 1) {
+    return (
+      <div className="min-h-screen sm:h-screen flex flex-col">
+        <NoEspaceState
+          mode="choose"
+          espaces={availableEspaces}
+          currentSearchParams={paramsObj}
+        />
+      </div>
+    );
+  }
+
+  // Validation du slug `espace` : doit appartenir aux espaces accessibles
+  // (hors super-admin qui peut cibler n'importe quelle org).
+  if (espaceParam && !isSuperAdmin) {
+    const allowed = availableEspaces.some((o) => o.slug === espaceParam);
+    if (!allowed) {
+      redirect("/logisticien");
+    }
+  }
+
+  const accessibleEventIds = await getAccessibleEventIdsForEspace(
+    session.user.id,
+    espaceParam
+  );
   const data = await readAccreditations({ accessibleEventIds });
 
   const {

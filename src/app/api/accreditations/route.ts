@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import prisma, { withRetry } from "@/lib/prisma";
 // import type { Accreditation } from "@/types";
 import { addHistoryEntry, createCreatedEntry } from "@/lib/history";
-import { requirePermission, getSession, getAccessibleEventIds } from "@/lib/auth-helpers";
+import { requirePermission, getSession, getAccessibleEventIdsForEspace } from "@/lib/auth-helpers";
 
 export async function GET(request: NextRequest) {
   let currentUserId: string | undefined;
@@ -16,13 +16,18 @@ export async function GET(request: NextRequest) {
     return new Response("Non autorisé", { status: 401 });
   }
 
-  // Scoping multi-tenant : restreindre aux events accessibles sauf SUPER_ADMIN.
-  const accessibleEventIds = await getAccessibleEventIds(currentUserId!);
+  // Scoping multi-tenant : restreindre aux events accessibles (avec prise en
+  // compte du contexte d'Espace `?espace=<slug>` pour aligner SSR et API).
+  const { searchParams } = new URL(request.url);
+  const espaceParam = searchParams.get("espace")?.trim() || null;
+  const accessibleEventIds = await getAccessibleEventIdsForEspace(
+    currentUserId!,
+    espaceParam
+  );
   const eventScopeFilter =
     accessibleEventIds === "ALL" ? {} : { eventId: { in: accessibleEventIds } };
 
   // Par défaut, exclure les accréditations archivées
-  const { searchParams } = new URL(request.url);
   const showArchived = searchParams.get("archived") === "true";
 
   if (showArchived) {

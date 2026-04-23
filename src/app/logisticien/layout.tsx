@@ -3,12 +3,14 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import Image from "next/image";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import { X, ChevronsLeft, ChevronsRight } from "lucide-react";
 import MobileNavbar from "@/components/logisticien/MobileNavbar";
 import { usePermissions } from "@/hooks/usePermissions";
 import { authClient } from "@/lib/auth-client";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { withEspaceQuery } from "@/lib/url";
+import EspaceSwitcher from "@/components/logisticien/EspaceSwitcher";
 
 const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";
 
@@ -17,12 +19,32 @@ export default function LogisticienLayout({
 }: {
   children: ReactNode;
 }) {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="animate-spin h-8 w-8 border-4 border-[#3F4660] border-t-transparent rounded-full" />
+        </div>
+      }
+    >
+      <LogisticienLayoutContent>{children}</LogisticienLayoutContent>
+    </Suspense>
+  );
+}
+
+function LogisticienLayoutContent({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const { user, hasPermission, isSuperAdmin, loading } =
     usePermissions();
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const espace = searchParams?.get("espace") ?? null;
+  const withEspace = useMemo(
+    () => (path: string) => withEspaceQuery(path, espace),
+    [espace]
+  );
 
   // Restaurer l'état collapsed depuis localStorage
   useEffect(() => {
@@ -99,6 +121,8 @@ export default function LogisticienLayout({
             </div>
           )}
         </div>
+        {/* Sélecteur d'Espace */}
+        <EspaceSwitcher collapsed={collapsed} />
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto px-2 py-4 space-y-4 pb-20 sm:pb-4">
           {/* Bloc Accréditations */}
@@ -107,17 +131,17 @@ export default function LogisticienLayout({
             collapsed ? (
               <div className="space-y-1">
                 {hasPermission("LISTE", "read") && (
-                  <Link href="/logisticien" className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="Liste" onClick={() => setSidebarOpen(false)}>
+                  <Link href={withEspace("/logisticien")} className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="Liste" onClick={() => setSidebarOpen(false)}>
                     <Image src="/logisticien/Vector%20(17).svg" width={16} height={16} alt="Liste" />
                   </Link>
                 )}
                 {hasPermission("CREER", "read") && (
-                  <Link href="/logisticien/nouveau?step=1" className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="Créer" onClick={() => setSidebarOpen(false)}>
+                  <Link href={withEspace("/logisticien/nouveau?step=1")} className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="Créer" onClick={() => setSidebarOpen(false)}>
                     <Image src="/logisticien/Vector%20(18).svg" width={16} height={16} alt="Créer" />
                   </Link>
                 )}
                 {hasPermission("ARCHIVES", "read") && (
-                  <Link href="/logisticien/archives" className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="Archives" onClick={() => setSidebarOpen(false)}>
+                  <Link href={withEspace("/logisticien/archives")} className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="Archives" onClick={() => setSidebarOpen(false)}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white">
                       <path d="M21 8v13H3V8M1 3h22v5H1V3zM10 12h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
@@ -148,7 +172,7 @@ export default function LogisticienLayout({
                 {hasPermission("LISTE", "read") && (
                   <li>
                     <Link
-                      href="/logisticien"
+                      href={withEspace("/logisticien")}
                       className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
                       onClick={() => setSidebarOpen(false)}
                     >
@@ -165,7 +189,7 @@ export default function LogisticienLayout({
                 {hasPermission("CREER", "read") && (
                   <li>
                     <Link
-                      href="/logisticien/nouveau?step=1"
+                      href={withEspace("/logisticien/nouveau?step=1")}
                       className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
                       onClick={() => setSidebarOpen(false)}
                     >
@@ -182,7 +206,7 @@ export default function LogisticienLayout({
                 {hasPermission("ARCHIVES", "read") && (
                   <li>
                     <Link
-                      href="/logisticien/archives"
+                      href={withEspace("/logisticien/archives")}
                       className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
                       onClick={() => setSidebarOpen(false)}
                     >
@@ -204,12 +228,12 @@ export default function LogisticienLayout({
             collapsed ? (
               <div className="space-y-1">
                 {hasPermission("PLAQUE", "read") && (
-                  <Link href="/logisticien/scanner/plaque" className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="Plaque" onClick={() => setSidebarOpen(false)}>
+                  <Link href={withEspace("/logisticien/scanner/plaque")} className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="Plaque" onClick={() => setSidebarOpen(false)}>
                     <Image src="/logisticien/Group%201%20(1).svg" width={22} height={16} alt="Plaque" />
                   </Link>
                 )}
                 {hasPermission("QR_CODE", "read") && (
-                  <Link href="/logisticien/scanner/qr" className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="QR code" onClick={() => setSidebarOpen(false)}>
+                  <Link href={withEspace("/logisticien/scanner/qr")} className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="QR code" onClick={() => setSidebarOpen(false)}>
                     <Image src="/logisticien/Vector%20(20).svg" width={16} height={16} alt="QR code" />
                   </Link>
                 )}
@@ -238,7 +262,7 @@ export default function LogisticienLayout({
                 {hasPermission("PLAQUE", "read") && (
                   <li>
                     <Link
-                      href="/logisticien/scanner/plaque"
+                      href={withEspace("/logisticien/scanner/plaque")}
                       className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
                       onClick={() => setSidebarOpen(false)}
                     >
@@ -255,7 +279,7 @@ export default function LogisticienLayout({
                 {hasPermission("QR_CODE", "read") && (
                   <li>
                     <Link
-                      href="/logisticien/scanner/qr"
+                      href={withEspace("/logisticien/scanner/qr")}
                       className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
                       onClick={() => setSidebarOpen(false)}
                     >
@@ -282,22 +306,22 @@ export default function LogisticienLayout({
             collapsed ? (
               <div className="space-y-1">
                 {hasPermission("FLUX_VEHICULES", "read") && (
-                  <Link href="/logisticien/vehicles" className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="Flux véhicules" onClick={() => setSidebarOpen(false)}>
+                  <Link href={withEspace("/logisticien/vehicles")} className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="Flux véhicules" onClick={() => setSidebarOpen(false)}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white"><path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h4c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" fill="currentColor"/></svg>
                   </Link>
                 )}
                 {hasPermission("BILAN_CARBONE", "read") && (
-                  <Link href="/logisticien/carbon" className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="Bilan carbone" onClick={() => setSidebarOpen(false)}>
+                  <Link href={withEspace("/logisticien/carbon")} className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="Bilan carbone" onClick={() => setSidebarOpen(false)}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="currentColor"/></svg>
                   </Link>
                 )}
                 {hasPermission("GESTION_ZONES", "read") && (
-                  <Link href="/logisticien/zones" className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="Gestion zones" onClick={() => setSidebarOpen(false)}>
+                  <Link href={withEspace("/logisticien/zones")} className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="Gestion zones" onClick={() => setSidebarOpen(false)}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="currentColor"/></svg>
                   </Link>
                 )}
                 {hasPermission("GESTION_DATES", "read") && (
-                  <Link href="/logisticien/dates" className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="Gestion dates" onClick={() => setSidebarOpen(false)}>
+                  <Link href={withEspace("/logisticien/dates")} className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="Gestion dates" onClick={() => setSidebarOpen(false)}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z" fill="currentColor"/></svg>
                   </Link>
                 )}
@@ -333,7 +357,7 @@ export default function LogisticienLayout({
                 {hasPermission("FLUX_VEHICULES", "read") && (
                   <li>
                     <Link
-                      href="/logisticien/vehicles"
+                      href={withEspace("/logisticien/vehicles")}
                       className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
                       onClick={() => setSidebarOpen(false)}
                     >
@@ -357,7 +381,7 @@ export default function LogisticienLayout({
                 {hasPermission("BILAN_CARBONE", "read") && (
                   <li>
                     <Link
-                      href="/logisticien/carbon"
+                      href={withEspace("/logisticien/carbon")}
                       className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
                       onClick={() => setSidebarOpen(false)}
                     >
@@ -381,7 +405,7 @@ export default function LogisticienLayout({
                 {hasPermission("GESTION_ZONES", "read") && (
                   <li>
                     <Link
-                      href="/logisticien/zones"
+                      href={withEspace("/logisticien/zones")}
                       className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
                       onClick={() => setSidebarOpen(false)}
                     >
@@ -405,7 +429,7 @@ export default function LogisticienLayout({
                 {hasPermission("GESTION_DATES", "read") && (
                   <li>
                     <Link
-                      href="/logisticien/dates"
+                      href={withEspace("/logisticien/dates")}
                       className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
                       onClick={() => setSidebarOpen(false)}
                     >

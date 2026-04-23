@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import prisma, { withRetry } from "@/lib/prisma";
-import { requireAuth, getAccessibleEventIds } from "@/lib/auth-helpers";
+import { requireAuth, getAccessibleEventIdsForEspace } from "@/lib/auth-helpers";
 
 /**
  * GET /api/accreditations/changes?since=ISO_TIMESTAMP&zone=ZONE
@@ -24,13 +24,18 @@ export async function GET(req: NextRequest) {
     return new Response("Non autorisé", { status: 401 });
   }
 
-  // Scoping multi-tenant : ne renvoyer que les changements d'accréditations
-  // appartenant aux events accessibles à l'utilisateur.
-  const accessibleEventIds = await getAccessibleEventIds(currentUserId!);
-
   const { searchParams } = new URL(req.url);
   const sinceParam = searchParams.get("since");
   const filterZone = searchParams.get("zone");
+  const espaceParam = searchParams.get("espace")?.trim() || null;
+
+  // Scoping multi-tenant : ne renvoyer que les changements d'accréditations
+  // appartenant aux events accessibles à l'utilisateur (contexte d'Espace
+  // inclus pour coller au rendu SSR).
+  const accessibleEventIds = await getAccessibleEventIdsForEspace(
+    currentUserId!,
+    espaceParam
+  );
 
   // Par défaut, les changements des 30 dernières secondes
   const since = sinceParam

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAccreditationStream } from "@/hooks/useAccreditationStream";
 interface AutoRefreshOnSSEProps {
   /** Zone à filtrer (optionnel) */
@@ -23,6 +23,8 @@ export default function AutoRefreshOnSSE({
   debounceMs = 2000,
 }: AutoRefreshOnSSEProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const espace = searchParams?.get("espace") ?? null;
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleRefresh = useCallback(() => {
@@ -45,6 +47,7 @@ export default function AutoRefreshOnSSE({
 
   useAccreditationStream({
     zone,
+    espace,
     onRefresh: handleRefresh,
     enabled: true,
   });

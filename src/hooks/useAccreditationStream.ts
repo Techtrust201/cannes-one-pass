@@ -22,6 +22,8 @@ export interface StreamEvent {
 
 interface UseAccreditationStreamOptions {
   zone?: string;
+  /** Slug de l'Espace actif (query param `espace`) — propagé au polling. */
+  espace?: string | null;
   onEvent?: (event: StreamEvent) => void;
   onRefresh?: () => void;
   enabled?: boolean;
@@ -36,6 +38,7 @@ interface UseAccreditationStreamOptions {
  */
 export function useAccreditationStream({
   zone,
+  espace,
   onEvent,
   onRefresh,
   enabled = true,
@@ -63,6 +66,7 @@ export function useAccreditationStream({
         since: lastCheckRef.current,
       });
       if (zone) params.set("zone", zone);
+      if (espace) params.set("espace", espace);
 
       const res = await fetchWithRetry(`/api/accreditations/changes?${params}`, {
         cache: "no-store",
@@ -99,7 +103,7 @@ export function useAccreditationStream({
     } catch {
       setIsConnected(false);
     }
-  }, [zone]);
+  }, [zone, espace]);
 
   useEffect(() => {
     if (!enabled) {

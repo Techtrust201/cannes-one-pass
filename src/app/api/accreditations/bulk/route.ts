@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requirePermission, getAccessibleEventIds, canAccessEvent } from "@/lib/auth-helpers";
+import { requirePermission, getAccessibleEventIdsForEspace, canAccessEvent } from "@/lib/auth-helpers";
 import { createStatusChangeEntry, createArchivedEntry } from "@/lib/history";
 import { writeHistoryDirect } from "@/lib/history-server";
 
@@ -64,7 +64,14 @@ export async function POST(req: NextRequest) {
 
   // RBAC : filtrer pour ne traiter que les accréditations dans les events
   // accessibles à l'utilisateur. Les autres sont renvoyées comme "failed".
-  const accessibleEventIds = await getAccessibleEventIds(currentUserId!);
+  // On prend en compte `espace` (query ou body) pour aligner avec le SSR.
+  const espaceQuery = req.nextUrl.searchParams.get("espace")?.trim() || null;
+  const espaceBody = typeof body.espace === "string" ? body.espace.trim() || null : null;
+  const espaceParam = espaceQuery || espaceBody;
+  const accessibleEventIds = await getAccessibleEventIdsForEspace(
+    currentUserId!,
+    espaceParam
+  );
 
   try {
     const results: { id: string; success: boolean; error?: string }[] = [];

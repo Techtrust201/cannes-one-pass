@@ -18,3 +18,16 @@ export function buildLink(
   }
   return `/logisticien?${qs.toString()}`;
 }
+
+/**
+ * Ajoute le paramètre `espace` à un chemin s'il est fourni. Utilisé pour les
+ * liens internes du dashboard logisticien afin de préserver le contexte
+ * d'Espace sélectionné lors de la navigation.
+ */
+export function withEspaceQuery(path: string, espace: string | null | undefined): string {
+  if (!espace) return path;
+  const [base, existingQs] = path.split("?", 2);
+  const qs = new URLSearchParams(existingQs ?? "");
+  qs.set("espace", espace);
+  return `${base}?${qs.toString()}`;
+}

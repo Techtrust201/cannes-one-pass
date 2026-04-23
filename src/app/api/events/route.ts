@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma, withRetry } from "@/lib/prisma";
-import { requirePermission, getAccessibleEventIds } from "@/lib/auth-helpers";
+import { requirePermission, getAccessibleEventIdsForEspace } from "@/lib/auth-helpers";
 
 function handleAuthError(error: unknown) {
   if (error instanceof Response)
@@ -30,9 +30,14 @@ export async function GET(req: NextRequest) {
 
     const scopeFilter: Record<string, unknown> = {};
     // Sur les endpoints non-publics, restreindre au périmètre du user
-    // (Espaces + grants). Endpoint ?active=true reste public (formulaire exposant).
+    // (Espaces + grants) + éventuel contexte d'Espace `?espace=<slug>`.
+    // Endpoint ?active=true reste public (formulaire exposant).
     if (!activeOnly && currentUserId) {
-      const accessibleIds = await getAccessibleEventIds(currentUserId);
+      const espaceParam = req.nextUrl.searchParams.get("espace")?.trim() || null;
+      const accessibleIds = await getAccessibleEventIdsForEspace(
+        currentUserId,
+        espaceParam
+      );
       if (accessibleIds !== "ALL") {
         scopeFilter.id = { in: accessibleIds };
       }

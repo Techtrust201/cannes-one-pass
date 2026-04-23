@@ -224,6 +224,81 @@ export async function requireAuthWithEvents(request: Request) {
 }
 
 /**
+ * Scope des events en tenant compte d'un éventuel contexte d'Espace passé
+ * dans l'URL (param `espace=<slug>`).
+ *
+ * Règles :
+ * - Si `espaceSlug` est null/undefined : comportement identique à
+ *   `getAccessibleEventIds` (périmètre total accessible au user).
+ * - Si `espaceSlug` est fourni mais slug inconnu : retourne [] (aucun accès).
+ * - Super-admin + slug : retourne la liste des eventIds de l'org (dissociation
+ *   visuelle même si super-admin a accès à tout).
+ * - Autre utilisateur : intersection entre sa base (`getAccessibleEventIds`)
+ *   et les events de l'Espace demandé. Si vide, retourne [].
+ *
+ * Cette fonction est la source de vérité partagée entre le rendu SSR de la
+ * page logisticien et les handlers API.
+ */
+export async function getAccessibleEventIdsForEspace(
+  userId: string,
+  espaceSlug: string | null | undefined
+): Promise<AccessibleIds> {
+  const base = await getAccessibleEventIds(userId);
+
+  if (!espaceSlug) return base;
+
+  const org = await prisma.organization.findUnique({
+    where: { slug: espaceSlug },
+    select: {
+      id: true,
+      events: { select: { id: true } },
+    },
+  });
+
+  const orgEventIds = org ? org.events.map((e) => e.id) : null;
+  const { intersectEventIds } = await import("./espace-scope");
+  return intersectEventIds(base, orgEventIds);
+}
+
+/**
+ * Résumé orgs/events accessible pour un utilisateur, pour l'UX "sélecteur
+ * d'Espace". Super-admin voit toutes les orgs ; utilisateur standard voit ses
+ * orgs membres.
+ */
+export async function getAvailableEspacesForUser(userId: string): Promise<
+  Array<{ id: string; slug: string; name: string; color: string; logo: string | null }>
+> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true, isActive: true },
+  });
+  if (!user || !user.isActive) return [];
+
+  if (user.role === "SUPER_ADMIN") {
+    const orgs = await prisma.organization.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+      select: { id: true, slug: true, name: true, color: true, logo: true },
+    });
+    return orgs;
+  }
+
+  const links = await prisma.userOrganization.findMany({
+    where: { userId },
+    select: {
+      organization: {
+        select: { id: true, slug: true, name: true, color: true, logo: true, isActive: true },
+      },
+    },
+  });
+  return links
+    .map((l) => l.organization)
+    .filter((o) => o.isActive)
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(({ id, slug, name, color, logo }) => ({ id, slug, name, color, logo }));
+}
+
+/**
  * Récupère toutes les permissions d'un utilisateur.
  */
 export async function getUserPermissions(userId: string) {

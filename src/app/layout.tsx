@@ -45,6 +45,13 @@ export default function RootLayout({
         `}
       >
         {children}
+        {/* TODO(démo): retirer ce lien après la présentation Yachting 2026 */}
+        <a
+          href="/demo/yachting-2026-accreditations-logistiques.html"
+          className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] right-4 z-[9999] rounded-full bg-slate-900 px-3 py-2 text-xs font-medium text-white shadow-lg ring-1 ring-white/10 transition hover:bg-slate-800 sm:bottom-6 sm:right-6 sm:px-4 sm:text-sm"
+        >
+          Démo maquette Yachting
+        </a>
       </body>
     </html>
   );

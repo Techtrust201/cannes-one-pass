@@ -1,0 +1,2369 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Yachting 2026 — Accréditations Logistiques</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --navy:       #0b1f3a;
+      --navy-mid:   #132d52;
+      --navy-light: #1a3d6b;
+      --gold:       #c9a050;
+      --gold-light: #e8c87a;
+      --cream:      #f7f4ef;
+      --white:      #ffffff;
+      --muted:      #8a9ab5;
+      --border:     #d3dbe8;
+      --success:    #2ecc87;
+      --warn:       #e89042;
+      --error:      #e05252;
+      --text:       #1a2a40;
+      --radius:     10px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--cream);
+      min-height: 100vh;
+      color: var(--text);
+    }
+
+    /* ── HEADER ─────────────────────────────────────────────────── */
+    header {
+      background: var(--navy);
+      padding: 0 2.5rem;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 70px;
+      position: sticky; top: 0; z-index: 100;
+      box-shadow: 0 2px 20px rgba(0,0,0,.3);
+    }
+    .logo { display: flex; align-items: center; gap: 14px; }
+    .logo-anchor {
+      width: 40px; height: 40px;
+      background: linear-gradient(135deg, var(--gold), var(--gold-light));
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; flex-shrink: 0;
+    }
+    .logo-text h1 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.25rem; font-weight: 700;
+      color: var(--white); letter-spacing: .04em;
+    }
+    .logo-text span {
+      font-size: .7rem; font-weight: 400;
+      color: var(--gold); letter-spacing: .12em; text-transform: uppercase;
+    }
+    .header-badge {
+      background: rgba(201,160,80,.15);
+      border: 1px solid rgba(201,160,80,.35);
+      color: var(--gold-light);
+      font-size: .7rem; font-weight: 500;
+      letter-spacing: .1em; text-transform: uppercase;
+      padding: 5px 14px; border-radius: 30px;
+    }
+
+    /* ── PROGRESS BAR ───────────────────────────────────────────── */
+    .progress-wrapper { background: var(--navy-mid); padding: 0 2.5rem; }
+    .progress-steps {
+      max-width: 900px; margin: 0 auto;
+      display: flex; align-items: center;
+      height: 56px; gap: 0;
+    }
+    .step {
+      display: flex; align-items: center; gap: 10px;
+      flex: 1; position: relative; cursor: pointer;
+    }
+    .step:not(:last-child)::after {
+      content: '';
+      position: absolute; right: 0; top: 50%;
+      transform: translateY(-50%);
+      width: 1px; height: 20px;
+      background: rgba(255,255,255,.1);
+    }
+    .step-num {
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.08);
+      border: 1.5px solid rgba(255,255,255,.2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: .7rem; font-weight: 600;
+      color: var(--muted); flex-shrink: 0;
+      transition: all .3s;
+    }
+    .step.active .step-num { background: var(--gold); border-color: var(--gold); color: var(--navy); }
+    .step.done .step-num { background: var(--success); border-color: var(--success); color: #fff; }
+    .step-label {
+      font-size: .72rem; font-weight: 500;
+      color: rgba(255,255,255,.35);
+      letter-spacing: .03em; transition: color .3s;
+      white-space: nowrap;
+    }
+    .step.active .step-label { color: var(--gold-light); }
+    .step.done  .step-label { color: rgba(255,255,255,.55); }
+
+    /* ── LAYOUT ─────────────────────────────────────────────────── */
+    .main {
+      max-width: 900px; margin: 2.5rem auto;
+      padding: 0 1.5rem 4rem;
+    }
+
+    /* ── SECTION CARD ───────────────────────────────────────────── */
+    .card {
+      background: var(--white);
+      border-radius: 14px;
+      box-shadow: 0 2px 16px rgba(11,31,58,.07);
+      margin-bottom: 1.5rem;
+      overflow: visible; /* visible pour laisser passer le dropdown combobox */
+      transition: box-shadow .3s, opacity .3s;
+    }
+    .card:hover { box-shadow: 0 4px 28px rgba(11,31,58,.11); }
+    .card.active-card { box-shadow: 0 4px 28px rgba(11,31,58,.13); }
+    .card.locked { opacity: .55; pointer-events: none; }
+
+    .card-header {
+      display: flex; align-items: center; gap: 14px;
+      padding: 1.1rem 1.6rem;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(90deg, #f8fbff 0%, #fff 100%);
+      border-radius: 14px 14px 0 0; /* compense le overflow:visible sur .card */
+    }
+    .card-icon {
+      width: 34px; height: 34px;
+      background: linear-gradient(135deg, var(--navy), var(--navy-light));
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; flex-shrink: 0;
+    }
+    .card-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.1rem; font-weight: 600;
+      color: var(--navy);
+    }
+    .card-subtitle { font-size: .72rem; color: var(--muted); margin-top: 1px; }
+    .required-badge {
+      margin-left: auto;
+      background: rgba(201,160,80,.12);
+      border: 1px solid rgba(201,160,80,.3);
+      color: var(--gold);
+      font-size: .64rem; font-weight: 600;
+      letter-spacing: .08em; text-transform: uppercase;
+      padding: 3px 10px; border-radius: 20px;
+    }
+
+    .card-body { padding: 1.6rem; }
+
+    /* ── FORM GRID ──────────────────────────────────────────────── */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.1rem; }
+    .col-full { grid-column: 1 / -1; }
+
+    /* ── FIELD ──────────────────────────────────────────────────── */
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field label {
+      font-size: .74rem; font-weight: 600;
+      color: var(--navy-light); letter-spacing: .04em; text-transform: uppercase;
+    }
+    .field label .req { color: var(--error); margin-left: 2px; }
+
+    .field input,
+    .field select,
+    .field textarea {
+      font-family: 'DM Sans', sans-serif;
+      font-size: .88rem;
+      padding: 10px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      background: #fafcff;
+      color: var(--text);
+      transition: border-color .2s, box-shadow .2s, background .2s;
+      appearance: none; -webkit-appearance: none;
+      outline: none; width: 100%;
+    }
+    .field input:focus,
+    .field select:focus {
+      border-color: var(--gold);
+      background: #fff;
+      box-shadow: 0 0 0 3px rgba(201,160,80,.13);
+    }
+    .field input.valid  { border-color: var(--success); background: #f4fdf9; }
+    .field input.invalid { border-color: var(--error);  background: #fff8f8; }
+    .field .hint { font-size: .7rem; color: var(--muted); margin-top: 1px; }
+    .field .err-msg { font-size: .7rem; color: var(--error); display: none; }
+    .field.has-error .err-msg { display: block; }
+    .field.has-error input,
+    .field.has-error select { border-color: var(--error); }
+
+    /* SELECT arrow */
+    .select-wrap { position: relative; }
+    .select-wrap::after {
+      content: '▾';
+      position: absolute; right: 13px; top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted); pointer-events: none;
+      font-size: .8rem;
+    }
+    .select-wrap select { padding-right: 32px; cursor: pointer; }
+
+    /* ── EXPOSANT INFO PANEL ────────────────────────────────────── */
+    #exposant-info {
+      display: none;
+      margin-top: 1.1rem;
+      background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%);
+      border-radius: 12px;
+      padding: 1.2rem 1.4rem;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      box-shadow: 0 4px 18px rgba(11,31,58,.18);
+      position: relative;
+      overflow: hidden;
+    }
+    #exposant-info::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--gold), var(--gold-light));
+    }
+    #exposant-info.visible {
+      display: flex; align-items: center;
+      animation: fadeSlide .3s ease;
+    }
+    .exposant-field { flex: 1 1 160px; min-width: 0; }
+    .ef-label {
+      font-size: .62rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .12em; color: var(--gold-light); margin-bottom: 4px;
+      opacity: .85;
+    }
+    .ef-value {
+      font-size: .92rem; font-weight: 600; color: white;
+      word-break: break-word; line-height: 1.3;
+    }
+    .stand-number-badge {
+      background: linear-gradient(135deg, var(--gold), var(--gold-light));
+      color: var(--navy);
+      font-size: 1rem; font-weight: 700;
+      padding: 12px 20px; border-radius: 10px;
+      letter-spacing: .04em;
+      white-space: nowrap; flex-shrink: 0;
+      font-family: 'Cormorant Garamond', serif;
+      box-shadow: 0 4px 14px rgba(201,160,80,.4);
+      display: flex; flex-direction: column; align-items: center;
+      min-width: 110px;
+    }
+    .stand-number-badge .snb-label {
+      font-family: 'DM Sans', sans-serif;
+      font-size: .58rem; font-weight: 600; letter-spacing: .15em;
+      text-transform: uppercase; opacity: .7;
+      margin-bottom: 2px;
+    }
+    .stand-number-badge .snb-value {
+      font-size: 1.15rem; font-weight: 700;
+    }
+
+    /* ── EMPTY STATE ────────────────────────────────────────────── */
+    .empty-state {
+      text-align: center;
+      padding: 2rem 1rem;
+      color: var(--muted);
+      font-size: .85rem;
+      background: #f8fafd;
+      border-radius: var(--radius);
+      border: 1.5px dashed var(--border);
+    }
+    .empty-state .es-icon {
+      font-size: 1.8rem; opacity: .4; margin-bottom: 8px;
+    }
+
+    /* ── SPACE CHOICE (Palais Int/Ext) ───────────────────────────── */
+    .space-choice {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+      margin-bottom: 1.3rem;
+    }
+    .space-opt {
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 14px;
+      cursor: pointer; transition: all .2s;
+      background: white;
+      display: flex; flex-direction: column; align-items: center;
+      gap: 8px; text-align: center;
+    }
+    .space-opt:hover { border-color: var(--gold); transform: translateY(-1px); }
+    .space-opt.sel {
+      border-color: var(--navy);
+      background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%);
+      color: white;
+    }
+    .space-opt .so-icon { font-size: 1.6rem; }
+    .space-opt .so-name {
+      font-size: .82rem; font-weight: 600; color: var(--navy);
+    }
+    .space-opt.sel .so-name { color: white; }
+    .space-opt .so-desc {
+      font-size: .68rem; color: var(--muted); line-height: 1.3;
+    }
+    .space-opt.sel .so-desc { color: rgba(255,255,255,.7); }
+    .space-opt input[type="radio"] { display: none; }
+
+    /* ── SPACE RECAP (auto-detected) ─────────────────────────────── */
+    .space-recap {
+      background: linear-gradient(90deg, #eef4fc, #f5f9ff);
+      border-left: 3px solid var(--gold);
+      border-radius: 6px;
+      padding: 12px 16px;
+      margin-bottom: 1.3rem;
+      display: flex; align-items: center; gap: 14px;
+    }
+    .space-recap .sr-icon {
+      font-size: 1.3rem;
+    }
+    .space-recap .sr-content {
+      flex: 1; min-width: 0;
+    }
+    .space-recap .sr-label {
+      font-size: .62rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .1em; color: var(--muted);
+    }
+    .space-recap .sr-value {
+      font-size: .9rem; font-weight: 600; color: var(--navy); margin-top: 1px;
+    }
+    .space-recap .sr-note {
+      font-size: .7rem; color: var(--muted); font-style: italic; margin-top: 3px;
+    }
+
+    /* ── CATEGORY ROWS ───────────────────────────────────────────── */
+    .cat-helper {
+      font-size: .76rem; color: var(--muted);
+      margin-bottom: .9rem;
+      padding: 10px 14px;
+      background: #fdfaf2;
+      border-left: 3px solid var(--gold);
+      border-radius: 4px;
+    }
+    .cat-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .cat-row {
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      transition: border-color .2s, background .2s;
+      overflow: hidden;
+    }
+    .cat-row.active {
+      border-color: var(--navy);
+      background: #fcfdff;
+      box-shadow: 0 2px 10px rgba(11,31,58,.06);
+    }
+
+    .cat-toggle {
+      display: flex; align-items: center; gap: 12px;
+      padding: 13px 16px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .cat-toggle input[type="checkbox"] {
+      width: 19px; height: 19px;
+      accent-color: var(--navy);
+      cursor: pointer; flex-shrink: 0;
+    }
+    .cat-toggle .cat-icon {
+      font-size: 1.2rem; flex-shrink: 0;
+    }
+    .cat-toggle .cat-name {
+      flex: 1; min-width: 0;
+      font-size: .9rem; font-weight: 600;
+      color: var(--text);
+    }
+    .scales-tag {
+      background: rgba(232,144,66,.12);
+      border: 1px solid rgba(232,144,66,.4);
+      color: var(--warn);
+      font-size: .62rem; font-weight: 700;
+      letter-spacing: .08em; text-transform: uppercase;
+      padding: 3px 9px; border-radius: 12px;
+      white-space: nowrap; flex-shrink: 0;
+    }
+
+    .cat-details {
+      display: none;
+      padding: 0 16px 16px 16px;
+      border-top: 1px dashed var(--border);
+      margin-top: -1px;
+      animation: fadeSlide .25s ease;
+    }
+    .cat-row.active .cat-details { display: block; padding-top: 14px; }
+
+    .scales-info {
+      background: #fff7ed;
+      border: 1px solid rgba(232,144,66,.3);
+      color: #8a4d10;
+      font-size: .76rem; line-height: 1.5;
+      padding: 10px 14px; border-radius: 8px;
+      margin-top: 12px;
+      display: flex; gap: 10px; align-items: flex-start;
+    }
+    .scales-info .si-icon { flex-shrink: 0; font-size: 1rem; }
+    .scales-info strong { color: var(--warn); }
+
+    /* ── VEHICLE MINI-SELECT (compact, 2x2) ──────────────────────── */
+    .v-grid-mini {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 4px;
+    }
+    .v-mini {
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: 7px 4px;
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      cursor: pointer; transition: all .2s; background: white;
+    }
+    .v-mini:hover { border-color: var(--gold); }
+    .v-mini.sel { border-color: var(--navy); background: var(--navy); }
+    .v-mini .vm-icon { font-size: 1.1rem; }
+    .v-mini .vm-label {
+      font-size: .58rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .04em; color: var(--muted); text-align: center;
+    }
+    .v-mini.sel .vm-label { color: var(--gold-light); }
+    .v-mini input[type="radio"] { display: none; }
+
+    /* ── REPRISE PRE-FILL DISPLAY ────────────────────────────────── */
+    .rep-cat-summary {
+      font-size: .78rem;
+      color: var(--navy);
+      background: #eef4fc;
+      padding: 8px 12px; border-radius: 6px;
+      margin-bottom: 12px;
+      display: inline-block;
+    }
+    .rep-cat-summary strong { color: var(--gold); }
+
+    /* ── DATE TABS ──────────────────────────────────────────────── */
+    .date-quick {
+      display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;
+    }
+    .dq-btn {
+      font-family: 'DM Sans', sans-serif;
+      font-size: .7rem; font-weight: 500;
+      padding: 4px 10px; border-radius: 16px;
+      border: 1.5px solid var(--border);
+      background: white; color: var(--muted);
+      cursor: pointer; transition: all .2s;
+    }
+    .dq-btn:hover { border-color: var(--gold); color: var(--gold); }
+    .dq-btn.sel { background: var(--navy); color: var(--gold-light); border-color: var(--navy); }
+
+    /* ── SUBMIT AREA ────────────────────────────────────────────── */
+    .form-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 1rem;
+      margin-top: .5rem;
+    }
+    .form-footer .note {
+      font-size: .72rem; color: var(--muted); max-width: 400px; line-height: 1.5;
+    }
+    .btn-submit {
+      font-family: 'DM Sans', sans-serif;
+      font-size: .88rem; font-weight: 600;
+      padding: 13px 36px;
+      background: linear-gradient(135deg, var(--navy), var(--navy-light));
+      color: var(--white);
+      border: none; border-radius: var(--radius);
+      cursor: pointer; letter-spacing: .04em;
+      transition: all .25s;
+      box-shadow: 0 4px 14px rgba(11,31,58,.25);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .btn-submit:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(11,31,58,.35);
+      background: linear-gradient(135deg, #102a4a, #1e4880);
+    }
+    .btn-submit:active { transform: translateY(0); }
+
+    /* ── SUCCESS OVERLAY ────────────────────────────────────────── */
+    #success-overlay {
+      display: none;
+      position: fixed; inset: 0; z-index: 999;
+      background: rgba(11,31,58,.7);
+      backdrop-filter: blur(6px);
+      align-items: center; justify-content: center;
+    }
+    #success-overlay.show { display: flex; animation: fadeIn .3s ease; }
+    .success-card {
+      background: white;
+      border-radius: 18px;
+      padding: 2.5rem 3rem;
+      text-align: center;
+      max-width: 460px; width: 90%;
+      box-shadow: 0 20px 60px rgba(0,0,0,.25);
+      animation: popIn .35s cubic-bezier(.175,.885,.32,1.275);
+      max-height: 90vh; overflow-y: auto;
+    }
+    .success-icon {
+      width: 64px; height: 64px;
+      background: linear-gradient(135deg, var(--success), #26d980);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2rem;
+      margin: 0 auto 1.2rem;
+    }
+    .success-card h2 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.6rem; font-weight: 700;
+      color: var(--navy); margin-bottom: .5rem;
+    }
+    .success-card p {
+      font-size: .86rem; color: var(--muted); line-height: 1.6; margin-bottom: 1.5rem;
+    }
+    .accred-id {
+      background: var(--navy);
+      color: var(--gold-light);
+      font-size: .85rem; font-weight: 700;
+      letter-spacing: .1em; font-family: monospace;
+      padding: 8px 20px; border-radius: 6px;
+      display: inline-block; margin-bottom: 1.5rem;
+    }
+    .btn-close {
+      font-family: 'DM Sans', sans-serif;
+      font-size: .85rem; font-weight: 600;
+      padding: 11px 28px;
+      background: var(--navy);
+      color: white; border: none;
+      border-radius: var(--radius); cursor: pointer;
+    }
+
+    /* ── ANIMATIONS ─────────────────────────────────────────────── */
+    @keyframes fadeSlide {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(.85); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+
+    /* ── OPTGROUP STYLING ────────────────────────────────────────── */
+    .field select optgroup {
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 700; font-size: .82rem;
+      color: var(--navy); background: #f0f6ff;
+      letter-spacing: .05em;
+    }
+    .field select option {
+      font-weight: 400; color: var(--text);
+      padding: 6px 4px; background: var(--white);
+    }
+
+    /* ── COMBOBOX (Searchable Exposant) ─────────────────────────── */
+    .combobox { position: relative; }
+    .combo-input-wrap { position: relative; }
+
+    .field .combo-input {
+      padding-right: 38px;
+    }
+    .field .combo-input.has-value {
+      padding-right: 66px;
+    }
+
+    .combo-icon {
+      position: absolute;
+      right: 14px; top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      pointer-events: none;
+      font-size: .95rem;
+    }
+
+    .combo-clear {
+      position: absolute;
+      right: 40px; top: 50%;
+      transform: translateY(-50%);
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--border);
+      color: var(--muted);
+      border: none;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: .7rem;
+      line-height: 1;
+      padding: 0;
+      transition: background .15s, color .15s;
+    }
+    .combo-clear.visible { display: flex; }
+    .combo-clear:hover { background: var(--navy); color: white; }
+
+    .combo-panel {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0; right: 0;
+      background: white;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      max-height: 380px;
+      overflow: hidden;
+      z-index: 50;
+      box-shadow: 0 12px 32px rgba(11,31,58,.18);
+      animation: fadeSlide .15s ease;
+    }
+
+    .combo-list {
+      overflow-y: auto;
+      max-height: 380px;
+      padding: 4px 0;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+    }
+
+    .combo-group {
+      font-size: .62rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .14em;
+      color: var(--gold);
+      padding: 10px 14px 6px;
+      background: linear-gradient(90deg, #fdfaf2, #f8fbff);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    .combo-option {
+      padding: 11px 14px;
+      font-size: .85rem;
+      color: var(--text);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid #f4f6fa;
+    }
+    .combo-option:last-child { border-bottom: none; }
+    .combo-option:hover,
+    .combo-option:active { background: #f0f6ff; }
+    .combo-option.selected {
+      background: linear-gradient(90deg, rgba(201,160,80,.18), rgba(201,160,80,.05));
+      font-weight: 600;
+    }
+    .combo-option .co-name {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .combo-option .co-stand {
+      font-size: .66rem;
+      font-weight: 700;
+      color: var(--navy);
+      background: rgba(201,160,80,.2);
+      padding: 3px 9px;
+      border-radius: 10px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      letter-spacing: .04em;
+    }
+
+    .combo-empty {
+      padding: 2rem 1rem;
+      text-align: center;
+      font-size: .85rem;
+      color: var(--muted);
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       RESPONSIVE
+       ══════════════════════════════════════════════════════════════ */
+    @media (min-width: 1280px) {
+      .main { max-width: 960px; }
+      .card-body { padding: 1.8rem 2rem; }
+    }
+
+    @media (min-width: 641px) and (max-width: 1024px) {
+      header { padding: 0 1.5rem; }
+      .progress-wrapper { padding: 0 1.5rem; }
+      .main { padding: 0 1.2rem 3rem; margin-top: 2rem; }
+      .card-body { padding: 1.4rem; }
+      .grid-3 { grid-template-columns: 1fr 1fr; }
+      .logo-text h1 { font-size: 1.15rem; }
+      .step-label { font-size: .68rem; }
+    }
+
+    @media (max-width: 640px) {
+      header { padding: 0 1rem; height: 62px; }
+      .logo { gap: 10px; }
+      .logo-anchor { width: 34px; height: 34px; font-size: 17px; }
+      .logo-text h1 { font-size: 1.02rem; letter-spacing: .02em; }
+      .logo-text span { font-size: .62rem; letter-spacing: .08em; }
+      .header-badge { font-size: .58rem; padding: 4px 9px; letter-spacing: .06em; }
+
+      .progress-wrapper { padding: 0 .5rem; overflow-x: auto; }
+      .progress-steps { height: 50px; gap: 2px; min-width: 100%; }
+      .step { gap: 6px; justify-content: center; }
+      .step-num { width: 24px; height: 24px; font-size: .65rem; }
+      .step-label { display: none; }
+
+      .main { padding: 0 .8rem 2.5rem; margin: 1.2rem auto; }
+
+      .card { border-radius: 10px; margin-bottom: 1rem; }
+      .card-header { padding: .85rem 1rem; gap: 10px; }
+      .card-icon { width: 30px; height: 30px; font-size: 13px; border-radius: 7px; }
+      .card-title { font-size: 1rem; }
+      .card-subtitle { font-size: .66rem; }
+      .required-badge { font-size: .56rem; padding: 2px 7px; letter-spacing: .05em; }
+      .card-body { padding: 1rem; }
+
+      .grid-2, .grid-3 { grid-template-columns: 1fr; gap: .9rem; }
+
+      .field label { font-size: .7rem; }
+      .field input,
+      .field select,
+      .field textarea { font-size: 16px; padding: 11px 12px; }
+
+      #exposant-info {
+        flex-direction: column; align-items: stretch;
+        gap: .9rem; padding: 1rem;
+      }
+      .stand-number-badge { align-self: stretch; }
+      .ef-value { font-size: .85rem; }
+
+      .space-choice { grid-template-columns: 1fr; }
+      .v-grid-mini { grid-template-columns: repeat(2, 1fr); }
+      .cat-toggle { padding: 12px 14px; flex-wrap: wrap; }
+      .scales-tag { font-size: .55rem; padding: 2px 7px; }
+
+      .form-footer { flex-direction: column; align-items: stretch; gap: .9rem; }
+      .form-footer .note { font-size: .68rem; max-width: 100%; text-align: center; }
+      .btn-submit { width: 100%; justify-content: center; padding: 13px 20px; font-size: .85rem; }
+
+      .success-card { padding: 1.8rem 1.4rem; max-width: 94%; }
+      .success-card h2 { font-size: 1.35rem; }
+      .success-card p { font-size: .8rem; }
+    }
+
+    @media (max-width: 380px) {
+      .logo-text h1 { font-size: .92rem; }
+      .logo-text span { display: none; }
+      .header-badge { display: none; }
+      .card-title { font-size: .95rem; }
+      .required-badge { display: none; }
+      .stand-number-badge .snb-value { font-size: 1rem; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: .01ms !important;
+        transition-duration: .01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-anchor">⚓</div>
+    <div class="logo-text">
+      <h1>Yachting 2026</h1>
+      <span>Accréditations Logistiques</span>
+    </div>
+  </div>
+  <div class="header-badge">Démo · Maquette</div>
+</header>
+
+<!-- PROGRESS BAR -->
+<div class="progress-wrapper">
+  <div class="progress-steps">
+    <div class="step active" id="step-1"><div class="step-num">1</div><div class="step-label">Exposant</div></div>
+    <div class="step" id="step-2"><div class="step-num">2</div><div class="step-label">Contact</div></div>
+    <div class="step" id="step-3"><div class="step-num">3</div><div class="step-label">Livraison</div></div>
+    <div class="step" id="step-4"><div class="step-num">4</div><div class="step-label">Reprise</div></div>
+    <div class="step" id="step-5"><div class="step-num">5</div><div class="step-label">Manutention</div></div>
+  </div>
+</div>
+
+<!-- MAIN FORM -->
+<main class="main">
+<form id="accred-form" novalidate>
+
+  <!-- ════════════════════════════════════════════════════════════
+       CARD 1 : EXPOSANT
+       ════════════════════════════════════════════════════════════ -->
+  <div class="card active-card" id="card-1">
+    <div class="card-header">
+      <div class="card-icon">🏢</div>
+      <div>
+        <div class="card-title">Sélection de l'exposant</div>
+        <div class="card-subtitle">Choisissez votre société dans la liste officielle</div>
+      </div>
+      <div class="required-badge">Obligatoire</div>
+    </div>
+    <div class="card-body">
+      <div class="field" id="field-exposant">
+        <label>Exposant <span class="req">*</span></label>
+        <div class="combobox" id="exposant-combo">
+          <div class="combo-input-wrap">
+            <span class="combo-icon">🔍</span>
+            <input type="text" class="combo-input" id="exposant-search" placeholder="Rechercher par nom ou n° de stand…" autocomplete="off" spellcheck="false">
+            <button type="button" class="combo-clear" id="exposant-clear" aria-label="Effacer">✕</button>
+          </div>
+          <div class="combo-panel" id="exposant-panel" style="display:none">
+            <div class="combo-list" id="exposant-list"></div>
+          </div>
+        </div>
+        <div class="select-wrap" style="display:none" aria-hidden="true">
+          <select id="exposant-select" required>
+            <option value="">— Sélectionnez un exposant —</option>
+            <optgroup label="— VIEUX PORT —">
+              <option value="aa-yachts-1" data-stand="AA YACHTS" data-secteur="VIEUX PORT — SYE" data-zone="SYE 111">AA YACHTS — Stand SYE 111</option>
+              <option value="abi-trailers-2" data-stand="ABI TRAILERS S.R.L" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 127">ABI TRAILERS S.R.L — Stand PAN 127</option>
+              <option value="absolute-3" data-stand="ABSOLUTE" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 214">ABSOLUTE — Stand PAN 214</option>
+              <option value="ad-astra-4" data-stand="AD ASTRA YACHT" data-secteur="VIEUX PORT — QSP" data-zone="QSP 105">AD ASTRA YACHT — Stand QSP 105</option>
+              <option value="ad-nautic-5" data-stand="AD NAUTIC INTERMER" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 373">AD NAUTIC INTERMER — Stand PAN 373</option>
+              <option value="aicon-6" data-stand="AICON YACHTS SRL" data-secteur="VIEUX PORT — QSP" data-zone="QSP 104">AICON YACHTS SRL — Stand QSP 104</option>
+              <option value="altinova-7" data-stand="ALTINOVA YACHT" data-secteur="VIEUX PORT — SYE" data-zone="SYE 124">ALTINOVA YACHT — Stand SYE 124</option>
+              <option value="amare-8" data-stand="AMARE SRL" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 325">AMARE SRL — Stand PAN 325</option>
+              <option value="amper-9" data-stand="AMPER AUTO" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 109">AMPER AUTO — Stand PAN 109</option>
+              <option value="anp-10" data-stand="ANP ASSURANCES" data-secteur="VIEUX PORT — QSP" data-zone="QSP 132">ANP ASSURANCES — Stand QSP 132</option>
+              <option value="antonini-11" data-stand="ANTONINI NAVI SRL" data-secteur="VIEUX PORT — JETEE" data-zone="JETEE 163">ANTONINI NAVI SRL — Stand JETEE 163</option>
+              <option value="aprea-12" data-stand="APREA YACHT" data-secteur="VIEUX PORT — QSP" data-zone="QSP 146">APREA YACHT — Stand QSP 146</option>
+              <option value="apreamare-13" data-stand="APREAMARE" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 218">APREAMARE — Stand PAN 218</option>
+              <option value="arie-14" data-stand="ARIE DE BOOM MARINE" data-secteur="VIEUX PORT — JETEE" data-zone="JETEE 140">ARIE DE BOOM MARINE — Stand JETEE 140</option>
+              <option value="aschenez-15" data-stand="ASCHENEZ" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 360">ASCHENEZ — Stand PAN 360</option>
+              <option value="associacio-16" data-stand="Associacio Catalana Ports Esportius" data-secteur="VIEUX PORT — JETEE" data-zone="JETEE 124">Associacio Catalana Ports Esportius — Stand JETEE 124</option>
+              <option value="astondoa-17" data-stand="ASTILLEROS ASTONDOA" data-secteur="VIEUX PORT — SYE" data-zone="SYE 123">ASTILLEROS ASTONDOA — Stand SYE 123</option>
+              <option value="atep-18" data-stand="ATEP ITALIA SRL" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 126">ATEP ITALIA SRL — Stand PAN 126</option>
+              <option value="austin-19" data-stand="AUSTIN PARKER" data-secteur="VIEUX PORT — QML" data-zone="QML 113">AUSTIN PARKER — Stand QML 113</option>
+              <option value="azimut-benetti-20" data-stand="AZIMUT BENETTI Spa" data-secteur="VIEUX PORT — SYE" data-zone="SYE 109">AZIMUT BENETTI Spa — Stand SYE 109</option>
+              <option value="azimut-lusben-21" data-stand="AZIMUT BENETTI - LUSBEN" data-secteur="VIEUX PORT — JETEE" data-zone="JETEE 156">AZIMUT BENETTI - LUSBEN — Stand JETEE 156</option>
+              <option value="azur-inox-22" data-stand="AZUR INOX MARINE sarl" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 300">AZUR INOX MARINE sarl — Stand PAN 300</option>
+              <option value="banque-pop-23" data-stand="BANQUE POPULAIRE" data-secteur="VIEUX PORT — QSP" data-zone="QSP 145">BANQUE POPULAIRE — Stand QSP 145</option>
+              <option value="bellini-24" data-stand="BELLINI YACHT" data-secteur="VIEUX PORT — TENDERS" data-zone="PALAIS 106">BELLINI YACHT — Stand PALAIS 106</option>
+              <option value="besenzoni-25" data-stand="BESENZONI SPA" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 209">BESENZONI SPA — Stand PAN 209</option>
+              <option value="bic-26" data-stand="BIC" data-secteur="VIEUX PORT — QSP" data-zone="QSP 109">BIC — Stand QSP 109</option>
+              <option value="blu-emme-27" data-stand="BLU EMME YACHTS" data-secteur="VIEUX PORT — QSP" data-zone="QSP 144">BLU EMME YACHTS — Stand QSP 144</option>
+              <option value="bluenav-28" data-stand="BLUENAV" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 346">BLUENAV — Stand PAN 346</option>
+              <option value="boat-int-29" data-stand="BOAT INTERNATIONAL MEDIA" data-secteur="VIEUX PORT — JETEE" data-zone="JETEE 116">BOAT INTERNATIONAL MEDIA — Stand JETEE 116</option>
+              <option value="boat-lift-30" data-stand="BOAT LIFT SRL" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 302">BOAT LIFT SRL — Stand PAN 302</option>
+              <option value="boening-31" data-stand="BOENING ITALIA SRL" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 306">BOENING ITALIA SRL — Stand PAN 306</option>
+              <option value="cgi-32" data-stand="C G I" data-secteur="VIEUX PORT — QML" data-zone="QML 119">C G I — Stand QML 119</option>
+              <option value="caisse-ep-33" data-stand="CAISSE EPARGNE" data-secteur="VIEUX PORT — QML" data-zone="QML 127">CAISSE EPARGNE — Stand QML 127</option>
+              <option value="cantiere-pardo-34" data-stand="CANTIERE DEL PARDO SP" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 207">CANTIERE DEL PARDO SP — Stand PAN 207</option>
+              <option value="cantiere-marche-35" data-stand="CANTIERE DELLE MARCHE" data-secteur="VIEUX PORT — SYE" data-zone="SYE 138">CANTIERE DELLE MARCHE — Stand SYE 138</option>
+              <option value="cantiere-santasevera-36" data-stand="CANTIERE NAVALE SANTASEVERA" data-secteur="VIEUX PORT — QSP" data-zone="QSP 157">CANTIERE NAVALE SANTASEVERA — Stand QSP 157</option>
+              <option value="cantieri-baia-37" data-stand="CANTIERI DI BAIA" data-secteur="VIEUX PORT — SYE" data-zone="SYE 117">CANTIERI DI BAIA — Stand SYE 117</option>
+              <option value="cantieri-imperia-38" data-stand="CANTIERI DI IMPERIA" data-secteur="VIEUX PORT — JETEE" data-zone="JETEE 130">CANTIERI DI IMPERIA — Stand JETEE 130</option>
+              <option value="cantieri-ostia-1-39" data-stand="CANTIERI DI OSTIA" data-secteur="VIEUX PORT — TENDERS" data-zone="PALAIS 108">CANTIERI DI OSTIA — Stand PALAIS 108</option>
+              <option value="cantieri-ostia-2-40" data-stand="CANTIERI DI OSTIA" data-secteur="VIEUX PORT — QSP" data-zone="QSP 118">CANTIERI DI OSTIA — Stand QSP 118</option>
+              <option value="capitole-41" data-stand="CAPITOLE FINANCE" data-secteur="VIEUX PORT — QML" data-zone="QML 135">CAPITOLE FINANCE — Stand QML 135</option>
+              <option value="catana-42" data-stand="CATANA YOT" data-secteur="VIEUX PORT — QML" data-zone="QML 115">CATANA YOT — Stand QML 115</option>
+              <option value="certec-43" data-stand="CERTEC" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 374">CERTEC — Stand PAN 374</option>
+              <option value="cigisped-44" data-stand="CIGISPED Srl" data-secteur="VIEUX PORT — JETEE" data-zone="JETEE 137">CIGISPED Srl — Stand JETEE 137</option>
+              <option value="cmm-45" data-stand="CMM YACHT" data-secteur="VIEUX PORT — JETEE" data-zone="JETEE 120">CMM YACHT — Stand JETEE 120</option>
+              <option value="coelmo-46" data-stand="COELMO SPA" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 354">COELMO SPA — Stand PAN 354</option>
+              <option value="cool-boat-47" data-stand="COOL AND BOAT" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 378">COOL AND BOAT — Stand PAN 378</option>
+              <option value="coolmarine-48" data-stand="COOLMARINE DISTRIBUTION" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 313">COOLMARINE DISTRIBUTION — Stand PAN 313</option>
+              <option value="couach-49" data-stand="COUACH" data-secteur="VIEUX PORT — QML" data-zone="QML 131">COUACH — Stand QML 131</option>
+              <option value="cranchi-50" data-stand="CRANCHI" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 212">CRANCHI — Stand PAN 212</option>
+              <option value="crj-51" data-stand="CRJ PROPULSION LTD" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 105">CRJ PROPULSION LTD — Stand PAN 105</option>
+              <option value="cummins-52" data-stand="CUMMINS FRANCE SA" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 130">CUMMINS FRANCE SA — Stand PAN 130</option>
+              <option value="d-marin-54" data-stand="D-MARIN" data-secteur="VIEUX PORT — JETEE" data-zone="JETEE 154">D-MARIN — Stand JETEE 154</option>
+              <option value="de-antonio-1-55" data-stand="DE ANTONIO" data-secteur="VIEUX PORT — TENDERS" data-zone="PALAIS 113">DE ANTONIO — Stand PALAIS 113</option>
+              <option value="de-antonio-2-56" data-stand="DE ANTONIO YACHTS" data-secteur="VIEUX PORT — QSP" data-zone="QSP 160">DE ANTONIO YACHTS — Stand QSP 160</option>
+              <option value="dessalator-57" data-stand="DESSALATOR SAS" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 308">DESSALATOR SAS — Stand PAN 308</option>
+              <option value="digital-58" data-stand="DIGITAL YACHTS" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 370">DIGITAL YACHTS — Stand PAN 370</option>
+              <option value="dometic-59" data-stand="DOMETIC" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 315">DOMETIC — Stand PAN 315</option>
+              <option value="emotion-60" data-stand="E-MOTION" data-secteur="VIEUX PORT — TENDERS" data-zone="PALAIS 121">E-MOTION — Stand PALAIS 121</option>
+              <option value="elica-61" data-stand="ELICA YARD" data-secteur="VIEUX PORT — QML" data-zone="QML 133">ELICA YARD — Stand QML 133</option>
+              <option value="eliche-62" data-stand="ELICHE RADICE" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 311">ELICHE RADICE — Stand PAN 311</option>
+              <option value="epropulsion-63" data-stand="ePropulsion Technology Ltd" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 382">ePropulsion Technology Ltd — Stand PAN 382</option>
+              <option value="schaefer-64" data-stand="ESTALEIROS SCHAEFER" data-secteur="VIEUX PORT — QML" data-zone="QML 105">ESTALEIROS SCHAEFER — Stand QML 105</option>
+              <option value="sicicom-65" data-stand="EURL SICICOM" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 392">EURL SICICOM — Stand PAN 392</option>
+              <option value="euromed-66" data-stand="EUROMED YACHTING" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 339">EUROMED YACHTING — Stand PAN 339</option>
+              <option value="fim-67" data-stand="F.I.M" data-secteur="VIEUX PORT — QSP" data-zone="QSP 153">F.I.M — Stand QSP 153</option>
+              <option value="fairline-68" data-stand="FAIRLINE YACHTS LTD" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 222">FAIRLINE YACHTS LTD — Stand PAN 222</option>
+              <option value="falcon-69" data-stand="FALCON YACHTS" data-secteur="VIEUX PORT — SYE" data-zone="SYE 115">FALCON YACHTS — Stand SYE 115</option>
+              <option value="ferretti-70" data-stand="FERRETTI Spa" data-secteur="VIEUX PORT — SYE" data-zone="SYE 102">FERRETTI Spa — Stand SYE 102</option>
+              <option value="ferretti-wally-72" data-stand="FERRETTI Spa WALLY" data-secteur="VIEUX PORT — SYE" data-zone="SYE 101">FERRETTI Spa WALLY — Stand SYE 101</option>
+              <option value="fiartmare-73" data-stand="FIARTMARE" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 221">FIARTMARE — Stand PAN 221</option>
+              <option value="fjord-74" data-stand="FJORD" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 220">FJORD — Stand PAN 220</option>
+              <option value="flag-75" data-stand="FLAG MARINE GROUP" data-secteur="VIEUX PORT — QML" data-zone="QML 107">FLAG MARINE GROUP — Stand QML 107</option>
+              <option value="fleming-76" data-stand="FLEMING YACHTS" data-secteur="VIEUX PORT — SYE" data-zone="SYE 150">FLEMING YACHTS — Stand SYE 150</option>
+              <option value="flexiteek-77" data-stand="Flexiteek Mediterranee" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 366">Flexiteek Mediterranee — Stand PAN 366</option>
+              <option value="focus-78" data-stand="FOCUS MOTOR YACHTS B.V" data-secteur="VIEUX PORT — QML" data-zone="QML 101">FOCUS MOTOR YACHTS B.V — Stand QML 101</option>
+              <option value="foresti-79" data-stand="FORESTI &amp; SUARDI Spa" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 301">FORESTI &amp; SUARDI Spa — Stand PAN 301</option>
+              <option value="fountaine-motor-80" data-stand="FOUNTAINE PAJOT MOTOR YACHTS" data-secteur="VIEUX PORT — QML" data-zone="QML 129">FOUNTAINE PAJOT MOTOR YACHTS — Stand QML 129</option>
+              <option value="france-helices-81" data-stand="FRANCE HELICES" data-secteur="VIEUX PORT — JETEE" data-zone="JETEE 108">FRANCE HELICES — Stand JETEE 108</option>
+              <option value="fraser-82" data-stand="FRASER" data-secteur="VIEUX PORT — SYE" data-zone="SYE 118">FRASER — Stand SYE 118</option>
+              <option value="frauscher-83" data-stand="FRAUSCHER X PORSCHE" data-secteur="VIEUX PORT — TENDERS" data-zone="PALAIS 104">FRAUSCHER X PORSCHE — Stand PALAIS 104</option>
+              <option value="fsy-pan-84" data-stand="FSY FILIPPETTI" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 210">FSY FILIPPETTI — Stand PAN 210</option>
+              <option value="fsy-sye-85" data-stand="FSY FILIPPETTI" data-secteur="VIEUX PORT — SYE" data-zone="SYE 141">FSY FILIPPETTI — Stand SYE 141</option>
+              <option value="furuno-86" data-stand="FURUNO France" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 343">FURUNO France — Stand PAN 343</option>
+              <option value="gagliotta-87" data-stand="GAGLIOTTA BY TOR DI MARE" data-secteur="VIEUX PORT — QSP" data-zone="QSP 123">GAGLIOTTA BY TOR DI MARE — Stand QSP 123</option>
+              <option value="galeon-88" data-stand="GALEON" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 103">GALEON — Stand PAN 103</option>
+              <option value="garmin-89" data-stand="GARMIN" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 316">GARMIN — Stand PAN 316</option>
+              <option value="genhy-90" data-stand="GENHY GENERATION HYBRIDE" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 348">GENHY GENERATION HYBRIDE — Stand PAN 348</option>
+              <option value="gofilter-91" data-stand="GoFilter D&amp;S" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 384">GoFilter D&amp;S — Stand PAN 384</option>
+              <option value="sclavo-92" data-stand="GROUPE SCLAVO ENVIRONNEMENT" data-secteur="VIEUX PORT — JETEE" data-zone="JETEE 132">GROUPE SCLAVO ENVIRONNEMENT — Stand JETEE 132</option>
+              <option value="rif-93" data-stand="GUICHET UNIQUE du RIF" data-secteur="VIEUX PORT — JETEE" data-zone="JETEE 151">GUICHET UNIQUE du RIF — Stand JETEE 151</option>
+              <option value="guigo-94" data-stand="GUIGO MARINE" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 394">GUIGO MARINE — Stand PAN 394</option>
+              <option value="gulf-craft-95" data-stand="GULF CRAFT INC" data-secteur="VIEUX PORT — SYE" data-zone="SYE 131">GULF CRAFT INC — Stand SYE 131</option>
+              <option value="hb-tech-96" data-stand="H+B technics GmbH" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 128">H+B technics GmbH — Stand PAN 128</option>
+              <option value="halyard-97" data-stand="HALYARD (M&amp;l) Ltd" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 108">HALYARD (M&amp;l) Ltd — Stand PAN 108</option>
+              <option value="hargrave-98" data-stand="HARGRAVE CUSTOM YACHTS" data-secteur="VIEUX PORT — SYE" data-zone="SYE 128">HARGRAVE CUSTOM YACHTS — Stand SYE 128</option>
+              <option value="hds-99" data-stand="HDS PEINTURE" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 334">HDS PEINTURE — Stand PAN 334</option>
+              <option value="headhunter-100" data-stand="HEADHUNTER INC" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 314">HEADHUNTER INC — Stand PAN 314</option>
+              <option value="helios-101" data-stand="HELIOS YACHTS" data-secteur="VIEUX PORT — TENDERS" data-zone="PALAIS 110 BIS">HELIOS YACHTS — Stand PALAIS 110 BIS</option>
+              <option value="horizon-102" data-stand="HORIZON" data-secteur="VIEUX PORT — SYE" data-zone="SYE 116">HORIZON — Stand SYE 116</option>
+              <option value="hp-103" data-stand="HP HIGH PRESSURE SRL" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 351">HP HIGH PRESSURE SRL — Stand PAN 351</option>
+              <option value="humphree-104" data-stand="HUMPHREE AB" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 319">HUMPHREE AB — Stand PAN 319</option>
+              <option value="italian-105" data-stand="ITALIAN" data-secteur="VIEUX PORT — SYE" data-zone="SYE 146">ITALIAN — Stand SYE 146</option>
+              <option value="italian-vessels-106" data-stand="ITALIAN VESSELS SRL" data-secteur="VIEUX PORT — JETEE" data-zone="JETEE 162">ITALIAN VESSELS SRL — Stand JETEE 162</option>
+              <option value="ruote-107" data-stand="LA CASA DELLE RUOTE SRL" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 386">LA CASA DELLE RUOTE SRL — Stand PAN 386</option>
+              <option value="lazzara-108" data-stand="LAZZARA YACHTS" data-secteur="VIEUX PORT — SYE" data-zone="SYE 127">LAZZARA YACHTS — Stand SYE 127</option>
+              <option value="lekker-109" data-stand="LEKKER BOATS B.V." data-secteur="VIEUX PORT — QSP" data-zone="QSP 142">LEKKER BOATS B.V. — Stand QSP 142</option>
+              <option value="level-110" data-stand="LEVEL EXCLUSIVE YACHT" data-secteur="VIEUX PORT — QSP" data-zone="QSP 115">LEVEL EXCLUSIVE YACHT — Stand QSP 115</option>
+              <option value="liontron-111" data-stand="LIONTRON" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 365">LIONTRON — Stand PAN 365</option>
+              <option value="lomac-112" data-stand="LOMAC" data-secteur="VIEUX PORT — QSP" data-zone="QSP 121">LOMAC — Stand QSP 121</option>
+              <option value="loy-113" data-stand="LOY SRL" data-secteur="VIEUX PORT — QSP" data-zone="QSP 126">LOY SRL — Stand QSP 126</option>
+              <option value="luxolor-114" data-stand="LUXOLOR BOATS" data-secteur="VIEUX PORT — QML" data-zone="QML 116">LUXOLOR BOATS — Stand QML 116</option>
+              <option value="lyvio-115" data-stand="LYVIO SE DES ETS" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 114">LYVIO SE DES ETS — Stand PAN 114</option>
+              <option value="myi-116" data-stand="M.Y.I srl" data-secteur="VIEUX PORT — QSP" data-zone="QSP 138">M.Y.I srl — Stand QSP 138</option>
+              <option value="man-117" data-stand="MAN TRUCK &amp; BUS SE" data-secteur="VIEUX PORT — TENDERS" data-zone="PALAIS 124">MAN TRUCK &amp; BUS SE — Stand PALAIS 124</option>
+              <option value="marina-vp-118" data-stand="MARINA DU VIEUX PORT" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 125">MARINA DU VIEUX PORT — Stand PAN 125</option>
+              <option value="marricreo-119" data-stand="MARRICREO srls" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 123">MARRICREO srls — Stand PAN 123</option>
+              <option value="mb92-120" data-stand="MB 92 LA CIOTAT" data-secteur="VIEUX PORT — JETEE" data-zone="JETEE 122">MB 92 LA CIOTAT — Stand JETEE 122</option>
+              <option value="meli-121" data-stand="MELI" data-secteur="VIEUX PORT — QSP" data-zone="QSP 114">MELI — Stand QSP 114</option>
+              <option value="midi-froid-122" data-stand="MIDI FROID" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 321">MIDI FROID — Stand PAN 321</option>
+              <option value="mpn-123" data-stand="MPN Poweryachts Gmbh" data-secteur="VIEUX PORT — QSP" data-zone="QSP 110">MPN Poweryachts Gmbh — Stand QSP 110</option>
+              <option value="mtaic-124" data-stand="MTAIC" data-secteur="VIEUX PORT — QSP" data-zone="QSP 108">MTAIC — Stand QSP 108</option>
+              <option value="mz-125" data-stand="MZ ELECTRONIC SRL" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 347">MZ ELECTRONIC SRL — Stand PAN 347</option>
+              <option value="nanni-126" data-stand="NANNI INDUSTRIES" data-secteur="VIEUX PORT — TENDERS" data-zone="PALAIS 125">NANNI INDUSTRIES — Stand PALAIS 125</option>
+              <option value="nautic-garage-127" data-stand="NAUTIC GARAGE SRL" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 303">NAUTIC GARAGE SRL — Stand PAN 303</option>
+              <option value="nautica-ed-128" data-stand="NAUTICA EDITRICE S.R.L." data-secteur="VIEUX PORT — JETEE" data-zone="JETEE 125">NAUTICA EDITRICE S.R.L. — Stand JETEE 125</option>
+              <option value="nautipark-129" data-stand="NAUTIPARK" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 344">NAUTIPARK — Stand PAN 344</option>
+              <option value="nerea-130" data-stand="NEREA YACHT" data-secteur="VIEUX PORT — QSP" data-zone="QSP 112">NEREA YACHT — Stand QSP 112</option>
+              <option value="nmh-131" data-stand="NMH North Marine GmbH" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 369">NMH North Marine GmbH — Stand PAN 369</option>
+              <option value="novamarine-132" data-stand="NOVAMARINE" data-secteur="VIEUX PORT — QSP" data-zone="QSP 140">NOVAMARINE — Stand QSP 140</option>
+              <option value="nps-133" data-stand="NPS YACHTING" data-secteur="VIEUX PORT — JETEE" data-zone="JETEE 127">NPS YACHTING — Stand JETEE 127</option>
+              <option value="numarine-134" data-stand="NUMARINE" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 101">NUMARINE — Stand PAN 101</option>
+              <option value="ocean-skies-135" data-stand="OCEAN SKIES" data-secteur="VIEUX PORT — JETEE" data-zone="JETEE 105">OCEAN SKIES — Stand JETEE 105</option>
+              <option value="omikron-vp-136" data-stand="OMIKRON" data-secteur="VIEUX PORT — QML" data-zone="QML 138">OMIKRON — Stand QML 138</option>
+              <option value="osculati-137" data-stand="OSCULATI SRL" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 367">OSCULATI SRL — Stand PAN 367</option>
+              <option value="osmosea-138" data-stand="OSMOSEA SRL" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 320">OSMOSEA SRL — Stand PAN 320</option>
+              <option value="outer-reef-139" data-stand="OUTER REEF YACHTS" data-secteur="VIEUX PORT — SYE" data-zone="SYE 113">OUTER REEF YACHTS — Stand SYE 113</option>
+              <option value="botnia-140" data-stand="OY BOTNIA MARIN AB" data-secteur="VIEUX PORT — QSP" data-zone="QSP 133">OY BOTNIA MARIN AB — Stand QSP 133</option>
+              <option value="pantaenius-vp-141" data-stand="PANTAENIUS GMBH" data-secteur="VIEUX PORT — QSP" data-zone="QSP 101">PANTAENIUS GMBH — Stand QSP 101</option>
+              <option value="permare-142" data-stand="PERMARE SRL" data-secteur="VIEUX PORT — SYE" data-zone="SYE 151">PERMARE SRL — Stand SYE 151</option>
+              <option value="planus-143" data-stand="PLANUS" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 387">PLANUS — Stand PAN 387</option>
+              <option value="pmp-144" data-stand="PMP DI OLGIATI GUISEPPE" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 117">PMP DI OLGIATI GUISEPPE — Stand PAN 117</option>
+              <option value="posidonia-145" data-stand="POSIDONIA srl" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 352">POSIDONIA srl — Stand PAN 352</option>
+              <option value="dockmate-146" data-stand="PPA-ELECTRONICS (DOCKMATE)" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 381">PPA-ELECTRONICS (DOCKMATE) — Stand PAN 381</option>
+              <option value="prestige-147" data-stand="PRESTIGE" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 102">PRESTIGE — Stand PAN 102</option>
+              <option value="princess-148" data-stand="PRINCESS YACHTS LTD" data-secteur="VIEUX PORT — JETEE" data-zone="JETEE 114">PRINCESS YACHTS LTD — Stand JETEE 114</option>
+              <option value="propspeed-149" data-stand="PROPSPEED" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 330">PROPSPEED — Stand PAN 330</option>
+              <option value="quick-vp-150" data-stand="QUICK ITALY SpA" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 357">QUICK ITALY SpA — Stand PAN 357</option>
+              <option value="raymarine-vp-151" data-stand="RAYMARINE France" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 329">RAYMARINE France — Stand PAN 329</option>
+              <option value="recaro-152" data-stand="RECARO MARITIME" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 305">RECARO MARITIME — Stand PAN 305</option>
+              <option value="regulator-153" data-stand="REGULATOR MARINE" data-secteur="VIEUX PORT — QSP" data-zone="QSP 111">REGULATOR MARINE — Stand QSP 111</option>
+              <option value="rio-154" data-stand="RIO YACHTS" data-secteur="VIEUX PORT — QML" data-zone="QML 103">RIO YACHTS — Stand QML 103</option>
+              <option value="riviera-aus-155" data-stand="RIVIERA AUSTRALIA" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 215">RIVIERA AUSTRALIA — Stand PAN 215</option>
+              <option value="riviera-net-156" data-stand="RIVIERA YACHTING NETWORK" data-secteur="VIEUX PORT — JETEE" data-zone="JETEE 157">RIVIERA YACHTING NETWORK — Stand JETEE 157</option>
+              <option value="rolls-157" data-stand="ROLLS ROYCE" data-secteur="VIEUX PORT — TENDERS" data-zone="PALAIS 123">ROLLS ROYCE — Stand PALAIS 123</option>
+              <option value="rotorswing-158" data-stand="ROTORSWING HOLLAND B.V" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 324">ROTORSWING HOLLAND B.V — Stand PAN 324</option>
+              <option value="rouquier-159" data-stand="ROUQUIER OPTIQUE" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 376">ROUQUIER OPTIQUE — Stand PAN 376</option>
+              <option value="sacs-160" data-stand="SACS TECNORIB SPA" data-secteur="VIEUX PORT — QSP" data-zone="QSP 128">SACS TECNORIB SPA — Stand QSP 128</option>
+              <option value="safe-boat-161" data-stand="SAFE BOAT EQUIPEMENT" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 389">SAFE BOAT EQUIPEMENT — Stand PAN 389</option>
+              <option value="saim-162" data-stand="SAIM MARINE" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 202">SAIM MARINE — Stand PAN 202</option>
+              <option value="sanlorenzo-163" data-stand="SAN LORENZO SPA" data-secteur="VIEUX PORT — JETEE" data-zone="JETEE 148">SAN LORENZO SPA — Stand JETEE 148</option>
+              <option value="sardinia-164" data-stand="SARDINIA NAUTIC ASSISTANCE" data-secteur="VIEUX PORT — JETEE" data-zone="JETEE 106">SARDINIA NAUTIC ASSISTANCE — Stand JETEE 106</option>
+              <option value="sargo-165" data-stand="SARGO Oy Ab" data-secteur="VIEUX PORT — QSP" data-zone="QSP 106">SARGO Oy Ab — Stand QSP 106</option>
+              <option value="a22-166" data-stand="SAS A22" data-secteur="VIEUX PORT — QSP" data-zone="QSP 113">SAS A22 — Stand QSP 113</option>
+              <option value="navigair-167" data-stand="SAS DMB NAVIGAIR" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 121">SAS DMB NAVIGAIR — Stand PAN 121</option>
+              <option value="sailing-stream-168" data-stand="SAS SAILING STREAM" data-secteur="VIEUX PORT — QSP" data-zone="QSP 117">SAS SAILING STREAM — Stand QSP 117</option>
+              <option value="sasga-169" data-stand="SASGA YACHTS" data-secteur="VIEUX PORT — QSP" data-zone="QSP 107">SASGA YACHTS — Stand QSP 107</option>
+              <option value="say-carbon-170" data-stand="SAY CARBON YACHTS" data-secteur="VIEUX PORT — QSP" data-zone="QSP 147">SAY CARBON YACHTS — Stand QSP 147</option>
+              <option value="buglione-171" data-stand="SEA SERVICES BUGLIONE" data-secteur="VIEUX PORT — QSP" data-zone="QSP 156">SEA SERVICES BUGLIONE — Stand QSP 156</option>
+              <option value="seaai-172" data-stand="SEA.AI.SAS" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 345">SEA.AI.SAS — Stand PAN 345</option>
+              <option value="seakeeper-173" data-stand="SEAKEEPER INC." data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 120">SEAKEEPER INC. — Stand PAN 120</option>
+              <option value="seanet-174" data-stand="SEANET" data-secteur="VIEUX PORT — SYE" data-zone="SYE 112">SEANET — Stand SYE 112</option>
+              <option value="seven-seas-175" data-stand="SEVEN SEAS YACHTS" data-secteur="VIEUX PORT — TENDERS" data-zone="PALAIS 114 BIS">SEVEN SEAS YACHTS — Stand PALAIS 114 BIS</option>
+              <option value="sevenstar-176" data-stand="SEVENSTAR YACHT TRANSPORT" data-secteur="VIEUX PORT — JETEE" data-zone="JETEE 160">SEVENSTAR YACHT TRANSPORT — Stand JETEE 160</option>
+              <option value="silent-yachts-177" data-stand="SILENT YACHTS SRL" data-secteur="VIEUX PORT — QML" data-zone="QML 122">SILENT YACHTS SRL — Stand QML 122</option>
+              <option value="simrad-178" data-stand="SIMRAD" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 333">SIMRAD — Stand PAN 333</option>
+              <option value="sirena-179" data-stand="SIRENA YACHTS" data-secteur="VIEUX PORT — QML" data-zone="QML 140">SIRENA YACHTS — Stand QML 140</option>
+              <option value="sleipner-vp-180" data-stand="SLEIPNER MOTOR AS" data-secteur="VIEUX PORT — JETEE" data-zone="JETEE 135">SLEIPNER MOTOR AS — Stand JETEE 135</option>
+              <option value="smartgyro-181" data-stand="SMARTGYRO SRL" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 310">SMARTGYRO SRL — Stand PAN 310</option>
+              <option value="snsm-182" data-stand="SNSM" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 388">SNSM — Stand PAN 388</option>
+              <option value="sogeric-183" data-stand="SOGERIC" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 328">SOGERIC — Stand PAN 328</option>
+              <option value="sogrega-184" data-stand="SOGREGA" data-secteur="VIEUX PORT — TENDERS" data-zone="PALAIS 112">SOGREGA — Stand PALAIS 112</option>
+              <option value="solaris-power-185" data-stand="SOLARIS POWER S.R.L" data-secteur="VIEUX PORT — QSP" data-zone="QSP 151">SOLARIS POWER S.R.L — Stand QSP 151</option>
+              <option value="sole-186" data-stand="SOLE ADVANCE" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 363">SOLE ADVANCE — Stand PAN 363</option>
+              <option value="spbi-vp-187" data-stand="SPBI BENETEAU" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 204">SPBI BENETEAU — Stand PAN 204</option>
+              <option value="sport-passion-188" data-stand="SPORT PASSION" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 390">SPORT PASSION — Stand PAN 390</option>
+              <option value="spot-zero-189" data-stand="SPOT ZERO REVERSE OSMOSIS" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 350">SPOT ZERO REVERSE OSMOSIS — Stand PAN 350</option>
+              <option value="steeler-190" data-stand="STEELER YACHTS" data-secteur="VIEUX PORT — QSP" data-zone="QSP 119">STEELER YACHTS — Stand QSP 119</option>
+              <option value="stratos-191" data-stand="STRATOS YACHT BV" data-secteur="VIEUX PORT — QSP" data-zone="QSP 131">STRATOS YACHT BV — Stand QSP 131</option>
+              <option value="sunseeker-192" data-stand="SUNSEEKER" data-secteur="VIEUX PORT — JETEE" data-zone="JETEE 101">SUNSEEKER — Stand JETEE 101</option>
+              <option value="svb-193" data-stand="SVB" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 383">SVB — Stand PAN 383</option>
+              <option value="svp-194" data-stand="SVP YACHTS DOO" data-secteur="VIEUX PORT — QSP" data-zone="QSP 135">SVP YACHTS DOO — Stand QSP 135</option>
+              <option value="powerstar-195" data-stand="Taizhou Powerstar Industry" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 379">Taizhou Powerstar Industry — Stand PAN 379</option>
+              <option value="tankoa-196" data-stand="TANKOA YACHTS" data-secteur="VIEUX PORT — SYE" data-zone="SYE 122">TANKOA YACHTS — Stand SYE 122</option>
+              <option value="tecmar-197" data-stand="TECMAR" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 358">TECMAR — Stand PAN 358</option>
+              <option value="tecnicomar-198" data-stand="TECNICOMAR INC" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 312">TECNICOMAR INC — Stand PAN 312</option>
+              <option value="tesoro-199" data-stand="TESORO YACHTS SL" data-secteur="VIEUX PORT — QSP" data-zone="QSP 155">TESORO YACHTS SL — Stand QSP 155</option>
+              <option value="thermowell-200" data-stand="Thermowell DI Renato Napoli" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 318">Thermowell DI Renato Napoli — Stand PAN 318</option>
+              <option value="uflex-201" data-stand="UFLEX srl" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 112">UFLEX srl — Stand PAN 112</option>
+              <option value="valdenassi-202" data-stand="VALDENASSI EMANUELE" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 107">VALDENASSI EMANUELE — Stand PAN 107</option>
+              <option value="vandervalk-203" data-stand="VAN DER VALK SHIPYARD" data-secteur="VIEUX PORT — SYE" data-zone="SYE 137">VAN DER VALK SHIPYARD — Stand SYE 137</option>
+              <option value="vanquish-204" data-stand="VANQUISH YACHTS" data-secteur="VIEUX PORT — QML" data-zone="QML 109">VANQUISH YACHTS — Stand QML 109</option>
+              <option value="vdm-205" data-stand="VDM-REYA" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 338">VDM-REYA — Stand PAN 338</option>
+              <option value="vdv-206" data-stand="VDV SRL" data-secteur="VIEUX PORT — JETEE" data-zone="JETEE 141">VDV SRL — Stand JETEE 141</option>
+              <option value="veco-207" data-stand="VECO SPA" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 349">VECO SPA — Stand PAN 349</option>
+              <option value="visionf-209" data-stand="VISION F YACHTS" data-secteur="VIEUX PORT — QML" data-zone="QML 124">VISION F YACHTS — Stand QML 124</option>
+              <option value="vitrifrigo-210" data-stand="VITRIFRIGO S.R.L" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 342">VITRIFRIGO S.R.L — Stand PAN 342</option>
+              <option value="volvo-211" data-stand="VOLVO PENTA" data-secteur="VIEUX PORT — TENDERS" data-zone="PALAIS 120">VOLVO PENTA — Stand PALAIS 120</option>
+              <option value="vulkan-212" data-stand="VULKAN France SA" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 122">VULKAN France SA — Stand PAN 122</option>
+              <option value="w-yachts-vp-213" data-stand="W YACHTS Sp. Zo.o." data-secteur="VIEUX PORT — QSP" data-zone="QSP 116">W YACHTS Sp. Zo.o. — Stand QSP 116</option>
+              <option value="wider-214" data-stand="WIDER" data-secteur="VIEUX PORT — QML" data-zone="QML 137">WIDER — Stand QML 137</option>
+              <option value="windy-tend-215" data-stand="Windy Scandinavia AB" data-secteur="VIEUX PORT — TENDERS" data-zone="PALAIS 101">Windy Scandinavia AB — Stand PALAIS 101</option>
+              <option value="windy-pan-216" data-stand="Windy Scandinavia AB" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 217">Windy Scandinavia AB — Stand PAN 217</option>
+              <option value="poseidon-217" data-stand="YACHT CONTROLLER POSEIDON" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 309">YACHT CONTROLLER POSEIDON — Stand PAN 309</option>
+              <option value="yanmar-218" data-stand="YANMAR MARINE" data-secteur="VIEUX PORT — TENDERS" data-zone="PALAIS 122">YANMAR MARINE — Stand PALAIS 122</option>
+              <option value="zf-219" data-stand="ZF Friedrich shafen AG" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 124">ZF Friedrich shafen AG — Stand PAN 124</option>
+              <option value="zipwake-220" data-stand="ZIPWAKE AB" data-secteur="VIEUX PORT — PANTIERO" data-zone="PAN 332">ZIPWAKE AB — Stand PAN 332</option>
+            </optgroup>
+            <optgroup label="— PORT CANTO —">
+              <option value="3d-marine-221" data-stand="3D MARINE" data-secteur="CANTO — POWER" data-zone="POWER 120">3D MARINE — Stand POWER 120</option>
+              <option value="advanced-222" data-stand="ADVANCED YACHTS" data-secteur="CANTO — SAIL" data-zone="SAIL 138">ADVANCED YACHTS — Stand SAIL 138</option>
+              <option value="aerofoils-223" data-stand="AEROFOILS" data-secteur="CANTO — BROKER" data-zone="TOYS 122">AEROFOILS — Stand TOYS 122</option>
+              <option value="agl-224" data-stand="AGL MARINE" data-secteur="CANTO — SAIL" data-zone="SAIL 157">AGL MARINE — Stand SAIL 157</option>
+              <option value="alt-energies-225" data-stand="ALTERNATIVE ENERGIES" data-secteur="CANTO — SAIL" data-zone="SAIL 139">ALTERNATIVE ENERGIES — Stand SAIL 139</option>
+              <option value="anadolu-226" data-stand="ANADOLU MOTOR" data-secteur="CANTO — POWER" data-zone="POWER 145">ANADOLU MOTOR — Stand POWER 145</option>
+              <option value="antal-227" data-stand="ANTAL SRL" data-secteur="CANTO — SAIL" data-zone="SAIL 158">ANTAL SRL — Stand SAIL 158</option>
+              <option value="aqua-marine-228" data-stand="AQUA MARINE" data-secteur="CANTO — BROKER" data-zone="TOYS 129">AQUA MARINE — Stand TOYS 129</option>
+              <option value="aquabibe-229" data-stand="AQUAbibe" data-secteur="CANTO — SAIL" data-zone="SAIL 234">AQUAbibe — Stand SAIL 234</option>
+              <option value="ass-mar-230" data-stand="ASSURANCES MARITIMES" data-secteur="CANTO — SAIL" data-zone="SAIL 135">ASSURANCES MARITIMES — Stand SAIL 135</option>
+              <option value="astro-231" data-stand="ASTRO NAUTICA" data-secteur="CANTO — POWER" data-zone="POWER 121">ASTRO NAUTICA — Stand POWER 121</option>
+              <option value="athenian-232" data-stand="ATHENIAN YACHTS" data-secteur="CANTO — SAIL" data-zone="SAIL 105">ATHENIAN YACHTS — Stand SAIL 105</option>
+              <option value="atlantic-233" data-stand="ATLANTIC CLUSTER" data-secteur="CANTO — SAIL" data-zone="SAIL 166">ATLANTIC CLUSTER — Stand SAIL 166</option>
+              <option value="axopar-234" data-stand="AXOPAR" data-secteur="CANTO — POWER" data-zone="POWER 144">AXOPAR — Stand POWER 144</option>
+              <option value="bg-235" data-stand="B&amp;G" data-secteur="CANTO — SAIL" data-zone="SAIL 243">B&amp;G — Stand SAIL 243</option>
+              <option value="bavaria-236" data-stand="BAVARIA" data-secteur="CANTO — SAIL" data-zone="SAIL 190">BAVARIA — Stand SAIL 190</option>
+              <option value="bestsails-237" data-stand="BEST SAILS SERVICE SRL" data-secteur="CANTO — SAIL" data-zone="SAIL 183">BEST SAILS SERVICE SRL — Stand SAIL 183</option>
+              <option value="blueairco-238" data-stand="Blue Airco Srl" data-secteur="CANTO — SAIL" data-zone="SAIL 145">Blue Airco Srl — Stand SAIL 145</option>
+              <option value="bluenergy-239" data-stand="BLUENERGY" data-secteur="CANTO — SAIL" data-zone="SAIL 174">BLUENERGY — Stand SAIL 174</option>
+              <option value="boards-240" data-stand="BOARDS &amp; MORE" data-secteur="CANTO — BROKER" data-zone="TOYS 128">BOARDS &amp; MORE — Stand TOYS 128</option>
+              <option value="bpce-241" data-stand="BPCE LEASE" data-secteur="CANTO — SAIL" data-zone="SAIL 242">BPCE LEASE — Stand SAIL 242</option>
+              <option value="brunswick-242" data-stand="BRUNSWICK" data-secteur="CANTO — POWER" data-zone="POWER 124">BRUNSWICK — Stand POWER 124</option>
+              <option value="brunswick-mercury-243" data-stand="BRUNSWICK MERCURY MARINE" data-secteur="CANTO — POWER" data-zone="POWER 100">BRUNSWICK MERCURY MARINE — Stand POWER 100</option>
+              <option value="bsi-244" data-stand="BSI AS" data-secteur="CANTO — SAIL" data-zone="SAIL 235">BSI AS — Stand SAIL 235</option>
+              <option value="caisse-cdaz-245" data-stand="CAISSE D'EPARGNE COTE D'AZUR" data-secteur="CANTO — SAIL" data-zone="SAIL 192">CAISSE D'EPARGNE COTE D'AZUR — Stand SAIL 192</option>
+              <option value="cantiere-pardo-c-246" data-stand="CANTIERE DEL PARDO" data-secteur="CANTO — SAIL" data-zone="SAIL 230">CANTIERE DEL PARDO — Stand SAIL 230</option>
+              <option value="capitole-tof-247" data-stand="CAPITOLE FINANCE TOFINSO" data-secteur="CANTO — SAIL" data-zone="SAIL 114">CAPITOLE FINANCE TOFINSO — Stand SAIL 114</option>
+              <option value="cataruga-248" data-stand="CATARUGA" data-secteur="CANTO — SAIL" data-zone="SAIL 132">CATARUGA — Stand SAIL 132</option>
+              <option value="cgi-fin-249" data-stand="CGI FINANCE" data-secteur="CANTO — SAIL" data-zone="SAIL 238">CGI FINANCE — Stand SAIL 238</option>
+              <option value="champion-250" data-stand="CHAMPION MARINE SAM" data-secteur="CANTO — POWER" data-zone="POWER 104">CHAMPION MARINE SAM — Stand POWER 104</option>
+              <option value="catana-bali-251" data-stand="CATANA BALI CATAMARANS" data-secteur="CANTO — SAIL" data-zone="SAIL 124">CATANA BALI CATAMARANS — Stand SAIL 124</option>
+              <option value="arsenal-252" data-stand="CHANTIER DE L'ARSENAL" data-secteur="CANTO — SAIL" data-zone="SAIL 149">CHANTIER DE L'ARSENAL — Stand SAIL 149</option>
+              <option value="amel-253" data-stand="CHANTIERS AMEL" data-secteur="CANTO — SAIL" data-zone="SAIL 202">CHANTIERS AMEL — Stand SAIL 202</option>
+              <option value="cic-254" data-stand="CIC" data-secteur="CANTO — SAIL" data-zone="SAIL 118">CIC — Stand SAIL 118</option>
+              <option value="cnb-lagoon-255" data-stand="CNB LAGOON" data-secteur="CANTO — SAIL" data-zone="SAIL 112">CNB LAGOON — Stand SAIL 112</option>
+              <option value="cnb-builders-256" data-stand="CNB Yacht Builders" data-secteur="CANTO — SAIL" data-zone="SAIL 227">CNB Yacht Builders — Stand SAIL 227</option>
+              <option value="hydro-257" data-stand="COMPAGNIE HYDROTECHNIQUE" data-secteur="CANTO — SAIL" data-zone="SAIL 137">COMPAGNIE HYDROTECHNIQUE — Stand SAIL 137</option>
+              <option value="cm-258" data-stand="CREDIT MUTUEL" data-secteur="CANTO — SAIL" data-zone="SAIL 117">CREDIT MUTUEL — Stand SAIL 117</option>
+              <option value="deck-team-259" data-stand="DECK TEAM" data-secteur="CANTO — SAIL" data-zone="SAIL 147">DECK TEAM — Stand SAIL 147</option>
+              <option value="delta-voiles-260" data-stand="DELTA VOILES LA VOILERIE" data-secteur="CANTO — SAIL" data-zone="SAIL 228">DELTA VOILES LA VOILERIE — Stand SAIL 228</option>
+              <option value="dimension-261" data-stand="Dimension Polyant" data-secteur="CANTO — SAIL" data-zone="SAIL 236">Dimension Polyant — Stand SAIL 236</option>
+              <option value="dream-262" data-stand="DREAM YACHT" data-secteur="CANTO — SAIL" data-zone="SAIL 106">DREAM YACHT — Stand SAIL 106</option>
+              <option value="dufour-263" data-stand="DUFOUR YACHTS" data-secteur="CANTO — SAIL" data-zone="SAIL 241">DUFOUR YACHTS — Stand SAIL 241</option>
+              <option value="eclypse-264" data-stand="E-CLYPSE" data-secteur="CANTO — BROKER" data-zone="TOYS 123">E-CLYPSE — Stand TOYS 123</option>
+              <option value="elna-265" data-stand="ELNA" data-secteur="CANTO — SAIL" data-zone="SAIL 197">ELNA — Stand SAIL 197</option>
+              <option value="elvstrom-266" data-stand="ELVSTROM SAILS FRANCE" data-secteur="CANTO — SAIL" data-zone="SAIL 233">ELVSTROM SAILS FRANCE — Stand SAIL 233</option>
+              <option value="ewake-267" data-stand="EWAKE-BOARDS" data-secteur="CANTO — BROKER" data-zone="TOYS 126">EWAKE-BOARDS — Stand TOYS 126</option>
+              <option value="ewincher-268" data-stand="EWINCHER" data-secteur="CANTO — SAIL" data-zone="SAIL 201">EWINCHER — Stand SAIL 201</option>
+              <option value="ewol-269" data-stand="Ewol Srl" data-secteur="CANTO — SAIL" data-zone="SAIL 208">Ewol Srl — Stand SAIL 208</option>
+              <option value="excess-270" data-stand="EXCESS CNB" data-secteur="CANTO — SAIL" data-zone="SAIL 154">EXCESS CNB — Stand SAIL 154</option>
+              <option value="exel-271" data-stand="EXEL YACHTING" data-secteur="CANTO — SAIL" data-zone="SAIL 206">EXEL YACHTING — Stand SAIL 206</option>
+              <option value="fountaine-sail-272" data-stand="FOUNTAINE PAJOT SAILING" data-secteur="CANTO — SAIL" data-zone="SAIL 119">FOUNTAINE PAJOT SAILING — Stand SAIL 119</option>
+              <option value="french-eaux-273" data-stand="FRENCH EAUX" data-secteur="CANTO — SAIL" data-zone="SAIL 179">FRENCH EAUX — Stand SAIL 179</option>
+              <option value="garmin-fr-274" data-stand="GARMIN FRANCE" data-secteur="CANTO — SAIL" data-zone="SAIL 111">GARMIN FRANCE — Stand SAIL 111</option>
+              <option value="gokata-275" data-stand="GOKATA 18" data-secteur="CANTO — SAIL" data-zone="SAIL 128">GOKATA 18 — Stand SAIL 128</option>
+              <option value="gly-276" data-stand="GRAND LARGE YACHTING" data-secteur="CANTO — SAIL" data-zone="SAIL 181">GRAND LARGE YACHTING — Stand SAIL 181</option>
+              <option value="hidea-277" data-stand="HANGZHOU-HIDEA" data-secteur="CANTO — POWER" data-zone="POWER 114">HANGZHOU-HIDEA — Stand POWER 114</option>
+              <option value="hanse-278" data-stand="HANSE YACHTS AG" data-secteur="CANTO — SAIL" data-zone="SAIL 246">HANSE YACHTS AG — Stand SAIL 246</option>
+              <option value="heysea-279" data-stand="HEYSEA YACHTS" data-secteur="CANTO — SAIL" data-zone="SAIL 150">HEYSEA YACHTS — Stand SAIL 150</option>
+              <option value="hf-280" data-stand="HF FRANCE" data-secteur="CANTO — POWER" data-zone="POWER 119">HF FRANCE — Stand POWER 119</option>
+              <option value="hh-281" data-stand="HH CATAMARANS" data-secteur="CANTO — SAIL" data-zone="SAIL 126">HH CATAMARANS — Stand SAIL 126</option>
+              <option value="holld-282" data-stand="HOLLD MARINE" data-secteur="CANTO — SAIL" data-zone="SAIL 142">HOLLD MARINE — Stand SAIL 142</option>
+              <option value="honda-1-283" data-stand="HONDA FRANCE" data-secteur="CANTO — POWER" data-zone="POWER 103">HONDA FRANCE — Stand POWER 103</option>
+              <option value="ice-285" data-stand="Ice Yachts" data-secteur="CANTO — SAIL" data-zone="SAIL 222">Ice Yachts — Stand SAIL 222</option>
+              <option value="incidence-286" data-stand="INCIDENCE SAILS" data-secteur="CANTO — SAIL" data-zone="SAIL 220">INCIDENCE SAILS — Stand SAIL 220</option>
+              <option value="istec-287" data-stand="ISTEC AG" data-secteur="CANTO — SAIL" data-zone="SAIL 136">ISTEC AG — Stand SAIL 136</option>
+              <option value="kent-288" data-stand="KENT GROUP" data-secteur="CANTO — SAIL" data-zone="SAIL 184">KENT GROUP — Stand SAIL 184</option>
+              <option value="kinetic-289" data-stand="Kinetic Catamarans" data-secteur="CANTO — SAIL" data-zone="SAIL 146">Kinetic Catamarans — Stand SAIL 146</option>
+              <option value="kiriacoulis-290" data-stand="KIRIACOULIS" data-secteur="CANTO — SAIL" data-zone="SAIL 102">KIRIACOULIS — Stand SAIL 102</option>
+              <option value="kumbra-291" data-stand="KUMBRA" data-secteur="CANTO — POWER" data-zone="POWER 140">KUMBRA — Stand POWER 140</option>
+              <option value="voilerie-292" data-stand="LA VOILERIE" data-secteur="CANTO — SAIL" data-zone="SAIL 173">LA VOILERIE — Stand SAIL 173</option>
+              <option value="lao-293" data-stand="LAO DISTRIBUTION" data-secteur="CANTO — SAIL" data-zone="SAIL 198">LAO DISTRIBUTION — Stand SAIL 198</option>
+              <option value="mare-moto-294" data-stand="MARE MOTO" data-secteur="CANTO — BROKER" data-zone="TOYS 115">MARE MOTO — Stand TOYS 115</option>
+              <option value="marex-295" data-stand="MAREX" data-secteur="CANTO — POWER" data-zone="POWER 139">MAREX — Stand POWER 139</option>
+              <option value="leopard-296" data-stand="LEOPARD CATAMARANS" data-secteur="CANTO — SAIL" data-zone="SAIL 121">LEOPARD CATAMARANS — Stand SAIL 121</option>
+              <option value="med-riders-297" data-stand="MEDITERRANEAN RIDERS" data-secteur="CANTO — SAIL" data-zone="SAIL 195">MEDITERRANEAN RIDERS — Stand SAIL 195</option>
+              <option value="mercan-298" data-stand="MERCAN" data-secteur="CANTO — POWER" data-zone="POWER 142">MERCAN — Stand POWER 142</option>
+              <option value="mmk-299" data-stand="MMK SYSTEMS D.O.O." data-secteur="CANTO — SAIL" data-zone="SAIL 178">MMK SYSTEMS D.O.O. — Stand SAIL 178</option>
+              <option value="mojet-300" data-stand="MO JET" data-secteur="CANTO — BROKER" data-zone="TOYS 118">MO JET — Stand TOYS 118</option>
+              <option value="moke-301" data-stand="MOKE SUNCAR" data-secteur="CANTO — BROKER" data-zone="TOYS 108">MOKE SUNCAR — Stand TOYS 108</option>
+              <option value="mylius-302" data-stand="MYLIUS YACHT" data-secteur="CANTO — SAIL" data-zone="SAIL 209">MYLIUS YACHT — Stand SAIL 209</option>
+              <option value="nautex-303" data-stand="NAUTEX INTERNATIONAL" data-secteur="CANTO — SAIL" data-zone="SAIL 168">NAUTEX INTERNATIONAL — Stand SAIL 168</option>
+              <option value="nautitech-304" data-stand="NAUTITECH CATAMARANS" data-secteur="CANTO — SAIL" data-zone="SAIL 140">NAUTITECH CATAMARANS — Stand SAIL 140</option>
+              <option value="nautix-305" data-stand="NAUTIX" data-secteur="CANTO — SAIL" data-zone="SAIL 237">NAUTIX — Stand SAIL 237</option>
+              <option value="nautor-306" data-stand="NAUTOR SWAN" data-secteur="CANTO — SAIL" data-zone="SAIL 211">NAUTOR SWAN — Stand SAIL 211</option>
+              <option value="navigare-307" data-stand="NAVIGARE" data-secteur="CANTO — SAIL" data-zone="SAIL 104">NAVIGARE — Stand SAIL 104</option>
+              <option value="neel-308" data-stand="NEEL TRIMARANS" data-secteur="CANTO — SAIL" data-zone="SAIL 151">NEEL TRIMARANS — Stand SAIL 151</option>
+              <option value="nimbus-309" data-stand="NIMBUS" data-secteur="CANTO — POWER" data-zone="POWER 138">NIMBUS — Stand POWER 138</option>
+              <option value="nordkapp-310" data-stand="NORDKAPP" data-secteur="CANTO — POWER" data-zone="POWER 141">NORDKAPP — Stand POWER 141</option>
+              <option value="north-sails-311" data-stand="NORTH SAILS" data-secteur="CANTO — SAIL" data-zone="SAIL 170">NORTH SAILS — Stand SAIL 170</option>
+              <option value="nosmoke-312" data-stand="NOSMOKE" data-secteur="CANTO — BROKER" data-zone="TOYS 109">NOSMOKE — Stand TOYS 109</option>
+              <option value="ocean-coat-313" data-stand="OCEAN COATINGS" data-secteur="CANTO — SAIL" data-zone="SAIL 110">OCEAN COATINGS — Stand SAIL 110</option>
+              <option value="ocean-dev-314" data-stand="OCEAN DEVELOPPEMENT" data-secteur="CANTO — SAIL" data-zone="SAIL 176">OCEAN DEVELOPPEMENT — Stand SAIL 176</option>
+              <option value="ocean-explorer-315" data-stand="OCEAN EXPLORER" data-secteur="CANTO — SAIL" data-zone="SAIL 101">OCEAN EXPLORER — Stand SAIL 101</option>
+              <option value="ocean-tec-316" data-stand="OCEAN TEC" data-secteur="CANTO — SAIL" data-zone="SAIL 219">OCEAN TEC — Stand SAIL 219</option>
+              <option value="opensea-317" data-stand="OPENSEA DARTCRAFT" data-secteur="CANTO — BROKER" data-zone="TOYS 130">OPENSEA DARTCRAFT — Stand TOYS 130</option>
+              <option value="outremer-318" data-stand="OUTREMER" data-secteur="CANTO — SAIL" data-zone="SAIL 134">OUTREMER — Stand SAIL 134</option>
+              <option value="oyster-319" data-stand="Oyster Yachts" data-secteur="CANTO — SAIL" data-zone="SAIL 217">Oyster Yachts — Stand SAIL 217</option>
+              <option value="palm-320" data-stand="PALM SAILING" data-secteur="CANTO — BROKER" data-zone="TOYS 116">PALM SAILING — Stand TOYS 116</option>
+              <option value="pantaenius-c-321" data-stand="PANTAENIUS GMBH" data-secteur="CANTO — SAIL" data-zone="SAIL 115">PANTAENIUS GMBH — Stand SAIL 115</option>
+              <option value="pochon-322" data-stand="POCHON SA" data-secteur="CANTO — SAIL" data-zone="SAIL 144">POCHON SA — Stand SAIL 144</option>
+              <option value="pod-323" data-stand="POD" data-secteur="CANTO — BROKER" data-zone="TOYS 114">POD — Stand TOYS 114</option>
+              <option value="privilege-324" data-stand="PRIVILEGE MARINE" data-secteur="CANTO — SAIL" data-zone="SAIL 129">PRIVILEGE MARINE — Stand SAIL 129</option>
+              <option value="proprialoc-325" data-stand="PROPRIALOC" data-secteur="CANTO — SAIL" data-zone="SAIL 127">PROPRIALOC — Stand SAIL 127</option>
+              <option value="pwr-326" data-stand="PWR-FOILS" data-secteur="CANTO — BROKER" data-zone="TOYS 121">PWR-FOILS — Stand TOYS 121</option>
+              <option value="raymarine-c-327" data-stand="RAYMARINE FRANCE" data-secteur="CANTO — SAIL" data-zone="SAIL 229">RAYMARINE FRANCE — Stand SAIL 229</option>
+              <option value="regal-328" data-stand="Regal Marine Industries" data-secteur="CANTO — POWER" data-zone="POWER 129">Regal Marine Industries — Stand POWER 129</option>
+              <option value="rivoyre-329" data-stand="RIVOYRE INGENIERIE" data-secteur="CANTO — SAIL" data-zone="SAIL 172">RIVOYRE INGENIERIE — Stand SAIL 172</option>
+              <option value="rodewave-330" data-stand="RODEWAVE" data-secteur="CANTO — BROKER" data-zone="TOYS 119">RODEWAVE — Stand TOYS 119</option>
+              <option value="roxen-331" data-stand="ROXEN" data-secteur="CANTO — BROKER" data-zone="TOYS 120">ROXEN — Stand TOYS 120</option>
+              <option value="smn-332" data-stand="S.M.N. PORT-GRIMAUD" data-secteur="CANTO — SAIL" data-zone="SAIL 193">S.M.N. PORT-GRIMAUD — Stand SAIL 193</option>
+              <option value="safe-c-333" data-stand="SAFE BOAT EQUIPMENT" data-secteur="CANTO — SAIL" data-zone="SAIL 153">SAFE BOAT EQUIPMENT — Stand SAIL 153</option>
+              <option value="sailing-stream-c-334" data-stand="SAILING STREAM" data-secteur="CANTO — SAIL" data-zone="SAIL 188">SAILING STREAM — Stand SAIL 188</option>
+              <option value="sailsense-335" data-stand="Sailsense Analytics" data-secteur="CANTO — SAIL" data-zone="SAIL 143">Sailsense Analytics — Stand SAIL 143</option>
+              <option value="saxdor-336" data-stand="SAXDOR" data-secteur="CANTO — POWER" data-zone="POWER 131">SAXDOR — Stand POWER 131</option>
+              <option value="searay-337" data-stand="SEA RAY" data-secteur="CANTO — POWER" data-zone="POWER 108">SEA RAY — Stand POWER 108</option>
+              <option value="sealine-338" data-stand="SEALINE" data-secteur="CANTO — POWER" data-zone="POWER 143">SEALINE — Stand POWER 143</option>
+              <option value="seaview-339" data-stand="SEAVIEW PROGRESS" data-secteur="CANTO — SAIL" data-zone="SAIL 152">SEAVIEW PROGRESS — Stand SAIL 152</option>
+              <option value="seimi-340" data-stand="SEIMI EQUIPEMENTS" data-secteur="CANTO — SAIL" data-zone="SAIL 169">SEIMI EQUIPEMENTS — Stand SAIL 169</option>
+              <option value="selva-1-341" data-stand="SELVA" data-secteur="CANTO — POWER" data-zone="POWER 111">SELVA — Stand POWER 111</option>
+              <option value="sgb-343" data-stand="SGB FINANCE" data-secteur="CANTO — SAIL" data-zone="SAIL 107">SGB FINANCE — Stand SAIL 107</option>
+              <option value="sleipner-c-344" data-stand="Sleipner Motor AS" data-secteur="CANTO — SAIL" data-zone="SAIL 187">Sleipner Motor AS — Stand SAIL 187</option>
+              <option value="solaris-yachts-345" data-stand="SOLARIS YACHTS" data-secteur="CANTO — SAIL" data-zone="SAIL 223">SOLARIS YACHTS — Stand SAIL 223</option>
+              <option value="soluzioni-346" data-stand="SOLUZIONI MECCANICHE" data-secteur="CANTO — SAIL" data-zone="SAIL 165">SOLUZIONI MECCANICHE — Stand SAIL 165</option>
+              <option value="spbi-c-347" data-stand="SPBI BENETEAU" data-secteur="CANTO — POWER" data-zone="POWER 134">SPBI BENETEAU — Stand POWER 134</option>
+              <option value="spbi-jeanneau-349" data-stand="SPBI JEANNEAU" data-secteur="CANTO — POWER" data-zone="POWER 136">SPBI JEANNEAU — Stand POWER 136</option>
+              <option value="aventura-351" data-stand="STGI MARINE AVENTURA" data-secteur="CANTO — SAIL" data-zone="SAIL 125">STGI MARINE AVENTURA — Stand SAIL 125</option>
+              <option value="sublue-352" data-stand="SUBLUE" data-secteur="CANTO — BROKER" data-zone="TOYS 124">SUBLUE — Stand TOYS 124</option>
+              <option value="sunreef-353" data-stand="SUNREEF VENTURE SA" data-secteur="CANTO — SAIL" data-zone="SAIL 160">SUNREEF VENTURE SA — Stand SAIL 160</option>
+              <option value="suzuki-354" data-stand="SUZUKI FRANCE" data-secteur="CANTO — POWER" data-zone="POWER 102">SUZUKI FRANCE — Stand POWER 102</option>
+              <option value="toyguy-355" data-stand="THE YACHT TOY GUY" data-secteur="CANTO — BROKER" data-zone="TOYS 127">THE YACHT TOY GUY — Stand TOYS 127</option>
+              <option value="tiki-356" data-stand="TIKI YACHTING" data-secteur="CANTO — SAIL" data-zone="SAIL 175">TIKI YACHTING — Stand SAIL 175</option>
+              <option value="tko-357" data-stand="TKO" data-secteur="CANTO — BROKER" data-zone="TOYS 125">TKO — Stand TOYS 125</option>
+              <option value="toni-358" data-stand="TONI MARINE" data-secteur="CANTO — POWER" data-zone="POWER 118">TONI MARINE — Stand POWER 118</option>
+              <option value="virtue-359" data-stand="VIRTUE YACHTS" data-secteur="CANTO — POWER" data-zone="POWER 128">VIRTUE YACHTS — Stand POWER 128</option>
+              <option value="vision-360" data-stand="VISION" data-secteur="CANTO — SAIL" data-zone="SAIL 109">VISION — Stand SAIL 109</option>
+              <option value="viva-361" data-stand="VIVA ELECTRIC JETS" data-secteur="CANTO — BROKER" data-zone="TOYS 117">VIVA ELECTRIC JETS — Stand TOYS 117</option>
+              <option value="whaly-362" data-stand="WHALY BOATS" data-secteur="CANTO — POWER" data-zone="POWER 130">WHALY BOATS — Stand POWER 130</option>
+              <option value="xpo-363" data-stand="XPO ORGANISATION" data-secteur="CANTO — SAIL" data-zone="SAIL 159">XPO ORGANISATION — Stand SAIL 159</option>
+              <option value="yamaha-1-364" data-stand="YAMAHA MOTOR EUROPE" data-secteur="CANTO — POWER" data-zone="POWER 106">YAMAHA MOTOR EUROPE — Stand POWER 106</option>
+              <option value="yyachts-366" data-stand="YYachts" data-secteur="CANTO — SAIL" data-zone="SAIL 215">YYachts — Stand SAIL 215</option>
+            </optgroup>
+            <optgroup label="— PALAIS DES FESTIVALS —">
+              <option value="ab-com-367" data-stand="AB COMUNICAZIONI PUGLIA" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 009">AB COMUNICAZIONI PUGLIA — Stand PALAIS 009</option>
+              <option value="ab-marine-368" data-stand="AB MARINE GROUP" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 001">AB MARINE GROUP — Stand PALAIS 001</option>
+              <option value="acqua-elba-369" data-stand="Acqua dell'Elba" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 024">Acqua dell'Elba — Stand PALAIS 024</option>
+              <option value="aegean-370" data-stand="AEGEAN YACHT" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 081">AEGEAN YACHT — Stand PALAIS 081</option>
+              <option value="agilis-371" data-stand="Agilis Jettenders" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 006">Agilis Jettenders — Stand PALAIS 006</option>
+              <option value="aicon-pal-372" data-stand="AICON YACHTS" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 062">AICON YACHTS — Stand PALAIS 062</option>
+              <option value="albatros-373" data-stand="ALBATROS TURIZM" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 042">ALBATROS TURIZM — Stand PALAIS 042</option>
+              <option value="amy-374" data-stand="AMY BY AMARE" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 003">AMY BY AMARE — Stand PALAIS 003</option>
+              <option value="rete-porti-375" data-stand="Rete Porti Sardegna" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 045">Rete Porti Sardegna — Stand PALAIS 045</option>
+              <option value="atelier99-376" data-stand="ATELIER 99" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 029">ATELIER 99 — Stand PALAIS 029</option>
+              <option value="ava-377" data-stand="AVA DENIZ ARACLARI" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 076">AVA DENIZ ARACLARI — Stand PALAIS 076</option>
+              <option value="riviere-378" data-stand="RIVIERE DI LIGURIA" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 032">RIVIERE DI LIGURIA — Stand PALAIS 032</option>
+              <option value="azimut-pal-379" data-stand="AZIMUT" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 110">AZIMUT — Stand PALAIS 110</option>
+              <option value="azzurre-380" data-stand="AZZURRE YACHTS" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 086">AZZURRE YACHTS — Stand PALAIS 086</option>
+              <option value="beyond-381" data-stand="BEYOND THE SEA" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 102">BEYOND THE SEA — Stand PALAIS 102</option>
+              <option value="bimotor-382" data-stand="BIMOTOR" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 079">BIMOTOR — Stand PALAIS 079</option>
+              <option value="brillouet-383" data-stand="BRILLOUET" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 025">BRILLOUET — Stand PALAIS 025</option>
+              <option value="cadorin-384" data-stand="CADORIN GROUP SRL" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 082">CADORIN GROUP SRL — Stand PALAIS 082</option>
+              <option value="cantieri-pisa-385" data-stand="CANTIERI DI PISA" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 088">CANTIERI DI PISA — Stand PALAIS 088</option>
+              <option value="cayago-386" data-stand="CAYAGO" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 083">CAYAGO — Stand PALAIS 083</option>
+              <option value="centouno-387" data-stand="CENTOUNO" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 063">CENTOUNO — Stand PALAIS 063</option>
+              <option value="cipnes-388" data-stand="CIPNES GALLURA" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 043">CIPNES GALLURA — Stand PALAIS 043</option>
+              <option value="cmc-389" data-stand="CMC MARINE" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 069">CMC MARINE — Stand PALAIS 069</option>
+              <option value="cotton-390" data-stand="COTTON CLUB FAIR GAME" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 015">COTTON CLUB FAIR GAME — Stand PALAIS 015</option>
+              <option value="davy-391" data-stand="DAVY &amp; ORSTED HOUSEBOATS" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 054">DAVY &amp; ORSTED HOUSEBOATS — Stand PALAIS 054</option>
+              <option value="dickson-392" data-stand="DICKSON CONSTANT" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 035">DICKSON CONSTANT — Stand PALAIS 035</option>
+              <option value="fin-393" data-stand="FED. INDUSTRIES NAUTIQUES" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 060">FED. INDUSTRIES NAUTIQUES — Stand PALAIS 060</option>
+              <option value="fender-394" data-stand="FENDERSYSTEM" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 100">FENDERSYSTEM — Stand PALAIS 100</option>
+              <option value="ferretti-pal-395" data-stand="FERRETTI" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 114">FERRETTI — Stand PALAIS 114</option>
+              <option value="gallinea-396" data-stand="GALLINEA" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 027">GALLINEA — Stand PALAIS 027</option>
+              <option value="giangrasso-397" data-stand="GIANGRASSO GROUP SRL" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 072">GIANGRASSO GROUP SRL — Stand PALAIS 072</option>
+              <option value="inglas-398" data-stand="INGLAS VETRI" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 013">INGLAS VETRI — Stand PALAIS 013</option>
+              <option value="rochebobois-399" data-stand="INTERIEUR COTE D'AZUR ROCHE BOBOIS" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 016">INTERIEUR COTE D'AZUR ROCHE BOBOIS — Stand PALAIS 016</option>
+              <option value="seapress-400" data-stand="INTERNATIONAL SEA PRESS" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 031">INTERNATIONAL SEA PRESS — Stand PALAIS 031</option>
+              <option value="itas-401" data-stand="ITAS DI TERNI POLETTI" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 022">ITAS DI TERNI POLETTI — Stand PALAIS 022</option>
+              <option value="kiade-1-402" data-stand="KIADE" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 053">KIADE — Stand PALAIS 053</option>
+              <option value="kingship-404" data-stand="KINGSHIP MARINE LTD" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 071">KINGSHIP MARINE LTD — Stand PALAIS 071</option>
+              <option value="lazio-405" data-stand="Lazio Innova" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 019">Lazio Innova — Stand PALAIS 019</option>
+              <option value="mapei-406" data-stand="MAPEI MARINE" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 080">MAPEI MARINE — Stand PALAIS 080</option>
+              <option value="maribay-407" data-stand="MARIBAY INFRASTRUCTURES" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 050">MARIBAY INFRASTRUCTURES — Stand PALAIS 050</option>
+              <option value="badalona-408" data-stand="Marina Badalona" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 046">Marina Badalona — Stand PALAIS 046</option>
+              <option value="valencia-409" data-stand="Marina Port Valencia" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 048">Marina Port Valencia — Stand PALAIS 048</option>
+              <option value="marine-co-410" data-stand="MARINE CONNECT" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 036">MARINE CONNECT — Stand PALAIS 036</option>
+              <option value="marinedi-411" data-stand="MARINEDI" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 049">MARINEDI — Stand PALAIS 049</option>
+              <option value="mase-412" data-stand="MASE GENERATORS" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 077">MASE GENERATORS — Stand PALAIS 077</option>
+              <option value="meteo-413" data-stand="METEO CONSULT FIGARO" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 012">METEO CONSULT FIGARO — Stand PALAIS 012</option>
+              <option value="mimetika-414" data-stand="MIMETIKA" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 038">MIMETIKA — Stand PALAIS 038</option>
+              <option value="mitek-415" data-stand="MITEK" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 011">MITEK — Stand PALAIS 011</option>
+              <option value="nautech-416" data-stand="NAUTECH" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 041">NAUTECH — Stand PALAIS 041</option>
+              <option value="nex-marine-417" data-stand="NEX MARINE DOO" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 005">NEX MARINE DOO — Stand PALAIS 005</option>
+              <option value="ont-tunisien-418" data-stand="Office Tourisme Tunisien" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 051">Office Tourisme Tunisien — Stand PALAIS 051</option>
+              <option value="omikron-pal-419" data-stand="OMIKRON" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 030">OMIKRON — Stand PALAIS 030</option>
+              <option value="pellini-420" data-stand="PELLINI SPA" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 061">PELLINI SPA — Stand PALAIS 061</option>
+              <option value="piemonte-421" data-stand="PIEMONTE" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 014">PIEMONTE — Stand PALAIS 014</option>
+              <option value="porto-vecchio-422" data-stand="Porto Vecchio" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 044">Porto Vecchio — Stand PALAIS 044</option>
+              <option value="prebit-423" data-stand="PREBIT" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 017">PREBIT — Stand PALAIS 017</option>
+              <option value="quick-pal-424" data-stand="QUICK ITALY" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 052">QUICK ITALY — Stand PALAIS 052</option>
+              <option value="rossmare-425" data-stand="ROSSMARE" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 064">ROSSMARE — Stand PALAIS 064</option>
+              <option value="sace-426" data-stand="SACE COMPONENTS" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 092">SACE COMPONENTS — Stand PALAIS 092</option>
+              <option value="salt-427" data-stand="SALT YACHTS" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 055">SALT YACHTS — Stand PALAIS 055</option>
+              <option value="seaplus-428" data-stand="SEA PLUS PLUS sarl" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 062 BIS">SEA PLUS PLUS sarl — Stand PALAIS 062 BIS</option>
+              <option value="senfa-429" data-stand="SENFA Cilander PLANOFIL" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 034">SENFA Cilander PLANOFIL — Stand PALAIS 034</option>
+              <option value="zhoujia-430" data-stand="SHANGHAI ZHOUJIA" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 056">SHANGHAI ZHOUJIA — Stand PALAIS 056</option>
+              <option value="lannika-431" data-stand="SHENZHEN LANNIKA" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 033">SHENZHEN LANNIKA — Stand PALAIS 033</option>
+              <option value="shore-432" data-stand="SHORE POWER SERVICES" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 057">SHORE POWER SERVICES — Stand PALAIS 057</option>
+              <option value="silentstraits-433" data-stand="Silent Straits" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 106 BIS">Silent Straits — Stand PALAIS 106 BIS</option>
+              <option value="sirm-434" data-stand="SIRM ITALIA" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 084">SIRM ITALIA — Stand PALAIS 084</option>
+              <option value="spirit-435" data-stand="SPIRIT OF THE OCEAN" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 070">SPIRIT OF THE OCEAN — Stand PALAIS 070</option>
+              <option value="starclass-436" data-stand="STARCLASS YACHT TRANSPORT" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 058">STARCLASS YACHT TRANSPORT — Stand PALAIS 058</option>
+              <option value="sudmot-437" data-stand="SUD MOTEURS" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 073">SUD MOTEURS — Stand PALAIS 073</option>
+              <option value="ta-438" data-stand="TA FRANCE" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 028">TA FRANCE — Stand PALAIS 028</option>
+              <option value="worldyachts-439" data-stand="THE WORLD OF YACHTS" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 066">THE WORLD OF YACHTS — Stand PALAIS 066</option>
+              <option value="trident-440" data-stand="Trident Trust Marine" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 037">Trident Trust Marine — Stand PALAIS 037</option>
+              <option value="turkish-441" data-stand="Turkish Ship Yacht" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 065">Turkish Ship Yacht — Stand PALAIS 065</option>
+              <option value="ultra-1-442" data-stand="ULTRA MARINE" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 074">ULTRA MARINE — Stand PALAIS 074</option>
+              <option value="victoria-444" data-stand="VICTORIA YACHTING" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 047">VICTORIA YACHTING — Stand PALAIS 047</option>
+              <option value="wyachts-445" data-stand="W YACHTS" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 010">W YACHTS — Stand PALAIS 010</option>
+              <option value="westnaval-446" data-stand="WEST NAVALTECH" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 094">WEST NAVALTECH — Stand PALAIS 094</option>
+              <option value="williams-447" data-stand="Williams Jet Tenders" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 002">Williams Jet Tenders — Stand PALAIS 002</option>
+              <option value="xplace-448" data-stand="XPLACE" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 021">XPLACE — Stand PALAIS 021</option>
+              <option value="xtenders-449" data-stand="XTenders" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 008">XTenders — Stand PALAIS 008</option>
+              <option value="yachtmalta-450" data-stand="YACHTING MALTA" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 039">YACHTING MALTA — Stand PALAIS 039</option>
+              <option value="ypages-451" data-stand="YACHTING PAGES MEDIA" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 068">YACHTING PAGES MEDIA — Stand PALAIS 068</option>
+              <option value="yes-452" data-stand="YES GROUP" data-secteur="PALAIS — PALAIS" data-zone="PALAIS 059">YES GROUP — Stand PALAIS 059</option>
+            </optgroup>
+          </select>
+        </div>
+        <div class="err-msg">Veuillez sélectionner un exposant.</div>
+      </div>
+
+      <!-- INFO PANEL with prominent stand number -->
+      <div id="exposant-info">
+        <div class="exposant-field">
+          <div class="ef-label">Société exposante</div>
+          <div class="ef-value" id="info-stand">—</div>
+        </div>
+        <div class="exposant-field">
+          <div class="ef-label">Zone / Secteur</div>
+          <div class="ef-value" id="info-secteur">—</div>
+        </div>
+        <div class="stand-number-badge">
+          <div class="snb-label">N° de stand</div>
+          <div class="snb-value" id="info-zone">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════
+       CARD 2 : CONTACT
+       ════════════════════════════════════════════════════════════ -->
+  <div class="card" id="card-2">
+    <div class="card-header">
+      <div class="card-icon">👤</div>
+      <div>
+        <div class="card-title">Informations de contact</div>
+        <div class="card-subtitle">Responsable logistique sur site</div>
+      </div>
+      <div class="required-badge">Obligatoire</div>
+    </div>
+    <div class="card-body">
+      <div class="grid-2">
+        <div class="field" id="field-nom">
+          <label>Nom <span class="req">*</span></label>
+          <input type="text" id="nom" placeholder="Dupont" required autocomplete="family-name">
+          <div class="err-msg">Champ obligatoire.</div>
+        </div>
+        <div class="field" id="field-prenom">
+          <label>Prénom <span class="req">*</span></label>
+          <input type="text" id="prenom" placeholder="Jean" required autocomplete="given-name">
+          <div class="err-msg">Champ obligatoire.</div>
+        </div>
+        <div class="field" id="field-email">
+          <label>Adresse e-mail <span class="req">*</span></label>
+          <input type="email" id="email" placeholder="jean.dupont@entreprise.com" required autocomplete="email">
+          <div class="err-msg">Adresse e-mail invalide.</div>
+        </div>
+        <div class="field" id="field-tel">
+          <label>Téléphone portable <span class="req">*</span></label>
+          <input type="tel" id="tel" placeholder="+33 6 XX XX XX XX" required autocomplete="tel">
+          <div class="err-msg">Numéro de téléphone invalide.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════
+       CARD 3 : LIVRAISON (montage)
+       ════════════════════════════════════════════════════════════ -->
+  <div class="card locked" id="card-3">
+    <div class="card-header">
+      <div class="card-icon">🚚</div>
+      <div>
+        <div class="card-title">Gestion des livraisons (montage)</div>
+        <div class="card-subtitle">Planifiez l'arrivée selon votre espace et vos catégories</div>
+      </div>
+      <div class="required-badge">Obligatoire</div>
+    </div>
+    <div class="card-body">
+      <!-- Empty state -->
+      <div class="empty-state" id="liv-empty">
+        <div class="es-icon">⬆️</div>
+        <div>Sélectionnez d'abord un exposant pour configurer les livraisons.</div>
+      </div>
+
+      <!-- Palais Int/Ext space chooser -->
+      <div id="liv-palais-chooser" style="display:none">
+        <div class="cat-helper">
+          🏛️ Votre stand est dans le <strong>Palais des Festivals</strong>. Précisez son emplacement :
+        </div>
+        <div class="space-choice">
+          <label class="space-opt" data-space="INTERIEUR_PALAIS">
+            <input type="radio" name="palais-loc" value="INTERIEUR_PALAIS">
+            <div class="so-icon">🏛️</div>
+            <div class="so-name">Intérieur Palais</div>
+            <div class="so-desc">À l'intérieur du Palais des Festivals</div>
+          </label>
+          <label class="space-opt" data-space="EXTERIEUR_PALAIS">
+            <input type="radio" name="palais-loc" value="EXTERIEUR_PALAIS">
+            <div class="so-icon">⛺</div>
+            <div class="so-name">Extérieur Palais</div>
+            <div class="so-desc">Esplanade extérieure (Macé, etc.)</div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Auto-detected space recap -->
+      <div class="space-recap" id="liv-space-recap" style="display:none">
+        <div class="sr-icon">📍</div>
+        <div class="sr-content">
+          <div class="sr-label">Espace de votre stand</div>
+          <div class="sr-value" id="liv-space-name">—</div>
+          <div class="sr-note" id="liv-space-note" style="display:none"></div>
+        </div>
+      </div>
+
+      <!-- Categories list -->
+      <div id="liv-categories-wrap" style="display:none">
+        <div class="cat-helper">
+          ✅ Cochez <strong>chaque catégorie</strong> applicable à votre stand, puis renseignez la date, l'horaire et le véhicule pour chacune.
+        </div>
+        <div class="cat-list" id="liv-categories"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════
+       CARD 4 : REPRISE (démontage)
+       ════════════════════════════════════════════════════════════ -->
+  <div class="card locked" id="card-4">
+    <div class="card-header">
+      <div class="card-icon">📦</div>
+      <div>
+        <div class="card-title">Gestion des reprises (démontage)</div>
+        <div class="card-subtitle">Planifiez le départ pour les mêmes catégories</div>
+      </div>
+      <div class="required-badge">Obligatoire</div>
+    </div>
+    <div class="card-body">
+      <div class="empty-state" id="rep-empty">
+        <div class="es-icon">⬆️</div>
+        <div>Configurez d'abord vos livraisons ci-dessus.</div>
+      </div>
+
+      <div id="rep-categories-wrap" style="display:none">
+        <div class="cat-helper">
+          ⏪ Les catégories sélectionnées au montage sont reprises automatiquement. Renseignez la date et l'horaire de reprise pour chacune.
+        </div>
+        <div class="cat-list" id="rep-categories"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════
+       CARD 5 : MANUTENTION
+       ════════════════════════════════════════════════════════════ -->
+  <div class="card" id="card-5">
+    <div class="card-header">
+      <div class="card-icon">🏗️</div>
+      <div>
+        <div class="card-title">Prestataire de manutention principal</div>
+        <div class="card-subtitle">Société pour la manutention non-Scales</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div id="scales-auto-notice" style="display:none">
+        <div class="scales-info">
+          <div class="si-icon">⚠️</div>
+          <div>
+            <strong>Scales sera automatiquement assigné</strong> pour les catégories cochées le nécessitant ci-dessus (bateaux à terre, motoristes, etc.). Vous pouvez tout de même choisir un prestataire complémentaire pour le reste.
+          </div>
+        </div>
+      </div>
+      <div class="field" id="field-manut" style="margin-top:1rem">
+        <label>Prestataire complémentaire</label>
+        <div class="select-wrap">
+          <select id="manut-select">
+            <option value="">— Sélectionnez un prestataire —</option>
+            <option value="svmm">SVMM</option>
+            <option value="mathez">Mathez</option>
+            <option value="scales">Scales</option>
+            <option value="aucun">Aucun (uniquement Scales pour les catégories concernées)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUBMIT -->
+  <div class="form-footer">
+    <p class="note">⚠ Tous les champs marqués <strong>*</strong> sont obligatoires. La validation génère une accréditation officielle transmise par e-mail.</p>
+    <button type="submit" class="btn-submit">
+      ✅ Valider l'accréditation
+    </button>
+  </div>
+
+</form>
+</main>
+
+<!-- SUCCESS OVERLAY -->
+<div id="success-overlay">
+  <div class="success-card">
+    <div class="success-icon">✓</div>
+    <h2>Accréditation validée !</h2>
+    <p>Votre demande a bien été enregistrée. Un e-mail de confirmation avec votre planning détaillé vous sera envoyé dans les prochaines minutes.</p>
+    <div class="accred-id" id="accred-id">YC2026-00000</div>
+    <div id="scales-reminder" style="display:none; background:#fff7ed; border:1px solid rgba(232,144,66,.3); padding:12px 16px; border-radius:8px; font-size:.78rem; color:#8a4d10; margin-bottom:1rem; text-align:left;">
+      <strong>⚠ Rappel Scales :</strong> N'oubliez pas de prendre rendez-vous avec Scales pour les catégories nécessitant leur intervention. Contact : <strong>scales@manutention.fr</strong>
+    </div>
+    <button class="btn-close" onclick="resetForm()">Nouvelle demande</button>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   CONFIGURATION : ESPACES ET CATÉGORIES
+   ══════════════════════════════════════════════════════════════ */
+/* Format : { 'YYYY-MM-DD': 'HH:MM-HH:MM' } — une plage horaire par jour */
+const SPACES = {
+  'INTERIEUR_PALAIS': {
+    label: 'Intérieur Palais des Festivals',
+    categories: [
+      { id: 'stand-nu-int', name: 'Stand nu', icon: '🛠️',
+        liv: {
+          '2026-09-03': '08:00-23:00', '2026-09-04': '08:00-23:00',
+          '2026-09-05': '08:00-23:00', '2026-09-06': '08:00-23:00',
+          '2026-09-07': '08:00-23:00'
+        },
+        rep: {
+          '2026-09-13': '19:00-23:00',
+          '2026-09-14': '00:00-23:00',
+          '2026-09-15': '00:00-12:00'
+        },
+        scales: false },
+      { id: 'cle-en-main', name: 'Stand Clé en main / Saphir', icon: '🔑',
+        liv: { '2026-09-07': '08:00-23:00' },
+        rep: { '2026-09-13': '19:00-23:00', '2026-09-14': '00:00-12:00' },
+        scales: false },
+      { id: 'bateau-terre-int', name: 'Bateau à terre', icon: '⛵',
+        liv: {
+          '2026-09-03': '08:00-23:00',
+          '2026-09-04': '08:00-23:00',
+          '2026-09-05': '08:00-19:00'
+        },
+        rep: { '2026-09-15': '08:00-12:00' },
+        scales: true,
+        scalesNote: 'Manutention bateaux intérieur Palais réalisée le mardi 15/09 selon planning Scales.' }
+    ]
+  },
+  'EXTERIEUR_PALAIS': {
+    label: 'Extérieur Palais des Festivals',
+    categories: [
+      { id: 'bateau-terre-ext', name: 'Bateau à terre', icon: '⛵',
+        liv: {
+          '2026-09-05': '16:00-23:00',
+          '2026-09-06': '00:00-12:00'
+        },
+        rep: {
+          '2026-09-13': '19:00-23:00',
+          '2026-09-14': '00:00-18:00'
+        },
+        scales: true,
+        scalesNote: 'Mise en place via Scales entre sam 5/09 16h et dim 6/09 12h.' },
+      { id: 'tente-ext', name: 'Stand sous tente', icon: '⛺',
+        liv: { '2026-09-07': '08:00-23:00' },
+        rep: {
+          '2026-09-13': '19:00-23:00',
+          '2026-09-14': '00:00-17:00'
+        },
+        scales: false },
+      { id: 'motoristes', name: 'Structures spécifiques (motoristes)', icon: '⚙️',
+        liv: {
+          '2026-09-03': '18:00-23:00',
+          '2026-09-04': '18:00-23:00'
+        },
+        rep: {
+          '2026-09-13': '19:00-23:00',
+          '2026-09-14': '00:00-17:00'
+        },
+        scales: true,
+        scalesNote: 'Pour la manutention des moteurs, RDV obligatoire avec Scales (réception entre 1er et 2 septembre).' }
+    ]
+  },
+  'QML': {
+    label: 'Quai Max Laubeuf (QML) + traversante',
+    categories: [
+      { id: 'flot-qml', name: 'Bateau à flot / ponton privatif', icon: '🛥️',
+        liv: {
+          '2026-09-03': '12:00-23:00',
+          '2026-09-04': '00:00-23:00',
+          '2026-09-05': '00:00-23:00',
+          '2026-09-06': '00:00-23:00',
+          '2026-09-07': '00:00-19:00'
+        },
+        rep: {
+          '2026-09-13': '19:00-23:00',
+          '2026-09-14': '00:00-12:00'
+        },
+        scales: false },
+      { id: 'tente-qml', name: 'Stand sous tente / espace nu devant bateau', icon: '⛺',
+        liv: {
+          '2026-09-05': '08:00-23:00',
+          '2026-09-06': '08:00-23:00',
+          '2026-09-07': '08:00-23:00'
+        },
+        rep: {
+          '2026-09-13': '19:00-23:00',
+          '2026-09-14': '00:00-17:00'
+        },
+        scales: false }
+    ]
+  },
+  'QSP': {
+    label: 'Quai Saint-Pierre',
+    categories: [
+      { id: 'flot-qsp', name: 'Bateau à flot / ponton privatif', icon: '🛥️',
+        liv: {
+          '2026-09-04': '12:00-23:00',
+          '2026-09-05': '00:00-23:00',
+          '2026-09-06': '00:00-23:00',
+          '2026-09-07': '00:00-19:00'
+        },
+        rep: {
+          '2026-09-13': '19:00-23:00',
+          '2026-09-14': '00:00-23:00',
+          '2026-09-15': '00:00-08:00'
+        },
+        scales: false },
+      { id: 'tente-qsp', name: 'Stand sous tente / espace nu devant bateau', icon: '⛺',
+        liv: {
+          '2026-09-05': '08:00-23:00',
+          '2026-09-06': '08:00-23:00',
+          '2026-09-07': '08:00-23:00'
+        },
+        rep: {
+          '2026-09-13': '19:00-23:00',
+          '2026-09-14': '00:00-17:00'
+        },
+        scales: false }
+    ]
+  },
+  'PANTIERO': {
+    label: 'Pantiero',
+    categories: [
+      { id: 'flot-pan', name: 'Bateau à flot / ponton privatif', icon: '🛥️',
+        liv: {
+          '2026-09-06': '12:00-23:00',
+          '2026-09-07': '00:00-19:00'
+        },
+        rep: {
+          '2026-09-13': '19:00-23:00',
+          '2026-09-14': '00:00-12:00'
+        },
+        scales: true,
+        scalesNote: 'Planning d\'arrivée individuel envoyé par l\'organisateur.' },
+      { id: 'tente-pan', name: 'Stand sous tente / espace nu devant bateau', icon: '⛺',
+        liv: {
+          '2026-09-05': '08:00-23:00',
+          '2026-09-06': '08:00-23:00',
+          '2026-09-07': '08:00-23:00'
+        },
+        rep: {
+          '2026-09-13': '19:00-23:00',
+          '2026-09-14': '00:00-17:00'
+        },
+        scales: false }
+    ]
+  },
+  'JETEE': {
+    label: 'Jetée Nord / Sud',
+    categories: [
+      { id: 'flot-jetee', name: 'Bateau à flot / ponton privatif', icon: '🛥️',
+        liv: {
+          '2026-09-06': '12:00-23:00',
+          '2026-09-07': '08:00-19:00'
+        },
+        rep: {
+          '2026-09-13': '19:00-23:00',
+          '2026-09-14': '00:00-12:00'
+        },
+        scales: false },
+      { id: 'tente-jetee', name: 'Stand sous tente', icon: '⛺',
+        liv: {
+          '2026-09-05': '08:00-23:00',
+          '2026-09-06': '08:00-23:00',
+          '2026-09-07': '08:00-23:00'
+        },
+        rep: {
+          '2026-09-13': '19:00-23:00',
+          '2026-09-14': '00:00-17:00'
+        },
+        scales: false },
+      { id: 'nus-jetee', name: 'Espace nu devant bateau', icon: '📐',
+        liv: {
+          '2026-09-04': '12:00-23:00',
+          '2026-09-05': '00:00-23:00',
+          '2026-09-06': '00:00-23:00',
+          '2026-09-07': '00:00-23:00'
+        },
+        rep: {
+          '2026-09-13': '19:00-23:00',
+          '2026-09-14': '00:00-17:00'
+        },
+        scales: false }
+    ]
+  },
+  'SYE': {
+    label: 'Super Yachts Extension',
+    categories: [
+      { id: 'flot-sye', name: 'Bateau à flot / ponton privatif', icon: '🛥️',
+        liv: {
+          '2026-09-06': '12:00-23:00',
+          '2026-09-07': '00:00-19:00'
+        },
+        rep: {
+          '2026-09-13': '19:00-23:00',
+          '2026-09-14': '00:00-12:00'
+        },
+        scales: true,
+        scalesNote: 'Planning d\'arrivée individuel envoyé par l\'organisateur.' },
+      { id: 'tente-sye', name: 'Stand sous tente', icon: '⛺',
+        liv: { '2026-09-07': '08:00-23:00' },
+        rep: {
+          '2026-09-13': '19:00-23:00',
+          '2026-09-14': '00:00-17:00'
+        },
+        scales: false }
+    ]
+  },
+  'TENDERS': {
+    label: 'Espace Tenders (proche du Palais)',
+    note: 'Espace situé près du Palais — règles équivalentes à l\'Extérieur Palais',
+    categories: [
+      { id: 'tender-bateau', name: 'Bateau / Tender', icon: '🛥️',
+        liv: {
+          '2026-09-05': '16:00-23:00',
+          '2026-09-06': '00:00-12:00'
+        },
+        rep: {
+          '2026-09-13': '19:00-23:00',
+          '2026-09-14': '00:00-18:00'
+        },
+        scales: true,
+        scalesNote: 'Manutention via Scales selon planning individuel.' },
+      { id: 'tender-tente', name: 'Stand sous tente', icon: '⛺',
+        liv: { '2026-09-07': '08:00-23:00' },
+        rep: {
+          '2026-09-13': '19:00-23:00',
+          '2026-09-14': '00:00-17:00'
+        },
+        scales: false }
+    ]
+  },
+  'BROKER': {
+    label: 'Espace Broker et Toys',
+    categories: [
+      { id: 'flot-broker', name: 'Bateau à flot / ponton privatif', icon: '🛥️',
+        liv: {
+          '2026-09-03': '08:00-23:00',
+          '2026-09-04': '08:00-23:00',
+          '2026-09-05': '08:00-23:00',
+          '2026-09-06': '08:00-23:00',
+          '2026-09-07': '08:00-19:00'
+        },
+        rep: {
+          '2026-09-13': '19:00-23:00',
+          '2026-09-14': '00:00-12:00'
+        },
+        scales: true,
+        scalesNote: 'Planning individuel à coordonner avec Scales.' },
+      { id: 'tente-broker', name: 'Tente / espace nu / devant bateau', icon: '⛺',
+        liv: {
+          '2026-09-05': '08:00-23:00',
+          '2026-09-06': '08:00-23:00',
+          '2026-09-07': '08:00-23:00'
+        },
+        rep: {
+          '2026-09-13': '19:00-23:00',
+          '2026-09-14': '00:00-17:00'
+        },
+        scales: false }
+    ]
+  },
+  'SAIL': {
+    label: 'Espace Voile (Mono / Multicoque)',
+    categories: [
+      { id: 'flot-sail', name: 'Bateau à flot / ponton privatif', icon: '⛵',
+        liv: {
+          '2026-09-04': '12:00-23:00',
+          '2026-09-05': '00:00-23:00',
+          '2026-09-06': '00:00-23:00',
+          '2026-09-07': '00:00-19:00'
+        },
+        rep: {
+          '2026-09-13': '19:00-23:00',
+          '2026-09-14': '00:00-12:00'
+        },
+        scales: false },
+      { id: 'tente-sail', name: 'Stand sous tente', icon: '⛺',
+        liv: {
+          '2026-09-05': '08:00-23:00',
+          '2026-09-06': '08:00-23:00',
+          '2026-09-07': '08:00-23:00'
+        },
+        rep: {
+          '2026-09-13': '19:00-23:00',
+          '2026-09-14': '00:00-17:00'
+        },
+        scales: false },
+      { id: 'nus-sail', name: 'Espace nu devant bateau', icon: '📐',
+        liv: {
+          '2026-09-05': '08:00-23:00',
+          '2026-09-06': '08:00-23:00',
+          '2026-09-07': '08:00-23:00'
+        },
+        rep: {
+          '2026-09-13': '19:00-23:00',
+          '2026-09-14': '00:00-17:00'
+        },
+        scales: false }
+    ]
+  },
+  'POWER': {
+    label: 'Power Boat Marina',
+    categories: [
+      { id: 'flot-power', name: 'Bateau à flot', icon: '🛥️',
+        liv: {
+          '2026-09-05': '12:00-23:00',
+          '2026-09-06': '00:00-23:00'
+        },
+        rep: {
+          '2026-09-13': '19:00-23:00',
+          '2026-09-14': '00:00-17:00'
+        },
+        scales: false },
+      { id: 'terre-power', name: 'Bateau à terre', icon: '⛵',
+        liv: {
+          '2026-09-04': '14:00-23:00',
+          '2026-09-05': '00:00-20:00'
+        },
+        rep: { '2026-09-15': '08:00-17:00' },
+        scales: true,
+        scalesNote: 'Manutention via Scales obligatoire pour les bateaux à terre.' }
+    ]
+  }
+};
+
+/* Mapping data-secteur → space key */
+function getSpaceFromSecteur(sec) {
+  if (sec.includes('PALAIS — PALAIS')) return null; // user must choose Int/Ext
+  if (sec.includes('VIEUX PORT — SYE')) return 'SYE';
+  if (sec.includes('VIEUX PORT — PANTIERO')) return 'PANTIERO';
+  if (sec.includes('VIEUX PORT — QSP')) return 'QSP';
+  if (sec.includes('VIEUX PORT — JETEE')) return 'JETEE';
+  if (sec.includes('VIEUX PORT — QML')) return 'QML';
+  if (sec.includes('VIEUX PORT — TENDERS')) return 'TENDERS';
+  if (sec.includes('CANTO — POWER')) return 'POWER';
+  if (sec.includes('CANTO — SAIL')) return 'SAIL';
+  if (sec.includes('CANTO — BROKER')) return 'BROKER';
+  return null;
+}
+
+/* Generate hourly slots from "HH:MM-HH:MM" */
+function genSlots(range) {
+  const [start, end] = range.split('-');
+  const sh = parseInt(start.split(':')[0]);
+  const eh = parseInt(end.split(':')[0]);
+  const slots = [];
+  for (let h = sh; h < eh; h++) {
+    slots.push(`${String(h).padStart(2,'0')}:00-${String(h+1).padStart(2,'0')}:00`);
+  }
+  return slots;
+}
+
+/* Format date to French */
+function formatDateFR(iso) {
+  const [, m, d] = iso.split('-');
+  const months = ['jan','fév','mar','avr','mai','jun','jul','aoû','sep','oct','nov','déc'];
+  const days = ['dim','lun','mar','mer','jeu','ven','sam'];
+  const dt = new Date(iso + 'T12:00:00');
+  return `${days[dt.getDay()]} ${parseInt(d)} ${months[parseInt(m)-1]}`;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   STATE & GLOBAL ELEMENTS
+   ══════════════════════════════════════════════════════════════ */
+const exposantSelect = document.getElementById('exposant-select');
+const infoPanel = document.getElementById('exposant-info');
+const card3 = document.getElementById('card-3');
+const card4 = document.getElementById('card-4');
+const livEmpty = document.getElementById('liv-empty');
+const repEmpty = document.getElementById('rep-empty');
+const livPalaisChooser = document.getElementById('liv-palais-chooser');
+const livSpaceRecap = document.getElementById('liv-space-recap');
+const livCategoriesWrap = document.getElementById('liv-categories-wrap');
+const livCategories = document.getElementById('liv-categories');
+const repCategoriesWrap = document.getElementById('rep-categories-wrap');
+const repCategories = document.getElementById('rep-categories');
+
+let currentSpace = null;
+let currentExposantData = null;
+
+/* ══════════════════════════════════════════════════════════════
+   EXPOSANT SELECTION
+   ══════════════════════════════════════════════════════════════ */
+exposantSelect.addEventListener('change', () => {
+  const opt = exposantSelect.options[exposantSelect.selectedIndex];
+  if (!opt.value) {
+    infoPanel.classList.remove('visible');
+    resetCard3and4();
+    return;
+  }
+  currentExposantData = {
+    stand: opt.dataset.stand,
+    secteur: opt.dataset.secteur,
+    zone: opt.dataset.zone
+  };
+  document.getElementById('info-stand').textContent = opt.dataset.stand;
+  document.getElementById('info-secteur').textContent = opt.dataset.secteur;
+  document.getElementById('info-zone').textContent = opt.dataset.zone;
+  infoPanel.classList.add('visible');
+  markStep(1, 'done');
+  markStep(2, 'active');
+
+  // Unlock card 3 and configure based on space
+  card3.classList.remove('locked');
+  livEmpty.style.display = 'none';
+  const spaceKey = getSpaceFromSecteur(opt.dataset.secteur);
+
+  if (spaceKey === null) {
+    // PALAIS — need user to choose Int/Ext
+    livPalaisChooser.style.display = 'block';
+    livSpaceRecap.style.display = 'none';
+    livCategoriesWrap.style.display = 'none';
+    document.querySelectorAll('input[name="palais-loc"]').forEach(r => { r.checked = false; });
+    document.querySelectorAll('.space-opt').forEach(o => o.classList.remove('sel'));
+  } else {
+    livPalaisChooser.style.display = 'none';
+    setupSpace(spaceKey);
+  }
+});
+
+/* ══════════════════════════════════════════════════════════════
+   COMBOBOX EXPOSANT (recherche mobile-friendly)
+   ══════════════════════════════════════════════════════════════ */
+(function initExposantCombobox() {
+  const combo = document.getElementById('exposant-combo');
+  const searchInput = document.getElementById('exposant-search');
+  const panel = document.getElementById('exposant-panel');
+  const list = document.getElementById('exposant-list');
+  const clearBtn = document.getElementById('exposant-clear');
+
+  function displayText(opt) {
+    return opt.dataset.stand + ' · ' + opt.dataset.zone;
+  }
+
+  function buildList(filter) {
+    const f = (filter || '').toLowerCase().trim();
+    list.innerHTML = '';
+    let shown = 0;
+
+    Array.from(exposantSelect.querySelectorAll('optgroup')).forEach(group => {
+      const matching = Array.from(group.querySelectorAll('option')).filter(opt => {
+        if (!opt.value) return false;
+        if (!f) return true;
+        const searchable = (opt.dataset.stand + ' ' + opt.dataset.zone + ' ' + opt.dataset.secteur).toLowerCase();
+        return searchable.includes(f);
+      });
+
+      if (matching.length === 0) return;
+
+      const header = document.createElement('div');
+      header.className = 'combo-group';
+      header.textContent = group.label;
+      list.appendChild(header);
+
+      matching.forEach(opt => {
+        const item = document.createElement('div');
+        item.className = 'combo-option';
+        if (opt.value && opt.value === exposantSelect.value) item.classList.add('selected');
+        const name = document.createElement('span');
+        name.className = 'co-name';
+        name.textContent = opt.dataset.stand;
+        const stand = document.createElement('span');
+        stand.className = 'co-stand';
+        stand.textContent = opt.dataset.zone;
+        item.appendChild(name);
+        item.appendChild(stand);
+        item.addEventListener('click', () => {
+          exposantSelect.value = opt.value;
+          searchInput.value = displayText(opt);
+          searchInput.classList.add('has-value');
+          clearBtn.classList.add('visible');
+          panel.style.display = 'none';
+          exposantSelect.dispatchEvent(new Event('change'));
+        });
+        list.appendChild(item);
+        shown++;
+      });
+    });
+
+    if (shown === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'combo-empty';
+      empty.textContent = 'Aucun exposant trouvé';
+      list.appendChild(empty);
+    }
+  }
+
+  searchInput.addEventListener('focus', () => {
+    panel.style.display = 'block';
+    if (exposantSelect.value) {
+      searchInput.select();
+      buildList('');
+    } else {
+      buildList(searchInput.value);
+    }
+  });
+
+  searchInput.addEventListener('input', () => {
+    panel.style.display = 'block';
+    buildList(searchInput.value);
+    const hasText = searchInput.value.length > 0;
+    clearBtn.classList.toggle('visible', hasText);
+    searchInput.classList.toggle('has-value', hasText);
+    // Annule la sélection en cours si l'utilisateur tape
+    if (exposantSelect.value) {
+      exposantSelect.value = '';
+      exposantSelect.dispatchEvent(new Event('change'));
+    }
+  });
+
+  clearBtn.addEventListener('mousedown', (e) => e.preventDefault());
+  clearBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    searchInput.value = '';
+    searchInput.classList.remove('has-value');
+    clearBtn.classList.remove('visible');
+    if (exposantSelect.value) {
+      exposantSelect.value = '';
+      exposantSelect.dispatchEvent(new Event('change'));
+    }
+    panel.style.display = 'block';
+    buildList('');
+    searchInput.focus();
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!combo.contains(e.target)) {
+      panel.style.display = 'none';
+    }
+  });
+
+  searchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      panel.style.display = 'none';
+      searchInput.blur();
+    }
+  });
+
+  // Réinitialisation du formulaire
+  document.getElementById('accred-form').addEventListener('reset', () => {
+    setTimeout(() => {
+      searchInput.value = '';
+      searchInput.classList.remove('has-value');
+      clearBtn.classList.remove('visible');
+      panel.style.display = 'none';
+    }, 0);
+  });
+})();
+
+/* PALAIS Int/Ext chooser */
+document.querySelectorAll('input[name="palais-loc"]').forEach(radio => {
+  radio.addEventListener('change', () => {
+    document.querySelectorAll('.space-opt').forEach(o => o.classList.remove('sel'));
+    radio.closest('.space-opt').classList.add('sel');
+    setupSpace(radio.value);
+  });
+});
+
+function setupSpace(spaceKey) {
+  currentSpace = spaceKey;
+  const space = SPACES[spaceKey];
+  livSpaceRecap.style.display = 'flex';
+  document.getElementById('liv-space-name').textContent = space.label;
+  const noteEl = document.getElementById('liv-space-note');
+  if (space.note) {
+    noteEl.textContent = space.note;
+    noteEl.style.display = 'block';
+  } else {
+    noteEl.style.display = 'none';
+  }
+  livCategoriesWrap.style.display = 'block';
+  renderCategories(spaceKey, 'liv', livCategories);
+  // Reset reprise (waits for liv selection)
+  card4.classList.add('locked');
+  repEmpty.style.display = 'block';
+  repCategoriesWrap.style.display = 'none';
+  markStep(3, 'active');
+}
+
+/* ══════════════════════════════════════════════════════════════
+   RENDER CATEGORIES (livraison or reprise)
+   ══════════════════════════════════════════════════════════════ */
+function renderCategories(spaceKey, mode, container, prefilledIds = null) {
+  const space = SPACES[spaceKey];
+  if (!space) return;
+  container.innerHTML = '';
+  space.categories.forEach(cat => {
+    const dateSlotMap = cat[mode];
+    const dates = Object.keys(dateSlotMap);
+    const include = prefilledIds === null || prefilledIds.includes(cat.id);
+    if (mode === 'rep' && !include) return;
+    if (dates.length === 0) return;
+
+    const row = document.createElement('div');
+    row.className = 'cat-row';
+    row.dataset.catId = cat.id;
+    row.dataset.mode = mode;
+
+    const isAutoActive = (mode === 'rep'); // reprise auto-cochée
+    if (isAutoActive) row.classList.add('active');
+
+    let html = `
+      <label class="cat-toggle">
+        <input type="checkbox" name="${mode}-cat-${cat.id}" ${isAutoActive ? 'checked' : ''} ${mode === 'rep' ? 'disabled' : ''}>
+        <span class="cat-icon">${cat.icon}</span>
+        <span class="cat-name">${cat.name}</span>
+        ${cat.scales ? '<span class="scales-tag">⚠ RDV Scales</span>' : ''}
+      </label>
+      <div class="cat-details">
+        <div class="grid-${mode === 'liv' ? '3' : '2'}">
+          <div class="field">
+            <label>Date <span class="req">*</span></label>
+            <div class="select-wrap">
+              <select class="cat-date" data-cat="${cat.id}" data-mode="${mode}">
+                <option value="">— Choisir une date —</option>
+                ${dates.map(d => `<option value="${d}">${formatDateFR(d)}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label>Créneau <span class="req">*</span></label>
+            <div class="select-wrap">
+              <select class="cat-slot" data-cat="${cat.id}" data-mode="${mode}" disabled>
+                <option value="">— Choisir d'abord une date —</option>
+              </select>
+            </div>
+          </div>`;
+    if (mode === 'liv') {
+      html += `
+          <div class="field">
+            <label>Véhicule <span class="req">*</span></label>
+            <div class="v-grid-mini">
+              <label class="v-mini"><input type="radio" name="${mode}-veh-${cat.id}" value="camionnette"><div class="vm-icon">🚐</div><div class="vm-label">Camionnette</div></label>
+              <label class="v-mini"><input type="radio" name="${mode}-veh-${cat.id}" value="porteur"><div class="vm-icon">🚛</div><div class="vm-label">Porteur</div></label>
+              <label class="v-mini"><input type="radio" name="${mode}-veh-${cat.id}" value="semi"><div class="vm-icon">🚜</div><div class="vm-label">Semi</div></label>
+              <label class="v-mini"><input type="radio" name="${mode}-veh-${cat.id}" value="leger"><div class="vm-icon">🚗</div><div class="vm-label">Léger</div></label>
+            </div>
+          </div>`;
+    }
+    html += `
+        </div>`;
+    if (cat.scales) {
+      html += `
+        <div class="scales-info">
+          <div class="si-icon">⚠️</div>
+          <div>
+            <strong>Coordination Scales obligatoire :</strong> ${cat.scalesNote || 'cette catégorie nécessite la prise de RDV avec notre manutentionnaire Scales.'} Contact : <strong>scales@manutention.fr</strong>
+          </div>
+        </div>`;
+    }
+    html += `
+      </div>`;
+    row.innerHTML = html;
+    container.appendChild(row);
+
+    // Remplit dynamiquement les créneaux selon la date choisie
+    const dateSelect = row.querySelector('.cat-date');
+    const slotSelect = row.querySelector('.cat-slot');
+    dateSelect.addEventListener('change', () => {
+      const selectedDate = dateSelect.value;
+      if (!selectedDate) {
+        slotSelect.innerHTML = '<option value="">— Choisir d\'abord une date —</option>';
+        slotSelect.disabled = true;
+        return;
+      }
+      const range = dateSlotMap[selectedDate];
+      const slots = genSlots(range);
+      if (slots.length === 0) {
+        slotSelect.innerHTML = '<option value="">— Aucun créneau disponible —</option>';
+        slotSelect.disabled = true;
+      } else {
+        slotSelect.innerHTML = '<option value="">— Choisir un créneau —</option>' +
+          slots.map(s => `<option value="${s}">${s.replace('-',' – ')}</option>`).join('');
+        slotSelect.disabled = false;
+      }
+    });
+
+    // Toggle de la catégorie (uniquement pour la livraison)
+    if (mode === 'liv') {
+      const cb = row.querySelector('input[type="checkbox"]');
+      cb.addEventListener('change', () => {
+        row.classList.toggle('active', cb.checked);
+        syncReprise();
+        updateScalesNotice();
+      });
+    }
+
+    // Sélection visuelle du véhicule
+    row.querySelectorAll('.v-mini input[type="radio"]').forEach(r => {
+      r.addEventListener('change', () => {
+        row.querySelectorAll(`input[name="${r.name}"]`).forEach(rr => rr.closest('.v-mini').classList.remove('sel'));
+        r.closest('.v-mini').classList.add('sel');
+      });
+    });
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SYNC REPRISE WITH SELECTED LIVRAISON CATEGORIES
+   ══════════════════════════════════════════════════════════════ */
+function syncReprise() {
+  const selectedIds = Array.from(livCategories.querySelectorAll('input[type="checkbox"]:checked'))
+    .map(cb => cb.closest('.cat-row').dataset.catId);
+
+  if (selectedIds.length === 0) {
+    card4.classList.add('locked');
+    repEmpty.style.display = 'block';
+    repCategoriesWrap.style.display = 'none';
+    return;
+  }
+  card4.classList.remove('locked');
+  repEmpty.style.display = 'none';
+  repCategoriesWrap.style.display = 'block';
+  renderCategories(currentSpace, 'rep', repCategories, selectedIds);
+  markStep(3, 'done');
+  markStep(4, 'active');
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SCALES AUTO-NOTICE in card 5
+   ══════════════════════════════════════════════════════════════ */
+function updateScalesNotice() {
+  if (!currentSpace) {
+    document.getElementById('scales-auto-notice').style.display = 'none';
+    return;
+  }
+  const space = SPACES[currentSpace];
+  const selectedScalesCats = Array.from(livCategories.querySelectorAll('input[type="checkbox"]:checked'))
+    .map(cb => cb.closest('.cat-row').dataset.catId)
+    .filter(id => space.categories.find(c => c.id === id && c.scales));
+  document.getElementById('scales-auto-notice').style.display = selectedScalesCats.length > 0 ? 'block' : 'none';
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PROGRESS BAR
+   ══════════════════════════════════════════════════════════════ */
+function markStep(num, state) {
+  const el = document.getElementById(`step-${num}`);
+  el.classList.remove('active','done');
+  if (state) el.classList.add(state);
+}
+
+/* Auto-progress on contact fields */
+document.getElementById('nom').addEventListener('blur', () => {
+  if (document.getElementById('nom').value && document.getElementById('email').value) {
+    markStep(2,'done');
+  }
+});
+
+/* ══════════════════════════════════════════════════════════════
+   VALIDATION & SUBMISSION
+   ══════════════════════════════════════════════════════════════ */
+function validateField(id, check) {
+  const field = document.getElementById('field-' + id);
+  const ok = check();
+  if (field) field.classList.toggle('has-error', !ok);
+  return ok;
+}
+
+document.getElementById('accred-form').addEventListener('submit', e => {
+  e.preventDefault();
+  let valid = true;
+
+  // Exposant
+  if (!validateField('exposant', () => exposantSelect.value !== '')) valid = false;
+
+  // Contact
+  if (!validateField('nom', () => document.getElementById('nom').value.trim().length > 0)) valid = false;
+  if (!validateField('prenom', () => document.getElementById('prenom').value.trim().length > 0)) valid = false;
+  if (!validateField('email', () => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(document.getElementById('email').value))) valid = false;
+  if (!validateField('tel', () => /^[\d\s\+\-\(\)]{8,}$/.test(document.getElementById('tel').value))) valid = false;
+
+  // Espace
+  if (!currentSpace) {
+    valid = false;
+    if (livPalaisChooser.style.display !== 'none') {
+      livPalaisChooser.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+
+  // Au moins une catégorie cochée
+  const selectedLiv = Array.from(livCategories.querySelectorAll('input[type="checkbox"]:checked'));
+  if (selectedLiv.length === 0) {
+    valid = false;
+    alert('Veuillez sélectionner au moins une catégorie pour les livraisons.');
+  }
+
+  // Pour chaque catégorie cochée, valider date+slot+vehicle
+  let scalesUsed = false;
+  selectedLiv.forEach(cb => {
+    const row = cb.closest('.cat-row');
+    const date = row.querySelector('.cat-date').value;
+    const slot = row.querySelector('.cat-slot').value;
+    const veh = row.querySelector('input[type="radio"]:checked');
+    if (!date || !slot || !veh) {
+      valid = false;
+      row.style.outline = '2px solid var(--error)';
+      row.style.outlineOffset = '2px';
+      setTimeout(() => { row.style.outline = ''; }, 3000);
+    }
+    const catId = row.dataset.catId;
+    const cat = SPACES[currentSpace].categories.find(c => c.id === catId);
+    if (cat && cat.scales) scalesUsed = true;
+  });
+
+  // Pour chaque catégorie de reprise, valider date+slot
+  Array.from(repCategories.querySelectorAll('.cat-row')).forEach(row => {
+    const date = row.querySelector('.cat-date').value;
+    const slot = row.querySelector('.cat-slot').value;
+    if (!date || !slot) {
+      valid = false;
+      row.style.outline = '2px solid var(--error)';
+      row.style.outlineOffset = '2px';
+      setTimeout(() => { row.style.outline = ''; }, 3000);
+    }
+  });
+
+  if (!valid) {
+    const firstErr = document.querySelector('.has-error');
+    if (firstErr) firstErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+
+  // SUCCESS
+  const id = 'YC2026-' + String(Math.floor(Math.random()*90000)+10000);
+  document.getElementById('accred-id').textContent = id;
+  document.getElementById('scales-reminder').style.display = scalesUsed ? 'block' : 'none';
+  document.getElementById('success-overlay').classList.add('show');
+  for (let i=1;i<=5;i++) markStep(i,'done');
+});
+
+/* Inline validation contact */
+['nom','prenom'].forEach(id => {
+  document.getElementById(id).addEventListener('blur', function() {
+    document.getElementById('field-' + id).classList.toggle('has-error', this.value.trim().length === 0);
+  });
+});
+document.getElementById('email').addEventListener('blur', function() {
+  const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.value);
+  document.getElementById('field-email').classList.toggle('has-error', this.value && !ok);
+});
+document.getElementById('tel').addEventListener('blur', function() {
+  const ok = /^[\d\s\+\-\(\)]{8,}$/.test(this.value);
+  document.getElementById('field-tel').classList.toggle('has-error', this.value && !ok);
+});
+
+/* ══════════════════════════════════════════════════════════════
+   RESET
+   ══════════════════════════════════════════════════════════════ */
+function resetCard3and4() {
+  card3.classList.add('locked');
+  card4.classList.add('locked');
+  livEmpty.style.display = 'block';
+  repEmpty.style.display = 'block';
+  livPalaisChooser.style.display = 'none';
+  livSpaceRecap.style.display = 'none';
+  livCategoriesWrap.style.display = 'none';
+  repCategoriesWrap.style.display = 'none';
+  livCategories.innerHTML = '';
+  repCategories.innerHTML = '';
+  currentSpace = null;
+  document.getElementById('scales-auto-notice').style.display = 'none';
+}
+
+function resetForm() {
+  document.getElementById('accred-form').reset();
+  infoPanel.classList.remove('visible');
+  resetCard3and4();
+  document.querySelectorAll('.has-error').forEach(f => f.classList.remove('has-error'));
+  document.querySelectorAll('.space-opt').forEach(o => o.classList.remove('sel'));
+  document.getElementById('success-overlay').classList.remove('show');
+  for (let i=1;i<=5;i++) markStep(i,'');
+  markStep(1,'active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>

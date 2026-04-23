@@ -7,11 +7,9 @@ interface Props {
   data: Vehicle;
   update: (v: Partial<Vehicle>) => void;
   onValidityChange: (v: boolean) => void;
-  /** Slug event — utilisé pour filtrer les créneaux proposés (vision Killian) */
-  eventSlug?: string;
 }
 
-export default function StepTwo({ data, update, onValidityChange, eventSlug }: Props) {
+export default function StepTwo({ data, update, onValidityChange }: Props) {
   // Initialisation par défaut, si unloading est vide, on force ['rear'] (une seule fois)
   const didInit = useRef(false);
   useEffect(() => {
@@ -24,14 +22,11 @@ export default function StepTwo({ data, update, onValidityChange, eventSlug }: P
     }
   }, [data, update]);
   useEffect(() => {
-    // Vision Killian : plaque + gabarit optionnels, mais date+heure de dépose
-    // ET date+heure de récupération obligatoires.
     const valid =
+      !!data.plate &&
+      !!data.size &&
       !!data.phoneNumber &&
       !!data.date &&
-      !!data.time &&
-      !!data.returnDate &&
-      !!data.returnTime &&
       !!data.city &&
       Array.isArray(data.unloading) &&
       data.unloading.length > 0;
@@ -44,7 +39,6 @@ export default function StepTwo({ data, update, onValidityChange, eventSlug }: P
         data={data}
         update={(patch) => update({ ...data, ...patch })}
         onValidityChange={onValidityChange}
-        eventSlug={eventSlug}
       />
     </div>
   );

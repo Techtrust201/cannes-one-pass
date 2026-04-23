@@ -50,8 +50,6 @@ export async function readAccreditations(): Promise<Accreditation[]> {
         exitAt: a.exitAt ?? undefined,
         currentZone: a.currentZone ?? null,
         isArchived: a.isArchived,
-        category: a.category ?? null,
-        categorySource: a.categorySource ?? null,
         lastStepEntryAt,
         lastStepExitAt,
         lastStepZone,

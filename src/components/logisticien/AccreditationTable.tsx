@@ -6,7 +6,6 @@ import { List, Pencil, Trash2, LogIn, LogOut, Clock, CheckSquare, Square, Archiv
 import { useRouter } from "next/navigation";
 import StatusPill from "./StatusPill";
 import MobileAccreditationList from "./MobileAccreditationList";
-import CategoryBadge from "@/components/accreditation/CategoryBadge";
 import { formatVehicleDate } from "@/lib/date-utils";
 import {
   Pagination,
@@ -437,21 +436,12 @@ export default function AccreditationTable({
                       )}
                     </td>
 
-                    {/* Société + catégorie */}
+                    {/* Société */}
                     <td
                       className="px-2 py-2 font-medium text-gray-800 max-w-[140px]"
                       title={acc.company || undefined}
                     >
                       <span className="block truncate">{acc.company || "-"}</span>
-                      {acc.category && (
-                        <div className="mt-0.5">
-                          <CategoryBadge
-                            category={acc.category}
-                            source={acc.categorySource}
-                            compact
-                          />
-                        </div>
-                      )}
                     </td>
 
                     {/* Événement */}

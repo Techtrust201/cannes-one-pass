@@ -315,9 +315,8 @@ export async function PATCH(
           await tx.vehicle.createMany({
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             data: vehicles.map((v: any) => ({
-              // Plaque / gabarit optionnels (vision Killian) : stocker "" si absent.
-              plate: ((v.plate as string) ?? "").trim(),
-              size: ((v.size as string) ?? "").trim(),
+              plate: v.plate as string,
+              size: v.size as string,
               phoneCode: v.phoneCode as string,
               phoneNumber: v.phoneNumber as string,
               date: v.date as string,

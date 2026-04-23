@@ -16,7 +16,6 @@ type FormData = {
     stand: string;
     unloading: string;
     event: string;
-    currentZone: string;
   };
   vehicle: Vehicle;
   stepThree: { message: string; consent: boolean; email: string };
@@ -24,7 +23,7 @@ type FormData = {
 
 function getDefaultFormData(): FormData {
   return {
-    stepOne: { company: "", stand: "", unloading: "", event: "", currentZone: "" },
+    stepOne: { company: "", stand: "", unloading: "", event: "" },
     vehicle: {
       id: 1,
       plate: "",
@@ -33,8 +32,6 @@ function getDefaultFormData(): FormData {
       phoneNumber: "",
       date: "",
       time: "",
-      returnDate: "",
-      returnTime: "",
       city: "",
       unloading: ["rear"],
     },
@@ -75,7 +72,7 @@ function LogisticienNewContent() {
 
     if (hasQuery) {
       setFormData({
-        stepOne: { company, stand, unloading, event, currentZone: "" },
+        stepOne: { company, stand, unloading, event },
         vehicle: { ...getDefaultFormData().vehicle, city },
         stepThree: { message, consent: false, email },
       });
@@ -195,7 +192,6 @@ function LogisticienNewContent() {
                   data={formData.vehicle}
                   update={(patch) => updateForm("vehicle", patch)}
                   onValidityChange={setStepValid}
-                  eventSlug={formData.stepOne.event}
                 />
               )}
               {step === 3 && (

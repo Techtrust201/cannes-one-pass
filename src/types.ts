@@ -53,9 +53,7 @@ export interface Vehicle {
   size: string;
   phoneCode: string;
   phoneNumber: string;
-  /** Date de dépose (legacy string "YYYY-MM-DD") — conservée pour compat */
   date: string;
-  /** Heure de dépose (legacy string "HH:MM") — conservée pour compat */
   time: string;
   city: string;
   unloading: ("lat" | "rear")[];
@@ -67,14 +65,6 @@ export interface Vehicle {
   emptyWeight?: number;
   maxWeight?: number;
   currentWeight?: number;
-  /** Date + heure de dépose (ISO) — vision Killian, source de vérité */
-  arrivalDate?: string | null;
-  /** Date + heure de récupération (ISO) — vision Killian, source de vérité */
-  departureDate?: string | null;
-  /** Date de récupération (saisie form, legacy string "YYYY-MM-DD") */
-  returnDate?: string;
-  /** Heure de récupération (saisie form, legacy string "HH:MM") */
-  returnTime?: string;
 }
 
 export type AccreditationStatus =
@@ -84,22 +74,6 @@ export type AccreditationStatus =
   | "NOUVEAU"
   | "REFUS"
   | "ABSENT";
-
-export type EmplacementCategory =
-  | "STAND_NU"
-  | "STAND_CLE_EN_MAIN"
-  | "BATEAU_TERRE"
-  | "BATEAU_FLOT"
-  | "TENTE_STRUCTURE";
-
-export type ActorSource =
-  | "PUBLIC_FORM"
-  | "LOGISTICIEN"
-  | "CSV_IMPORT"
-  | "AUTO_DEDUCTION"
-  | "SUPER_ADMIN"
-  | "MIGRATION"
-  | "SYSTEM";
 
 export interface Accreditation {
   id: string;
@@ -120,10 +94,6 @@ export interface Accreditation {
   sentAt?: Date;
   currentZone?: Zone | null;
   isArchived?: boolean;
-  /** Catégorie d'emplacement (stand, bateau, tente, etc.) */
-  category?: EmplacementCategory | null;
-  /** Source qui a fixé la catégorie (auto, saisie, import) */
-  categorySource?: ActorSource | null;
   /** Heure d'entrée au Palais (time slot le plus récent) — legacy */
   palaisEntryAt?: Date | null;
   /** Heure de sortie du Palais (time slot le plus récent) — legacy */

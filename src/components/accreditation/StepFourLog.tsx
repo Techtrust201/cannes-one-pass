@@ -46,24 +46,6 @@ export default function StepFourLog({
   const [infoMsg, setInfoMsg] = useState("");
   const [success, setSuccess] = useState(false);
 
-  // Helper : construit un DateTime ISO "YYYY-MM-DDTHH:MM" depuis une date + heure
-  // séparées. Vision Killian : arrivalDate / departureDate sont la source de vérité.
-  function toIso(date?: string, time?: string): string | null {
-    if (!date) return null;
-    const t = time && /^\d{1,2}:\d{2}$/.test(time) ? time : "00:00";
-    const d = new Date(`${date}T${t}:00`);
-    return Number.isNaN(d.getTime()) ? null : d.toISOString();
-  }
-
-  // Enrichit les véhicules du payload avec arrivalDate / departureDate (ISO).
-  function vehiclesWithIso() {
-    return data.vehicles.map((v) => ({
-      ...v,
-      arrivalDate: toIso(v.date, v.time),
-      departureDate: toIso(v.returnDate, v.returnTime),
-    }));
-  }
-
   async function saveAccreditation() {
     if (hasSaved) {
       setInfoMsg("Cette accréditation a déjà été enregistrée.");
@@ -77,7 +59,6 @@ export default function StepFourLog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...data,
-          vehicles: vehiclesWithIso(),
           status: "ATTENTE",
           currentZone: selectedZone || null,
         }),
@@ -142,7 +123,6 @@ export default function StepFourLog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...data,
-          vehicles: vehiclesWithIso(),
           status: "NOUVEAU",
           currentZone: null, // Le chauffeur n'a pas de zone — l'agent la choisira
         }),
@@ -195,7 +175,6 @@ export default function StepFourLog({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             ...data,
-            vehicles: vehiclesWithIso(),
             status: "ATTENTE",
             currentZone: selectedZone || null,
           }),

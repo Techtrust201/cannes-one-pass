@@ -20,7 +20,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import ActionButtons from "./ActionButtons";
 import AccreditationHistory from "./AccreditationHistory";
-import CategoryBadge from "@/components/accreditation/CategoryBadge";
 import DailyTimeSlotHistory from "./DailyTimeSlotHistory";
 import AccreditationChat from "./AccreditationChat";
 import VehicleCard from "./VehicleCard";
@@ -325,13 +324,6 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
         <div className="bg-gray-50 rounded-xl border border-gray-200 p-3">
           <ActionButtons acc={acc} onActionComplete={() => setActionVersion((v) => v + 1)} />
         </div>
-
-        {/* Badge catégorie d'emplacement — auto-déduit ou saisi (vision Killian) */}
-        {acc.category && (
-          <div className="flex justify-center">
-            <CategoryBadge category={acc.category} source={acc.categorySource} />
-          </div>
-        )}
 
         {/* Formulaire d'édition des infos */}
         <form

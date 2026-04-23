@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Pencil, Trash2, LogIn, LogOut, Clock, MapPin, Briefcase, ChevronLeft, ChevronRight } from "lucide-react";
 import StatusPill from "./StatusPill";
-import CategoryBadge from "@/components/accreditation/CategoryBadge";
 import type { Accreditation } from "@/types";
 import { getZoneLabel, getZoneColorClasses } from "@/lib/zone-utils";
 import { buildLink } from "@/lib/url";
@@ -120,13 +119,6 @@ export default function MobileAccreditationList({
                       )}
                       {acc.event}
                     </span>
-                  )}
-                  {acc.category && (
-                    <CategoryBadge
-                      category={acc.category}
-                      source={acc.categorySource}
-                      compact
-                    />
                   )}
                 </div>
               </div>

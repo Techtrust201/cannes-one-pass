@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="96" ry="96" fill="#000000"/>
+  <g transform="translate(256 256)">
+    <circle r="180" fill="none" stroke="#ffffff" stroke-width="14"/>
+    <text x="0" y="22"
+          text-anchor="middle"
+          font-family="'Inter','Helvetica Neue',Arial,sans-serif"
+          font-size="160"
+          font-weight="800"
+          fill="#ffffff"
+          letter-spacing="-6">OP</text>
+  </g>
+  <text x="256" y="468"
+        text-anchor="middle"
+        font-family="'Inter','Helvetica Neue',Arial,sans-serif"
+        font-size="42"
+        font-weight="600"
+        fill="#ffffff"
+        letter-spacing="2">CANNES</text>
+</svg>

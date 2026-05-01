@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Configuration Enterprise Home Screen (EHS) pour Zebra TC27 — Cannes One Pass.
+
+  Usage :
+    1. Remplace __REMPLACER_PIN_ADMIN__ par ton PIN admin choisi (4-12 caracteres).
+    2. Pousse ce fichier sur le device dans /enterprise/usr/enterprisehomescreen.xml
+       via le Setting Type FileMgr de StageNow.
+    3. Reboot le device (StageNow PowerMgr le fait deja).
+    4. Une fois EHS en place, on peut remplacer le PIN en clair par le hash genere
+       par EHS (voir documentation EHS Special Features sur techdocs.zebra.com/ehs).
+
+  Compatible EHS 6.3.x / 7.x. Verifie le schema officiel si EHS rejette ce XML.
+-->
+<EnterpriseHomeScreen Version="1">
+
+  <UserSettings>
+    <DisplayAppName>true</DisplayAppName>
+    <Orientation>Portrait</Orientation>
+  </UserSettings>
+
+  <Applications>
+    <!-- WhatsApp Messenger -->
+    <Application>
+      <Label>WhatsApp</Label>
+      <PackageName>com.whatsapp</PackageName>
+      <Activity>com.whatsapp.Main</Activity>
+    </Application>
+
+    <!--
+      Cannes One Pass : raccourci Chrome vers la PWA.
+      Si possible, prefere installer la WebAPK via Chrome (menu "Installer
+      l'application") apres staging, et remplacer ce ChromeShortcut par
+      une <Application> pointant vers le package WebAPK genere.
+    -->
+    <ChromeShortcut>
+      <Label>Cannes One Pass</Label>
+      <URL>https://cannes-one-pass-r2.vercel.app</URL>
+    </ChromeShortcut>
+  </Applications>
+
+  <KioskModeSettings>
+    <KioskHomeScreen>true</KioskHomeScreen>
+    <DisableStatusBar>false</DisableStatusBar>
+    <DisableNotifications>false</DisableNotifications>
+    <DisableMultiWindow>true</DisableMultiWindow>
+    <PreventSuspend>false</PreventSuspend>
+  </KioskModeSettings>
+
+  <AdminSettings>
+    <AdminAccess>true</AdminAccess>
+    <AdminPassword>__REMPLACER_PIN_ADMIN__</AdminPassword>
+    <PasswordType>Password</PasswordType>
+  </AdminSettings>
+
+</EnterpriseHomeScreen>

@@ -47,3 +47,23 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local Zebra EHS config / secrets
+docs/kiosk/zebra/enterprisehomescreen.xml
+docs/kiosk/zebra/enterprisehomescreen.local.xml
+docs/kiosk/zebra/*.local.xml
+
+# StageNow generated files
+docs/kiosk/zebra/*.bin
+docs/kiosk/zebra/*barcode*.pdf
+docs/kiosk/zebra/*barcodes*.pdf
+docs/kiosk/zebra/*stagenow*.pdf
+docs/kiosk/zebra/*StageNow*.pdf
+
+# local Android APK files
+docs/kiosk/zebra/*.apk
+docs/kiosk/zebra/*.aab
+
+# local validation / temporary files
+validation_cursor.txt
+Thumbs.db

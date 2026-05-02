@@ -3,15 +3,15 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Cannes One Pass",
-    short_name: "One Pass",
-    description: "Application de gestion des accreditations Cannes One Pass.",
-    start_url: "/login",
+    short_name: "Cannes One Pass",
+    description: "Application logistique du Palais des Festivals de Cannes",
+    start_url: "/",
     scope: "/",
     display: "standalone",
     orientation: "portrait",
-    background_color: "#000000",
-    theme_color: "#000000",
-    lang: "fr",
+    background_color: "#ffffff",
+    theme_color: "#e30613",
+    lang: "fr-FR",
     categories: ["business", "productivity"],
     icons: [
       {
@@ -27,13 +27,13 @@ export default function manifest(): MetadataRoute.Manifest {
         purpose: "any",
       },
       {
-        src: "/icons/icon-192.png",
+        src: "/icons/icon-maskable-192.png",
         sizes: "192x192",
         type: "image/png",
         purpose: "maskable",
       },
       {
-        src: "/icons/icon-512.png",
+        src: "/icons/icon-maskable-512.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",

@@ -21,7 +21,7 @@ flowchart TB
         manifest["src/app/manifest.ts"]
         sw["src/app/sw.ts"]
         layout["src/app/layout.tsx"]
-        icons["public/icons/icon-192.png + 512.png"]
+        icons["public/icons/logo-festival-de-cannes.svg → npm run generate:pwa-icons → icon-*.png"]
     end
 
     subgraph vercel [Vercel]

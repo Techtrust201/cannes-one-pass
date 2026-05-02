@@ -17,7 +17,8 @@
     "db:sync:reverse": "npx tsx scripts/db-sync.ts -- --direction=backup2primary",
     "db:sync:verify": "npx tsx scripts/db-sync.ts -- --verify",
     "db:sync:force": "npx tsx scripts/db-sync.ts -- --force",
-    "db:backup": "npx tsx scripts/full-backup-neon.ts"
+    "db:backup": "npx tsx scripts/full-backup-neon.ts",
+    "generate:pwa-icons": "node scripts/generate-pwa-icons-from-svg.mjs"
   },
   "dependencies": {
     "@googlemaps/google-maps-services-js": "^3.4.2",
@@ -71,7 +72,9 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.3.9",
+    "png-to-ico": "^3.0.1",
     "prisma": "^7.1.0",
+    "sharp": "^0.34.5",
     "serwist": "^9.5.9",
     "shadcn-ui": "^0.9.5",
     "tailwindcss": "^4",

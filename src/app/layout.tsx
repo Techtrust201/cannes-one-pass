@@ -19,14 +19,14 @@ const APP_NAME = "Cannes One Pass";
 const APP_DEFAULT_TITLE = "Cannes One Pass";
 const APP_TITLE_TEMPLATE = "%s | Cannes One Pass";
 const APP_DESCRIPTION =
-  "Application de gestion des accreditations Cannes One Pass.";
+  "Application logistique du Palais des Festivals de Cannes";
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#000000",
+  themeColor: "#e30613",
 };
 
 export const metadata: Metadata = {
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
     title: APP_DEFAULT_TITLE,
   },
   formatDetection: {
@@ -47,10 +47,25 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+      { url: "/favicon.ico" },
+      {
+        url: "/icons/icon-192.png",
+        sizes: "192x192",
+        type: "image/png",
+      },
+      {
+        url: "/icons/icon-512.png",
+        sizes: "512x512",
+        type: "image/png",
+      },
     ],
-    apple: [{ url: "/icons/apple-icon-180.png", sizes: "180x180" }],
+    apple: [
+      {
+        url: "/icons/icon-180.png",
+        sizes: "180x180",
+        type: "image/png",
+      },
+    ],
   },
 };
 

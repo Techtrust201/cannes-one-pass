@@ -1,56 +1,51 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <!--
-  Configuration Enterprise Home Screen (EHS) pour Zebra TC27 — Cannes One Pass.
+  Enterprise Home Screen (EHS) - Zebra TC27
+  Profil pilote Palais des Festivals / Cannes One Pass
 
-  Usage :
-    1. Remplace __REMPLACER_PIN_ADMIN__ par ton PIN admin choisi (4-12 caracteres).
-    2. Pousse ce fichier sur le device dans /enterprise/usr/enterprisehomescreen.xml
-       via le Setting Type FileMgr de StageNow.
-    3. Reboot le device (StageNow PowerMgr le fait deja).
-    4. Une fois EHS en place, on peut remplacer le PIN en clair par le hash genere
-       par EHS (voir documentation EHS Special Features sur techdocs.zebra.com/ehs).
+  Déploiement StageNow :
+  FileMgr -> copier ce fichier vers :
+  /enterprise/usr/enterprisehomescreen.xml
 
-  Compatible EHS 6.3.x / 7.x. Verifie le schema officiel si EHS rejette ce XML.
+  Objectif :
+  - Afficher Cannes One Pass
+  - Afficher WhatsApp Business
+  - Masquer les autres applications en mode utilisateur
+
+  Notes :
+  - L'URL Cannes One Pass reste volontairement à la racine.
+    Si une session existe, l'app peut ouvrir l'espace connecté.
+    Sinon, l'auth redirigera vers /login.
+  - WhatsApp Business = com.whatsapp.w4b
+  - Le mot de passe admin EHS ne doit pas être écrit en clair ici.
+    Il doit être défini dans l'interface EHS, puis exporté si besoin.
 -->
-<EnterpriseHomeScreen Version="1">
+<config>
 
-  <UserSettings>
-    <DisplayAppName>true</DisplayAppName>
-    <Orientation>Portrait</Orientation>
-  </UserSettings>
+    <kiosk>
+    </kiosk>
 
-  <Applications>
-    <!-- WhatsApp Messenger -->
-    <Application>
-      <Label>WhatsApp</Label>
-      <PackageName>com.whatsapp</PackageName>
-      <Activity>com.whatsapp.Main</Activity>
-    </Application>
+    <applications>
+        <link label="Cannes One Pass" url="https://cannes-one-pass-r2.vercel.app" />
+        <application label="WhatsApp Business" package="com.whatsapp.w4b" />
+    </applications>
 
-    <!--
-      Cannes One Pass : raccourci Chrome vers la PWA.
-      Si possible, prefere installer la WebAPK via Chrome (menu "Installer
-      l'application") apres staging, et remplacer ce ChromeShortcut par
-      une <Application> pointant vers le package WebAPK genere.
-    -->
-    <ChromeShortcut>
-      <Label>Cannes One Pass</Label>
-      <URL>https://cannes-one-pass-r2.vercel.app</URL>
-    </ChromeShortcut>
-  </Applications>
+    <tools>
+    </tools>
 
-  <KioskModeSettings>
-    <KioskHomeScreen>true</KioskHomeScreen>
-    <DisableStatusBar>false</DisableStatusBar>
-    <DisableNotifications>false</DisableNotifications>
-    <DisableMultiWindow>true</DisableMultiWindow>
-    <PreventSuspend>false</PreventSuspend>
-  </KioskModeSettings>
+    <passwords>
+        <admin>0000</admin>
+    </passwords>
 
-  <AdminSettings>
-    <AdminAccess>true</AdminAccess>
-    <AdminPassword>__REMPLACER_PIN_ADMIN__</AdminPassword>
-    <PasswordType>Password</PasswordType>
-  </AdminSettings>
+    <preferences>
+        <title>Cannes One Pass</title>
+        <kiosk_mode_enabled>0</kiosk_mode_enabled>
+        <system_settings_restricted>1</system_settings_restricted>
+        <recent_apps_button_disabled>1</recent_apps_button_disabled>
+        <recent_apps_access_disabled>1</recent_apps_access_disabled>
+        <keyguard_camera_disabled>1</keyguard_camera_disabled>
+        <keyguard_search_disabled>1</keyguard_search_disabled>
+        <usb_debugging_disabled>1</usb_debugging_disabled>
+    </preferences>
 
-</EnterpriseHomeScreen>
+</config>

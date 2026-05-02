@@ -34,7 +34,7 @@
     </tools>
 
     <passwords>
-        <admin>0000</admin>
+        <admin></admin>
     </passwords>
 
     <preferences>

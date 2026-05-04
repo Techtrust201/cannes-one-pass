@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import type { UserRole, Feature } from "@prisma/client";
 import { PasswordInput } from "@/components/ui/PasswordInput";
+import { PortalOverlay } from "@/components/ui/PortalOverlay";
 
 interface UserPermission {
   feature: Feature;
@@ -388,7 +389,8 @@ export default function AdminUsersPage() {
 
       {/* Modal de création */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <PortalOverlay>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70]">
           <div className="bg-white rounded-2xl shadow-xl p-4 md:p-6 w-full max-w-md mx-4">
             <h3 className="text-lg font-bold text-gray-900 mb-4">
               Nouvel utilisateur
@@ -476,6 +478,7 @@ export default function AdminUsersPage() {
             </form>
           </div>
         </div>
+        </PortalOverlay>
       )}
     </div>
   );

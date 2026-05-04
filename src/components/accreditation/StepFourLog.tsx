@@ -13,6 +13,8 @@ import type { Vehicle } from "@/types";
 import { getZoneLabel } from "@/lib/zone-utils";
 import { useZones } from "@/hooks/useZones";
 import DuplicateAlert from "@/components/accreditation/DuplicateAlert";
+import { useTranslation } from "@/components/accreditation/TranslationProvider";
+import { PortalOverlay } from "@/components/ui/PortalOverlay";
 
 interface Props {
   data: {
@@ -342,7 +344,8 @@ export default function StepFourLog({
 
       {/* Modal de confirmation pour Enregistrer */}
       {showSaveModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+        <PortalOverlay>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[70]">
           <div className="bg-white rounded-2xl shadow-2xl p-4 md:p-8 max-w-md w-full mx-4 border border-gray-200">
             <h2 className="text-lg font-bold mb-3 md:mb-4 text-gray-900 text-center">
               Confirmer l&apos;enregistrement
@@ -379,11 +382,13 @@ export default function StepFourLog({
             </div>
           </div>
         </div>
+        </PortalOverlay>
       )}
 
       {/* Modal de confirmation pour Envoyer */}
       {showSendModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+        <PortalOverlay>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[70]">
           <div className="bg-white rounded-2xl shadow-2xl p-4 md:p-8 max-w-md w-full mx-4 border border-gray-200">
             <h2 className="text-lg font-bold mb-3 md:mb-4 text-gray-900 text-center">
               Confirmer l&apos;envoi
@@ -418,6 +423,7 @@ export default function StepFourLog({
             </div>
           </div>
         </div>
+        </PortalOverlay>
       )}
     </div>
   );

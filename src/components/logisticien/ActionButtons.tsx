@@ -18,6 +18,7 @@ import {
 import type { Accreditation, AccreditationStatus } from "@/types";
 import { getZoneLabel, getZoneColors } from "@/lib/zone-utils";
 import { useZones } from "@/hooks/useZones";
+import { PortalOverlay } from "@/components/ui/PortalOverlay";
 
 
 /* ------------------------------------------------------------------ */
@@ -486,7 +487,8 @@ export default function ActionButtons({ acc, onActionComplete }: Props) {
 
       {/* ── Modal de confirmation ── */}
       {confirmAction && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+        <PortalOverlay>
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[70]">
           <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 border border-gray-100 animate-in zoom-in-95 fade-in duration-200">
             <div className="w-10 h-10 rounded-xl bg-[#4F587E]/10 flex items-center justify-center mx-auto mb-4">
               {(() => { const CIcon = confirmAction.icon; return <CIcon size={20} className="text-[#4F587E]" />; })()}
@@ -550,6 +552,7 @@ export default function ActionButtons({ acc, onActionComplete }: Props) {
             </div>
           </div>
         </div>
+        </PortalOverlay>
       )}
     </div>
   );

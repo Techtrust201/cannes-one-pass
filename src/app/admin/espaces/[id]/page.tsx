@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import MultiSelectDialog from "@/components/admin/MultiSelectDialog";
 import { usePermissions } from "@/hooks/usePermissions";
+import { PortalOverlay } from "@/components/ui/PortalOverlay";
 
 interface EventInOrg {
   id: string;
@@ -325,7 +326,8 @@ function InfosTab({
       </div>
 
       {canDeleteSpace && confirmDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <PortalOverlay>
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
@@ -354,6 +356,7 @@ function InfosTab({
             </div>
           </div>
         </div>
+        </PortalOverlay>
       )}
     </div>
   );

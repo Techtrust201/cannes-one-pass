@@ -6,6 +6,7 @@ import { CheckCircle, Download, PlusCircle, AlertTriangle } from "lucide-react";
 import type { Vehicle } from "@/types";
 import DuplicateAlert from "@/components/accreditation/DuplicateAlert";
 import { useTranslation } from "@/components/accreditation/TranslationProvider";
+import { PortalOverlay } from "@/components/ui/PortalOverlay";
 
 interface Props {
   data: {
@@ -235,7 +236,8 @@ export default function StepFour({
 
       {/* Modal de confirmation */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+        <PortalOverlay>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[70]">
           <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 border border-gray-200">
             <h2 className="text-lg font-bold mb-4 text-gray-900 text-center">
               {t.confirmTitle}
@@ -270,6 +272,7 @@ export default function StepFour({
             </div>
           </div>
         </div>
+        </PortalOverlay>
       )}
     </div>
   );

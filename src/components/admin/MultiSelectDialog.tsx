@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Check, Loader2, Search, X } from "lucide-react";
+import { PortalOverlay } from "@/components/ui/PortalOverlay";
 
 export interface MultiSelectItem {
   id: string;
@@ -65,14 +66,15 @@ export default function MultiSelectDialog({
   if (!open) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4"
-      onClick={onClose}
-    >
+    <PortalOverlay>
       <div
-        className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl shadow-xl flex flex-col max-h-[90vh]"
-        onClick={(e) => e.stopPropagation()}
+        className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4"
+        onClick={onClose}
       >
+        <div
+          className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl shadow-xl flex flex-col max-h-[90vh] min-h-0"
+          onClick={(e) => e.stopPropagation()}
+        >
         {/* Header */}
         <div className="px-5 pt-5 pb-3 border-b border-gray-100">
           <div className="w-10 h-1 rounded-full bg-gray-300 mx-auto mb-3 sm:hidden" />
@@ -115,7 +117,7 @@ export default function MultiSelectDialog({
         </div>
 
         {/* Liste */}
-        <div className="flex-1 overflow-y-auto px-3 pb-2">
+        <div className="flex-1 min-h-0 overflow-y-auto px-3 pb-2">
           {filtered.length === 0 ? (
             <div className="py-10 text-center text-sm text-gray-400">
               Aucun résultat
@@ -183,7 +185,8 @@ export default function MultiSelectDialog({
             Valider
           </button>
         </div>
+        </div>
       </div>
-    </div>
+    </PortalOverlay>
   );
 }

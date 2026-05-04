@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Building2, ChevronDown, Check, X } from "lucide-react";
+import { PortalOverlay } from "@/components/ui/PortalOverlay";
 
 interface EspaceOption {
   id: string;
@@ -121,39 +122,41 @@ export default function EspaceSwitcher({
           <ChevronDown size={14} className="text-white/70 shrink-0" />
         </button>
         {open && (
-          <div className="fixed inset-0 z-[70] sm:hidden">
-            <div
-              className="absolute inset-0 bg-black/40"
-              onClick={() => setOpen(false)}
-              aria-hidden
-            />
-            <div className="absolute left-0 right-0 bottom-0 bg-white rounded-t-2xl shadow-xl max-h-[80vh] flex flex-col pb-[env(safe-area-inset-bottom)]">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-                <div className="flex items-center gap-2 min-w-0">
-                  <Building2 size={16} className="text-[#4F587E] shrink-0" />
-                  <h3 className="font-bold text-sm text-gray-900 truncate">
-                    Changer d&apos;Espace
-                  </h3>
+          <PortalOverlay>
+            <div className="fixed inset-0 z-[70] sm:hidden">
+              <div
+                className="absolute inset-0 bg-black/40"
+                onClick={() => setOpen(false)}
+                aria-hidden
+              />
+              <div className="absolute left-0 right-0 bottom-0 bg-white rounded-t-2xl shadow-xl max-h-[80vh] flex flex-col min-h-0 pb-[env(safe-area-inset-bottom)]">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 shrink-0">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Building2 size={16} className="text-[#4F587E] shrink-0" />
+                    <h3 className="font-bold text-sm text-gray-900 truncate">
+                      Changer d&apos;Espace
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setOpen(false)}
+                    className="p-2 -mr-2 rounded-full text-gray-500 active:bg-gray-100 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                    aria-label="Fermer"
+                  >
+                    <X size={20} />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  className="p-2 -mr-2 rounded-full text-gray-500 active:bg-gray-100 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                  aria-label="Fermer"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-              <div className="overflow-y-auto py-1">
-                <EspaceList
-                  espaces={espaces}
-                  currentSlug={currentEspace}
-                  onSelect={switchTo}
-                  compact={false}
-                />
+                <div className="flex-1 min-h-0 overflow-y-auto py-1">
+                  <EspaceList
+                    espaces={espaces}
+                    currentSlug={currentEspace}
+                    onSelect={switchTo}
+                    compact={false}
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          </PortalOverlay>
         )}
       </>
     );

@@ -21,6 +21,7 @@ import { getZoneLabel } from "@/lib/zone-utils";
 import { useZones } from "@/hooks/useZones";
 import { usePermissions } from "@/hooks/usePermissions";
 import type { Accreditation } from "@/types";
+import { PortalOverlay } from "@/components/ui/PortalOverlay";
 
 function getAccGroupKey(acc: Accreditation): string {
   return `${acc.status}|${(acc.currentZone as string) || ""}`;
@@ -606,7 +607,8 @@ export default function AccreditationTable({
 
       {/* ===== BULK ACTION BAR ===== */}
       {selectedIds.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 fade-in duration-200">
+        <PortalOverlay>
+        <div className="fixed bottom-[calc(56px+env(safe-area-inset-bottom)+0.75rem)] left-1/2 -translate-x-1/2 z-50 sm:bottom-6 animate-in slide-in-from-bottom-4 fade-in duration-200">
           <div className="bg-[#3F4660] text-white rounded-2xl shadow-2xl px-6 py-3 flex items-center gap-4">
             <span className="text-sm font-semibold whitespace-nowrap">
               {selectedIds.size} sélectionné{selectedIds.size > 1 ? "s" : ""}
@@ -690,11 +692,13 @@ export default function AccreditationTable({
             {bulkLoading && <Loader2 size={16} className="animate-spin text-white/70" />}
           </div>
         </div>
+        </PortalOverlay>
       )}
 
       {/* ===== MODAL ZONE PICKER (validation groupée NOUVEAU) ===== */}
       {bulkZoneModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60]">
+        <PortalOverlay>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[70]">
           <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 border border-gray-100 animate-in zoom-in-95 fade-in duration-200">
             <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center mx-auto mb-4">
               <CheckCircle size={20} className="text-green-600" />
@@ -751,6 +755,7 @@ export default function AccreditationTable({
             </div>
           </div>
         </div>
+        </PortalOverlay>
       )}
     </>
   );

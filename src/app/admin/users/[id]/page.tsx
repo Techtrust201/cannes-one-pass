@@ -7,6 +7,7 @@ import { use } from "react";
 import type { Feature, UserRole } from "@prisma/client";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import UserEspacesSection from "@/components/admin/UserEspacesSection";
+import { PortalOverlay } from "@/components/ui/PortalOverlay";
 
 interface UserPermission {
   feature: Feature;
@@ -618,7 +619,8 @@ export default function EditUserPage({
 
       {/* Modal de modification du mot de passe */}
       {showModifyModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <PortalOverlay>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70]">
           <div className="bg-white rounded-2xl shadow-xl p-4 md:p-6 w-full max-w-md mx-4">
             <h3 className="text-lg font-bold text-gray-900 mb-4">
               Modifier le mot de passe
@@ -674,6 +676,7 @@ export default function EditUserPage({
             </form>
           </div>
         </div>
+        </PortalOverlay>
       )}
     </div>
   );

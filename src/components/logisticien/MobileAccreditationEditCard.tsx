@@ -24,6 +24,7 @@ import DailyTimeSlotHistory from "./DailyTimeSlotHistory";
 import AccreditationChat from "./AccreditationChat";
 import VehicleCard from "./VehicleCard";
 import VehicleEditDialog from "./VehicleEditDialog";
+import { PortalOverlay } from "@/components/ui/PortalOverlay";
 import { useEventOptions } from "@/hooks/useEventOptions";
 
 const accreditationFormSchema = z.object({
@@ -86,11 +87,12 @@ function ToastComponent({
   const Icon = icons[toast.type];
 
   return (
-    <div
-      className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg flex items-center gap-2 ${colors[toast.type]}`}
-      role="alert"
-      aria-live="polite"
-    >
+    <PortalOverlay>
+      <div
+        className={`fixed top-4 right-4 z-[80] p-4 rounded-lg shadow-lg flex items-center gap-2 ${colors[toast.type]}`}
+        role="alert"
+        aria-live="polite"
+      >
       <Icon size={20} />
       <span>{toast.message}</span>
       <button
@@ -101,6 +103,7 @@ function ToastComponent({
         ×
       </button>
     </div>
+    </PortalOverlay>
   );
 }
 
@@ -518,8 +521,9 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
 
       {/* Dialog confirmation suppression */}
       {deletingVehicleId !== null && (
+        <PortalOverlay>
         <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-[70]"
           onClick={() => setDeletingVehicleId(null)}
         >
           <div
@@ -546,9 +550,8 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
             </div>
           </div>
         </div>
+        </PortalOverlay>
       )}
-
-      {/* Toasts */}
       {toasts.map((toast) => (
         <ToastComponent key={toast.id} toast={toast} onRemove={removeToast} />
       ))}

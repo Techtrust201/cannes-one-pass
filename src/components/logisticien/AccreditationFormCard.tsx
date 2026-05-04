@@ -10,6 +10,7 @@ import AccreditationChat from "./AccreditationChat";
 import VehicleCard from "./VehicleCard";
 import VehicleEditDialog from "./VehicleEditDialog";
 import ActionButtons from "./ActionButtons";
+import { PortalOverlay } from "@/components/ui/PortalOverlay";
 
 import { useEventOptions } from "@/hooks/useEventOptions";
 import { useUnloadingProviders } from "@/hooks/useUnloadingProviders";
@@ -255,8 +256,9 @@ export default function AccreditationFormCard({ acc }: Props) {
 
         {/* Dialog confirmation suppression */}
         {deletingVehicleId !== null && (
+          <PortalOverlay>
           <div
-            className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+            className="fixed inset-0 bg-black/40 flex items-center justify-center z-[70]"
             onClick={() => setDeletingVehicleId(null)}
           >
             <div
@@ -283,6 +285,7 @@ export default function AccreditationFormCard({ acc }: Props) {
               </div>
             </div>
           </div>
+          </PortalOverlay>
         )}
 
         {/* ── Form grid — informations éditables ── */}

@@ -9,6 +9,7 @@ import {
   getAccessibleEventIdsForEspace,
   getAvailableEspacesForUser,
 } from "@/lib/auth-helpers";
+import { resolveDefaultEspaceSlugForUser } from "@/lib/default-espace";
 import { FilterBar } from "@/components/logisticien/FilterBar";
 import AccreditationTable from "@/components/logisticien/AccreditationTable";
 import { buildLink } from "@/lib/url";
@@ -76,8 +77,22 @@ export default async function LogisticienDashboard(props: {
     redirect(`/logisticien?${qs.toString()}`);
   }
 
-  // Cas 3 : utilisateur multi-org sans `espace` → sélecteur.
+  // Cas 3 : utilisateur multi-org sans `espace` → auto-redirect vers l'espace préféré.
   if (!espaceParam && !isSuperAdmin && availableEspaces.length > 1) {
+    const defaultSlug = await resolveDefaultEspaceSlugForUser(
+      session.user.id,
+      availableEspaces
+    );
+    if (defaultSlug) {
+      const qs = new URLSearchParams();
+      for (const [k, v] of Object.entries(paramsObj)) {
+        if (v === undefined || v === null || v === "") continue;
+        qs.set(k, String(v));
+      }
+      qs.set("espace", defaultSlug);
+      redirect(`/logisticien?${qs.toString()}`);
+    }
+    // Fallback (pool vide, ne devrait pas arriver) : afficher le sélecteur manuel.
     return (
       <div className="min-h-screen sm:h-screen flex flex-col">
         <NoEspaceState

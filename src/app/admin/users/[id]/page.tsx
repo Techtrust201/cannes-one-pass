@@ -62,6 +62,8 @@ export default function EditUserPage({
   const [showModifyModal, setShowModifyModal] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Formulaire
   const [name, setName] = useState("");
@@ -170,6 +172,26 @@ export default function EditUserPage({
       setError("Erreur réseau");
     } finally {
       setSavingPerms(false);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    setDeleting(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/admin/users/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || "Erreur lors de la suppression");
+        setShowDeleteModal(false);
+      } else {
+        router.push("/admin/users");
+      }
+    } catch {
+      setError("Erreur réseau");
+      setShowDeleteModal(false);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -617,6 +639,26 @@ export default function EditUserPage({
         </div>
       </div>
 
+      {/* Zone danger : suppression du compte */}
+      {user && user.role !== "SUPER_ADMIN" && (
+        <div className="mt-4 md:mt-6 bg-white rounded-xl shadow-sm border border-red-200 p-4 md:p-6">
+          <h3 className="text-base md:text-lg font-semibold text-red-700 mb-2">
+            Zone de danger
+          </h3>
+          <p className="text-sm text-gray-600 mb-4">
+            La suppression du compte est définitive et irréversible. Toutes les données associées
+            (sessions, permissions, appartenances aux Espaces) seront supprimées.
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowDeleteModal(true)}
+            className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors min-h-[44px]"
+          >
+            Supprimer cet utilisateur
+          </button>
+        </div>
+      )}
+
       {/* Modal de modification du mot de passe */}
       {showModifyModal && (
         <PortalOverlay>
@@ -676,6 +718,54 @@ export default function EditUserPage({
             </form>
           </div>
         </div>
+        </PortalOverlay>
+      )}
+
+      {/* Modal de suppression */}
+      {showDeleteModal && (
+        <PortalOverlay>
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70]">
+            <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4">
+              <div className="flex items-start gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-red-600">
+                    <path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base font-bold text-gray-900">Supprimer cet utilisateur ?</h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Le compte de <span className="font-semibold">{user?.name}</span> sera
+                    définitivement supprimé. Cette action est irréversible.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteModal(false)}
+                  disabled={deleting}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-semibold text-sm hover:bg-gray-50 disabled:opacity-50 min-h-[44px]"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteUser}
+                  disabled={deleting}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 text-white font-semibold text-sm hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2 min-h-[44px]"
+                >
+                  {deleting ? (
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                    </svg>
+                  ) : null}
+                  {deleting ? "Suppression..." : "Supprimer définitivement"}
+                </button>
+              </div>
+            </div>
+          </div>
         </PortalOverlay>
       )}
     </div>

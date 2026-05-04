@@ -40,6 +40,10 @@ export default function AdminUsersPage() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
 
+  // Modal suppression
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   // Modal création
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newUser, setNewUser] = useState({
@@ -68,26 +72,24 @@ export default function AdminUsersPage() {
     fetchUsers();
   }, [fetchUsers]);
 
-  const handleDelete = async (userId: string, userName: string) => {
-    if (
-      !confirm(
-        `Êtes-vous sûr de vouloir désactiver le compte de ${userName} ?`
-      )
-    )
-      return;
-
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      const res = await fetch(`/api/admin/users/${userId}`, {
+      const res = await fetch(`/api/admin/users/${deleteTarget.id}`, {
         method: "DELETE",
       });
       if (!res.ok) {
         const data = await res.json();
-        alert(data.error || "Erreur lors de la suppression");
-        return;
+        setError(data.error || "Erreur lors de la suppression");
+      } else {
+        setDeleteTarget(null);
+        fetchUsers();
       }
-      fetchUsers();
     } catch {
-      alert("Erreur réseau");
+      setError("Erreur réseau");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -259,10 +261,10 @@ export default function AdminUsersPage() {
               </Link>
               {user.role !== "SUPER_ADMIN" && (
                 <button
-                  onClick={() => handleDelete(user.id, user.name)}
+                  onClick={() => setDeleteTarget({ id: user.id, name: user.name })}
                   className="flex-1 text-center text-red-600 hover:text-red-800 text-sm font-medium py-2 min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-50 transition-colors"
                 >
-                  Désactiver
+                  Supprimer
                 </button>
               )}
             </div>
@@ -360,12 +362,10 @@ export default function AdminUsersPage() {
                       </Link>
                       {user.role !== "SUPER_ADMIN" && (
                         <button
-                          onClick={() =>
-                            handleDelete(user.id, user.name)
-                          }
+                          onClick={() => setDeleteTarget({ id: user.id, name: user.name })}
                           className="text-red-600 hover:text-red-800 text-xs font-medium hover:underline"
                         >
-                          Désactiver
+                          Supprimer
                         </button>
                       )}
                     </div>
@@ -386,6 +386,54 @@ export default function AdminUsersPage() {
           </table>
         </div>
       </div>
+
+      {/* Modal de suppression */}
+      {deleteTarget && (
+        <PortalOverlay>
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70]">
+            <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4">
+              <div className="flex items-start gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-red-600">
+                    <path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base font-bold text-gray-900">Supprimer cet utilisateur ?</h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Le compte de <span className="font-semibold">{deleteTarget.name}</span> sera
+                    définitivement supprimé. Cette action est irréversible.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDeleteTarget(null)}
+                  disabled={deleting}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-semibold text-sm hover:bg-gray-50 disabled:opacity-50 min-h-[44px]"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteConfirm}
+                  disabled={deleting}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 text-white font-semibold text-sm hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2 min-h-[44px]"
+                >
+                  {deleting ? (
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                    </svg>
+                  ) : null}
+                  {deleting ? "Suppression..." : "Supprimer définitivement"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </PortalOverlay>
+      )}
 
       {/* Modal de création */}
       {showCreateModal && (

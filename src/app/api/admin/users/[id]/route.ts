@@ -143,7 +143,9 @@ export async function PATCH(
 
 /**
  * DELETE /api/admin/users/[id]
- * Supprime un utilisateur (soft delete : isActive = false).
+ * Suppression définitive d'un utilisateur.
+ * Toutes les relations (sessions, accounts, permissions, organizations,
+ * eventGrants, chatMessages) sont cascadées par le schéma Prisma (onDelete: Cascade).
  */
 export async function DELETE(
   request: NextRequest,
@@ -153,7 +155,6 @@ export async function DELETE(
     const { session } = await requireRole(request, "SUPER_ADMIN");
     const { id } = await props.params;
 
-    // Empêcher un super admin de se supprimer lui-même
     if (id === session.user.id) {
       return NextResponse.json(
         { error: "Vous ne pouvez pas supprimer votre propre compte" },
@@ -161,16 +162,12 @@ export async function DELETE(
       );
     }
 
-    // Soft delete
-    await prisma.user.update({
-      where: { id },
-      data: { isActive: false },
-    });
+    const existing = await prisma.user.findUnique({ where: { id }, select: { id: true } });
+    if (!existing) {
+      return NextResponse.json({ error: "Utilisateur non trouvé" }, { status: 404 });
+    }
 
-    // Supprimer toutes les sessions de l'utilisateur pour le déconnecter
-    await prisma.session.deleteMany({
-      where: { userId: id },
-    });
+    await prisma.user.delete({ where: { id } });
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -13,7 +13,6 @@ import type { Vehicle } from "@/types";
 import { getZoneLabel } from "@/lib/zone-utils";
 import { useZones } from "@/hooks/useZones";
 import DuplicateAlert from "@/components/accreditation/DuplicateAlert";
-import { useTranslation } from "@/components/accreditation/TranslationProvider";
 import { PortalOverlay } from "@/components/ui/PortalOverlay";
 
 interface Props {

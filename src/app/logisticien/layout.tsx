@@ -95,20 +95,15 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
       >
         {/* Logo + User info */}
         <div className="h-auto border-b border-white/10">
-          <div className="h-16 flex items-center justify-center text-lg font-semibold">
-            <svg
-              width="60"
-              height="24"
-              viewBox="0 0 60 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              className="text-white"
-            >
-              <path
-                d="M9 19L15 3H21L15 19H9Z"
-                fill="currentColor"
-              />
-            </svg>
+          <div className="h-16 flex items-center justify-center px-2">
+            <Image
+              src="/icons/icon-192.png"
+              alt="Cannes One Pass"
+              width={52}
+              height={52}
+              className="object-contain max-h-14 w-auto"
+              priority
+            />
           </div>
           {user && !collapsed && (
             <div className="px-4 pb-3">

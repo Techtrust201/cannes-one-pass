@@ -1,33 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-  Enterprise Home Screen (EHS) - Zebra TC27
-  Profil pilote Palais des Festivals / Cannes One Pass
-
-  Déploiement StageNow :
-  FileMgr -> copier ce fichier vers :
-  /enterprise/usr/enterprisehomescreen.xml
-
-  Objectif :
-  - Afficher Cannes One Pass
-  - Afficher WhatsApp Business
-  - Masquer les autres applications en mode utilisateur
-
-  Notes :
-  - L'URL Cannes One Pass reste volontairement à la racine.
-    Si une session existe, l'app peut ouvrir l'espace connecté.
-    Sinon, l'auth redirigera vers /login.
-  - WhatsApp Business = com.whatsapp.w4b
-  - Le mot de passe admin EHS ne doit pas être écrit en clair ici.
-    Il doit être défini dans l'interface EHS, puis exporté si besoin.
--->
 <config>
 
-    <kiosk>
-    </kiosk>
-
     <applications>
-        <link label="Cannes One Pass" url="https://cannes-one-pass-r2.vercel.app" />
-        <application label="WhatsApp Business" package="com.whatsapp.w4b" />
+        <application
+            label="Cannes One Pass"
+            package="org.chromium.webapk.aab6c1b47c3bf1387_v2"
+            activity="org.chromium.webapk.shell_apk.h2o.H2OOpaqueMainActivity" />
+
+        <application
+            label="WhatsApp Business"
+            package="com.whatsapp.w4b"
+            activity="com.whatsapp.Main" />
     </applications>
 
     <tools>
@@ -40,6 +23,7 @@
     <preferences>
         <title>Cannes One Pass</title>
         <kiosk_mode_enabled>0</kiosk_mode_enabled>
+        <pin_shortcuts>0</pin_shortcuts>
         <system_settings_restricted>1</system_settings_restricted>
         <recent_apps_button_disabled>1</recent_apps_button_disabled>
         <recent_apps_access_disabled>1</recent_apps_access_disabled>

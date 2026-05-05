@@ -365,9 +365,9 @@ export default function ActionButtons({ acc, onActionComplete }: Props) {
       <button
         onClick={() => executeAction(action)}
         disabled={isLoading || loading !== null}
-        className={`group flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-xs font-semibold shadow-sm transition-all duration-150 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] ${action.color} disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`}
+        className={`group flex items-center gap-2.5 md:gap-2 px-4 md:px-3 py-2.5 md:py-2 rounded-xl md:rounded-lg text-xs font-semibold shadow-sm transition-all duration-150 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] ${action.color} disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`}
       >
-        <span className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
+        <span className="w-7 h-7 md:w-6 md:h-6 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
           {isLoading ? <Loader2 size={14} className="animate-spin" /> : <Icon size={14} />}
         </span>
         <div className="text-left min-w-0">
@@ -381,7 +381,7 @@ export default function ActionButtons({ acc, onActionComplete }: Props) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 md:space-y-2">
       {/* ── Carte zone actuelle ── */}
       {currentZone && (() => {
         const zc = getZoneColors(currentZone);
@@ -390,8 +390,8 @@ export default function ActionButtons({ acc, onActionComplete }: Props) {
           <div className={`relative rounded-xl overflow-hidden border ${isFinal ? "border-green-200" : "border-gray-200"}`}>
             {/* Barre latérale colorée */}
             <div className={`absolute left-0 top-0 bottom-0 w-1 ${isFinal ? "bg-green-500" : zc.dot}`} />
-            <div className={`flex items-center gap-3 pl-4 pr-4 py-3 ${isFinal ? "bg-green-50/60" : "bg-gradient-to-r from-gray-50 to-white"}`}>
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isFinal ? "bg-green-100" : zc.bg}`}>
+            <div className={`flex items-center gap-3 pl-4 pr-4 py-3 md:py-2 md:px-3 ${isFinal ? "bg-green-50/60" : "bg-gradient-to-r from-gray-50 to-white"}`}>
+              <div className={`w-8 h-8 md:w-7 md:h-7 rounded-lg flex items-center justify-center shrink-0 ${isFinal ? "bg-green-100" : zc.bg}`}>
                 {isFinal ? (
                   <CheckCircle size={16} className="text-green-600" />
                 ) : (
@@ -419,7 +419,7 @@ export default function ActionButtons({ acc, onActionComplete }: Props) {
 
       {/* Pas de zone assignée */}
       {!currentZone && status === "NOUVEAU" && (
-        <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-amber-50/60 border border-amber-200 text-amber-700">
+        <div className="flex items-center gap-2.5 px-4 md:px-3 py-3 md:py-2 rounded-xl md:rounded-lg bg-amber-50/60 border border-amber-200 text-amber-700">
           <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
             <MapPin size={14} />
           </div>

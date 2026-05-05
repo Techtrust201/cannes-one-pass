@@ -301,7 +301,7 @@ export default function AccreditationTable({
     return (
       <th
         onClick={isSortable ? () => toggleSort(sortKey as Parameters<typeof toggleSort>[0]) : undefined}
-        className={`px-2 py-2.5 text-[11px] font-semibold text-gray-600 uppercase tracking-wider text-left whitespace-nowrap ${isSortable ? "cursor-pointer select-none hover:text-gray-900 group" : ""} ${className}`}
+        className={`px-2 py-2.5 md:py-2 text-[11px] font-semibold text-gray-600 uppercase tracking-wider text-left whitespace-nowrap ${isSortable ? "cursor-pointer select-none hover:text-gray-900 group" : ""} ${className}`}
         aria-sort={
           sort === sortKey ? (dir === "asc" ? "ascending" : "descending") : undefined
         }
@@ -329,9 +329,9 @@ export default function AccreditationTable({
       />
 
       {/* ===== DESKTOP ===== */}
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-lg flex-col h-[85vh] hidden md:flex overflow-hidden">
+      <div className="hidden md:flex md:h-full md:min-h-0 flex-col overflow-hidden bg-white border border-gray-200 rounded-2xl md:rounded-xl shadow-lg">
         {/* Header */}
-        <div className="bg-[#4F587E] text-white rounded-t-2xl px-5 py-4 flex items-center gap-3">
+        <div className="bg-[#4F587E] text-white rounded-t-2xl md:rounded-t-xl px-5 py-4 md:px-4 md:py-2.5 flex items-center gap-3">
           <div className="p-1.5 bg-white/20 rounded-lg">
             <List size={18} />
           </div>
@@ -344,7 +344,7 @@ export default function AccreditationTable({
           <table className="w-full text-xs border-collapse">
             <thead className="sticky top-0 z-10 bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-2 py-2.5 w-8">
+                <th className="px-2 py-2 md:py-1.5.5 md:py-2 w-8">
                   <button
                     onClick={toggleAll}
                     className="p-0.5 rounded hover:bg-gray-200 transition"
@@ -363,7 +363,7 @@ export default function AccreditationTable({
                 <Th label="Événement" sortKey="event" />
                 <Th label="Date" sortKey="vehicleDate" />
                 <Th label="Horaires" sortKey="entryAt" />
-                <th className="px-2 py-2.5 text-[11px] font-semibold text-gray-600 uppercase tracking-wider text-center whitespace-nowrap">
+                <th className="px-2 py-2 md:py-1.5.5 md:py-2 text-[11px] font-semibold text-gray-600 uppercase tracking-wider text-center whitespace-nowrap">
                   Actions
                 </th>
               </tr>
@@ -390,7 +390,7 @@ export default function AccreditationTable({
                     }`}
                   >
                     {/* Checkbox */}
-                    <td className="px-2 py-2 w-8">
+                    <td className="px-2 py-2 md:py-1.5 w-8">
                       {(() => {
                         const selectable = selectedIds.has(acc.id) || isRowSelectable(acc);
                         return (
@@ -411,7 +411,7 @@ export default function AccreditationTable({
                     </td>
 
                     {/* Statut (with zone dot) */}
-                    <td className="px-2 py-2">
+                    <td className="px-2 py-2 md:py-1.5">
                       <StatusPill
                         status={acc.status as string}
                         zone={acc.currentZone || undefined}
@@ -420,7 +420,7 @@ export default function AccreditationTable({
                     </td>
 
                     {/* Plaque */}
-                    <td className="px-2 py-2 max-w-[120px]">
+                    <td className="px-2 py-2 md:py-1.5 max-w-[120px]">
                       {acc.vehicles?.[0]?.plate ? (
                         <div>
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-gray-100 text-[11px] font-mono font-bold text-gray-700 tracking-wide">
@@ -439,14 +439,14 @@ export default function AccreditationTable({
 
                     {/* Société */}
                     <td
-                      className="px-2 py-2 font-medium text-gray-800 max-w-[140px]"
+                      className="px-2 py-2 md:py-1.5 font-medium text-gray-800 max-w-[140px]"
                       title={acc.company || undefined}
                     >
                       <span className="block truncate">{acc.company || "-"}</span>
                     </td>
 
                     {/* Événement */}
-                    <td className="px-2 py-2 text-gray-600 max-w-[130px]">
+                    <td className="px-2 py-2 md:py-1.5 text-gray-600 max-w-[130px]">
                       <span className="flex items-center gap-1.5 truncate">
                         <EventLogo slug={acc.event} eventMap={eventLogoMap} />
                         {truncate(acc.event, 16)}
@@ -454,12 +454,12 @@ export default function AccreditationTable({
                     </td>
 
                     {/* Date */}
-                    <td className="px-2 py-2 text-gray-500 whitespace-nowrap">
+                    <td className="px-2 py-2 md:py-1.5 text-gray-500 whitespace-nowrap">
                       {formatVehicleDate(acc.vehicles?.[0]?.date)}
                     </td>
 
                     {/* Horaires — dernier step uniquement */}
-                    <td className="px-2 py-2">
+                    <td className="px-2 py-2 md:py-1.5">
                       {displayEntry ? (
                         <div className="flex flex-col gap-0.5">
                           <span className="inline-flex items-center gap-1 text-green-700">
@@ -496,7 +496,7 @@ export default function AccreditationTable({
                     </td>
 
                     {/* Actions */}
-                    <td className="px-2 py-2 text-center">
+                    <td className="px-2 py-2 md:py-1.5 text-center">
                       <div className="inline-flex items-center gap-0.5">
                         <Link
                           href={selectUrl}
@@ -531,7 +531,7 @@ export default function AccreditationTable({
         </div>
 
         {/* Pagination */}
-        <div className="px-4 py-3 bg-gray-50 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-gray-600 flex-shrink-0 border-t border-gray-200 rounded-b-2xl text-xs">
+        <div className="px-4 py-3 md:py-2 bg-gray-50 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-gray-600 flex-shrink-0 border-t border-gray-200 rounded-b-2xl md:rounded-b-xl text-xs">
           <span className="font-medium">
             {filteredCount === 0
               ? 0

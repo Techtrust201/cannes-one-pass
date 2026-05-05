@@ -95,18 +95,18 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
       >
         {/* Logo + User info */}
         <div className="h-auto border-b border-white/10">
-          <div className="h-16 flex items-center justify-center px-2">
+          <div className="h-16 sm:h-14 flex items-center justify-center px-2">
             <Image
               src="/icons/icon-192.png"
               alt="Cannes One Pass"
               width={52}
               height={52}
-              className="object-contain max-h-14 w-auto"
+              className="object-contain max-h-14 sm:max-h-11 w-auto"
               priority
             />
           </div>
           {user && !collapsed && (
-            <div className="px-4 pb-3">
+            <div className="px-4 pb-3 sm:pb-2">
               <p className="text-xs text-white/70 truncate">
                 {user.name}
               </p>
@@ -119,24 +119,24 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
         {/* Sélecteur d'Espace */}
         <EspaceSwitcher collapsed={collapsed} />
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto px-2 py-4 space-y-4 pb-20 sm:pb-4">
+        <nav className="logisticien-sidebar-scroll flex-1 overflow-y-auto px-2 py-4 space-y-4 pb-20 sm:pb-4 sm:py-2 sm:space-y-2">
           {/* Bloc Accréditations */}
           {(hasPermission("LISTE", "read") ||
             hasPermission("CREER", "read")) && (
             collapsed ? (
               <div className="space-y-1">
                 {hasPermission("LISTE", "read") && (
-                  <Link href={withEspace("/logisticien")} className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="Liste" onClick={() => setSidebarOpen(false)}>
+                  <Link href={withEspace("/logisticien")} className="flex items-center justify-center p-2.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors" title="Liste" onClick={() => setSidebarOpen(false)}>
                     <Image src="/logisticien/Vector%20(17).svg" width={16} height={16} alt="Liste" />
                   </Link>
                 )}
                 {hasPermission("CREER", "read") && (
-                  <Link href={withEspace("/logisticien/nouveau?step=1")} className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="Créer" onClick={() => setSidebarOpen(false)}>
+                  <Link href={withEspace("/logisticien/nouveau?step=1")} className="flex items-center justify-center p-2.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors" title="Créer" onClick={() => setSidebarOpen(false)}>
                     <Image src="/logisticien/Vector%20(18).svg" width={16} height={16} alt="Créer" />
                   </Link>
                 )}
                 {hasPermission("ARCHIVES", "read") && (
-                  <Link href={withEspace("/logisticien/archives")} className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="Archives" onClick={() => setSidebarOpen(false)}>
+                  <Link href={withEspace("/logisticien/archives")} className="flex items-center justify-center p-2.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors" title="Archives" onClick={() => setSidebarOpen(false)}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white">
                       <path d="M21 8v13H3V8M1 3h22v5H1V3zM10 12h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
@@ -145,7 +145,7 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
               </div>
             ) : (
             <details open className="group">
-              <summary className="flex items-center justify-between cursor-pointer px-3 py-2.5 bg-[#2C2F3F] rounded-lg text-xs font-semibold uppercase tracking-wide select-none">
+              <summary className="flex items-center justify-between cursor-pointer px-3 py-2.5 sm:py-2 bg-[#2C2F3F] rounded-lg text-xs font-semibold uppercase tracking-wide select-none">
                 <span className="flex items-center gap-2">
                   <Image
                     src="/logisticien/Vector%20(16).svg"
@@ -168,7 +168,7 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
                   <li>
                     <Link
                       href={withEspace("/logisticien")}
-                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
+                      className="flex items-center gap-2.5 px-3 py-2.5 sm:py-2 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
                       onClick={() => setSidebarOpen(false)}
                     >
                       <Image
@@ -185,7 +185,7 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
                   <li>
                     <Link
                       href={withEspace("/logisticien/nouveau?step=1")}
-                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
+                      className="flex items-center gap-2.5 px-3 py-2.5 sm:py-2 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
                       onClick={() => setSidebarOpen(false)}
                     >
                       <Image
@@ -202,7 +202,7 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
                   <li>
                     <Link
                       href={withEspace("/logisticien/archives")}
-                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
+                      className="flex items-center gap-2.5 px-3 py-2.5 sm:py-2 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
                       onClick={() => setSidebarOpen(false)}
                     >
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white">
@@ -223,19 +223,19 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
             collapsed ? (
               <div className="space-y-1">
                 {hasPermission("PLAQUE", "read") && (
-                  <Link href={withEspace("/logisticien/scanner/plaque")} className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="Plaque" onClick={() => setSidebarOpen(false)}>
+                  <Link href={withEspace("/logisticien/scanner/plaque")} className="flex items-center justify-center p-2.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors" title="Plaque" onClick={() => setSidebarOpen(false)}>
                     <Image src="/logisticien/Group%201%20(1).svg" width={22} height={16} alt="Plaque" />
                   </Link>
                 )}
                 {hasPermission("QR_CODE", "read") && (
-                  <Link href={withEspace("/logisticien/scanner/qr")} className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="QR code" onClick={() => setSidebarOpen(false)}>
+                  <Link href={withEspace("/logisticien/scanner/qr")} className="flex items-center justify-center p-2.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors" title="QR code" onClick={() => setSidebarOpen(false)}>
                     <Image src="/logisticien/Vector%20(20).svg" width={16} height={16} alt="QR code" />
                   </Link>
                 )}
               </div>
             ) : (
             <details open className="group">
-              <summary className="flex items-center justify-between cursor-pointer px-3 py-2.5 bg-[#2C2F3F] rounded-lg text-xs font-semibold uppercase tracking-wide select-none">
+              <summary className="flex items-center justify-between cursor-pointer px-3 py-2.5 sm:py-2 bg-[#2C2F3F] rounded-lg text-xs font-semibold uppercase tracking-wide select-none">
                 <span className="flex items-center gap-2">
                   <Image
                     src="/logisticien/Vector%20(19).svg"
@@ -258,7 +258,7 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
                   <li>
                     <Link
                       href={withEspace("/logisticien/scanner/plaque")}
-                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
+                      className="flex items-center gap-2.5 px-3 py-2.5 sm:py-2 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
                       onClick={() => setSidebarOpen(false)}
                     >
                       <Image
@@ -275,7 +275,7 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
                   <li>
                     <Link
                       href={withEspace("/logisticien/scanner/qr")}
-                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
+                      className="flex items-center gap-2.5 px-3 py-2.5 sm:py-2 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
                       onClick={() => setSidebarOpen(false)}
                     >
                       <Image
@@ -301,29 +301,29 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
             collapsed ? (
               <div className="space-y-1">
                 {hasPermission("FLUX_VEHICULES", "read") && (
-                  <Link href={withEspace("/logisticien/vehicles")} className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="Flux véhicules" onClick={() => setSidebarOpen(false)}>
+                  <Link href={withEspace("/logisticien/vehicles")} className="flex items-center justify-center p-2.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors" title="Flux véhicules" onClick={() => setSidebarOpen(false)}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white"><path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h4c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" fill="currentColor"/></svg>
                   </Link>
                 )}
                 {hasPermission("BILAN_CARBONE", "read") && (
-                  <Link href={withEspace("/logisticien/carbon")} className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="Bilan carbone" onClick={() => setSidebarOpen(false)}>
+                  <Link href={withEspace("/logisticien/carbon")} className="flex items-center justify-center p-2.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors" title="Bilan carbone" onClick={() => setSidebarOpen(false)}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="currentColor"/></svg>
                   </Link>
                 )}
                 {hasPermission("GESTION_ZONES", "read") && (
-                  <Link href={withEspace("/logisticien/zones")} className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="Gestion zones" onClick={() => setSidebarOpen(false)}>
+                  <Link href={withEspace("/logisticien/zones")} className="flex items-center justify-center p-2.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors" title="Gestion zones" onClick={() => setSidebarOpen(false)}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="currentColor"/></svg>
                   </Link>
                 )}
                 {hasPermission("GESTION_DATES", "read") && (
-                  <Link href={withEspace("/logisticien/dates")} className="flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors" title="Gestion dates" onClick={() => setSidebarOpen(false)}>
+                  <Link href={withEspace("/logisticien/dates")} className="flex items-center justify-center p-2.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors" title="Gestion dates" onClick={() => setSidebarOpen(false)}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z" fill="currentColor"/></svg>
                   </Link>
                 )}
               </div>
             ) : (
             <details open className="group">
-              <summary className="flex items-center justify-between cursor-pointer px-3 py-2.5 bg-[#2C2F3F] rounded-lg text-xs font-semibold uppercase tracking-wide select-none">
+              <summary className="flex items-center justify-between cursor-pointer px-3 py-2.5 sm:py-2 bg-[#2C2F3F] rounded-lg text-xs font-semibold uppercase tracking-wide select-none">
                 <span className="flex items-center gap-2">
                   <svg
                     width="16"
@@ -353,7 +353,7 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
                   <li>
                     <Link
                       href={withEspace("/logisticien/vehicles")}
-                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
+                      className="flex items-center gap-2.5 px-3 py-2.5 sm:py-2 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
                       onClick={() => setSidebarOpen(false)}
                     >
                       <svg
@@ -377,7 +377,7 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
                   <li>
                     <Link
                       href={withEspace("/logisticien/carbon")}
-                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
+                      className="flex items-center gap-2.5 px-3 py-2.5 sm:py-2 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
                       onClick={() => setSidebarOpen(false)}
                     >
                       <svg
@@ -401,7 +401,7 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
                   <li>
                     <Link
                       href={withEspace("/logisticien/zones")}
-                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
+                      className="flex items-center gap-2.5 px-3 py-2.5 sm:py-2 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
                       onClick={() => setSidebarOpen(false)}
                     >
                       <svg
@@ -425,7 +425,7 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
                   <li>
                     <Link
                       href={withEspace("/logisticien/dates")}
-                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
+                      className="flex items-center gap-2.5 px-3 py-2.5 sm:py-2 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
                       onClick={() => setSidebarOpen(false)}
                     >
                       <svg
@@ -452,10 +452,10 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
 
           {/* Lien Admin (Super Admin uniquement) */}
           {isSuperAdmin && (
-            <div className="pt-2">
+            <div className="pt-2 sm:pt-1">
               <Link
                 href="/admin/users"
-                className={`flex items-center ${collapsed ? "justify-center" : "gap-2"} px-3 py-2.5 bg-purple-500/20 text-purple-200 rounded-lg hover:bg-purple-500/30 active:bg-purple-500/40 text-xs font-semibold uppercase tracking-wide transition-colors`}
+                className={`flex items-center ${collapsed ? "justify-center" : "gap-2"} px-3 py-2.5 sm:py-2 bg-purple-500/20 text-purple-200 rounded-lg hover:bg-purple-500/30 active:bg-purple-500/40 text-xs font-semibold uppercase tracking-wide transition-colors`}
                 onClick={() => setSidebarOpen(false)}
                 title="Administration"
               >
@@ -477,7 +477,7 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
           )}
         </nav>
         {/* Bouton collapse (desktop uniquement) */}
-        <div className="hidden sm:flex border-t border-white/10 p-2 justify-center">
+        <div className="hidden sm:flex border-t border-white/10 p-1.5 justify-center">
           <button
             onClick={toggleCollapsed}
             className="p-2 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors text-white/70 hover:text-white"
@@ -487,13 +487,13 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
           </button>
         </div>
         {/* Déconnexion */}
-        <div className="border-t border-white/10 p-3 sm:p-4 mb-16 sm:mb-0">
+        <div className="border-t border-white/10 p-3 sm:p-3 mb-16 sm:mb-0">
           <button
             onClick={async () => {
               await authClient.signOut();
               router.push("/login");
             }}
-            className={`flex items-center ${collapsed ? "justify-center" : "gap-3"} w-full text-left px-3 py-3 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors text-sm`}
+            className={`flex items-center ${collapsed ? "justify-center" : "gap-3"} w-full text-left px-3 py-3 sm:py-2 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors text-sm`}
             title="Se déconnecter"
           >
             <Image

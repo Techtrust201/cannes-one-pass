@@ -368,9 +368,9 @@ export default async function LogisticienDashboard(props: {
     <div className="min-h-screen sm:h-screen flex flex-col">
       <AutoRefreshOnSSE />
 
-      <div className="flex-1 px-2 sm:px-4 pb-4 pt-2 min-h-0 flex flex-col">
+      <div className="flex-1 px-2 sm:px-4 md:px-3 pb-4 pt-2 md:pt-1 min-h-0 flex flex-col">
         <FilterBar searchParams={paramsObj} statusOptions={statusOptions} zoneOptions={zoneOptions} vehicleTypeOptions={vehicleTypeOptions} />
-        <div className="grid md:grid-cols-[1fr_420px] gap-4 flex-1 min-h-0">
+        <div className="grid md:grid-cols-[1fr_minmax(300px,380px)] md:gap-3 gap-4 flex-1 min-h-0 [&>*]:min-h-0">
           <AccreditationTable
             pageData={pageData}
             currentPage={currentPage}
@@ -383,7 +383,7 @@ export default async function LogisticienDashboard(props: {
             dir={dir as SortDirection}
           />
 
-          <div className="hidden md:block">
+          <div className="hidden md:flex md:flex-col min-h-0">
             {selected && (
               <AccreditationFormCard key={selected.id} acc={selected} />
             )}

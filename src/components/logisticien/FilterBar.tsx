@@ -117,7 +117,7 @@ export function FilterBar({ searchParams, statusOptions, zoneOptions, vehicleTyp
   return (
     <>
       {/* ===== Barre commune (mobile + desktop) : recherche sticky + bouton Filtres ===== */}
-      <div className="w-full sticky top-0 z-30 bg-gray-50 py-2 relative">
+      <div className="w-full sticky top-0 z-30 bg-gray-50 py-2 md:py-1.5 relative">
         <div className="flex items-center gap-2">
           {/* Barre de recherche centrée */}
           <div className="flex-1 min-w-0 flex justify-center">
@@ -128,7 +128,7 @@ export function FilterBar({ searchParams, statusOptions, zoneOptions, vehicleTyp
                 value={mobileSearch}
                 onChange={(e) => setMobileSearch(e.target.value)}
                 placeholder="ID, plaque, statut, date (04/03/2026), heure (14:30)..."
-                className="w-full pl-10 pr-9 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm bg-white"
+                className="w-full pl-10 pr-9 py-2.5 md:py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm md:text-[13px] bg-white"
               />
               {mobileSearch && (
                 <button
@@ -165,7 +165,7 @@ export function FilterBar({ searchParams, statusOptions, zoneOptions, vehicleTyp
           <button
             type="button"
             onClick={() => setIsFilterOpen((v) => !v)}
-            className={`hidden md:flex relative items-center gap-1.5 px-3 py-2.5 font-semibold rounded-xl transition shadow-md text-sm min-h-[42px] shrink-0 ${
+            className={`hidden md:flex relative items-center gap-1.5 px-3 py-2 md:py-1.5 font-semibold rounded-xl transition shadow-md text-sm min-h-0 md:h-9 shrink-0 ${
               activeFiltersCountExcludingSearch > 0
                 ? "bg-[#4F587E] text-white ring-2 ring-[#FFAA00] ring-offset-1"
                 : "bg-[#4F587E] text-white hover:bg-[#3B4252] active:bg-[#2d3347]"

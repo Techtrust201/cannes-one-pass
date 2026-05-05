@@ -182,9 +182,9 @@ export default function AccreditationFormCard({ acc }: Props) {
   }
 
   return (
-    <div className="bg-gray-50 border border-gray-200 rounded-2xl shadow-xl w-full max-h-[85vh] overflow-y-auto flex flex-col">
+    <div className="bg-gray-50 border border-gray-200 rounded-2xl md:rounded-xl shadow-xl w-full max-h-[85vh] md:max-h-none md:h-full md:min-h-0 md:flex-1 overflow-y-auto flex flex-col">
       {/* Header */}
-      <div className="bg-[#4F587E] text-white rounded-t-2xl px-6 py-4 shadow-md flex items-center gap-3">
+      <div className="bg-[#4F587E] text-white rounded-t-2xl md:rounded-t-xl px-6 py-4 md:px-4 md:py-2.5 shadow-md flex items-center gap-3 shrink-0">
         <div className="p-1.5 bg-white/15 rounded-lg">
           <Info size={18} />
         </div>
@@ -192,7 +192,7 @@ export default function AccreditationFormCard({ acc }: Props) {
       </div>
 
       {/* Contenu scrollable */}
-      <div className="flex-1 overflow-y-auto min-h-0 overflow-x-hidden p-5">
+      <div className="flex-1 overflow-y-auto min-h-0 overflow-x-hidden p-5 md:p-4">
 
         {/* ── WORKFLOW : Statut + Actions ── */}
         <div className="mb-6 bg-white rounded-xl border border-gray-200 p-4 shadow-sm">

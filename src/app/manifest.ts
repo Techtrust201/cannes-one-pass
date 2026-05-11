@@ -12,6 +12,8 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#ffffff",
     theme_color: "#e30613",
     lang: "fr-FR",
+    dir: "ltr",
+    id: "/?source=pwa",
     categories: ["business", "productivity"],
     icons: [
       {

@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.vercel.cannes_one_pass_r2.twa",
+      "sha256_cert_fingerprints": [
+        "8A:24:8D:ED:75:36:A2:56:AF:5F:F3:F3:FD:1C:9A:0A:16:F4:12:4A:FE:1B:5D:AC:BC:83:9C:80:BA:5E:B0:12"
+      ]
+    }
+  }
+]

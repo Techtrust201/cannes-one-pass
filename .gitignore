@@ -67,3 +67,7 @@ docs/kiosk/zebra/*.aab
 # local validation / temporary files
 validation_cursor.txt
 Thumbs.db
+
+# Secrets locaux (PWABuilder keystore, mots de passe, binaires APK/AAB, certifs MDM, etc.)
+# Ne jamais committer. Sauvegarde obligatoire hors poste (1Password, Drive chiffré, clé USB chiffrée).
+/secrets/

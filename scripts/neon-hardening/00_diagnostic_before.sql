@@ -81,15 +81,19 @@ ORDER  BY extname;
 -- 6. État RLS sur les tables du schéma public
 --    Sur Neon ce n'est pas critique (pas de PostgREST), mais utile
 --    pour savoir si une migration future l'a activé par mégarde.
+--    NB: on utilise pg_class car pg_tables n'expose que `rowsecurity`
+--    (pas `forcerowsecurity`). Il faut joindre pg_namespace pour filtrer.
 SELECT
     '6. RLS status' AS section,
-    schemaname,
-    tablename,
-    rowsecurity    AS rls_enabled,
-    forcerowsecurity AS rls_forced
-FROM   pg_tables
-WHERE  schemaname = 'public'
-ORDER  BY tablename;
+    n.nspname               AS schemaname,
+    c.relname               AS tablename,
+    c.relrowsecurity        AS rls_enabled,
+    c.relforcerowsecurity   AS rls_forced
+FROM   pg_class     c
+JOIN   pg_namespace n ON n.oid = c.relnamespace
+WHERE  n.nspname = 'public'
+  AND  c.relkind = 'r'   -- tables ordinaires uniquement
+ORDER  BY c.relname;
 
 -- 7. Foreign keys SANS index sur la colonne référençante
 --    Source de seq scans lors des DELETE/UPDATE cascade et des joins.

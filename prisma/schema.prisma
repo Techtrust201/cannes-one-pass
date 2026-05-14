@@ -62,13 +62,13 @@ enum HistoryAction {
 }
 
 enum ActorSource {
-  PUBLIC_FORM     // Formulaire public (exposant) — non authentifié
-  LOGISTICIEN     // Agent logistique authentifié
-  CSV_IMPORT      // Import CSV par un admin
-  AUTO_DEDUCTION  // Règle auto (ex: déduction de catégorie)
-  SUPER_ADMIN     // Action d'un super-admin
-  MIGRATION       // Script de migration (ex: fix-phone-split)
-  SYSTEM          // Autres actions système
+  PUBLIC_FORM // Formulaire public (exposant) — non authentifié
+  LOGISTICIEN // Agent logistique authentifié
+  CSV_IMPORT // Import CSV par un admin
+  AUTO_DEDUCTION // Règle auto (ex: déduction de catégorie)
+  SUPER_ADMIN // Action d'un super-admin
+  MIGRATION // Script de migration (ex: fix-phone-split)
+  SYSTEM // Autres actions système
 }
 
 enum EmplacementCategory {
@@ -113,25 +113,25 @@ enum CountryRegion {
 // ============================================================
 
 model User {
-  id            String    @id @default(uuid())
+  id            String   @id @default(uuid())
   name          String
-  email         String    @unique
-  emailVerified Boolean   @default(false)
+  email         String   @unique
+  emailVerified Boolean  @default(false)
   image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   // Champs custom pour gestion des rôles et permissions
-  role          UserRole  @default(USER)
-  isActive      Boolean   @default(true)
+  role     UserRole @default(USER)
+  isActive Boolean  @default(true)
 
   // Relations Better Auth
-  sessions      Session[]
-  accounts      Account[]
+  sessions Session[]
+  accounts Account[]
 
   // Relations custom
-  permissions   UserPermission[]
-  chatMessages  ChatMessage[]
+  permissions  UserPermission[]
+  chatMessages ChatMessage[]
 
   // Multi-tenant
   organizations UserOrganization[]
@@ -149,9 +149,10 @@ model Session {
   ipAddress String?
   userAgent String?
 
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
   @@map("session")
 }
 
@@ -171,6 +172,7 @@ model Account {
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
+  @@index([userId])
   @@map("account")
 }
 
@@ -207,20 +209,20 @@ model UserPermission {
 // ============================================================
 
 model Organization {
-  id            String    @id @default(uuid())
-  name          String
-  slug          String    @unique
-  logo          String?
-  logoData      Bytes?
-  logoMimeType  String?
-  color         String    @default("#4F587E")
-  description   String?   @db.Text
-  isActive      Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id           String   @id @default(uuid())
+  name         String
+  slug         String   @unique
+  logo         String?
+  logoData     Bytes?
+  logoMimeType String?
+  color        String   @default("#4F587E")
+  description  String?  @db.Text
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  events        Event[]
-  members       UserOrganization[]
+  events  Event[]
+  members UserOrganization[]
 
   @@index([isActive])
 }
@@ -257,114 +259,116 @@ model UserEvent {
 // ============================================================
 
 model Event {
-  id                String    @id @default(uuid())
-  name              String
-  slug              String    @unique
-  logo              String?
-  logoData          Bytes?
-  logoMimeType      String?
-  description       String?   @db.Text
-  location          String?
-  color             String    @default("#3DAAA4")
+  id           String  @id @default(uuid())
+  name         String
+  slug         String  @unique
+  logo         String?
+  logoData     Bytes?
+  logoMimeType String?
+  description  String? @db.Text
+  location     String?
+  color        String  @default("#3DAAA4")
 
-  startDate         DateTime
-  endDate           DateTime
+  startDate DateTime
+  endDate   DateTime
 
   setupStartDate    DateTime?
   setupEndDate      DateTime?
   teardownStartDate DateTime?
   teardownEndDate   DateTime?
 
-  accessStartTime   String?
-  accessEndTime     String?
+  accessStartTime String?
+  accessEndTime   String?
 
-  notes             String?   @db.Text
+  notes String? @db.Text
 
-  activationDays    Int       @default(7)
-  isActive          Boolean   @default(false)
-  isArchived        Boolean   @default(false)
+  activationDays Int     @default(7)
+  isActive       Boolean @default(false)
+  isArchived     Boolean @default(false)
 
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  organizationId    String?
-  organization      Organization? @relation(fields: [organizationId], references: [id])
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
 
-  accreditations    Accreditation[]
-  userGrants        UserEvent[]
+  accreditations Accreditation[]
+  userGrants     UserEvent[]
 
   @@index([isArchived, startDate])
   @@index([organizationId])
 }
 
 model Accreditation {
-  id          String               @id @default(uuid())
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
-  version     Int                  @default(0)
+  id          String              @id @default(uuid())
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  version     Int                 @default(0)
   company     String
   stand       String
   unloading   String
   event       String
   eventId     String?
-  eventRef    Event?               @relation(fields: [eventId], references: [id])
+  eventRef    Event?              @relation(fields: [eventId], references: [id])
   message     String?
-  consent     Boolean              @default(false)
-  status      AccreditationStatus  @default(ATTENTE)
+  consent     Boolean             @default(false)
+  status      AccreditationStatus @default(ATTENTE)
   entryAt     DateTime?
   exitAt      DateTime?
-  email       String?              @db.VarChar(255)
+  email       String?             @db.VarChar(255)
   sentAt      DateTime?
   currentZone String?
 
-  language    String               @default("fr") @db.VarChar(5)
-  isArchived  Boolean              @default(false)
+  language   String  @default("fr") @db.VarChar(5)
+  isArchived Boolean @default(false)
 
   // Catégorie d'emplacement (stand, bateau, tente, etc.)
-  category        EmplacementCategory?
-  categorySource  ActorSource?         // Qui a fixé la valeur actuelle (AUTO_DEDUCTION, PUBLIC_FORM, LOGISTICIEN, CSV_IMPORT, SUPER_ADMIN)
+  category       EmplacementCategory?
+  categorySource ActorSource? // Qui a fixé la valeur actuelle (AUTO_DEDUCTION, PUBLIC_FORM, LOGISTICIEN, CSV_IMPORT, SUPER_ADMIN)
 
-  vehicles       Vehicle[]
-  emailHistory   AccreditationEmailHistory[]
-  history        AccreditationHistory[]
-  zoneMovements  ZoneMovement[]
-  timeSlots      VehicleTimeSlot[]
-  chatMessages   ChatMessage[]
+  vehicles      Vehicle[]
+  emailHistory  AccreditationEmailHistory[]
+  history       AccreditationHistory[]
+  zoneMovements ZoneMovement[]
+  timeSlots     VehicleTimeSlot[]
+  chatMessages  ChatMessage[]
 
   @@index([eventId])
 }
 
 model Vehicle {
-  id              Int          @id @default(autoincrement())
-  plate           String
-  size            String
-  phoneCode       String
-  phoneNumber     String
-  date            String
-  time            String
-  city            String
-  unloading       String       @db.Text
-  kms             String?
-  
+  id          Int     @id @default(autoincrement())
+  plate       String
+  size        String
+  phoneCode   String
+  phoneNumber String
+  date        String
+  time        String
+  city        String
+  unloading   String  @db.Text
+  kms         String?
+
   // Nouveaux champs pour le bilan carbone
-  vehicleType     VehicleType?
-  country         CountryRegion?
-  estimatedKms    Int          @default(0)
-  arrivalDate     DateTime?
-  departureDate   DateTime?
+  vehicleType   VehicleType?
+  country       CountryRegion?
+  estimatedKms  Int            @default(0)
+  arrivalDate   DateTime?
+  departureDate DateTime?
 
   // Plaque de la remorque (semi-remorque uniquement, facultatif)
-  trailerPlate    String?
+  trailerPlate String?
 
   // Champs poids (en tonnes)
-  emptyWeight     Int?
-  maxWeight       Int?
-  currentWeight   Int?
+  emptyWeight   Int?
+  maxWeight     Int?
+  currentWeight Int?
 
   accreditation   Accreditation @relation(fields: [accreditationId], references: [id], onDelete: Cascade)
   accreditationId String
 
-  timeSlots       VehicleTimeSlot[]
+  timeSlots VehicleTimeSlot[]
+
+  @@index([accreditationId])
 }
 
 model ZoneMovement {
@@ -377,6 +381,8 @@ model ZoneMovement {
   timestamp       DateTime      @default(now())
   userId          String?
   userAgent       String?
+
+  @@index([accreditationId])
 }
 
 model AccreditationEmailHistory {
@@ -385,28 +391,30 @@ model AccreditationEmailHistory {
   accreditationId String
   email           String
   sentAt          DateTime      @default(now())
+
+  @@index([accreditationId])
 }
 
 model AccreditationHistory {
-  id              Int             @id @default(autoincrement())
-  accreditation   Accreditation   @relation(fields: [accreditationId], references: [id], onDelete: Cascade)
+  id              Int           @id @default(autoincrement())
+  accreditation   Accreditation @relation(fields: [accreditationId], references: [id], onDelete: Cascade)
   accreditationId String
   action          HistoryAction
-  field           String?         // Champ modifié (ex: "status", "company", etc.)
-  oldValue        String?         // Ancienne valeur
-  newValue        String?         // Nouvelle valeur
-  description     String          // Description lisible de l'action
-  userId          String?         // ID de l'utilisateur qui a fait la modification
-  userAgent       String?         // User agent pour tracer l'origine
-  createdAt       DateTime        @default(now())
+  field           String? // Champ modifié (ex: "status", "company", etc.)
+  oldValue        String? // Ancienne valeur
+  newValue        String? // Nouvelle valeur
+  description     String // Description lisible de l'action
+  userId          String? // ID de l'utilisateur qui a fait la modification
+  userAgent       String? // User agent pour tracer l'origine
+  createdAt       DateTime      @default(now())
 
   // Audit-log étendu
-  actorSource     ActorSource     @default(SYSTEM)
-  changeReason    String?         @db.Text       // Raison optionnelle (ex: "Import CSV Yachting 2026")
-  diff            Json?                           // { before: {...}, after: {...} } pour update riches
+  actorSource  ActorSource @default(SYSTEM)
+  changeReason String?     @db.Text // Raison optionnelle (ex: "Import CSV Yachting 2026")
+  diff         Json? // { before: {...}, after: {...} } pour update riches
 
-  @@index([createdAt])                    // Accélère le polling /changes et l'archivage
-  @@index([accreditationId, createdAt])   // Accélère la lecture d'historique par accréditation
+  @@index([createdAt]) // Accélère le polling /changes et l'archivage
+  @@index([accreditationId, createdAt]) // Accélère la lecture d'historique par accréditation
   @@index([actorSource])
 }
 
@@ -415,11 +423,11 @@ model AccreditationHistory {
 // ============================================================
 
 model AccreditationHistoryArchive {
-  id              Int           @id           // Même ID que l'original
+  id              Int           @id // Même ID que l'original
   accreditationId String
   action          HistoryAction
-  summary         String        // JSON compact : {"f":"status","o":"ATTENTE","n":"ENTREE","d":"Statut…","u":"userId"}
-  createdAt       DateTime      // Date de l'action originale
+  summary         String // JSON compact : {"f":"status","o":"ATTENTE","n":"ENTREE","d":"Statut…","u":"userId"}
+  createdAt       DateTime // Date de l'action originale
   archivedAt      DateTime      @default(now())
 
   @@index([accreditationId])
@@ -436,11 +444,11 @@ model VehicleTimeSlot {
   accreditationId String
   vehicle         Vehicle       @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
   vehicleId       Int
-  date            DateTime      @db.Date       // Jour du créneau
-  stepNumber      Int                          // Numéro d'étape dans la journée (1, 2, 3…)
-  zone            String                       // Zone d'entrée/sortie (clé dynamique vers ZoneConfig)
-  entryAt         DateTime                     // Heure d'entrée
-  exitAt          DateTime?                    // Heure de sortie (null = encore sur place)
+  date            DateTime      @db.Date // Jour du créneau
+  stepNumber      Int // Numéro d'étape dans la journée (1, 2, 3…)
+  zone            String // Zone d'entrée/sortie (clé dynamique vers ZoneConfig)
+  entryAt         DateTime // Heure d'entrée
+  exitAt          DateTime? // Heure de sortie (null = encore sur place)
 
   @@index([accreditationId, date])
   @@index([vehicleId, date])
@@ -455,12 +463,13 @@ model ChatMessage {
   accreditation   Accreditation @relation(fields: [accreditationId], references: [id], onDelete: Cascade)
   accreditationId String
   user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId          String        // ID de l'agent qui envoie le message
-  userName        String        // Nom de l'agent (dénormalisé pour perf)
+  userId          String // ID de l'agent qui envoie le message
+  userName        String // Nom de l'agent (dénormalisé pour perf)
   message         String        @db.Text
   createdAt       DateTime      @default(now())
 
   @@index([accreditationId, createdAt])
+  @@index([userId])
 }
 
 // ============================================================
@@ -477,13 +486,13 @@ model UnloadingProvider {
 
 model ZoneConfig {
   id                 Int      @id @default(autoincrement())
-  zone               String   @unique              // Identifiant unique de la zone (ex: "LA_BOCCA")
-  label              String                        // Nom d'affichage (ex: "La Bocca")
-  address            String                        // Adresse complète
-  latitude           Float                         // Latitude GPS
-  longitude          Float                         // Longitude GPS
-  isFinalDestination Boolean  @default(false)      // Destination finale (Palais)
-  color              String   @default("gray")     // Couleur associée (ex: "orange", "green", "blue", "purple")
+  zone               String   @unique // Identifiant unique de la zone (ex: "LA_BOCCA")
+  label              String // Nom d'affichage (ex: "La Bocca")
+  address            String // Adresse complète
+  latitude           Float // Latitude GPS
+  longitude          Float // Longitude GPS
+  isFinalDestination Boolean  @default(false) // Destination finale (Palais)
+  color              String   @default("gray") // Couleur associée (ex: "orange", "green", "blue", "purple")
   isActive           Boolean  @default(true)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt

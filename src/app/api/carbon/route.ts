@@ -2,6 +2,16 @@ import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { findCity } from "@/lib/city-search";
 import { requirePermission } from "@/lib/auth-helpers";
+import {
+  mapDbVehicleType,
+  mapDefaultVehicleTypes,
+  resolveVehicleTypeLabelFromList,
+  buildTypeBreakdownFromList,
+  getVehicleTypeColorsFromList,
+  getCo2CoefficientForLabelFromList,
+  getPdfCodeForLabelFromList,
+} from "@/lib/vehicle-type-server";
+import type { VehicleTypeData } from "@/lib/vehicle-utils";
 
 // ── Types ────────────────────────────────────────────────────────────
 interface CarbonDataEntry {
@@ -12,6 +22,7 @@ interface CarbonDataEntry {
   stand: string;
   origine: string;
   type: string;
+  pdfCode?: string;
   km: number;
   kgCO2eq: number;
   date: string;
@@ -70,72 +81,11 @@ function interZoneRoadDistance(z1: ZoneCoords, z2: ZoneCoords): number {
   return Math.round(d * factor * 10) / 10;
 }
 
-/** Tonnage moyen par type de véhicule pour le calcul CO₂ inter-zones */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const AVG_TONNAGE: Record<string, number> = {
-  "Porteur": 19,               // (12 + 26) / 2
-  "Porteur articulé": 19,      // (12 + 26) / 2
-  "Semi-remorque": 29.5,       // (15 + 44) / 2
-};
-
 interface AggregatedData {
   category: string;
   nbVehicules: number;
   distanceKm: number;
   emissionsKgCO2eq: number;
-}
-
-// ── Coefficients CO₂ (ADEME 2024, diesel poids lourds) ──────────────
-// Basés sur les vrais types de véhicules du Palais des Festivals
-const CO2_COEFFICIENTS = {
-  "Porteur": 0.265,           // Camion porteur rigide ~12-26t
-  "Porteur articulé": 0.385,  // Porteur articulé ~12-26t
-  "Semi-remorque": 0.485,     // Tracteur + semi-remorque ~15-44t
-} as const;
-
-// ── Haversine amélioré (même que distance/route.ts) ──────────────────
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function calculateRoadDistance(lat: number, lng: number): number {
-  const CANNES = { lat: 43.5506, lng: 7.0175 };
-  const R = 6371;
-  const dLat = ((CANNES.lat - lat) * Math.PI) / 180;
-  const dLng = ((CANNES.lng - lng) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat * Math.PI) / 180) *
-      Math.cos((CANNES.lat * Math.PI) / 180) *
-      Math.sin(dLng / 2) ** 2;
-  const d = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  let factor: number;
-  if (d < 50) factor = 1.5;
-  else if (d < 200) factor = 1.4;
-  else if (d < 500) factor = 1.3;
-  else if (d < 1000) factor = 1.25;
-  else factor = 1.2;
-  return Math.round(d * factor);
-}
-
-// ── Mapping type véhicule → libellé réel ────────────────────────────
-function mapVehicleType(vehicleType: string | null, fallbackSize?: string): string {
-  // Priorité 1 : champ vehicleType (enum Prisma)
-  if (vehicleType) {
-    switch (vehicleType) {
-      case "PORTEUR": return "Porteur";
-      case "PORTEUR_ARTICULE": return "Porteur articulé";
-      case "SEMI_REMORQUE": return "Semi-remorque";
-      default: break;
-    }
-  }
-  // Priorité 2 : champ size (peut contenir l'enum directement)
-  if (fallbackSize) {
-    const s = fallbackSize.toUpperCase();
-    if (s.includes("SEMI")) return "Semi-remorque";
-    if (s.includes("ARTICUL")) return "Porteur articulé";
-    if (s.includes("PORTEUR")) return "Porteur";
-  }
-  // Défaut : Porteur (véhicule le plus courant)
-  return "Porteur";
 }
 
 // ── Mapping pays : nom brut ou code → pays en français ──────────────
@@ -438,6 +388,17 @@ export async function GET(req: NextRequest) {
     // Charger les coordonnées des zones pour les calculs inter-zones
     const zoneCoords = await getZoneCoords();
 
+    const dbVehicleTypes = await prisma.vehicleTypeConfig.findMany({
+      where: { isActive: true },
+      orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
+    });
+    const vehicleTypes: VehicleTypeData[] =
+      dbVehicleTypes.length > 0
+        ? dbVehicleTypes.map(mapDbVehicleType)
+        : mapDefaultVehicleTypes();
+    const typeColors = getVehicleTypeColorsFromList(vehicleTypes);
+    const typeLabels = vehicleTypes.map((t) => t.label);
+
     // Cache de résolution ville (normalisation + distance + pays)
     const cityCache = buildCityResolveCache(accreditations);
 
@@ -445,7 +406,12 @@ export async function GET(req: NextRequest) {
 
     for (const acc of accreditations) {
       for (const vehicle of acc.vehicles) {
-        const vehicleType = mapVehicleType(vehicle.vehicleType || null, vehicle.size);
+        const vehicleTypeLabel = resolveVehicleTypeLabelFromList(
+          vehicleTypes,
+          vehicle.vehicleType,
+          vehicle.size
+        );
+        const pdfCode = getPdfCodeForLabelFromList(vehicleTypes, vehicleTypeLabel);
 
         // Résoudre la ville (normalisation, distance, pays)
         const rawCity = (vehicle.city || "").trim();
@@ -489,10 +455,7 @@ export async function GET(req: NextRequest) {
         // Distance totale = A/R principal + inter-zones
         const kmTotal = kmAllerRetour + kmInterZone;
 
-        // Émissions CO₂
-        const validTypes = Object.keys(CO2_COEFFICIENTS);
-        const finalType = validTypes.includes(vehicleType) ? vehicleType : "Porteur";
-        const coeff = CO2_COEFFICIENTS[finalType as keyof typeof CO2_COEFFICIENTS];
+        const coeff = getCo2CoefficientForLabelFromList(vehicleTypes, vehicleTypeLabel);
         const kgCO2eq = kmTotal > 0 ? Math.round(kmTotal * coeff) : 0;
         const kgCO2eqInterZone = kmInterZone > 0 ? Math.round(kmInterZone * coeff) : 0;
 
@@ -517,7 +480,8 @@ export async function GET(req: NextRequest) {
           entreprise: acc.company,
           stand: acc.stand,
           origine,
-          type: vehicleType,
+          type: vehicleTypeLabel,
+          pdfCode,
           km: kmTotal,
           kgCO2eq,
           date: dateFormatted,
@@ -540,7 +504,7 @@ export async function GET(req: NextRequest) {
     };
 
     // Données mensuelles (entre start et end)
-    const monthly = monthlyData(filteredData, startDate, endDate);
+    const monthly = monthlyData(filteredData, startDate, endDate, vehicleTypes);
 
     return Response.json({
       success: true,
@@ -550,6 +514,8 @@ export async function GET(req: NextRequest) {
         monthly,
         period: { start: startDate, end: endDate },
         total: filteredData.length,
+        typeColors,
+        typeLabels,
       },
     });
   } catch (error) {
@@ -580,23 +546,19 @@ function aggregate(data: CarbonDataEntry[], field: keyof CarbonDataEntry): Aggre
 function monthlyData(
   data: CarbonDataEntry[],
   startDateStr: string,
-  endDateStr: string
+  endDateStr: string,
+  vehicleTypes: VehicleTypeData[]
 ) {
   const startDate = parseDate(startDateStr);
   const endDate = parseDate(endDateStr);
 
-  // Calculer le nombre de mois entre start et end
   const seen = new Set<string>();
   const months: {
     month: string;
     monthIndex: number;
     year: number;
     nbVehicules: number;
-    typeBreakdown: {
-      "Porteur": number;
-      "Porteur articulé": number;
-      "Semi-remorque": number;
-    };
+    typeBreakdown: Record<string, number>;
     data: CarbonDataEntry[];
     uniqueKey: string;
   }[] = [];
@@ -628,11 +590,10 @@ function monthlyData(
         monthIndex: curMonth,
         year: curYear,
         nbVehicules: monthEntries.length,
-        typeBreakdown: {
-          "Porteur": monthEntries.filter((e) => e.type === "Porteur").length,
-          "Porteur articulé": monthEntries.filter((e) => e.type === "Porteur articulé").length,
-          "Semi-remorque": monthEntries.filter((e) => e.type === "Semi-remorque").length,
-        },
+        typeBreakdown: buildTypeBreakdownFromList(
+          vehicleTypes,
+          monthEntries.map((e) => ({ type: e.type }))
+        ),
         data: monthEntries,
         uniqueKey: key,
       });

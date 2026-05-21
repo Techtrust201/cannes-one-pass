@@ -11,6 +11,7 @@ import {
   Power,
   PowerOff,
 } from "lucide-react";
+import VehicleTypesSection from "@/components/logisticien/VehicleTypesSection";
 import { usePermissions } from "@/hooks/usePermissions";
 
 interface UnloadingProvider {
@@ -387,6 +388,7 @@ export default function VehiclesPage() {
             </div>
           </div>
         )}
+        <VehicleTypesSection canWrite={canWrite} />
       </div>
     </div>
   );

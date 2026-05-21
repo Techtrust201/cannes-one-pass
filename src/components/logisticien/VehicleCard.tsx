@@ -1,10 +1,9 @@
 "use client";
 
 import type { Vehicle } from "@/types";
-import type { VehicleType } from "@/types";
 import { Pencil, Trash2, Phone, MessageCircle, MapPin, Calendar, Clock, Truck } from "lucide-react";
 import { getTelLink, getWhatsAppLink } from "@/lib/contact-utils";
-import { getVehicleTypeLabel } from "@/lib/vehicle-utils";
+import { resolveVehicleTypeLabel, needsTrailerPlate } from "@/lib/vehicle-utils";
 import { formatVehicleDate } from "@/lib/date-utils";
 
 function getUnloadingLabel(unloading: ("lat" | "rear")[]): string {
@@ -25,8 +24,9 @@ interface VehicleCardProps {
 }
 
 export default function VehicleCard({ vehicle, index, onEdit, onDelete }: VehicleCardProps) {
-  const typeLabel = vehicle.size && ["PORTEUR", "PORTEUR_ARTICULE", "SEMI_REMORQUE"].includes(vehicle.size)
-    ? getVehicleTypeLabel(vehicle.size as VehicleType)
+  const typeCode = vehicle.vehicleType || vehicle.size || "";
+  const typeLabel = typeCode
+    ? resolveVehicleTypeLabel(vehicle.vehicleType, vehicle.size)
     : vehicle.size || "Non défini";
 
   return (
@@ -41,7 +41,7 @@ export default function VehicleCard({ vehicle, index, onEdit, onDelete }: Vehicl
             <Truck size={12} />
             {typeLabel}
           </span>
-          {vehicle.size === "SEMI_REMORQUE" && (
+          {needsTrailerPlate(typeCode) && (
             <span className="text-xs text-gray-500">
               Rem. <span className="font-mono font-medium">{vehicle.trailerPlate || "—"}</span>
             </span>

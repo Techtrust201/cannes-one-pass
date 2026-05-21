@@ -40,8 +40,8 @@ export interface ZoneMovement {
   userAgent?: string | null;
 }
 
-// --- Types de véhicules ---
-export type VehicleType = "PORTEUR" | "PORTEUR_ARTICULE" | "SEMI_REMORQUE";
+// --- Types de véhicules (dynamiques — codes String depuis VehicleTypeConfig) ---
+export type VehicleType = string;
 
 export type CountryRegion =
   | "FRANCE" | "ESPAGNE" | "ITALIE" | "ALLEMAGNE" | "BELGIQUE"

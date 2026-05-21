@@ -2,12 +2,14 @@
  * Validation stricte d'imports CSV d'accréditations.
  *
  * Principes :
- * - Sensible à la casse pour les enums (PORTEUR ≠ porteur)
+ * - Sensible à la casse pour les enums (VL ≠ vl)
  * - Regex par champ pour les formats (plaque, téléphone, date, etc.)
  * - Pas de "fallback silencieux" : au moindre écart, on renvoie une erreur
  *   détaillée (ligne, colonne, valeur brute, raison) et on BLOQUE tout l'import.
  * - Détection de doublons intra-fichier.
  */
+
+import { DEFAULT_VEHICLE_TYPES } from "@/lib/vehicle-type-defaults";
 
 export const CSV_COLUMNS = [
   "company",
@@ -41,7 +43,7 @@ export interface CsvValidRow {
   email: string;
   eventSlug: string;
   vehiclePlate: string;
-  vehicleSize: "PORTEUR" | "PORTEUR_ARTICULE" | "SEMI_REMORQUE";
+  vehicleSize: string;
   phoneCode: string;
   phoneNumber: string;
   date: string; // ISO YYYY-MM-DD
@@ -57,7 +59,9 @@ export interface ValidationReport {
   totalLines: number;
 }
 
-const VALID_VEHICLE_SIZES = new Set(["PORTEUR", "PORTEUR_ARTICULE", "SEMI_REMORQUE"]);
+const DEFAULT_VALID_VEHICLE_SIZES = new Set(
+  DEFAULT_VEHICLE_TYPES.map((t) => t.code)
+);
 const VALID_UNLOADING_VALUES = new Set(["lat", "rear", "lat+rear"]);
 const VALID_CATEGORIES = new Set([
   "stand_nu",
@@ -100,7 +104,11 @@ function validateDate(iso: string): boolean {
  * en commentaire (préfixée par '#'). On ne met PAS d'accents dans le BOM pour
  * éviter la casse Excel.
  */
-export function buildCsvTemplate(): string {
+export function buildCsvTemplate(validVehicleSizes?: Set<string>): string {
+  const sizes = validVehicleSizes ?? DEFAULT_VALID_VEHICLE_SIZES;
+  const exampleSize = sizes.has("SEMI_REMORQUE")
+    ? "SEMI_REMORQUE"
+    : [...sizes][0] ?? "PORTEUR";
   const header = CSV_COLUMNS.join(",");
   const example = [
     "Decorateur Exemple",  // company
@@ -108,7 +116,7 @@ export function buildCsvTemplate(): string {
     "contact@exemple.fr",  // email
     "yachting-2026",       // eventSlug
     "AB123CD",             // vehiclePlate
-    "SEMI_REMORQUE",       // vehicleSize (CASSE STRICTE)
+    exampleSize,             // vehicleSize (CASSE STRICTE)
     "+33",                 // phoneCode
     "612345678",           // phoneNumber (sans le 0 initial)
     "2026-09-04",          // date ISO
@@ -127,7 +135,8 @@ export function buildCsvTemplate(): string {
  */
 export function validateCsvRecords(
   records: Record<string, string>[],
-  eventSlugs: Set<string>
+  eventSlugs: Set<string>,
+  validVehicleSizes: Set<string> = DEFAULT_VALID_VEHICLE_SIZES
 ): ValidationReport {
   const errors: CsvRowError[] = [];
   const validRows: CsvValidRow[] = [];
@@ -208,12 +217,12 @@ export function validateCsvRecords(
       rowErrors.push({ line, column: "date", value: date, reason: "Date invalide (format attendu : YYYY-MM-DD)" });
     }
 
-    if (vehicleSize && !VALID_VEHICLE_SIZES.has(vehicleSize)) {
+    if (vehicleSize && !validVehicleSizes.has(vehicleSize)) {
       rowErrors.push({
         line,
         column: "vehicleSize",
         value: vehicleSize,
-        reason: `Valeur non reconnue (attendu strictement : ${[...VALID_VEHICLE_SIZES].join(", ")})`,
+        reason: `Valeur non reconnue (attendu strictement : ${[...validVehicleSizes].join(", ")})`,
       });
     }
 
@@ -269,7 +278,7 @@ export function validateCsvRecords(
         email,
         eventSlug,
         vehiclePlate,
-        vehicleSize: vehicleSize as CsvValidRow["vehicleSize"],
+        vehicleSize,
         phoneCode,
         phoneNumber,
         date,

@@ -5,6 +5,7 @@ import type { Accreditation } from "@/types";
 import { getZoneLabel, getZoneColorClasses } from "@/lib/zone-utils";
 import { buildLink } from "@/lib/url";
 import { formatVehicleDate } from "@/lib/date-utils";
+import { needsTrailerPlate } from "@/lib/vehicle-utils";
 import type { EventLogoMap } from "./AccreditationTable";
 
 interface MobileAccreditationListProps {
@@ -99,7 +100,7 @@ export default function MobileAccreditationList({
                       {plate}
                     </span>
                   )}
-                  {acc.vehicles?.[0]?.size === "SEMI_REMORQUE" && (
+                  {needsTrailerPlate(acc.vehicles?.[0]?.vehicleType || acc.vehicles?.[0]?.size || "") && (
                     <span className="text-[9px] text-gray-400 font-mono">
                       Rem. {acc.vehicles[0].trailerPlate || "—"}
                     </span>

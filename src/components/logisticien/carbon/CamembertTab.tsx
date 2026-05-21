@@ -157,6 +157,10 @@ function CamembertSection({
 }
 
 export default function CamembertTab({ data }: CamembertTabProps) {
+  const typeColors =
+    data.typeColors && Object.keys(data.typeColors).length > 0
+      ? data.typeColors
+      : TYPE_COLORS;
   return (
     <div className="space-y-4 md:space-y-8">
       <CamembertSection title="Pays" data={data.aggregations.pays} />
@@ -168,7 +172,7 @@ export default function CamembertTab({ data }: CamembertTabProps) {
       <CamembertSection
         title="Type"
         data={data.aggregations.type}
-        colors={TYPE_COLORS}
+        colors={typeColors}
       />
     </div>
   );

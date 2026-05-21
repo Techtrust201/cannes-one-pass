@@ -1,14 +1,23 @@
 import type { CarbonDataEntry } from "@/hooks/useCarbonData";
 
-/** Mapping type app → gabarit PDF (A/B/C/D) */
-const GABARIT_PDF_MAP: Record<string, string> = {
-  "Porteur": "C",
+/**
+ * Code PDF (A/B/C/D) pour le type de véhicule.
+ * Priorité : `entry.pdfCode` (renvoyé par l'API depuis VehicleTypeConfig)
+ * → fallback statique pour anciens types (rétro-compat).
+ */
+const GABARIT_PDF_FALLBACK: Record<string, string> = {
+  "Fourgon / VL": "A",
+  "Porteur léger (10 m³)": "B",
+  "Porteur moyen (15 m³)": "C",
+  "Gros porteur (20 m³)": "C",
   "Porteur articulé": "C",
   "Semi-remorque": "D",
+  "Porteur": "C",
 };
 
-function mapToGabaritPdf(type: string): string {
-  return GABARIT_PDF_MAP[type] ?? "C";
+function mapToGabaritPdf(entry: Pick<CarbonDataEntry, "type" | "pdfCode">): string {
+  if (entry.pdfCode) return entry.pdfCode;
+  return GABARIT_PDF_FALLBACK[entry.type] ?? "C";
 }
 
 function escapeCsvCell(value: string | number): string {
@@ -49,7 +58,7 @@ export function exportDetailedCsv(
     e.origine,
     e.roundTrips && e.roundTrips > 0 ? "A/R" : "A/R",
     e.km,
-    mapToGabaritPdf(e.type),
+    mapToGabaritPdf(e),
     e.kgCO2eq,
     e.date,
   ]);

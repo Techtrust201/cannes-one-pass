@@ -11,6 +11,7 @@ export interface CarbonDataEntry {
   stand: string;
   origine: string;
   type: string;
+  pdfCode?: string;
   km: number;
   kgCO2eq: number;
   date: string;
@@ -34,11 +35,7 @@ export interface MonthlyData {
   monthIndex: number;
   year: number;
   nbVehicules: number;
-  typeBreakdown: {
-    "Porteur": number;
-    "Porteur articulé": number;
-    "Semi-remorque": number;
-  };
+  typeBreakdown: Record<string, number>;
   data: CarbonDataEntry[];
 }
 
@@ -53,6 +50,8 @@ export interface CarbonData {
   monthly: MonthlyData[];
   period: { start: string; end: string };
   total: number;
+  typeColors?: Record<string, string>;
+  typeLabels?: string[];
 }
 
 interface UseCarbonDataResult {

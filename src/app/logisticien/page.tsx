@@ -17,6 +17,7 @@ import AccreditationFormCard from "@/components/logisticien/AccreditationFormCar
 import AutoRefreshOnSSE from "@/components/logisticien/AutoRefreshOnSSE";
 import NoEspaceState from "@/components/logisticien/NoEspaceState";
 import type { SortDirection } from "@/components/ui/table";
+import { DEFAULT_VEHICLE_TYPES } from "@/lib/vehicle-type-defaults";
 import { parseVehicleDate, parseSearchDate, formatTimeForSearch } from "@/lib/date-utils";
 
 // --- Utilitaire de normalisation accent/casse/espaces/ligatures ---
@@ -357,11 +358,15 @@ export default async function LogisticienDashboard(props: {
     ...activeZones.map((z) => ({ value: z.zone, label: z.label })),
   ];
 
+  const activeVehicleTypes = await prisma.vehicleTypeConfig.findMany({
+    where: { isActive: true },
+    orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
+  });
   const vehicleTypeOptions = [
     { value: "", label: "Tous types" },
-    { value: "PORTEUR", label: "Porteur" },
-    { value: "PORTEUR_ARTICULE", label: "Porteur articulé" },
-    { value: "SEMI_REMORQUE", label: "Semi-remorque" },
+    ...(activeVehicleTypes.length > 0
+      ? activeVehicleTypes.map((t) => ({ value: t.code, label: t.label }))
+      : DEFAULT_VEHICLE_TYPES.map((t) => ({ value: t.code, label: t.label }))),
   ];
 
   return (

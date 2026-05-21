@@ -2,6 +2,7 @@
 
 import { formatNumber } from "@/lib/carbonData";
 import type { CarbonData, CarbonDataEntry } from "@/hooks/useCarbonData";
+import VehicleTypeReferenceTable from "@/components/accreditation/VehicleTypeReferenceTable";
 
 interface EventDetailTabProps {
   data: CarbonData;
@@ -205,6 +206,8 @@ export default function EventDetailTab({
           </span>
         </div>
       </section>
+
+      <VehicleTypeReferenceTable />
     </div>
   );
 }

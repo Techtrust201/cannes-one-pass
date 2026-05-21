@@ -79,11 +79,9 @@ enum EmplacementCategory {
   TENTE_STRUCTURE
 }
 
-enum VehicleType {
-  PORTEUR
-  PORTEUR_ARTICULE
-  SEMI_REMORQUE
-}
+// enum VehicleType — SUPPRIMÉ : les gabarits sont maintenant dynamiques (String + VehicleTypeConfig)
+// Les anciennes valeurs PORTEUR, PORTEUR_ARTICULE, SEMI_REMORQUE sont
+// maintenues comme données dans la table VehicleTypeConfig.
 
 // enum Zone — SUPPRIMÉ : les zones sont maintenant dynamiques (String + ZoneConfig)
 // Les anciennes valeurs LA_BOCCA, PALAIS_DES_FESTIVALS, PANTIERO, MACE sont
@@ -349,7 +347,7 @@ model Vehicle {
   kms         String?
 
   // Nouveaux champs pour le bilan carbone
-  vehicleType   VehicleType?
+  vehicleType   String?
   country       CountryRegion?
   estimatedKms  Int            @default(0)
   arrivalDate   DateTime?
@@ -482,6 +480,24 @@ model UnloadingProvider {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model VehicleTypeConfig {
+  id               Int      @id @default(autoincrement())
+  code             String   @unique
+  label            String
+  gabarit          String
+  tonnageMini      Float
+  tonnageMoyen     Float
+  tonnageMaxi      Float
+  co2Coefficient   Float
+  pdfCode          String   @default("C")
+  color            String   @default("gray")
+  showTrailerPlate Boolean  @default(false)
+  sortOrder        Int      @default(0)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 model ZoneConfig {

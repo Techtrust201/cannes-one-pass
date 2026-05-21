@@ -196,7 +196,7 @@ export async function POST(req: NextRequest) {
             city: v.city as string,
             unloading: JSON.stringify(v.unloading),
             kms: (v.kms as string) ?? "",
-            vehicleType: (v.vehicleType as "PORTEUR" | "PORTEUR_ARTICULE" | "SEMI_REMORQUE") ?? null,
+            vehicleType: (v.vehicleType as string) ?? null,
             country: (v.country as "FRANCE" | "ESPAGNE" | "ITALIE" | "ALLEMAGNE" | "BELGIQUE" | "SUISSE" | "ROYAUME_UNI" | "PAYS_BAS" | "PORTUGAL" | "AUTRE") ?? null,
             estimatedKms: v.estimatedKms != null ? Number(v.estimatedKms) : 0,
             trailerPlate: (v.trailerPlate as string) ?? null,

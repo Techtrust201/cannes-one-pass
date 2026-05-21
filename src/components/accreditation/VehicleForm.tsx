@@ -5,9 +5,11 @@ import CityAutocomplete from "@/components/CityAutocomplete";
 import Image from "next/image";
 import { Checkbox } from "@/components/ui/checkbox";
 import PhoneInput from "@/components/ui/PhoneInput";
-import { getVehicleWeightLimits, getVehicleTypeLabel, getAllVehicleTypes, getAverageWeight } from "@/lib/vehicle-utils";
-import type { VehicleType, CountryRegion } from "@/types";
+import { getAverageWeight } from "@/lib/vehicle-utils";
+import type { CountryRegion } from "@/types";
 import { useTranslation } from "@/components/accreditation/TranslationProvider";
+import { useVehicleTypes } from "@/hooks/useVehicleTypes";
+import VehicleTypeReferenceTable from "@/components/accreditation/VehicleTypeReferenceTable";
 
 const COUNTRY_NAME_TO_ENUM: Record<string, CountryRegion> = {
   "France": "FRANCE", "Espagne": "ESPAGNE", "Italie": "ITALIE",
@@ -21,14 +23,9 @@ interface Props {
   onValidityChange: (v: boolean) => void;
 }
 
-const VEHICLE_TYPE_OPTIONS = getAllVehicleTypes().map((vt) => ({
-  value: vt,
-  label: getVehicleTypeLabel(vt),
-  limits: getVehicleWeightLimits(vt),
-}));
-
 export default function VehicleForm({ data, update, onValidityChange }: Props) {
   const { t } = useTranslation();
+  const { types, loading: typesLoading } = useVehicleTypes();
   const plateRef = useRef<HTMLInputElement>(null);
   const trailerPlateRef = useRef<HTMLInputElement>(null);
 
@@ -62,20 +59,22 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
 
   // Auto-set weight limits + average weight when vehicle type changes
   const handleVehicleTypeChange = (vt: string) => {
-    if (vt && getAllVehicleTypes().includes(vt as VehicleType)) {
-      const limits = getVehicleWeightLimits(vt as VehicleType);
-      const avgWeight = getAverageWeight(vt as VehicleType);
+    const typeDef = types.find((t) => t.code === vt);
+    if (typeDef) {
+      const avgWeight = getAverageWeight(vt);
       update({
         size: vt,
-        vehicleType: vt as VehicleType,
-        emptyWeight: limits.emptyWeight,
-        maxWeight: limits.maxWeight,
+        vehicleType: vt,
+        emptyWeight: typeDef.tonnageMini,
+        maxWeight: typeDef.tonnageMaxi,
         currentWeight: avgWeight,
       });
     } else {
       update({ size: vt, vehicleType: undefined, emptyWeight: undefined, maxWeight: undefined, currentWeight: undefined });
     }
   };
+
+  const showTrailerPlate = types.find((t) => t.code === data.size)?.showTrailerPlate ?? false;
 
   return (
     <div className="space-y-6">
@@ -121,16 +120,16 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
               !data.size ? "border-red-500" : "border-gray-300"
             }`}
           >
-            <option value="">{t.chooseType}</option>
-            {VEHICLE_TYPE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label} ({o.limits.emptyWeight}t - {o.limits.maxWeight}t)
+            <option value="">{typesLoading ? "Chargement..." : t.chooseType}</option>
+            {types.map((o) => (
+              <option key={o.code} value={o.code}>
+                {o.label} ({o.tonnageMini}t - {o.tonnageMaxi}t)
               </option>
             ))}
           </select>
         </div>
         {/* Plaque de remorque (semi-remorque uniquement, facultatif) */}
-        {data.size === "SEMI_REMORQUE" && (
+        {showTrailerPlate && (
           <div>
             <label className="text-sm font-semibold flex items-center gap-1 mb-1">
               <Image
@@ -397,6 +396,8 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
           </label>
         </div>
       </div>
+
+      <VehicleTypeReferenceTable />
     </div>
   );
 }

@@ -29,11 +29,15 @@ export interface MonthlyData {
   };
 }
 
-// Mapping des couleurs pour les types de véhicules réels
-export const TYPE_COLORS = {
-  "Porteur": "#3B82F6",           // bleu
-  "Porteur articulé": "#F59E0B",  // orange
-  "Semi-remorque": "#EF4444",     // rouge
+// Couleurs par défaut (fallback si API indisponible)
+export const TYPE_COLORS: Record<string, string> = {
+  "Fourgon / VL": "#6B7280",
+  "Porteur léger (10 m³)": "#22C55E",
+  "Porteur moyen (15 m³)": "#3B82F6",
+  "Gros porteur (20 m³)": "#8B5CF6",
+  "Porteur articulé": "#F59E0B",
+  "Semi-remorque": "#EF4444",
+  "Porteur": "#3B82F6",
 };
 
 // Données mock détaillées

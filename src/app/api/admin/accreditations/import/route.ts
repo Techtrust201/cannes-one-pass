@@ -5,6 +5,7 @@ import { requirePermission, getAccessibleEventIds } from "@/lib/auth-helpers";
 import { validateCsvRecords, type CsvRowError, type CsvValidRow } from "@/lib/csv-import";
 import { writeHistoryDirect } from "@/lib/history-server";
 import { CSV_TO_ENUM, deriveCategory } from "@/lib/category-rules";
+import { DEFAULT_VEHICLE_TYPES } from "@/lib/vehicle-type-defaults";
 
 function handleAuthError(error: unknown) {
   if (error instanceof Response)
@@ -89,7 +90,17 @@ export async function POST(req: NextRequest) {
   const slugToId = new Map(accessibleEvents.map((e) => [e.slug, e.id]));
   const accessibleSlugs = new Set(slugToId.keys());
 
-  const report = validateCsvRecords(records, accessibleSlugs);
+  const activeVehicleTypes = await prisma.vehicleTypeConfig.findMany({
+    where: { isActive: true },
+    select: { code: true },
+  });
+  const validVehicleSizes = new Set(
+    activeVehicleTypes.length > 0
+      ? activeVehicleTypes.map((t) => t.code)
+      : DEFAULT_VEHICLE_TYPES.map((t) => t.code)
+  );
+
+  const report = validateCsvRecords(records, accessibleSlugs, validVehicleSizes);
 
   if (report.errors.length > 0) {
     return Response.json(

@@ -10,6 +10,17 @@ interface BatonsTabProps {
   searchQuery: unknown;
 }
 
+function getTypeLabels(data: CarbonData): string[] {
+  if (data.typeLabels && data.typeLabels.length > 0) return data.typeLabels;
+  return Object.keys(TYPE_COLORS);
+}
+
+function getTypeColors(data: CarbonData): Record<string, string> {
+  return data.typeColors && Object.keys(data.typeColors).length > 0
+    ? data.typeColors
+    : TYPE_COLORS;
+}
+
 // Fonction pour préparer les données mensuelles pour les graphiques
 function prepareMonthlyVehicleData(monthlyData: MonthlyData[]) {
   return monthlyData.map((month) => ({
@@ -19,14 +30,14 @@ function prepareMonthlyVehicleData(monthlyData: MonthlyData[]) {
   }));
 }
 
-function prepareMonthlyTypeData(monthlyData: MonthlyData[]) {
+function prepareMonthlyTypeData(monthlyData: MonthlyData[], typeLabels: string[]) {
   return monthlyData.map((month) => ({
     month: month.month,
     year: month.year,
     monthIndex: month.monthIndex,
-    "Porteur": month.typeBreakdown["Porteur"],
-    "Porteur articulé": month.typeBreakdown["Porteur articulé"],
-    "Semi-remorque": month.typeBreakdown["Semi-remorque"],
+    ...Object.fromEntries(
+      typeLabels.map((label) => [label, month.typeBreakdown[label] ?? 0])
+    ),
   }));
 }
 
@@ -126,7 +137,9 @@ function MonthlyVehicleChart({ data }: { data: CarbonData }) {
 }
 
 function TypeChart({ data }: { data: CarbonData }) {
-  const monthlyTypeData = prepareMonthlyTypeData(data.monthly);
+  const typeLabels = getTypeLabels(data);
+  const typeColors = getTypeColors(data);
+  const monthlyTypeData = prepareMonthlyTypeData(data.monthly, typeLabels);
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-3 md:p-6">
       <h2 className="text-base md:text-lg font-semibold text-gray-900 mb-3 md:mb-4">Type</h2>
@@ -135,13 +148,13 @@ function TypeChart({ data }: { data: CarbonData }) {
       <div className="h-56 md:h-80 mb-6 md:mb-8">
         <SafeResponsiveBar
           data={monthlyTypeData}
-          keys={Object.keys(TYPE_COLORS)}
+          keys={typeLabels}
           indexBy="month"
           margin={{ top: 20, right: 20, bottom: 60, left: 60 }}
           padding={0.3}
           valueScale={{ type: "linear" }}
           indexScale={{ type: "band", round: true }}
-          colors={(d) => TYPE_COLORS[d.id as keyof typeof TYPE_COLORS]}
+          colors={(d) => typeColors[d.id as string] ?? "#6B7280"}
           borderColor={{
             from: "color",
             modifiers: [["darker", 1.6]],
@@ -200,12 +213,10 @@ function TypeChart({ data }: { data: CarbonData }) {
               {monthData.month}
             </h3>
             <div className="space-y-1.5 md:space-y-2">
-              {Object.keys(TYPE_COLORS).map((type) => {
-                const value = monthData[
-                  type as keyof typeof monthData
-                ] as number;
+              {typeLabels.map((type) => {
+                const value = monthData[type as keyof typeof monthData] as number;
                 const maxValue = Math.max(
-                  ...Object.keys(TYPE_COLORS).map(
+                  ...typeLabels.map(
                     (t) => monthData[t as keyof typeof monthData] as number
                   )
                 );
@@ -217,8 +228,7 @@ function TypeChart({ data }: { data: CarbonData }) {
                     <div
                       className="w-2 h-2 rounded-full shrink-0"
                       style={{
-                        backgroundColor:
-                          TYPE_COLORS[type as keyof typeof TYPE_COLORS],
+                        backgroundColor: typeColors[type] ?? "#6B7280",
                       }}
                     ></div>
                     <span className="text-xs text-gray-600 flex-1 truncate">{type}</span>
@@ -227,8 +237,7 @@ function TypeChart({ data }: { data: CarbonData }) {
                         <div
                           className="h-2 rounded-full transition-all duration-300"
                           style={{
-                            backgroundColor:
-                              TYPE_COLORS[type as keyof typeof TYPE_COLORS],
+                            backgroundColor: typeColors[type] ?? "#6B7280",
                             width: `${percentage}%`,
                           }}
                         ></div>

@@ -21,7 +21,14 @@ async function main() {
     "Netflix",
     "Nomsuperlongalire",
   ];
-  const vehicleTypes = ["PORTEUR", "PORTEUR_ARTICULE", "SEMI_REMORQUE"] as const;
+  const vehicleTypes = [
+    "VL",
+    "PORTEUR_LEGER",
+    "PORTEUR",
+    "GROS_PORTEUR",
+    "PORTEUR_ARTICULE",
+    "SEMI_REMORQUE",
+  ] as const;
   const countries = [
     "FRANCE",
     "ESPAGNE",

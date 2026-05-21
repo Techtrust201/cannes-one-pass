@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import StatusPill from "./StatusPill";
 import MobileAccreditationList from "./MobileAccreditationList";
 import { formatVehicleDate } from "@/lib/date-utils";
+import { needsTrailerPlate } from "@/lib/vehicle-utils";
 import {
   Pagination,
   PaginationContent,
@@ -426,7 +427,7 @@ export default function AccreditationTable({
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-gray-100 text-[11px] font-mono font-bold text-gray-700 tracking-wide">
                             {acc.vehicles[0].plate}
                           </span>
-                          {acc.vehicles[0].size === "SEMI_REMORQUE" && (
+                          {needsTrailerPlate(acc.vehicles[0].vehicleType || acc.vehicles[0].size || "") && (
                             <span className="block text-[9px] text-gray-400 mt-0.5 font-mono">
                               R: {acc.vehicles[0].trailerPlate || "—"}
                             </span>

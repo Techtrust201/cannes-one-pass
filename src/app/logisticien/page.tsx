@@ -1,4 +1,5 @@
 export const maxDuration = 60;
+export const dynamic = "force-dynamic";
 
 import { headers } from "next/headers";
 import { readAccreditations } from "@/lib/store";

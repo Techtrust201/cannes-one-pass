@@ -20,9 +20,10 @@ export function buildLink(
 }
 
 /**
- * Ajoute le paramètre `espace` à un chemin s'il est fourni. Utilisé pour les
- * liens internes du dashboard logisticien afin de préserver le contexte
- * d'Espace sélectionné lors de la navigation.
+ * Ajoute le paramètre `espace` à un chemin s'il est fourni. Utilisé à la fois
+ * pour les liens internes du dashboard logisticien (préservation du contexte
+ * lors de la navigation) et pour les appels `fetch` côté client qui veulent
+ * scoper la requête à l'Espace actif.
  */
 export function withEspaceQuery(path: string, espace: string | null | undefined): string {
   if (!espace) return path;

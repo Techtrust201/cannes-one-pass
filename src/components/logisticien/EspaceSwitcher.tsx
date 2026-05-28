@@ -80,13 +80,12 @@ export default function EspaceSwitcher({
 
   function switchTo(slug: string | null) {
     const qs = new URLSearchParams();
-    if (searchParams) {
-      searchParams.forEach((v, k) => {
-        if (k === "espace") return;
-        qs.set(k, v);
-      });
-    }
     if (slug) qs.set("espace", slug);
+    // Au switch d'organisation, on repart d'un état URL "propre" sur la
+    // page courante : tous les filtres org-spécifiques (recherche, statut,
+    // zone, step de wizard, etc.) sont retirés. Le re-fetch des Server
+    // Components est délégué à `EspaceChangeRefresher` (layout) qui
+    // détecte le changement de `?espace=` et appelle `router.refresh()`.
     const target = `${pathname || "/logisticien"}${qs.toString() ? `?${qs}` : ""}`;
     setOpen(false);
     onChange?.();

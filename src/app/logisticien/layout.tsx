@@ -11,6 +11,7 @@ import { authClient } from "@/lib/auth-client";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { withEspaceQuery } from "@/lib/url";
 import EspaceSwitcher from "@/components/logisticien/EspaceSwitcher";
+import EspaceChangeRefresher from "@/components/logisticien/EspaceChangeRefresher";
 
 const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";
 
@@ -77,6 +78,7 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen text-sm text-gray-900">
+      <EspaceChangeRefresher />
       {/* Overlay mobile */}
       {sidebarOpen && (
         <div

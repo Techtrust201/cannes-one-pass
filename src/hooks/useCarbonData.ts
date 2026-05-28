@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import type { DateRange } from "@/app/logisticien/carbon/page";
+import { useEspaceSlug } from "@/hooks/useEspaceSlug";
 
 export interface CarbonDataEntry {
   id: string;
@@ -66,6 +67,7 @@ export function useCarbonData(
   dateRange: DateRange,
   searchQuery: string
 ): UseCarbonDataResult {
+  const espace = useEspaceSlug();
   const [data, setData] = useState<CarbonData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -87,7 +89,7 @@ export function useCarbonData(
     };
   }, [searchQuery]);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     // Annuler la requête précédente si elle est en cours
     abortControllerRef.current?.abort();
     abortControllerRef.current = new AbortController();
@@ -105,12 +107,7 @@ export function useCarbonData(
         params.append("search", debouncedSearchQuery.trim());
       }
 
-      // Propage le contexte d'Espace (?espace=<slug>) au backend pour
-      // cloisonner les données carbone par organisation.
-      if (typeof window !== "undefined") {
-        const espace = new URLSearchParams(window.location.search).get("espace");
-        if (espace) params.append("espace", espace);
-      }
+      if (espace) params.append("espace", espace);
 
       const response = await fetch(`/api/carbon?${params}`, {
         method: "GET",
@@ -163,12 +160,11 @@ export function useCarbonData(
     } finally {
       if (!signal.aborted) setLoading(false);
     }
-  };
+  }, [dateRange.start, dateRange.end, debouncedSearchQuery, espace]);
 
   useEffect(() => {
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateRange.start, dateRange.end, debouncedSearchQuery]);
+  }, [fetchData]);
 
   return {
     data,

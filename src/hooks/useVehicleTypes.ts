@@ -6,8 +6,9 @@ import {
   invalidateVehicleTypeCache,
   type VehicleTypeData,
 } from "@/lib/vehicle-utils";
+import { withEspaceQuery } from "@/lib/url";
 
-export function useVehicleTypes(includeInactive = false) {
+export function useVehicleTypes(includeInactive = false, espaceSlug?: string | null) {
   const [types, setTypes] = useState<VehicleTypeData[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -15,7 +16,10 @@ export function useVehicleTypes(includeInactive = false) {
     setLoading(true);
     try {
       invalidateVehicleTypeCache();
-      const url = includeInactive ? "/api/vehicle-types?all=true" : "/api/vehicle-types";
+      const base = includeInactive
+        ? "/api/vehicle-types?all=true"
+        : "/api/vehicle-types";
+      const url = withEspaceQuery(base, espaceSlug);
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
@@ -47,7 +51,7 @@ export function useVehicleTypes(includeInactive = false) {
     } finally {
       setLoading(false);
     }
-  }, [includeInactive]);
+  }, [includeInactive, espaceSlug]);
 
   useEffect(() => {
     refresh();

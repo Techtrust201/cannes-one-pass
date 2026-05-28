@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
+import { withEspaceQuery } from "@/lib/url";
 
 export interface UnloadingProvider {
   id: string;
@@ -13,22 +15,19 @@ export interface UnloadingProvider {
  *
  * Multi-tenant : si `espaceSlug` est fourni (template d'accréditation,
  * sidebar logisticien avec `?espace=`), on filtre les prestataires de
- * cette organisation **+** ceux globaux. Sinon, comportement legacy.
+ * cette organisation **+** ceux globaux. Sinon, lit `?espace=` depuis l'URL.
  */
 export function useUnloadingProviders(espaceSlug?: string | null) {
+  const searchParams = useSearchParams();
+  const espaceFromUrl = searchParams?.get("espace")?.trim() || null;
+  const espace = espaceSlug ?? espaceFromUrl;
+
   const [providers, setProviders] = useState<UnloadingProvider[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    const espace =
-      espaceSlug ??
-      (typeof window !== "undefined"
-        ? new URLSearchParams(window.location.search).get("espace")
-        : null);
-    const url = espace
-      ? `/api/unloading-providers?espace=${encodeURIComponent(espace)}`
-      : "/api/unloading-providers";
+    const url = withEspaceQuery("/api/unloading-providers", espace);
     fetch(url)
       .then((r) => (r.ok ? r.json() : []))
       .then((data) => {
@@ -41,7 +40,7 @@ export function useUnloadingProviders(espaceSlug?: string | null) {
     return () => {
       cancelled = true;
     };
-  }, [espaceSlug]);
+  }, [espace]);
 
   return { providers, loading };
 }

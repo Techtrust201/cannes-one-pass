@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useRef } from "react";
 import Image from "next/image";
 import StepOne from "@/components/accreditation/StepOne";
 import StepTwo from "@/components/accreditation/StepTwo";
 import StepThree from "@/components/accreditation/StepThree";
 import StepFourLog from "@/components/accreditation/StepFourLog";
 import type { Vehicle } from "@/types";
+import { useEspaceSlug } from "@/hooks/useEspaceSlug";
 
 type FormData = {
   stepOne: {
@@ -42,6 +43,7 @@ function getDefaultFormData(): FormData {
 function LogisticienNewContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const espace = useEspaceSlug();
   const step = Number(searchParams.get("step") ?? "1");
 
   const [stepValid, setStepValid] = useState(false);
@@ -96,8 +98,31 @@ function LogisticienNewContent() {
     setStepValid(false);
   }, [step]);
 
+  const prevEspace = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (prevEspace.current === undefined) {
+      prevEspace.current = espace;
+      return;
+    }
+    if (prevEspace.current !== espace) {
+      prevEspace.current = espace;
+      // Au changement d'organisation, on repart d'un état totalement
+      // propre : formulaire vide + retour au step 1. Évite de garder
+      // des données saisies pour l'org précédente (event, exposant,
+      // catégorie…) qui n'auraient plus de sens pour la nouvelle org.
+      setFormData(getDefaultFormData());
+      setHasSaved(false);
+      localStorage.removeItem("log_formData");
+      const qs = new URLSearchParams({ step: "1" });
+      if (espace) qs.set("espace", espace);
+      router.replace(`/logisticien/nouveau?${qs.toString()}`);
+    }
+  }, [espace, router]);
+
   function gotoStep(n: number) {
-    router.push(`/logisticien/nouveau?step=${n}`);
+    const qs = new URLSearchParams({ step: String(n) });
+    if (espace) qs.set("espace", espace);
+    router.push(`/logisticien/nouveau?${qs.toString()}`);
   }
 
   function clearForm() {
@@ -185,6 +210,7 @@ function LogisticienNewContent() {
                   data={formData.stepOne}
                   update={(patch) => updateForm("stepOne", patch)}
                   onValidityChange={setStepValid}
+                  orgSlug={espace ?? "palais-des-festivals"}
                 />
               )}
               {step === 2 && (

@@ -4,7 +4,6 @@ import { useState } from "react";
 import {
   Pencil,
   Check,
-  X,
   Loader2,
   PlusCircle,
   Power,
@@ -12,9 +11,11 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { useVehicleTypes } from "@/hooks/useVehicleTypes";
+import { useEspaceSlug } from "@/hooks/useEspaceSlug";
 import { COLOR_OPTIONS, getColorClasses } from "@/lib/color-palette";
 import { invalidateVehicleTypeCache } from "@/lib/vehicle-utils";
 import type { VehicleTypeData } from "@/lib/vehicle-utils";
+import { withEspaceQuery } from "@/lib/url";
 
 interface VehicleTypesSectionProps {
   canWrite: boolean;
@@ -34,7 +35,8 @@ const EMPTY_FORM = {
 };
 
 export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionProps) {
-  const { types, loading, refresh } = useVehicleTypes(true);
+  const espace = useEspaceSlug();
+  const { types, loading, refresh } = useVehicleTypes(true, espace);
   const activeTypes = types.filter((t) => t.isActive);
   const inactiveTypes = types.filter((t) => !t.isActive);
 
@@ -52,7 +54,7 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
   const handleSeed = async () => {
     setSeeding(true);
     try {
-      const res = await fetch("/api/vehicle-types/seed", { method: "POST" });
+      const res = await fetch(withEspaceQuery("/api/vehicle-types/seed", espace), { method: "POST" });
       if (res.ok) {
         invalidateVehicleTypeCache();
         await refresh();
@@ -67,7 +69,7 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
     setCreating(true);
     setCreateError("");
     try {
-      const res = await fetch("/api/vehicle-types", {
+      const res = await fetch(withEspaceQuery("/api/vehicle-types", espace), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

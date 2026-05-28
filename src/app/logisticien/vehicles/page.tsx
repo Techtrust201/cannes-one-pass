@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import VehicleTypesSection from "@/components/logisticien/VehicleTypesSection";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useEspaceSlug } from "@/hooks/useEspaceSlug";
+import { withEspaceQuery } from "@/lib/url";
 
 interface UnloadingProvider {
   id: string;
@@ -22,6 +24,7 @@ interface UnloadingProvider {
 
 export default function VehiclesPage() {
   const { hasPermission, loading: permLoading } = usePermissions();
+  const espace = useEspaceSlug();
   const canWrite = hasPermission("FLUX_VEHICULES", "write");
 
   const [providers, setProviders] = useState<UnloadingProvider[]>([]);
@@ -41,10 +44,10 @@ export default function VehiclesPage() {
   const fetchProviders = useCallback(async () => {
     setLoading(true);
     try {
-      const url = canWrite
+      const base = canWrite
         ? "/api/unloading-providers?all=true"
         : "/api/unloading-providers";
-      const res = await fetch(url);
+      const res = await fetch(withEspaceQuery(base, espace));
       if (res.ok) {
         const data: UnloadingProvider[] = await res.json();
         setProviders(data.filter((p) => p.isActive));
@@ -55,7 +58,7 @@ export default function VehiclesPage() {
     } finally {
       setLoading(false);
     }
-  }, [canWrite]);
+  }, [canWrite, espace]);
 
   useEffect(() => {
     if (!permLoading) fetchProviders();
@@ -66,7 +69,7 @@ export default function VehiclesPage() {
     setCreating(true);
     setCreateError("");
     try {
-      const res = await fetch("/api/unloading-providers", {
+      const res = await fetch(withEspaceQuery("/api/unloading-providers", espace), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newName.trim() }),

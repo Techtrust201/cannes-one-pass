@@ -14,6 +14,8 @@ import {
   Trash2,
 } from "lucide-react";
 import { invalidateZoneCache } from "@/lib/zone-utils";
+import { useEspaceSlug } from "@/hooks/useEspaceSlug";
+import { withEspaceQuery } from "@/lib/url";
 
 interface ZoneData {
   id: number;
@@ -68,6 +70,7 @@ function getColors(colorName: string) {
 }
 
 export default function ZonesPage() {
+  const espace = useEspaceSlug();
   const [zones, setZones] = useState<ZoneData[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -140,13 +143,9 @@ export default function ZonesPage() {
   };
 
   const fetchZones = useCallback(async () => {
+    setLoading(true);
     try {
-      const espace =
-        typeof window !== "undefined"
-          ? new URLSearchParams(window.location.search).get("espace")
-          : null;
-      const url = espace ? `/api/zones?espace=${encodeURIComponent(espace)}` : "/api/zones";
-      const res = await fetch(url);
+      const res = await fetch(withEspaceQuery("/api/zones", espace));
       if (res.ok) {
         const data = await res.json();
         setZones(data);
@@ -156,7 +155,7 @@ export default function ZonesPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [espace]);
 
   useEffect(() => {
     fetchZones();
@@ -208,7 +207,7 @@ export default function ZonesPage() {
     }
     setCreating(true);
     try {
-      const res = await fetch("/api/zones", {
+      const res = await fetch(withEspaceQuery("/api/zones", espace), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

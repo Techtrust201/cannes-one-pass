@@ -1,12 +1,13 @@
 /**
- * Configuration des espaces RX/Yachting et de leurs catégories logistiques.
+ * Configuration métier RX / Cannes Yachting Festival 2026.
  *
- * Extrait du brief HTML validé par Éric :
- * `public/demo/yachting-2026-accreditations-logistiques.html`.
+ * Source : cahier des charges RX (matrice espace × catégorie × jour),
+ * transposé du planning officiel. Format des plages : `"HH:MM-HH:MM"`,
+ * UNE entrée par jour (jamais de plage traversant minuit en une seule
+ * chaîne — sinon `genSlots` renvoie une liste vide).
  *
- * Format des plages horaires : `"HH:MM-HH:MM"`. Lorsqu'on présente une
- * catégorie à l'exposant, on lui propose la liste des dates disponibles
- * avec leur plage horaire, et il choisit (date, heure d'arrivée).
+ * À l'affichage, chaque couple (catégorie, date) propose des créneaux
+ * d'une heure générés dynamiquement par `genSlots`.
  */
 
 export type DateTimeSlots = Record<string, string>; // "YYYY-MM-DD" → "HH:MM-HH:MM"
@@ -28,9 +29,9 @@ export interface RxCategory {
 export interface RxSpaceDef {
   id: string;
   label: string;
+  /** Note d'espace affichée en récap (ex: Tenders). */
+  note?: string;
   categories: RxCategory[];
-  /** Espaces qui requièrent un choix utilisateur (ex: Int/Ext Palais). */
-  requiresUserChoice?: boolean;
 }
 
 /** Tous les espaces logistiques RX. */
@@ -128,7 +129,7 @@ export const RX_SPACES: Record<string, RxSpaceDef> = {
         },
         scales: true,
         scalesNote:
-          "Pour la manutention des moteurs, RDV obligatoire avec Scales (réception entre 1er et 2 septembre).",
+          "Pour les moteurs, RDV obligatoire avec Scales (réception 1er–2 sept).",
       },
     ],
   },
@@ -277,6 +278,22 @@ export const RX_SPACES: Record<string, RxSpaceDef> = {
         },
         scales: false,
       },
+      {
+        id: "nus-jetee",
+        name: "Espace nu devant bateau",
+        icon: "📐",
+        liv: {
+          "2026-09-04": "12:00-23:00",
+          "2026-09-05": "00:00-23:00",
+          "2026-09-06": "00:00-23:00",
+          "2026-09-07": "00:00-23:00",
+        },
+        rep: {
+          "2026-09-13": "19:00-23:00",
+          "2026-09-14": "00:00-17:00",
+        },
+        scales: false,
+      },
     ],
   },
   SYE: {
@@ -314,6 +331,7 @@ export const RX_SPACES: Record<string, RxSpaceDef> = {
   TENDERS: {
     id: "TENDERS",
     label: "Espace Tenders (proche du Palais)",
+    note: "Espace proche du Palais — règles équivalentes à l'Extérieur Palais.",
     categories: [
       {
         id: "tender-bateau",
@@ -462,88 +480,99 @@ export const RX_SPACES: Record<string, RxSpaceDef> = {
         },
         rep: { "2026-09-15": "08:00-17:00" },
         scales: true,
-        scalesNote:
-          "Manutention via Scales obligatoire pour les bateaux à terre.",
+        scalesNote: "Manutention via Scales obligatoire pour les bateaux à terre.",
       },
     ],
   },
 };
 
+/** Espace spécial signalant qu'un choix Intérieur/Extérieur Palais est requis. */
+export const PALAIS_CHOICE = "PALAIS_CHOICE";
+
 /**
- * Mapping secteur (data-secteur de la combobox) → espace logistique.
- * Permet d'auto-détecter l'espace depuis l'exposant sélectionné.
- *
- * Mapping aligné sur la maquette HTML validée (voir
- * `/home/hugo/Téléchargements/remixed-7f8d8ed4.html`, fonction
- * `getSpaceFromSecteur`).
- *
- * - PALAIS — PALAIS                → `PALAIS_CHOICE` (l'utilisateur doit
- *                                    choisir Intérieur ou Extérieur)
- * - VIEUX PORT — SYE               → SYE
- * - VIEUX PORT — QML               → QML
- * - VIEUX PORT — QSP               → QSP
- * - VIEUX PORT — PANTIERO          → PANTIERO
- * - VIEUX PORT — JETEE             → JETEE
- * - VIEUX PORT — TENDERS           → TENDERS
- * - CANTO — POWER                  → POWER
- * - CANTO — SAIL                   → SAIL
- * - CANTO — BROKER                 → BROKER
+ * Mapping `secteur` (figé sur l'exposant) → clé d'espace logistique.
+ * Retourne `requiresUserChoice` lorsque le secteur est "PALAIS — PALAIS"
+ * (l'exposant doit alors préciser Intérieur ou Extérieur).
  */
 export function deriveSpaceFromSector(sector: string): {
   space: string | null;
   requiresUserChoice: boolean;
 } {
-  const s = sector.trim().toUpperCase();
+  const s = (sector ?? "").trim().toUpperCase();
   if (s.includes("PALAIS — PALAIS") || s.includes("PALAIS – PALAIS")) {
-    return { space: "PALAIS_CHOICE", requiresUserChoice: true };
+    return { space: PALAIS_CHOICE, requiresUserChoice: true };
   }
-  // Ordre important : "TENDERS" et "SYE" avant les mappings génériques.
   if (s.includes("SYE")) return { space: "SYE", requiresUserChoice: false };
-  if (s.includes("TENDERS")) return { space: "TENDERS", requiresUserChoice: false };
-  if (s.includes("QML")) return { space: "QML", requiresUserChoice: false };
-  if (s.includes("QSP")) return { space: "QSP", requiresUserChoice: false };
   if (s.includes("PANTIERO")) return { space: "PANTIERO", requiresUserChoice: false };
+  if (s.includes("QSP")) return { space: "QSP", requiresUserChoice: false };
   if (s.includes("JETEE") || s.includes("JETÉE")) {
     return { space: "JETEE", requiresUserChoice: false };
   }
+  if (s.includes("QML")) return { space: "QML", requiresUserChoice: false };
+  if (s.includes("TENDERS")) return { space: "TENDERS", requiresUserChoice: false };
   if (s.includes("POWER")) return { space: "POWER", requiresUserChoice: false };
   if (s.includes("SAIL")) return { space: "SAIL", requiresUserChoice: false };
   if (s.includes("BROKER")) return { space: "BROKER", requiresUserChoice: false };
   return { space: null, requiresUserChoice: false };
 }
 
+/** Retrouve la définition d'une catégorie dans un espace donné. */
+export function findCategory(
+  spaceKey: string,
+  categoryId: string
+): RxCategory | null {
+  const space = RX_SPACES[spaceKey];
+  if (!space) return null;
+  return space.categories.find((c) => c.id === categoryId) ?? null;
+}
+
 /**
- * Génère les créneaux horaires d'une heure entre `start` et `end`.
- * Format d'entrée : `"HH:MM-HH:MM"`. Format de sortie : `["HH:00-HH:00", ...]`.
+ * Génère des créneaux d'une heure depuis une plage `"HH:MM-HH:MM"`.
+ *
+ * Exemple : `"08:00-12:00"` → `["08:00-09:00", …, "11:00-12:00"]`.
+ *
+ * IMPORTANT : une plage doit être stockée par jour (jamais `"19:00-17:00"`
+ * traversant minuit, qui produirait une liste vide).
  */
-export function generateHourlySlots(range: string): string[] {
+export function genSlots(range: string): string[] {
+  if (!range || !range.includes("-")) return [];
   const [start, end] = range.split("-");
-  if (!start || !end) return [];
-  const sh = parseInt(start.split(":")[0]!, 10);
-  const eh = parseInt(end.split(":")[0]!, 10);
-  if (!Number.isFinite(sh) || !Number.isFinite(eh) || eh <= sh) return [];
+  const sh = parseInt(start.split(":")[0], 10);
+  const eh = parseInt(end.split(":")[0], 10);
+  if (Number.isNaN(sh) || Number.isNaN(eh) || eh <= sh) return [];
   const slots: string[] = [];
   for (let h = sh; h < eh; h++) {
-    slots.push(`${String(h).padStart(2, "0")}:00-${String(h + 1).padStart(2, "0")}:00`);
+    slots.push(
+      `${String(h).padStart(2, "0")}:00-${String(h + 1).padStart(2, "0")}:00`
+    );
   }
   return slots;
 }
 
-/** Formate une date ISO `YYYY-MM-DD` en français court : "ven 4 sep". */
+/** Formate une date ISO "YYYY-MM-DD" en français court : "jeu 3 sep". */
 export function formatDateFR(iso: string): string {
+  if (!iso) return "";
   const parts = iso.split("-");
   if (parts.length !== 3) return iso;
-  const months = ["jan", "fév", "mar", "avr", "mai", "jun", "jul", "aoû", "sep", "oct", "nov", "déc"];
+  const months = [
+    "jan", "fév", "mar", "avr", "mai", "jun",
+    "jul", "aoû", "sep", "oct", "nov", "déc",
+  ];
   const days = ["dim", "lun", "mar", "mer", "jeu", "ven", "sam"];
   const dt = new Date(`${iso}T12:00:00`);
   if (Number.isNaN(dt.getTime())) return iso;
-  return `${days[dt.getDay()]} ${parseInt(parts[2]!, 10)} ${months[parseInt(parts[1]!, 10) - 1]}`;
+  return `${days[dt.getDay()]} ${parseInt(parts[2], 10)} ${months[parseInt(parts[1], 10) - 1]}`;
 }
 
-/** Liste des prestataires de manutention pour la Step 3 RX. */
+/** Formate un créneau "08:00-09:00" pour affichage : "08:00 – 09:00". */
+export function formatSlot(slot: string): string {
+  return slot ? slot.replace("-", " – ") : "";
+}
+
+/** Liste des prestataires de manutention pour la Step Manutention RX. */
 export const RX_MANUTENTION_PROVIDERS = [
   { value: "SVMM", label: "SVMM" },
   { value: "Mathez", label: "Mathez" },
   { value: "Scales", label: "Scales" },
-  { value: "Autonome", label: "Autonome (Scales uniquement pour catégories concernées)" },
+  { value: "Autonome", label: "Aucun (Scales uniquement pour catégories concernées)" },
 ];

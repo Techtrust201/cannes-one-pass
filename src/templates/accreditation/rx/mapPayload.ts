@@ -1,17 +1,16 @@
 import type { CreateAccreditationPayload } from "../types";
-import { RX_SPACES } from "./config";
-import type { RxExtension, RxFormData } from "./types";
+import type { RxFormData } from "./types";
+import { findCategory } from "./config";
 
 /**
  * Mapping form data RX → payload `POST /api/accreditations`.
  *
  * Particularités RX :
- * - `company` / `stand`   ← exposant sélectionné (combobox unique)
- * - `event`               ← event RX actif résolu côté wizard (Yachting 2026)
- * - `vehicles`            ← concaténation de tous les véhicules de toutes
- *                            les catégories de livraison (chaque véhicule
- *                            emporte la date+créneau de sa catégorie)
- * - `extension` (JSON DB) ← exhibitor + contact + space + delivery + pickup
+ * - `company` / `stand` proviennent de l'exposant sélectionné.
+ * - `vehicles` est la concaténation de tous les véhicules attendus
+ *   déclarés dans chaque catégorie cochée. Chacun emporte le créneau
+ *   (`date` + `time`) de sa catégorie d'origine.
+ * - `extension` regroupe les champs RX-spécifiques pour le back-office.
  */
 export function mapRxPayload(
   form: RxFormData,
@@ -19,15 +18,15 @@ export function mapRxPayload(
 ): CreateAccreditationPayload {
   const vehicles: CreateAccreditationPayload["vehicles"] = [];
 
-  for (const cat of form.delivery.categories) {
+  for (const cat of form.stepTwo.categories) {
     for (const v of cat.vehicles) {
       vehicles.push({
         plate: v.plate ?? null,
-        size: "",
-        phoneCode: form.contact.phoneCode,
-        phoneNumber: form.contact.phoneNumber,
-        date: cat.date,
-        time: cat.slot,
+        size: "", // taille libre, non utilisée par RX → vide
+        phoneCode: form.stepOne.contact.phoneCode,
+        phoneNumber: form.stepOne.contact.phoneNumber,
+        date: cat.livDate,
+        time: cat.livTime,
         city: "",
         unloading: ["rear"],
         vehicleType: v.vehicleType,
@@ -36,44 +35,34 @@ export function mapRxPayload(
     }
   }
 
-  // Scales auto-assigné si au moins une catégorie cochée a `scales: true`
-  // dans la config du space courant.
-  const spaceConfig = form.exhibitor.space
-    ? RX_SPACES[form.exhibitor.space]
-    : undefined;
-  const scalesAssigned = spaceConfig
-    ? form.delivery.categories.some((cat) => {
-        const def = spaceConfig.categories.find((c) => c.id === cat.categoryId);
-        return def?.scales === true;
-      })
-    : false;
-
-  const extension: RxExtension = {
-    exhibitor: {
-      id: form.exhibitor.id,
-      name: form.exhibitor.name,
-      stand: form.exhibitor.stand,
-      sector: form.exhibitor.sector,
-      zone: form.exhibitor.zone,
-    },
-    contact: form.contact,
-    space: form.exhibitor.space,
-    delivery: form.delivery,
-    pickup: form.pickup,
-    scalesAssigned,
-    manutentionProvider: form.manutention.provider,
-  };
+  // Détecte si au moins une catégorie cochée déclenche la manutention Scales
+  // automatique (matrice espace × catégorie dans config.ts).
+  const scalesAssigned = form.stepTwo.categories.some(
+    (c) => findCategory(form.stepOne.space, c.categoryId)?.scales === true
+  );
 
   return {
     organizationSlug: "rx",
-    company: form.exhibitor.name,
-    stand: form.exhibitor.stand,
-    unloading: form.manutention.provider || "Autonome",
-    event: form.exhibitor.eventSlug,
+    company: form.stepOne.exhibitorName,
+    stand: form.stepOne.exhibitorStand,
+    unloading: form.stepThree.manutentionProvider || "Autonome",
+    event: form.stepOne.event,
     vehicles,
-    consent: true,
+    consent: form.stepThree.consent,
     language,
     status: "NOUVEAU",
-    extension: extension as unknown as Record<string, unknown>,
+    extension: {
+      exhibitor: {
+        id: form.stepOne.exhibitorId,
+        name: form.stepOne.exhibitorName,
+        stand: form.stepOne.exhibitorStand,
+        sector: form.stepOne.exhibitorSector,
+      },
+      contact: form.stepOne.contact,
+      space: form.stepOne.space,
+      categories: form.stepTwo.categories,
+      scalesAssigned,
+      manutentionProvider: form.stepThree.manutentionProvider,
+    },
   };
 }

@@ -1,59 +1,57 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { cn } from "@/lib/utils";
+import { CheckCircle, AlertTriangle, Loader2 } from "lucide-react";
 import { useTranslation } from "@/components/accreditation/TranslationProvider";
-import { RX_MANUTENTION_PROVIDERS, RX_SPACES } from "../config";
+import { PortalOverlay } from "@/components/ui/PortalOverlay";
 import { mapRxPayload } from "../mapPayload";
-import { useRxFinalizer } from "../finalizerContext";
+import { RX_MANUTENTION_PROVIDERS, findCategory } from "../config";
 import type { StepProps } from "../../types";
-import type { RxFormData, RxManutentionProvider } from "../types";
+import type { RxFormData } from "../types";
 
 /**
- * Step 5 RX — Prestataire de manutention + validation finale.
+ * Step 5 RX — Manutention + validation finale.
  *
- * Aligné sur la card 5 + bouton "Valider l'accréditation" de la maquette :
- * - Notice "Scales auto" si une catégorie cochée nécessite Scales
- * - Select prestataire complémentaire (SVMM / Mathez / Scales / Autonome)
- * - **Bouton de validation final** intégré au step (le wizard ne rend pas
- *   de "Suivant" sur le dernier step)
- * - POST `/api/accreditations` puis overlay de succès avec ID
+ * - Notice Scales auto si au moins une catégorie cochée le nécessite.
+ * - Sélection d'un prestataire complémentaire (optionnel).
+ * - Consentement.
+ * - Bouton "Valider l'accréditation" : POST /api/accreditations + overlay
+ *   de succès avec ID d'accréditation (pattern homogène avec le Palais).
  */
-export function StepManutentionRx({
-  data,
-  update,
-  onValidityChange,
-}: StepProps<RxFormData>) {
-  const { lang } = useTranslation();
-  const { resetAll, setHasSaved } = useRxFinalizer();
+export function StepManutentionRx({ data, update, onValidityChange }: StepProps<RxFormData>) {
+  const { t, lang } = useTranslation();
+  const { stepOne, stepTwo, stepThree } = data;
 
-  const setProvider = (provider: RxManutentionProvider) => {
-    update({ manutention: { provider } } as Partial<RxFormData>);
-  };
+  const [loading, setLoading] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [hasSaved, setHasSaved] = useState(false);
+  const [accredId, setAccredId] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
-  // Notice Scales auto : true si au moins une catégorie cochée a scales=true
-  const scalesAuto = useMemo(() => {
-    const space = data.exhibitor.space ? RX_SPACES[data.exhibitor.space] : null;
-    if (!space) return false;
-    return data.delivery.categories.some((c) => {
-      const def = space.categories.find((cat) => cat.id === c.categoryId);
-      return def?.scales === true;
-    });
-  }, [data.exhibitor.space, data.delivery.categories]);
+  const scalesRequired = useMemo(
+    () =>
+      stepTwo.categories.some(
+        (c) => findCategory(stepOne.space, c.categoryId)?.scales === true
+      ),
+    [stepOne.space, stepTwo.categories]
+  );
 
-  const [submitting, setSubmitting] = useState(false);
-  const [submittedId, setSubmittedId] = useState<string | null>(null);
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  // L'étape est "valide" (bouton Suivant) dès que le consentement est donné ;
+  // mais comme c'est la dernière étape, la validation réelle se fait au submit.
+  const isValid = stepThree.consent && (!scalesRequired || stepThree.scalesAcknowledged);
 
-  // Step toujours valide (prestataire optionnel selon maquette).
   useEffect(() => {
-    onValidityChange(true);
-  }, [onValidityChange]);
+    onValidityChange(isValid);
+  }, [isValid, onValidityChange]);
 
-  async function handleSubmit() {
-    setSubmitting(true);
-    setSubmitError(null);
+  async function handleConfirm() {
+    if (hasSaved) {
+      setShowModal(false);
+      return;
+    }
+    setError("");
     try {
+      setLoading(true);
       const payload = mapRxPayload(data, lang);
       const res = await fetch("/api/accreditations", {
         method: "POST",
@@ -61,59 +59,80 @@ export function StepManutentionRx({
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(
-          body?.error || `Erreur ${res.status} lors de l'enregistrement`
-        );
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || "save error");
       }
-      const created = (await res.json()) as { id?: string };
-      setSubmittedId(created.id ?? "—");
+      const created = await res.json().catch(() => null);
+      setAccredId(created?.publicCode || created?.id || "—");
       setHasSaved(true);
+      setShowModal(false);
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "Erreur réseau");
+      console.error(err);
+      setError(t.saveError ?? "Une erreur est survenue lors de l'enregistrement.");
     } finally {
-      setSubmitting(false);
+      setLoading(false);
     }
   }
 
-  function handleNew() {
-    setSubmittedId(null);
-    setSubmitError(null);
-    resetAll();
+  const totalVehicles = stepTwo.categories.reduce((s, c) => s + c.vehicles.length, 0);
+
+  // Écran de succès
+  if (hasSaved) {
+    return (
+      <div className="flex flex-col items-center justify-center py-8 w-full text-center gap-4">
+        <CheckCircle size={56} className="text-green-500" />
+        <h2 className="text-2xl font-bold text-gray-900">
+          {t.requestSaved ?? "Accréditation validée !"}
+        </h2>
+        <p className="text-sm text-gray-600 max-w-md">
+          Votre demande a bien été enregistrée. Un e-mail de confirmation avec
+          votre planning détaillé vous sera envoyé.
+        </p>
+        {accredId && (
+          <div className="font-mono text-lg font-bold bg-gray-100 rounded-lg px-4 py-2 text-gray-800">
+            {accredId}
+          </div>
+        )}
+        {scalesRequired && (
+          <div className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-3 text-sm text-orange-800 max-w-md text-left">
+            <strong>⚠ Rappel Scales :</strong> n&apos;oubliez pas de prendre
+            rendez-vous avec Scales pour les catégories concernées. Contact :{" "}
+            <strong>scales@manutention.fr</strong>
+          </div>
+        )}
+      </div>
+    );
   }
 
   return (
-    <div className="flex flex-col w-full gap-5">
+    <div className="flex flex-col w-full gap-4">
       <div>
-        <h2 className="text-lg font-semibold text-gray-800 mb-1">
-          Prestataire de manutention principal
+        <h2 className="text-base font-semibold text-gray-800 mb-1">
+          Prestataire de manutention
         </h2>
         <p className="text-sm text-gray-500">
           Société pour la manutention non-Scales.
         </p>
       </div>
 
-      {scalesAuto && (
-        <div className="rounded-md bg-orange-50 border border-orange-200 p-3 text-sm text-orange-900">
-          ⚠ <strong>Scales sera automatiquement assigné</strong> pour les
-          catégories cochées le nécessitant (bateaux à terre, motoristes, etc.).
-          Vous pouvez tout de même choisir un prestataire complémentaire pour le
-          reste des opérations.
+      {scalesRequired && (
+        <div className="bg-orange-50 border border-orange-200 rounded-md p-3 text-sm text-orange-800">
+          <strong>⚠ Scales sera automatiquement assigné</strong> pour les
+          catégories cochées le nécessitant (bateaux à terre, motoristes…). Vous
+          pouvez choisir un prestataire complémentaire pour le reste.
         </div>
       )}
 
-      <div>
-        <label
-          htmlFor="rx-manut"
-          className="text-sm font-semibold text-gray-700 block mb-1"
-        >
+      <div className="space-y-1">
+        <label className="text-sm font-semibold text-gray-700">
           Prestataire complémentaire
         </label>
         <select
-          id="rx-manut"
-          value={data.manutention.provider}
-          onChange={(e) => setProvider(e.target.value as RxManutentionProvider)}
-          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white focus:ring-primary focus:border-primary"
+          value={stepThree.manutentionProvider}
+          onChange={(e) =>
+            update({ stepThree: { ...stepThree, manutentionProvider: e.target.value } })
+          }
+          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
         >
           <option value="">— Sélectionnez un prestataire —</option>
           {RX_MANUTENTION_PROVIDERS.map((p) => (
@@ -124,74 +143,112 @@ export function StepManutentionRx({
         </select>
       </div>
 
-      <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">
-        ⚠ Tous les champs marqués <strong>*</strong> aux étapes précédentes
-        sont obligatoires. La validation génère une accréditation officielle
-        transmise par e-mail.
+      {scalesRequired && (
+        <label className="flex items-start gap-2 text-sm bg-orange-50 border border-orange-200 rounded-md p-3">
+          <input
+            type="checkbox"
+            checked={stepThree.scalesAcknowledged}
+            onChange={(e) =>
+              update({ stepThree: { ...stepThree, scalesAcknowledged: e.target.checked } })
+            }
+            className="mt-1 accent-orange-600"
+          />
+          <span>
+            Je prendrai contact avec <strong>Scales</strong> pour planifier la
+            manutention des catégories concernées (
+            <a href="mailto:scales@manutention.fr" className="underline">
+              scales@manutention.fr
+            </a>
+            ).
+          </span>
+        </label>
+      )}
+
+      <label className="flex items-start gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={stepThree.consent}
+          onChange={(e) => update({ stepThree: { ...stepThree, consent: e.target.checked } })}
+          className="mt-1 accent-primary"
+        />
+        <span>
+          J&apos;autorise le traitement de ces informations dans le cadre de
+          l&apos;accréditation logistique de l&apos;événement.
+        </span>
+      </label>
+
+      {/* Récap compact */}
+      <div className="rounded-lg bg-gray-50 border border-gray-200 p-3 text-sm space-y-1">
+        <div>
+          <span className="font-semibold">Exposant :</span> {stepOne.exhibitorName}{" "}
+          <span className="text-gray-500">({stepOne.exhibitorStand})</span>
+        </div>
+        <div>
+          <span className="font-semibold">Catégories :</span> {stepTwo.categories.length}
+          {" · "}
+          <span className="font-semibold">Véhicules :</span> {totalVehicles}
+        </div>
+        <div>
+          <span className="font-semibold">Contact :</span> {stepOne.contact.firstName}{" "}
+          {stepOne.contact.lastName} · {stepOne.contact.email}
+        </div>
       </div>
 
-      {submitError && (
-        <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-800">
-          <strong>Erreur :</strong> {submitError}
+      {error && (
+        <div className="flex items-center gap-2 bg-red-50 border-l-4 border-red-400 text-red-700 px-4 py-2 rounded text-sm">
+          <AlertTriangle size={18} className="shrink-0" />
+          <span>{error}</span>
         </div>
       )}
 
       <button
         type="button"
-        onClick={handleSubmit}
-        disabled={submitting || submittedId !== null}
-        className={cn(
-          "w-full py-3 px-4 rounded-md text-white font-semibold transition shadow-sm",
-          submitting || submittedId !== null
-            ? "bg-gray-400 cursor-not-allowed"
-            : "bg-[#353c52] hover:bg-[#2a3045]"
-        )}
+        onClick={() => setShowModal(true)}
+        disabled={!isValid || loading}
+        className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-base shadow transition-all duration-150 bg-primary text-white hover:bg-primary-dark disabled:opacity-50"
       >
-        {submitting
-          ? "Enregistrement en cours…"
-          : submittedId
-            ? "Accréditation enregistrée"
-            : "✅ Valider l'accréditation"}
+        {loading ? <Loader2 size={18} className="animate-spin" /> : "✅"}
+        Valider l&apos;accréditation
       </button>
 
-      {submittedId && (
-        <div
-          className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-center">
-            <div className="w-16 h-16 mx-auto bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center text-3xl mb-4">
-              ✓
-            </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">
-              Accréditation validée !
-            </h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Votre demande a bien été enregistrée. Un e-mail de confirmation
-              avec votre planning détaillé vous sera envoyé dans les prochaines
-              minutes.
-            </p>
-            <div className="bg-gray-100 rounded-md py-2 px-4 inline-block font-mono text-sm text-gray-800 mb-4">
-              {submittedId}
-            </div>
-            {scalesAuto && (
-              <div className="rounded-md bg-orange-50 border border-orange-200 p-3 text-xs text-orange-900 mb-4 text-left">
-                <strong>⚠ Rappel Scales :</strong> n&apos;oubliez pas de prendre
-                rendez-vous avec Scales pour les catégories nécessitant leur
-                intervention. Contact :{" "}
-                <strong>scales@manutention.fr</strong>
+      {!isValid && (
+        <p className="text-gray-400 text-xs text-center">
+          Confirmez le consentement
+          {scalesRequired ? " et l'acquittement Scales" : ""} pour valider.
+        </p>
+      )}
+
+      {showModal && (
+        <PortalOverlay>
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[70] px-4">
+            <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full border border-gray-200">
+              <h2 className="text-lg font-bold mb-4 text-gray-900 text-center">
+                {t.confirmTitle ?? "Confirmer l'envoi"}
+              </h2>
+              <p className="mb-6 text-gray-700 leading-relaxed text-center text-sm">
+                {t.confirmMsg1 ?? "Confirmez-vous l'envoi de cette accréditation ?"}
+              </p>
+              <div className="flex flex-col sm:flex-row justify-center gap-4">
+                <button
+                  onClick={() => setShowModal(false)}
+                  disabled={loading}
+                  className="w-full sm:w-auto px-6 py-3 rounded-xl border border-gray-300 bg-gray-100 text-gray-800 font-semibold hover:bg-gray-200 transition"
+                >
+                  {t.cancel ?? "Annuler"}
+                </button>
+                <button
+                  onClick={handleConfirm}
+                  disabled={loading}
+                  className="w-full sm:w-auto px-6 py-3 rounded-xl bg-primary text-white font-semibold shadow hover:bg-primary-dark transition disabled:opacity-60"
+                >
+                  {loading
+                    ? (t.savingProgress ?? "Envoi…")
+                    : (t.confirm ?? "Confirmer")}
+                </button>
               </div>
-            )}
-            <button
-              type="button"
-              onClick={handleNew}
-              className="w-full py-2 px-4 rounded-md bg-[#353c52] text-white text-sm font-semibold hover:bg-[#2a3045] transition"
-            >
-              Nouvelle demande
-            </button>
+            </div>
           </div>
-        </div>
+        </PortalOverlay>
       )}
     </div>
   );

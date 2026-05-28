@@ -9,12 +9,10 @@ import { StepPickupRx } from "./components/StepPickupRx";
 import { StepManutentionRx } from "./components/StepManutentionRx";
 
 /**
- * 5 steps RX alignés sur la maquette validée par Éric :
- *   1. Exposant     — combobox unique + auto-déduction espace (+ Int/Ext Palais)
- *   2. Contact      — coordonnées du demandeur
- *   3. Livraison    — catégories + dates + créneaux + N véhicules
- *   4. Reprise      — date + créneau pour chaque catégorie cochée au montage
- *   5. Manutention  — prestataire + validation finale + overlay succès
+ * 5 étapes RX alignées sur la maquette validée :
+ * Exposant / Contact / Livraison / Reprise / Manutention.
+ * La tram visuelle (header, image, progress bar, langue, footer) provient
+ * du wizard générique commun au Palais — seul le contenu diffère.
  */
 export const rxSteps: StepDef<RxFormData>[] = [
   { id: "exhibitor", label: "Exposant", component: StepExhibitorRx },

@@ -11,7 +11,6 @@ import {
 } from "@/components/accreditation/TranslationProvider";
 import { LANGUAGES, isValidLang, type LangCode } from "@/lib/translations";
 import { PalaisStepFourProvider } from "@/templates/accreditation/palais/stepFourContext";
-import { RxFinalizerProvider } from "@/templates/accreditation/rx/finalizerContext";
 import { getTemplate } from "@/templates/accreditation/registry";
 import type { Vehicle } from "@/types";
 import type {
@@ -187,13 +186,6 @@ function WizardContent({
       ? buildPalaisStepFourCtx(formData, resetAll, clearForm, setHasSaved)
       : null;
 
-  // Contexte de finalisation pour le template RX : le step Manutention
-  // (dernier step) en a besoin pour réinitialiser le wizard après succès.
-  const rxFinalizerValue =
-    template.slug === "rx"
-      ? { resetAll, clearForm, setHasSaved }
-      : null;
-
   const stepLabel = (idx: number) => template.steps[idx]?.label ?? `Step ${idx + 1}`;
 
   return (
@@ -275,10 +267,6 @@ function WizardContent({
                       <PalaisStepFourProvider value={palaisStepFourValue}>
                         <ActiveStep.component {...stepProps} />
                       </PalaisStepFourProvider>
-                    ) : rxFinalizerValue ? (
-                      <RxFinalizerProvider value={rxFinalizerValue}>
-                        <ActiveStep.component {...stepProps} />
-                      </RxFinalizerProvider>
                     ) : (
                       <ActiveStep.component {...stepProps} />
                     )

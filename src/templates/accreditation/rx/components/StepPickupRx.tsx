@@ -1,116 +1,83 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { cn } from "@/lib/utils";
-import {
-  RX_SPACES,
-  formatDateFR,
-  generateHourlySlots,
-} from "../config";
+import { findCategory, genSlots, formatDateFR, formatSlot } from "../config";
 import type { StepProps } from "../../types";
-import type { RxFormData, RxPickupCategory } from "../types";
+import type { RxFormData } from "../types";
 
 /**
  * Step 4 RX — Gestion des reprises (démontage).
  *
- * Aligné sur la card 4 de la maquette validée :
- * - Les catégories cochées au montage sont **reprises automatiquement**
- *   (lecture seule, pas de toggle)
- * - Pour chaque catégorie : sélection de la date + créneau de reprise
- *   parmi les plages définies dans `RxCategory.rep`
+ * Les catégories cochées au montage sont reprises automatiquement
+ * (verrouillées : on ne peut ni ajouter ni retirer ici). Pour chacune,
+ * l'exposant choisit la date + le créneau 1 h de reprise parmi les jours
+ * d'ouverture `rep` de la catégorie.
  */
-export function StepPickupRx({
-  data,
-  update,
-  onValidityChange,
-}: StepProps<RxFormData>) {
-  const space = data.exhibitor.space ? RX_SPACES[data.exhibitor.space] : null;
-  const deliveryIds = data.delivery.categories.map((c) => c.categoryId);
+export function StepPickupRx({ data, update, onValidityChange }: StepProps<RxFormData>) {
+  const { stepOne, stepTwo } = data;
 
-  // Synchronise l'état pickup avec les catégories cochées au montage :
-  // - ajoute les catégories nouvellement cochées (date/slot vides)
-  // - retire les catégories décochées
-  useEffect(() => {
-    const next: RxPickupCategory[] = [];
-    for (const id of deliveryIds) {
-      const existing = data.pickup.categories.find((c) => c.categoryId === id);
-      next.push(existing ?? { categoryId: id, date: "", slot: "" });
-    }
-    const sameLength = next.length === data.pickup.categories.length;
-    const sameOrder =
-      sameLength &&
-      next.every((c, i) => c.categoryId === data.pickup.categories[i]!.categoryId);
-    if (!sameOrder) {
-      update({ pickup: { categories: next } } as Partial<RxFormData>);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deliveryIds.join(",")]);
-
-  const patchPickup = (catId: string, patch: Partial<RxPickupCategory>) => {
+  const patchReturn = (catId: string, patch: { repDate?: string; repTime?: string }) => {
     update({
-      pickup: {
-        categories: data.pickup.categories.map((c) =>
+      stepTwo: {
+        ...stepTwo,
+        categories: stepTwo.categories.map((c) =>
           c.categoryId === catId ? { ...c, ...patch } : c
         ),
       },
-    } as Partial<RxFormData>);
+    });
   };
 
-  const isValid = useMemo(() => {
-    if (!space) return false;
-    if (data.pickup.categories.length === 0) return false;
-    return data.pickup.categories.every((c) => !!c.date && !!c.slot);
-  }, [space, data.pickup.categories]);
+  const isValid =
+    stepTwo.categories.length > 0 &&
+    stepTwo.categories.every((c) => c.repDate && c.repTime);
 
   useEffect(() => {
     onValidityChange(isValid);
   }, [isValid, onValidityChange]);
 
-  if (!space) {
+  if (stepTwo.categories.length === 0) {
     return (
-      <div className="rounded-md bg-amber-50 border border-amber-200 p-4 text-sm text-amber-900">
-        Configurez d&apos;abord vos livraisons à l&apos;étape précédente.
-      </div>
-    );
-  }
-
-  if (deliveryIds.length === 0) {
-    return (
-      <div className="rounded-md bg-amber-50 border border-amber-200 p-4 text-sm text-amber-900">
-        Aucune catégorie n&apos;a été cochée au montage. Retournez à l&apos;étape Livraison.
+      <div className="flex flex-col w-full gap-3">
+        <h2 className="text-base font-semibold text-gray-800">
+          Gestion des reprises (démontage)
+        </h2>
+        <p className="text-sm text-gray-500 italic">
+          Configurez d&apos;abord vos livraisons à l&apos;étape précédente.
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col w-full gap-5">
+    <div className="flex flex-col w-full gap-4">
       <div>
-        <h2 className="text-lg font-semibold text-gray-800 mb-1">
+        <h2 className="text-base font-semibold text-gray-800 mb-1">
           Gestion des reprises (démontage)
         </h2>
         <p className="text-sm text-gray-500">
-          Planifiez le départ pour les mêmes catégories que le montage.
+          ⏪ Les catégories sélectionnées au montage sont reprises
+          automatiquement. Renseignez la date et le créneau de reprise pour
+          chacune.
         </p>
       </div>
 
-      <p className="text-sm text-gray-700">
-        ⏪ Les catégories sélectionnées au montage sont reprises automatiquement.
-        Renseignez la date et le créneau de reprise pour chacune.
-      </p>
-
       <div className="space-y-3">
-        {data.pickup.categories.map((pc) => {
-          const def = space.categories.find((c) => c.id === pc.categoryId);
+        {stepTwo.categories.map((cat) => {
+          const def = findCategory(stepOne.space, cat.categoryId);
           if (!def) return null;
-          const dates = Object.keys(def.rep);
-          const slots = pc.date ? generateHourlySlots(def.rep[pc.date] ?? "") : [];
+          const slots = cat.repDate ? genSlots(def.rep[cat.repDate] ?? "") : [];
           return (
-            <div
-              key={pc.categoryId}
-              className="border rounded-lg p-3 bg-primary/5 border-primary"
-            >
-              <div className="font-semibold text-gray-800 flex items-center gap-2 flex-wrap mb-3">
-                <span>
+            <div key={cat.categoryId} className="border rounded-lg p-3 bg-white">
+              <div className="flex items-center gap-2 mb-2">
+                <input
+                  type="checkbox"
+                  checked
+                  disabled
+                  className="accent-primary opacity-70"
+                  aria-label={`${def.name} (verrouillé)`}
+                />
+                <span className="text-sm font-semibold text-gray-800">
                   {def.icon} {def.name}
                 </span>
               </div>
@@ -120,19 +87,19 @@ export function StepPickupRx({
                     Date de reprise <span className="text-red-500">*</span>
                   </label>
                   <select
-                    value={pc.date}
+                    value={cat.repDate}
                     onChange={(e) =>
-                      patchPickup(pc.categoryId, { date: e.target.value, slot: "" })
+                      patchReturn(cat.categoryId, { repDate: e.target.value, repTime: "" })
                     }
                     className={cn(
-                      "w-full border rounded-md px-2 py-2 text-sm bg-white",
-                      !pc.date && "border-red-300"
+                      "w-full border rounded-md px-2 py-1.5 text-sm",
+                      !cat.repDate && "border-red-400"
                     )}
                   >
                     <option value="">— Choisir une date —</option>
-                    {dates.map((d) => (
-                      <option key={d} value={d}>
-                        {formatDateFR(d)} ({def.rep[d]})
+                    {Object.keys(def.rep).map((date) => (
+                      <option key={date} value={date}>
+                        {formatDateFR(date)}
                       </option>
                     ))}
                   </select>
@@ -142,20 +109,20 @@ export function StepPickupRx({
                     Créneau <span className="text-red-500">*</span>
                   </label>
                   <select
-                    value={pc.slot}
-                    onChange={(e) => patchPickup(pc.categoryId, { slot: e.target.value })}
-                    disabled={!pc.date}
+                    value={cat.repTime}
+                    disabled={!cat.repDate}
+                    onChange={(e) => patchReturn(cat.categoryId, { repTime: e.target.value })}
                     className={cn(
-                      "w-full border rounded-md px-2 py-2 text-sm bg-white disabled:bg-gray-50 disabled:text-gray-400",
-                      pc.date && !pc.slot && "border-red-300"
+                      "w-full border rounded-md px-2 py-1.5 text-sm disabled:bg-gray-100 disabled:text-gray-400",
+                      cat.repDate && !cat.repTime && "border-red-400"
                     )}
                   >
                     <option value="">
-                      {pc.date ? "— Choisir un créneau —" : "— Choisir d'abord une date —"}
+                      {cat.repDate ? "— Choisir un créneau —" : "— Choisir d'abord une date —"}
                     </option>
                     {slots.map((s) => (
                       <option key={s} value={s}>
-                        {s.replace("-", " – ")}
+                        {formatSlot(s)}
                       </option>
                     ))}
                   </select>
@@ -167,8 +134,8 @@ export function StepPickupRx({
       </div>
 
       {!isValid && (
-        <p className="text-red-500 text-sm text-center">
-          Renseignez la date et le créneau pour chaque catégorie pour continuer.
+        <p className="text-gray-400 text-xs text-center">
+          Renseignez la date et le créneau de reprise pour chaque catégorie.
         </p>
       )}
     </div>

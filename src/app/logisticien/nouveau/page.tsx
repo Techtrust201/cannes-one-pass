@@ -8,128 +8,11 @@ import StepOne from "@/components/accreditation/StepOne";
 import StepTwo from "@/components/accreditation/StepTwo";
 import StepThree from "@/components/accreditation/StepThree";
 import StepFourLog from "@/components/accreditation/StepFourLog";
-import { AccreditationWizard } from "@/components/accreditation/AccreditationWizard";
 import type { Vehicle } from "@/types";
 import { useEspaceSlug } from "@/hooks/useEspaceSlug";
+import RxNouveauWizard from "./RxNouveauWizard";
 
-interface EspaceOption {
-  id: string;
-  slug: string;
-  name: string;
-  color: string;
-  logo: string | null;
-}
-
-/**
- * `/logisticien/nouveau?espace=<slug>` — Création d'accréditation côté
- * back-office.
- *
- * Dispatch par espace pour utiliser le bon wizard, **sans aucun impact
- * sur le flux Palais existant** :
- *
- * - `espace === "palais-des-festivals"` → wizard Palais legacy (4 steps
- *   personnalisés StepOne/Two/Three/StepFourLog). Code original conservé.
- * - `espace === "rx"`                   → wizard RX partagé avec le public
- *   (5 steps Exposant/Contact/Livraison/Reprise/Manutention).
- */
-export default function LogisticienNew() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-[#353c52] mx-auto"></div>
-            <p className="mt-4 text-gray-600">Chargement...</p>
-          </div>
-        </div>
-      }
-    >
-      <LogisticienNewDispatcher />
-    </Suspense>
-  );
-}
-
-function LogisticienNewDispatcher() {
-  const espace = useEspaceSlug();
-
-  if (espace === "rx") {
-    return <LogisticienNewRx />;
-  }
-
-  // Palais (et fallback par défaut) : wizard legacy inchangé.
-  return <LogisticienNewPalais />;
-}
-
-/* ──────────────────────────────────────────────────────────────────────
- * RX — réutilise le wizard public avec le template RX (5 cards maquette).
- * ────────────────────────────────────────────────────────────────────── */
-
-function LogisticienNewRx() {
-  const [orgId, setOrgId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/auth/me/espaces")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((list: EspaceOption[]) => {
-        if (cancelled) return;
-        const rx = list.find((o) => o.slug === "rx");
-        if (!rx) {
-          setError(
-            "Vous n'avez pas accès à l'organisation RX. Demandez à un administrateur de vous y rattacher."
-          );
-          return;
-        }
-        setOrgId(rx.id);
-      })
-      .catch(() => {
-        if (!cancelled) setError("Impossible de charger les Espaces accessibles.");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="bg-white border border-red-200 rounded-xl p-6 max-w-md text-center">
-          <p className="text-sm text-red-700">{error}</p>
-          <Link
-            href="/logisticien"
-            className="mt-4 inline-block text-sm text-gray-600 hover:text-gray-900 underline"
-          >
-            Retour au dashboard
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  if (!orgId) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin h-8 w-8 border-4 border-[#3F4660] border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
-  return (
-    <AccreditationWizard
-      orgSlug="rx"
-      formTemplate="rx"
-      organizationId={orgId}
-      storageKey="log_formData:rx"
-    />
-  );
-}
-
-/* ──────────────────────────────────────────────────────────────────────
- * Palais — wizard legacy 4 steps. Aucun changement par rapport à l'existant.
- * ────────────────────────────────────────────────────────────────────── */
-
-type PalaisFormData = {
+type FormData = {
   stepOne: {
     company: string;
     stand: string;
@@ -140,7 +23,7 @@ type PalaisFormData = {
   stepThree: { message: string; consent: boolean; email: string };
 };
 
-function getDefaultPalaisFormData(): PalaisFormData {
+function getDefaultFormData(): FormData {
   return {
     stepOne: { company: "", stand: "", unloading: "", event: "" },
     vehicle: {
@@ -158,7 +41,7 @@ function getDefaultPalaisFormData(): PalaisFormData {
   };
 }
 
-function LogisticienNewPalais() {
+function LogisticienNewContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const espace = useEspaceSlug();
@@ -167,11 +50,11 @@ function LogisticienNewPalais() {
   const [stepValid, setStepValid] = useState(false);
   const [hasSaved, setHasSaved] = useState(false);
 
-  const [formData, setFormData] = useState<PalaisFormData>(getDefaultPalaisFormData());
+  const [formData, setFormData] = useState<FormData>(getDefaultFormData());
 
   const updateForm = (
-    section: keyof PalaisFormData,
-    data: Partial<PalaisFormData[keyof PalaisFormData]>
+    section: keyof FormData,
+    data: Partial<FormData[keyof FormData]>
   ) => {
     setFormData((prev) => ({
       ...prev,
@@ -193,7 +76,7 @@ function LogisticienNewPalais() {
     if (hasQuery) {
       setFormData({
         stepOne: { company, stand, unloading, event },
-        vehicle: { ...getDefaultPalaisFormData().vehicle, city },
+        vehicle: { ...getDefaultFormData().vehicle, city },
         stepThree: { message, consent: false, email },
       });
     } else {
@@ -224,7 +107,11 @@ function LogisticienNewPalais() {
     }
     if (prevEspace.current !== espace) {
       prevEspace.current = espace;
-      setFormData(getDefaultPalaisFormData());
+      // Au changement d'organisation, on repart d'un état totalement
+      // propre : formulaire vide + retour au step 1. Évite de garder
+      // des données saisies pour l'org précédente (event, exposant,
+      // catégorie…) qui n'auraient plus de sens pour la nouvelle org.
+      setFormData(getDefaultFormData());
       setHasSaved(false);
       localStorage.removeItem("log_formData");
       const qs = new URLSearchParams({ step: "1" });
@@ -240,7 +127,7 @@ function LogisticienNewPalais() {
   }
 
   function clearForm() {
-    setFormData(getDefaultPalaisFormData());
+    setFormData(getDefaultFormData());
     localStorage.removeItem("log_formData");
     setHasSaved(false);
   }
@@ -391,5 +278,35 @@ function LogisticienNewPalais() {
         </div>
       </main>
     </div>
+  );
+}
+
+/**
+ * Aiguillage par espace : RX utilise le wizard multi-tenant partagé avec le
+ * formulaire public (5 étapes maquette), les autres organisations conservent
+ * le wizard logisticien historique (Palais, inchangé).
+ */
+function NouveauDispatcher() {
+  const espace = useEspaceSlug();
+  if (espace === "rx") {
+    return <RxNouveauWizard />;
+  }
+  return <LogisticienNewContent />;
+}
+
+export default function LogisticienNew() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-[#353c52] mx-auto"></div>
+            <p className="mt-4 text-gray-600">Chargement...</p>
+          </div>
+        </div>
+      }
+    >
+      <NouveauDispatcher />
+    </Suspense>
   );
 }

@@ -7,6 +7,7 @@ import {
   getSession,
   getAccessibleEventIdsForEspace,
   assertEventBelongsToOrg,
+  resolveEspaceOrgId,
 } from "@/lib/auth-helpers";
 import { getTemplate } from "@/templates/accreditation/registry";
 
@@ -30,8 +31,18 @@ export async function GET(request: NextRequest) {
     currentUserId!,
     espaceParam
   );
-  const eventScopeFilter =
-    accessibleEventIds === "ALL" ? {} : { eventId: { in: accessibleEventIds } };
+  // Scope direct par organisation de l'espace courant : inclut les
+  // accréditations rattachées à l'org même si leur eventId est null
+  // (aligné avec le dashboard SSR `readAccreditations`).
+  const espaceOrgId = espaceParam ? await resolveEspaceOrgId(espaceParam) : null;
+  const eventScopeFilter: Record<string, unknown> =
+    accessibleEventIds === "ALL"
+      ? espaceOrgId
+        ? { organizationId: espaceOrgId }
+        : {}
+      : espaceOrgId
+        ? { OR: [{ organizationId: espaceOrgId }, { eventId: { in: accessibleEventIds } }] }
+        : { eventId: { in: accessibleEventIds } };
 
   // Par défaut, exclure les accréditations archivées
   const showArchived = searchParams.get("archived") === "true";

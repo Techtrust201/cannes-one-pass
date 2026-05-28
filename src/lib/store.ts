@@ -4,14 +4,32 @@ import type { AccessibleIds } from "@/lib/auth-helpers";
 
 export async function readAccreditations(options?: {
   accessibleEventIds?: AccessibleIds;
+  /**
+   * ID de l'organisation de l'espace courant (`?espace=<slug>`). Lorsqu'il
+   * est fourni, on inclut TOUTES les accréditations de cette organisation
+   * (scope direct via `Accreditation.organizationId`), en plus du scope par
+   * event. Indispensable pour afficher les accréditations dont l'`eventId`
+   * est null (ex. RX si le slug d'event soumis n'a pas résolu) mais qui sont
+   * bien rattachées à l'organisation.
+   */
+  organizationId?: string | null;
 }): Promise<Accreditation[]> {
   const scope = options?.accessibleEventIds ?? "ALL";
-  const tenantFilter =
-    scope === "ALL"
-      ? {}
-      : scope.length === 0
-        ? { eventId: { in: [] as string[] } }
-        : { eventId: { in: scope } };
+  const orgId = options?.organizationId ?? null;
+
+  // Construction du filtre tenant :
+  // - scope "ALL" sans org → aucun filtre (super-admin global).
+  // - org fournie → union (organizationId = X) OR (eventId ∈ scope).
+  // - sinon → filtre par event uniquement (comportement historique).
+  let tenantFilter: Record<string, unknown>;
+  if (scope === "ALL") {
+    tenantFilter = orgId ? { organizationId: orgId } : {};
+  } else {
+    const eventFilter = { eventId: { in: scope } };
+    tenantFilter = orgId
+      ? { OR: [{ organizationId: orgId }, eventFilter] }
+      : eventFilter;
+  }
 
   const rows = await withRetry(() => prisma.accreditation.findMany({
     where: { isArchived: false, ...tenantFilter },

@@ -9,6 +9,7 @@ import { auth } from "@/lib/auth";
 import {
   getAccessibleEventIdsForEspace,
   getAvailableEspacesForUser,
+  resolveEspaceOrgId,
 } from "@/lib/auth-helpers";
 import { resolveDefaultEspaceSlugForUser } from "@/lib/default-espace";
 import { FilterBar } from "@/components/logisticien/FilterBar";
@@ -119,7 +120,14 @@ export default async function LogisticienDashboard(props: {
     session.user.id,
     espaceParam
   );
-  const data = await readAccreditations({ accessibleEventIds });
+  // Scope direct par organisation pour l'espace courant : garantit l'affichage
+  // des accréditations rattachées à l'org même si leur eventId est null (le
+  // contrôle d'accès à l'espace a déjà été validé plus haut).
+  const espaceOrgId = espaceParam ? await resolveEspaceOrgId(espaceParam) : null;
+  const data = await readAccreditations({
+    accessibleEventIds,
+    organizationId: espaceOrgId,
+  });
 
   const {
     q = "",

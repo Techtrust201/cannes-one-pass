@@ -1,16 +1,16 @@
 import { z } from "zod";
 
 /**
- * Schéma serveur du payload RX. Aligné sur la nouvelle shape (5 sections)
- * inspirée de la maquette HTML validée :
- *
- * - `vehicles[].plate`     → **optionnel** (saisi au scan QR à l'arrivée)
- * - `vehicles[].vehicleType` (gabarit) → **obligatoire**
- * - `vehicles[]`           → liste plate (concatène toutes les catégories)
- * - `extension`            → exhibitor + contact + space + delivery + pickup
+ * Schéma serveur du payload RX. Différences clés avec Palais :
+ * - `vehicles[].plate` est **optionnel** (saisi au scan QR à l'arrivée).
+ * - `vehicles[].vehicleType` (gabarit) est **obligatoire**.
+ * - `vehicles` peut comporter plusieurs entrées (N livraisons par stand).
+ * - `extension` est riche (contact, catégories, créneaux, manutention).
  */
 export const rxVehicleSchema = z.object({
   plate: z.string().nullable().optional(),
+  // size / city sont rendus optionnels pour RX (renseignés à l'arrivée
+  // au scan QR — pas obligatoires à la création).
   size: z.string().optional().default(""),
   phoneCode: z.string().min(1),
   phoneNumber: z.string().min(1),
@@ -28,53 +28,42 @@ export const rxVehicleSchema = z.object({
   currentWeight: z.number().optional(),
 });
 
-export const rxContactSchema = z.object({
-  firstName: z.string().min(1, "Prénom obligatoire"),
-  lastName: z.string().min(1, "Nom obligatoire"),
-  email: z.email("Adresse e-mail invalide"),
-  phoneCode: z.string().min(1),
-  phoneNumber: z.string().min(1),
-});
-
-export const rxExhibitorSchema = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1),
-  stand: z.string().min(1),
-  sector: z.string().optional().default(""),
-  zone: z.string().optional().default(""),
-});
-
-export const rxDeliveryCategorySchema = z.object({
-  categoryId: z.string().min(1),
-  date: z.string().min(1, "Date obligatoire"),
-  slot: z.string().min(1, "Créneau obligatoire"),
-  vehicles: z
+export const rxExtensionSchema = z.object({
+  exhibitor: z.object({
+    id: z.string(),
+    name: z.string(),
+    stand: z.string(),
+    sector: z.string().optional().default(""),
+  }),
+  contact: z.object({
+    firstName: z.string().min(1),
+    lastName: z.string().min(1),
+    email: z.email(),
+    phoneCode: z.string().min(1),
+    phoneNumber: z.string().min(1),
+  }),
+  space: z.string().min(1),
+  categories: z
     .array(
       z.object({
-        vehicleType: z.string().min(1, "Gabarit obligatoire"),
-        plate: z.string().nullable().optional(),
-        trailerPlate: z.string().optional(),
+        categoryId: z.string(),
+        livDate: z.string(),
+        livTime: z.string(),
+        repDate: z.string(),
+        repTime: z.string(),
+        vehicles: z
+          .array(
+            z.object({
+              vehicleType: z.string().min(1),
+              plate: z.string().nullable().optional(),
+              trailerPlate: z.string().optional(),
+              notes: z.string().optional(),
+            })
+          )
+          .default([]),
       })
     )
-    .min(1, "Au moins un véhicule requis par catégorie"),
-});
-
-export const rxPickupCategorySchema = z.object({
-  categoryId: z.string().min(1),
-  date: z.string().min(1, "Date de reprise obligatoire"),
-  slot: z.string().min(1, "Créneau de reprise obligatoire"),
-});
-
-export const rxExtensionSchema = z.object({
-  exhibitor: rxExhibitorSchema,
-  contact: rxContactSchema,
-  space: z.string().min(1, "Espace logistique non résolu"),
-  delivery: z.object({
-    categories: rxDeliveryCategorySchema.array().min(1),
-  }),
-  pickup: z.object({
-    categories: rxPickupCategorySchema.array().min(1),
-  }),
+    .min(1, "Au moins une catégorie est requise"),
   scalesAssigned: z.boolean(),
   manutentionProvider: z.string(),
 });
@@ -85,7 +74,7 @@ export const rxPayloadSchema = z.object({
   stand: z.string().min(1),
   unloading: z.string().min(1),
   event: z.string().min(1),
-  vehicles: z.array(rxVehicleSchema).min(1, "Au moins un véhicule attendu"),
+  vehicles: z.array(rxVehicleSchema), // 0..N véhicules attendus
   message: z.string().optional(),
   consent: z.boolean(),
   language: z.string().optional(),

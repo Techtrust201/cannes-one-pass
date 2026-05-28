@@ -18,7 +18,14 @@ import type { RxFormData } from "../types";
  * - Bouton "Valider l'accréditation" : POST /api/accreditations + overlay
  *   de succès avec ID d'accréditation (pattern homogène avec le Palais).
  */
-export function StepManutentionRx({ data, update, onValidityChange, mode }: StepProps<RxFormData>) {
+export function StepManutentionRx({
+  data,
+  update,
+  onValidityChange,
+  mode,
+  onClearDraft,
+  onResetForm,
+}: StepProps<RxFormData>) {
   const { t, lang } = useTranslation();
   const { stepOne, stepTwo, stepThree } = data;
 
@@ -26,6 +33,9 @@ export function StepManutentionRx({ data, update, onValidityChange, mode }: Step
   const [showModal, setShowModal] = useState(false);
   const [hasSaved, setHasSaved] = useState(false);
   const [createdCount, setCreatedCount] = useState(0);
+  // Capturé au moment du submit pour rester correct sur l'écran de succès
+  // même après purge du brouillon.
+  const [scalesAtSubmit, setScalesAtSubmit] = useState(false);
   const [error, setError] = useState("");
 
   const scalesRequired = useMemo(
@@ -71,8 +81,12 @@ export function StepManutentionRx({ data, update, onValidityChange, mode }: Step
       setCreatedCount(
         typeof created?.count === "number" ? created.count : fallbackCount
       );
+      setScalesAtSubmit(scalesRequired);
       setHasSaved(true);
       setShowModal(false);
+      // Purge le brouillon : un rechargement repartira d'un formulaire vierge
+      // (évite de reporter les véhicules sur la prochaine demande).
+      onClearDraft?.();
     } catch (err) {
       console.error(err);
       setError(t.saveError ?? "Une erreur est survenue lors de l'enregistrement.");
@@ -101,12 +115,24 @@ export function StepManutentionRx({ data, update, onValidityChange, mode }: Step
             ? "Elles sont validées et visibles dans la liste."
             : "Votre demande sera traitée puis validée par l'organisateur. Un e-mail de confirmation vous sera envoyé."}
         </p>
-        {scalesRequired && (
+        {scalesAtSubmit && (
           <div className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-3 text-sm text-orange-800 max-w-md text-left">
             <strong>⚠ Rappel Scales :</strong> n&apos;oubliez pas de prendre
             rendez-vous avec Scales pour les catégories concernées. Contact :{" "}
             <strong>scales@manutention.fr</strong>
           </div>
+        )}
+        {onResetForm && (
+          <button
+            type="button"
+            onClick={() => {
+              setHasSaved(false);
+              onResetForm();
+            }}
+            className="mt-2 px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition"
+          >
+            Nouvelle demande
+          </button>
         )}
       </div>
     );

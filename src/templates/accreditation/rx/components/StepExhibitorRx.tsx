@@ -111,6 +111,15 @@ export function StepExhibitorRx({
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
+  // Changer (ou effacer) l'exposant réinitialise systématiquement les
+  // livraisons et la manutention : l'espace/les catégories diffèrent d'un
+  // exposant à l'autre, et il ne faut jamais reporter les véhicules d'une
+  // demande précédente (sinon double-comptage à la soumission).
+  const RESET_DOWNSTREAM: Partial<RxFormData> = {
+    stepTwo: { categories: [] },
+    stepThree: { manutentionProvider: "", scalesAcknowledged: false, consent: false },
+  };
+
   const selectExhibitor = (ex: ExhibitorOption | null) => {
     if (!ex) {
       update({
@@ -122,6 +131,7 @@ export function StepExhibitorRx({
           exhibitorSector: "",
           space: "",
         },
+        ...RESET_DOWNSTREAM,
       });
       return;
     }
@@ -135,6 +145,7 @@ export function StepExhibitorRx({
         exhibitorSector: ex.sector ?? "",
         space: derived.requiresUserChoice ? derived.space ?? "" : derived.space ?? "",
       },
+      ...RESET_DOWNSTREAM,
     });
     setQuery(`${ex.name} · ${ex.stand}`);
     setOpen(false);

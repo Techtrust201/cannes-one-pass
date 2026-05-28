@@ -175,6 +175,12 @@ function WizardContent({
   const activeStepIdx = step - 1;
   const ActiveStep: StepDef<unknown> | undefined = template.steps[activeStepIdx];
 
+  const clearDraft = useCallback(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(storageKey);
+    }
+  }, [storageKey]);
+
   const stepProps: StepProps<unknown> = {
     data: formData,
     update: (patch) => updateForm(patch),
@@ -182,6 +188,8 @@ function WizardContent({
     orgSlug,
     organizationId,
     mode,
+    onClearDraft: clearDraft,
+    onResetForm: resetAll,
   };
 
   // Préparation du contexte StepFour pour le template Palais (équivalent

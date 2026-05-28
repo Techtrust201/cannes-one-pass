@@ -47,7 +47,10 @@ export function StepDeliveryRx({ data, update, onValidityChange }: StepProps<RxF
   }, [needsPalaisChoice, stepOne.space]);
 
   const setPalaisChoice = (choice: "INTERIEUR_PALAIS" | "EXTERIEUR_PALAIS") => {
-    update({ stepOne: { ...stepOne, space: choice } });
+    // Les catégories diffèrent entre Intérieur et Extérieur Palais : on
+    // réinitialise les livraisons déjà saisies pour éviter de conserver des
+    // catégories de l'autre espace.
+    update({ stepOne: { ...stepOne, space: choice }, stepTwo: { categories: [] } });
   };
 
   const toggleCategory = (catId: string) => {

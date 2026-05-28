@@ -35,6 +35,17 @@ export interface StepProps<TData> {
    * création de l'accréditation RX : NOUVEAU en public, ATTENTE en logisticien).
    */
   mode?: "public" | "logisticien";
+  /**
+   * Supprime le brouillon localStorage (sans réinitialiser l'état en mémoire).
+   * Utilisé après une soumission réussie pour qu'un rechargement reparte
+   * d'un formulaire vierge.
+   */
+  onClearDraft?: () => void;
+  /**
+   * Réinitialise complètement le formulaire (données initiales + suppression
+   * du brouillon) et revient à l'étape 1. Utilisé par "Nouvelle demande".
+   */
+  onResetForm?: () => void;
 }
 
 /**

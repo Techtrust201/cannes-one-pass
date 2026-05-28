@@ -279,20 +279,215 @@ export const RX_SPACES: Record<string, RxSpaceDef> = {
       },
     ],
   },
+  SYE: {
+    id: "SYE",
+    label: "Super Yachts Extension",
+    categories: [
+      {
+        id: "flot-sye",
+        name: "Bateau à flot / ponton privatif",
+        icon: "🛥️",
+        liv: {
+          "2026-09-06": "12:00-23:00",
+          "2026-09-07": "00:00-19:00",
+        },
+        rep: {
+          "2026-09-13": "19:00-23:00",
+          "2026-09-14": "00:00-12:00",
+        },
+        scales: true,
+        scalesNote: "Planning d'arrivée individuel envoyé par l'organisateur.",
+      },
+      {
+        id: "tente-sye",
+        name: "Stand sous tente",
+        icon: "⛺",
+        liv: { "2026-09-07": "08:00-23:00" },
+        rep: {
+          "2026-09-13": "19:00-23:00",
+          "2026-09-14": "00:00-17:00",
+        },
+        scales: false,
+      },
+    ],
+  },
+  TENDERS: {
+    id: "TENDERS",
+    label: "Espace Tenders (proche du Palais)",
+    categories: [
+      {
+        id: "tender-bateau",
+        name: "Bateau / Tender",
+        icon: "🛥️",
+        liv: {
+          "2026-09-05": "16:00-23:00",
+          "2026-09-06": "00:00-12:00",
+        },
+        rep: {
+          "2026-09-13": "19:00-23:00",
+          "2026-09-14": "00:00-18:00",
+        },
+        scales: true,
+        scalesNote: "Manutention via Scales selon planning individuel.",
+      },
+      {
+        id: "tender-tente",
+        name: "Stand sous tente",
+        icon: "⛺",
+        liv: { "2026-09-07": "08:00-23:00" },
+        rep: {
+          "2026-09-13": "19:00-23:00",
+          "2026-09-14": "00:00-17:00",
+        },
+        scales: false,
+      },
+    ],
+  },
+  BROKER: {
+    id: "BROKER",
+    label: "Espace Broker et Toys",
+    categories: [
+      {
+        id: "flot-broker",
+        name: "Bateau à flot / ponton privatif",
+        icon: "🛥️",
+        liv: {
+          "2026-09-03": "08:00-23:00",
+          "2026-09-04": "08:00-23:00",
+          "2026-09-05": "08:00-23:00",
+          "2026-09-06": "08:00-23:00",
+          "2026-09-07": "08:00-19:00",
+        },
+        rep: {
+          "2026-09-13": "19:00-23:00",
+          "2026-09-14": "00:00-12:00",
+        },
+        scales: true,
+        scalesNote: "Planning individuel à coordonner avec Scales.",
+      },
+      {
+        id: "tente-broker",
+        name: "Tente / espace nu / devant bateau",
+        icon: "⛺",
+        liv: {
+          "2026-09-05": "08:00-23:00",
+          "2026-09-06": "08:00-23:00",
+          "2026-09-07": "08:00-23:00",
+        },
+        rep: {
+          "2026-09-13": "19:00-23:00",
+          "2026-09-14": "00:00-17:00",
+        },
+        scales: false,
+      },
+    ],
+  },
+  SAIL: {
+    id: "SAIL",
+    label: "Espace Voile (Mono / Multicoque)",
+    categories: [
+      {
+        id: "flot-sail",
+        name: "Bateau à flot / ponton privatif",
+        icon: "⛵",
+        liv: {
+          "2026-09-04": "12:00-23:00",
+          "2026-09-05": "00:00-23:00",
+          "2026-09-06": "00:00-23:00",
+          "2026-09-07": "00:00-19:00",
+        },
+        rep: {
+          "2026-09-13": "19:00-23:00",
+          "2026-09-14": "00:00-12:00",
+        },
+        scales: false,
+      },
+      {
+        id: "tente-sail",
+        name: "Stand sous tente",
+        icon: "⛺",
+        liv: {
+          "2026-09-05": "08:00-23:00",
+          "2026-09-06": "08:00-23:00",
+          "2026-09-07": "08:00-23:00",
+        },
+        rep: {
+          "2026-09-13": "19:00-23:00",
+          "2026-09-14": "00:00-17:00",
+        },
+        scales: false,
+      },
+      {
+        id: "nus-sail",
+        name: "Espace nu devant bateau",
+        icon: "📐",
+        liv: {
+          "2026-09-05": "08:00-23:00",
+          "2026-09-06": "08:00-23:00",
+          "2026-09-07": "08:00-23:00",
+        },
+        rep: {
+          "2026-09-13": "19:00-23:00",
+          "2026-09-14": "00:00-17:00",
+        },
+        scales: false,
+      },
+    ],
+  },
+  POWER: {
+    id: "POWER",
+    label: "Power Boat Marina",
+    categories: [
+      {
+        id: "flot-power",
+        name: "Bateau à flot",
+        icon: "🛥️",
+        liv: {
+          "2026-09-05": "12:00-23:00",
+          "2026-09-06": "00:00-23:00",
+        },
+        rep: {
+          "2026-09-13": "19:00-23:00",
+          "2026-09-14": "00:00-17:00",
+        },
+        scales: false,
+      },
+      {
+        id: "terre-power",
+        name: "Bateau à terre",
+        icon: "⛵",
+        liv: {
+          "2026-09-04": "14:00-23:00",
+          "2026-09-05": "00:00-20:00",
+        },
+        rep: { "2026-09-15": "08:00-17:00" },
+        scales: true,
+        scalesNote:
+          "Manutention via Scales obligatoire pour les bateaux à terre.",
+      },
+    ],
+  },
 };
 
 /**
  * Mapping secteur (data-secteur de la combobox) → espace logistique.
  * Permet d'auto-détecter l'espace depuis l'exposant sélectionné.
  *
- * - PALAIS — PALAIS               → choix Int/Ext requis
- * - VIEUX PORT — QML              → QML
- * - VIEUX PORT — QSP              → QSP
- * - VIEUX PORT — PANTIERO         → PANTIERO
- * - VIEUX PORT — JETEE / TENDERS  → JETEE
- * - VIEUX PORT — SYE              → SYE (non implémenté en V1)
- * - CANTO — POWER / SAIL / BROKER → PANTIERO (mappage volontaire, à
- *   raffiner avec Éric quand RX précisera la gestion des espaces Canto)
+ * Mapping aligné sur la maquette HTML validée (voir
+ * `/home/hugo/Téléchargements/remixed-7f8d8ed4.html`, fonction
+ * `getSpaceFromSecteur`).
+ *
+ * - PALAIS — PALAIS                → `PALAIS_CHOICE` (l'utilisateur doit
+ *                                    choisir Intérieur ou Extérieur)
+ * - VIEUX PORT — SYE               → SYE
+ * - VIEUX PORT — QML               → QML
+ * - VIEUX PORT — QSP               → QSP
+ * - VIEUX PORT — PANTIERO          → PANTIERO
+ * - VIEUX PORT — JETEE             → JETEE
+ * - VIEUX PORT — TENDERS           → TENDERS
+ * - CANTO — POWER                  → POWER
+ * - CANTO — SAIL                   → SAIL
+ * - CANTO — BROKER                 → BROKER
  */
 export function deriveSpaceFromSector(sector: string): {
   space: string | null;
@@ -302,13 +497,47 @@ export function deriveSpaceFromSector(sector: string): {
   if (s.includes("PALAIS — PALAIS") || s.includes("PALAIS – PALAIS")) {
     return { space: "PALAIS_CHOICE", requiresUserChoice: true };
   }
+  // Ordre important : "TENDERS" et "SYE" avant les mappings génériques.
+  if (s.includes("SYE")) return { space: "SYE", requiresUserChoice: false };
+  if (s.includes("TENDERS")) return { space: "TENDERS", requiresUserChoice: false };
   if (s.includes("QML")) return { space: "QML", requiresUserChoice: false };
   if (s.includes("QSP")) return { space: "QSP", requiresUserChoice: false };
   if (s.includes("PANTIERO")) return { space: "PANTIERO", requiresUserChoice: false };
-  if (s.includes("JETEE") || s.includes("JETÉE") || s.includes("TENDERS")) {
+  if (s.includes("JETEE") || s.includes("JETÉE")) {
     return { space: "JETEE", requiresUserChoice: false };
   }
+  if (s.includes("POWER")) return { space: "POWER", requiresUserChoice: false };
+  if (s.includes("SAIL")) return { space: "SAIL", requiresUserChoice: false };
+  if (s.includes("BROKER")) return { space: "BROKER", requiresUserChoice: false };
   return { space: null, requiresUserChoice: false };
+}
+
+/**
+ * Génère les créneaux horaires d'une heure entre `start` et `end`.
+ * Format d'entrée : `"HH:MM-HH:MM"`. Format de sortie : `["HH:00-HH:00", ...]`.
+ */
+export function generateHourlySlots(range: string): string[] {
+  const [start, end] = range.split("-");
+  if (!start || !end) return [];
+  const sh = parseInt(start.split(":")[0]!, 10);
+  const eh = parseInt(end.split(":")[0]!, 10);
+  if (!Number.isFinite(sh) || !Number.isFinite(eh) || eh <= sh) return [];
+  const slots: string[] = [];
+  for (let h = sh; h < eh; h++) {
+    slots.push(`${String(h).padStart(2, "0")}:00-${String(h + 1).padStart(2, "0")}:00`);
+  }
+  return slots;
+}
+
+/** Formate une date ISO `YYYY-MM-DD` en français court : "ven 4 sep". */
+export function formatDateFR(iso: string): string {
+  const parts = iso.split("-");
+  if (parts.length !== 3) return iso;
+  const months = ["jan", "fév", "mar", "avr", "mai", "jun", "jul", "aoû", "sep", "oct", "nov", "déc"];
+  const days = ["dim", "lun", "mar", "mer", "jeu", "ven", "sam"];
+  const dt = new Date(`${iso}T12:00:00`);
+  if (Number.isNaN(dt.getTime())) return iso;
+  return `${days[dt.getDay()]} ${parseInt(parts[2]!, 10)} ${months[parseInt(parts[1]!, 10) - 1]}`;
 }
 
 /** Liste des prestataires de manutention pour la Step 3 RX. */

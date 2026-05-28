@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import LangSelector from "@/components/accreditation/LangSelector";
 import {
   TranslationProvider,
@@ -11,6 +11,7 @@ import {
 } from "@/components/accreditation/TranslationProvider";
 import { LANGUAGES, isValidLang, type LangCode } from "@/lib/translations";
 import { PalaisStepFourProvider } from "@/templates/accreditation/palais/stepFourContext";
+import { getTemplate } from "@/templates/accreditation/registry";
 import type { Vehicle } from "@/types";
 import type {
   AccreditationTemplate,
@@ -24,9 +25,22 @@ import type {
  * steps du template fourni. Conserve strictement l'apparence de l'ancien
  * `src/app/accreditation/page.tsx` côté Palais — l'UX RX reprend la même
  * tram avec les steps RX-spécifiques.
+ *
+ * IMPORTANT — sérialisation Server/Client :
+ *   Ce composant est marqué `"use client"`. Toutes ses props doivent donc
+ *   être sérialisables dans le RSC payload (strings, nombres, objets JSON
+ *   simples). Le template lui-même contient des fonctions (`initialData`,
+ *   `mapPayload`), un schéma Zod (`schema`) et des `React.ComponentType`
+ *   dans `steps[].component` — il N'EST PAS sérialisable. On reçoit donc
+ *   uniquement le `formTemplate` (slug string) et on résout le template
+ *   complet **côté client** via `getTemplate(formTemplate)`.
  */
-interface AccreditationWizardProps<TData> {
-  template: AccreditationTemplate<TData>;
+interface AccreditationWizardProps {
+  /** Slug réel de l'organisation (matche `Organization.slug` en base). */
+  orgSlug: string;
+  /** Clé du template à utiliser (matche `Organization.formTemplate`). */
+  formTemplate: string;
+  /** ID interne de l'organisation. */
   organizationId: string;
   /**
    * Préfixe utilisé pour la clé localStorage. Permet de séparer les
@@ -68,11 +82,19 @@ function LanguageSelectionStep({ orgSlug }: { orgSlug: string }) {
   );
 }
 
-function WizardContent<TData>({
+interface WizardContentProps {
+  template: AccreditationTemplate<unknown>;
+  orgSlug: string;
+  organizationId: string;
+  storageKey: string;
+}
+
+function WizardContent({
   template,
+  orgSlug,
   organizationId,
   storageKey,
-}: AccreditationWizardProps<TData>) {
+}: WizardContentProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { t, lang } = useTranslation();
@@ -85,10 +107,13 @@ function WizardContent<TData>({
 
   const [stepValid, setStepValid] = useState(false);
   const [hasSaved, setHasSaved] = useState(false);
-  const [formData, setFormData] = useState<TData>(() => template.initialData());
+  const [formData, setFormData] = useState<unknown>(() => template.initialData());
 
-  const updateForm = useCallback((patch: Partial<TData>) => {
-    setFormData((prev) => ({ ...prev, ...patch }));
+  const updateForm = useCallback((patch: Partial<unknown>) => {
+    setFormData((prev: unknown) => ({
+      ...(prev as object),
+      ...(patch as object),
+    }));
   }, []);
 
   useEffect(() => {
@@ -117,16 +142,16 @@ function WizardContent<TData>({
       const stored =
         typeof window !== "undefined" ? window.localStorage.getItem("acc_lang") : null;
       if (stored && isValidLang(stored)) {
-        router.replace(`/accreditation/${template.slug}?step=1&lang=${stored}`);
+        router.replace(`/accreditation/${orgSlug}?step=1&lang=${stored}`);
       }
     }
-  }, [hasLang, router, template.slug]);
+  }, [hasLang, router, orgSlug]);
 
   const gotoStep = useCallback(
     (n: number) => {
-      router.push(`/accreditation/${template.slug}?step=${n}&lang=${lang}`);
+      router.push(`/accreditation/${orgSlug}?step=${n}&lang=${lang}`);
     },
-    [router, lang, template.slug]
+    [router, lang, orgSlug]
   );
 
   const clearForm = useCallback(() => {
@@ -144,13 +169,13 @@ function WizardContent<TData>({
 
   const stepCount = template.steps.length;
   const activeStepIdx = step - 1;
-  const ActiveStep: StepDef<TData> | undefined = template.steps[activeStepIdx];
+  const ActiveStep: StepDef<unknown> | undefined = template.steps[activeStepIdx];
 
-  const stepProps: StepProps<TData> = {
+  const stepProps: StepProps<unknown> = {
     data: formData,
     update: (patch) => updateForm(patch),
     onValidityChange: setStepValid,
-    orgSlug: template.slug,
+    orgSlug,
     organizationId,
   };
 
@@ -196,7 +221,7 @@ function WizardContent<TData>({
 
           <div className="flex-1 p-8 sm:p-7 flex flex-col">
             {step === 0 ? (
-              <LanguageSelectionStep orgSlug={template.slug} />
+              <LanguageSelectionStep orgSlug={orgSlug} />
             ) : (
               <>
                 <div
@@ -283,7 +308,7 @@ function WizardContent<TData>({
           &lt; {t.exit}
         </Link>
         <Link
-          href={`/accreditation/${template.slug}/contact`}
+          href={`/accreditation/${orgSlug}/contact`}
           className="text-white text-sm hover:underline"
         >
           Besoin d&apos;aide ?
@@ -298,15 +323,15 @@ function WizardContent<TData>({
  * composant `StepFour` historique. Aucun changement de signature côté
  * `StepFour` — toute la translation se fait ici.
  */
-function buildPalaisStepFourCtx<TData>(
-  formData: TData,
+function buildPalaisStepFourCtx(
+  formData: unknown,
   onReset: () => void,
   onClearForm: () => void,
   onHasSavedChange: (b: boolean) => void
 ) {
   // On accepte un cast contrôlé : ce helper n'est appelé que lorsque le
   // template Palais est actif (voir condition ci-dessus).
-  const f = formData as unknown as {
+  const f = formData as {
     stepOne: { company: string; stand: string; unloading: string; event: string };
     vehicle: Vehicle;
     stepThree: { message: string; consent: boolean };
@@ -327,7 +352,7 @@ function buildPalaisStepFourCtx<TData>(
   };
 }
 
-export function AccreditationWizard<TData>(props: AccreditationWizardProps<TData>) {
+export function AccreditationWizard(props: AccreditationWizardProps) {
   return (
     <Suspense
       fallback={
@@ -344,12 +369,30 @@ export function AccreditationWizard<TData>(props: AccreditationWizardProps<TData
   );
 }
 
-function WizardInner<TData>(props: AccreditationWizardProps<TData>) {
+function WizardInner({
+  orgSlug,
+  formTemplate,
+  organizationId,
+  storageKey,
+}: AccreditationWizardProps) {
   const searchParams = useSearchParams();
   const urlLang = searchParams.get("lang");
+
+  // Résolution du template côté client : il contient des fonctions et un
+  // schéma Zod, donc non-sérialisables via la frontière Server → Client.
+  const template = useMemo(
+    () => getTemplate(formTemplate) as AccreditationTemplate<unknown>,
+    [formTemplate]
+  );
+
   return (
     <TranslationProvider urlLang={urlLang}>
-      <WizardContent {...props} />
+      <WizardContent
+        template={template}
+        orgSlug={orgSlug}
+        organizationId={organizationId}
+        storageKey={storageKey}
+      />
     </TranslationProvider>
   );
 }

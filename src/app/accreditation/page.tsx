@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { DEFAULT_ESPACES_PALAIS_SLUG } from "@/lib/default-espace";
 
 interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -7,11 +8,12 @@ interface PageProps {
 export const dynamic = "force-dynamic";
 
 /**
- * Redirection legacy : `/accreditation` → `/accreditation/palais`.
+ * Redirection legacy : `/accreditation` → `/accreditation/palais-des-festivals`.
  *
  * Préserve les query params éventuels (`?lang=fr&step=1` etc.) pour que
  * les anciens liens distribués par le Palais continuent de fonctionner
- * tel quels.
+ * tel quels. Le slug de destination matche l'`Organization.slug` réel en
+ * base (pas le `template.slug` qui est juste la clé du registry).
  */
 export default async function LegacyAccreditationRedirect({ searchParams }: PageProps) {
   const sp = await searchParams;
@@ -24,5 +26,7 @@ export default async function LegacyAccreditationRedirect({ searchParams }: Page
     }
   }
   const suffix = qs.toString();
-  redirect(`/accreditation/palais${suffix ? `?${suffix}` : ""}`);
+  redirect(
+    `/accreditation/${DEFAULT_ESPACES_PALAIS_SLUG}${suffix ? `?${suffix}` : ""}`
+  );
 }

@@ -55,6 +55,36 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
     } catch { /* ignore SSR */ }
   }, []);
 
+  // Guard multi-tenant : toute sous-page logisticien doit avoir `?espace=`.
+  // Le dashboard racine `/logisticien` gère son propre redirect côté server
+  // (resolveDefaultEspaceSlugForUser), on le laisse faire pour préserver son
+  // flux d'auto-selection. Pour les sous-pages, on résout le default via
+  // l'API publique des espaces accessibles puis on redirige côté client.
+  useEffect(() => {
+    if (espace) return;
+    if (!pathname || pathname === "/logisticien") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/me/espaces");
+        if (!res.ok) return;
+        const list: Array<{ slug: string; name: string }> = await res.json();
+        if (cancelled || list.length === 0) return;
+        const palais = list.find((o) => o.slug === "palais-des-festivals");
+        const target = (palais ?? list[0]).slug;
+        const qs = new URLSearchParams(searchParams?.toString() ?? "");
+        qs.set("espace", target);
+        router.replace(`${pathname}?${qs.toString()}`);
+      } catch {
+        // En cas d'erreur réseau : on laisse l'utilisateur sur la page,
+        // la sidebar lui proposera de choisir manuellement un espace.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [espace, pathname, router, searchParams]);
+
   const toggleCollapsed = () => {
     setCollapsed((prev) => {
       const next = !prev;

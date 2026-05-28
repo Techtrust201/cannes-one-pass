@@ -6,6 +6,8 @@ import { Printer, QrCode } from "lucide-react";
 interface QrPrintCardProps {
   qrDataUrl: string;
   accreditationUrl: string;
+  organizationName?: string;
+  organizationColor?: string;
 }
 
 const MAX_TEXT_LENGTH = 400;
@@ -13,7 +15,12 @@ const QR_SIZE_MIN = 200;
 const QR_SIZE_MAX = 600;
 const QR_SIZE_DEFAULT = 320;
 
-export default function QrPrintCard({ qrDataUrl, accreditationUrl }: QrPrintCardProps) {
+export default function QrPrintCard({
+  qrDataUrl,
+  accreditationUrl,
+  organizationName,
+  organizationColor,
+}: QrPrintCardProps) {
   const [customText, setCustomText] = useState("");
   const [qrSize, setQrSize] = useState(QR_SIZE_DEFAULT);
   const printRef = useRef<HTMLDivElement>(null);
@@ -26,6 +33,20 @@ export default function QrPrintCard({ qrDataUrl, accreditationUrl }: QrPrintCard
     <div className="space-y-6">
       {/* Zone édition — masquée à l'impression */}
       <div className="print:hidden space-y-4">
+        {organizationName && (
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex items-center gap-3">
+            <span
+              className="w-3 h-3 rounded-full shrink-0"
+              style={{ backgroundColor: organizationColor ?? "#4F587E" }}
+              aria-hidden
+            />
+            <div className="text-sm">
+              <span className="text-gray-500">Organisation cible : </span>
+              <span className="font-semibold text-gray-900">{organizationName}</span>
+            </div>
+          </div>
+        )}
+
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
           <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
             <QrCode size={20} className="text-[#3F4660]" />
@@ -91,6 +112,16 @@ export default function QrPrintCard({ qrDataUrl, accreditationUrl }: QrPrintCard
           Aperçu d&apos;impression
         </p>
         <div className="flex flex-col items-center justify-center min-h-[320px] gap-8">
+          {organizationName && (
+            <div className="text-center print:mb-4">
+              <p className="text-xs uppercase tracking-wider text-gray-400 print:text-gray-600">
+                Accréditation
+              </p>
+              <p className="text-lg md:text-xl font-bold text-gray-900 print:text-2xl">
+                {organizationName}
+              </p>
+            </div>
+          )}
           {/* Texte personnalisé — espace réservé, marge 20% avant le QR à l'impression */}
           {customText.trim() ? (
             <div className="w-full max-w-lg text-center print:max-h-[110px] print:overflow-hidden print:mb-16">

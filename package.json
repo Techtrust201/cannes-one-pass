@@ -23,6 +23,7 @@
     "db:migrate:resolve:applied": "prisma migrate resolve --applied",
     "db:studio": "prisma studio",
     "db:backfill:org": "npx tsx scripts/backfill-accreditation-org.ts",
+    "db:seed:default-espaces": "npx tsx scripts/seed-default-espaces.ts",
     "db:sync": "npx tsx scripts/db-sync.ts -- --direction=primary2backup",
     "db:sync:reverse": "npx tsx scripts/db-sync.ts -- --direction=backup2primary",
     "db:sync:verify": "npx tsx scripts/db-sync.ts -- --verify",

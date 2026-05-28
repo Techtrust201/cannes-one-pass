@@ -29,6 +29,12 @@ export interface StepProps<TData> {
   orgSlug: TemplateSlug;
   /** ID interne de l'organisation (Organization.id). */
   organizationId: string;
+  /**
+   * Contexte d'usage du wizard : formulaire public (défaut) ou back-office
+   * logisticien. Permet aux steps d'adapter le comportement (ex: statut de
+   * création de l'accréditation RX : NOUVEAU en public, ATTENTE en logisticien).
+   */
+  mode?: "public" | "logisticien";
 }
 
 /**
@@ -72,6 +78,10 @@ export interface CreateAccreditationPayload {
     emptyWeight?: number;
     maxWeight?: number;
     currentWeight?: number;
+    /** Contexte de catégorie RX (utilisé par le split 1 accréd/véhicule). */
+    categoryId?: string;
+    repDate?: string;
+    repTime?: string;
   }>;
   message?: string;
   consent: boolean;
@@ -79,6 +89,12 @@ export interface CreateAccreditationPayload {
   status?: string;
   currentZone?: string | null;
   category?: string;
+  /**
+   * Si true, l'API crée une accréditation par véhicule (workflow RX) au lieu
+   * d'une seule accréditation regroupant tous les véhicules. Absent/false pour
+   * Palais (comportement historique inchangé).
+   */
+  splitPerVehicle?: boolean;
   /** Données propres au template (rx → contact, catégories, créneaux…). */
   extension?: Record<string, unknown>;
 }

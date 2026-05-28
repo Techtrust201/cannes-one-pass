@@ -14,7 +14,8 @@ import { findCategory } from "./config";
  */
 export function mapRxPayload(
   form: RxFormData,
-  language: string
+  language: string,
+  options?: { status?: string; split?: boolean }
 ): CreateAccreditationPayload {
   const vehicles: CreateAccreditationPayload["vehicles"] = [];
 
@@ -31,6 +32,12 @@ export function mapRxPayload(
         unloading: ["rear"],
         vehicleType: v.vehicleType,
         trailerPlate: v.trailerPlate,
+        // Contexte de catégorie embarqué par véhicule : indispensable au
+        // split (1 accréditation par véhicule) côté API pour reconstituer
+        // l'extension de chaque accréditation.
+        categoryId: cat.categoryId,
+        repDate: cat.repDate,
+        repTime: cat.repTime,
       });
     }
   }
@@ -50,7 +57,11 @@ export function mapRxPayload(
     vehicles,
     consent: form.stepThree.consent,
     language,
-    status: "NOUVEAU",
+    // Statut selon le contexte : public → NOUVEAU (en attente de validation),
+    // logisticien → ATTENTE (validé). Défaut NOUVEAU.
+    status: options?.status ?? "NOUVEAU",
+    // Une accréditation par véhicule à la création (workflow RX).
+    splitPerVehicle: options?.split ?? false,
     extension: {
       exhibitor: {
         id: form.stepOne.exhibitorId,

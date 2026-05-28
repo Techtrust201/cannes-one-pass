@@ -74,6 +74,7 @@ export default function RxNouveauWizard() {
       formTemplate="rx"
       organizationId={orgId}
       storageKey="log_formData:rx"
+      mode="logisticien"
     />
   );
 }

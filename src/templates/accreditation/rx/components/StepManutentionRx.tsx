@@ -18,14 +18,14 @@ import type { RxFormData } from "../types";
  * - Bouton "Valider l'accréditation" : POST /api/accreditations + overlay
  *   de succès avec ID d'accréditation (pattern homogène avec le Palais).
  */
-export function StepManutentionRx({ data, update, onValidityChange }: StepProps<RxFormData>) {
+export function StepManutentionRx({ data, update, onValidityChange, mode }: StepProps<RxFormData>) {
   const { t, lang } = useTranslation();
   const { stepOne, stepTwo, stepThree } = data;
 
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [hasSaved, setHasSaved] = useState(false);
-  const [accredId, setAccredId] = useState<string | null>(null);
+  const [createdCount, setCreatedCount] = useState(0);
   const [error, setError] = useState("");
 
   const scalesRequired = useMemo(
@@ -52,7 +52,9 @@ export function StepManutentionRx({ data, update, onValidityChange }: StepProps<
     setError("");
     try {
       setLoading(true);
-      const payload = mapRxPayload(data, lang);
+      // Public → NOUVEAU (en attente de validation) ; logisticien → ATTENTE (validé).
+      const status = mode === "logisticien" ? "ATTENTE" : "NOUVEAU";
+      const payload = mapRxPayload(data, lang, { status, split: true });
       const res = await fetch("/api/accreditations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -63,7 +65,12 @@ export function StepManutentionRx({ data, update, onValidityChange }: StepProps<
         throw new Error(body?.error || "save error");
       }
       const created = await res.json().catch(() => null);
-      setAccredId(created?.publicCode || created?.id || "—");
+      // L'API split renvoie { count, ids } ; fallback au nombre de véhicules.
+      const fallbackCount =
+        stepTwo.categories.reduce((s, c) => s + c.vehicles.length, 0) || 1;
+      setCreatedCount(
+        typeof created?.count === "number" ? created.count : fallbackCount
+      );
       setHasSaved(true);
       setShowModal(false);
     } catch (err) {
@@ -82,17 +89,18 @@ export function StepManutentionRx({ data, update, onValidityChange }: StepProps<
       <div className="flex flex-col items-center justify-center py-8 w-full text-center gap-4">
         <CheckCircle size={56} className="text-green-500" />
         <h2 className="text-2xl font-bold text-gray-900">
-          {t.requestSaved ?? "Accréditation validée !"}
+          {createdCount > 1
+            ? `${createdCount} accréditations enregistrées !`
+            : "Accréditation enregistrée !"}
         </h2>
         <p className="text-sm text-gray-600 max-w-md">
-          Votre demande a bien été enregistrée. Un e-mail de confirmation avec
-          votre planning détaillé vous sera envoyé.
+          {createdCount > 1
+            ? "Une accréditation a été créée par véhicule. "
+            : ""}
+          {mode === "logisticien"
+            ? "Elles sont validées et visibles dans la liste."
+            : "Votre demande sera traitée puis validée par l'organisateur. Un e-mail de confirmation vous sera envoyé."}
         </p>
-        {accredId && (
-          <div className="font-mono text-lg font-bold bg-gray-100 rounded-lg px-4 py-2 text-gray-800">
-            {accredId}
-          </div>
-        )}
         {scalesRequired && (
           <div className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-3 text-sm text-orange-800 max-w-md text-left">
             <strong>⚠ Rappel Scales :</strong> n&apos;oubliez pas de prendre

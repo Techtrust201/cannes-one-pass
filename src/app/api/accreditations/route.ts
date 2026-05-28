@@ -250,7 +250,89 @@ export async function POST(req: NextRequest) {
     const extensionPayload = (raw.extension && typeof raw.extension === "object")
       ? (raw.extension as Record<string, unknown>)
       : null;
+    // Laissé en type souple (issu du JSON) pour rester compatible avec l'enum
+    // Prisma `AccreditationStatus` sans cast explicite (comportement d'origine).
+    const status = raw.status ?? "ATTENTE";
 
+    // Mapping d'un véhicule du payload → objet `create` Prisma (factorisé pour
+    // être réutilisé par le chemin unique ET le split RX).
+    const buildVehicleCreate = (v: Record<string, unknown>) => ({
+      // `plate` est nullable côté DB (workflow RX : plaque saisie au scan).
+      plate: (v.plate as string | null | undefined) ?? null,
+      size: (v.size as string) ?? "",
+      phoneCode: v.phoneCode as string,
+      phoneNumber: v.phoneNumber as string,
+      date: v.date as string,
+      time: (v.time as string) ?? "",
+      city: (v.city as string) ?? "",
+      unloading: JSON.stringify(v.unloading),
+      kms: (v.kms as string) ?? "",
+      vehicleType: (v.vehicleType as string) ?? null,
+      country: (v.country as "FRANCE" | "ESPAGNE" | "ITALIE" | "ALLEMAGNE" | "BELGIQUE" | "SUISSE" | "ROYAUME_UNI" | "PAYS_BAS" | "PORTUGAL" | "AUTRE") ?? null,
+      estimatedKms: v.estimatedKms != null ? Number(v.estimatedKms) : 0,
+      trailerPlate: (v.trailerPlate as string) ?? null,
+      emptyWeight: v.emptyWeight != null ? Number(v.emptyWeight) : null,
+      maxWeight: v.maxWeight != null ? Number(v.maxWeight) : null,
+      currentWeight: v.currentWeight != null ? Number(v.currentWeight) : null,
+    });
+
+    const zoneMovementCreate = currentZone
+      ? { zoneMovements: { create: { toZone: currentZone, action: "ENTRY" as const } } }
+      : {};
+
+    const { inferActorSource } = await import("@/lib/accreditation-audit");
+    const actorSource = inferActorSource(currentUserId, currentUserRole);
+
+    const vehiclesArr = vehicles as Array<Record<string, unknown>>;
+    const splitPerVehicle = raw.splitPerVehicle === true && vehiclesArr.length > 0;
+
+    // ── Workflow RX : une accréditation par véhicule ───────────────────────
+    if (splitPerVehicle) {
+      const createdList = await prisma.$transaction(
+        vehiclesArr.map((v) =>
+          prisma.accreditation.create({
+            data: {
+              company,
+              stand,
+              unloading,
+              event,
+              eventId: eventRecord?.id ?? null,
+              organizationId: organizationId,
+              // Extension partagée + contexte de la catégorie de CE véhicule.
+              extension: {
+                ...(extensionPayload ?? {}),
+                vehicleContext: {
+                  categoryId: (v.categoryId as string) ?? null,
+                  livDate: (v.date as string) ?? null,
+                  livTime: (v.time as string) ?? null,
+                  repDate: (v.repDate as string) ?? null,
+                  repTime: (v.repTime as string) ?? null,
+                },
+              },
+              message: message ?? "",
+              consent: consent ?? true,
+              language: language ?? "fr",
+              status,
+              currentZone: currentZone,
+              category,
+              categorySource,
+              vehicles: { create: [buildVehicleCreate(v)] },
+              ...zoneMovementCreate,
+            },
+            select: { id: true },
+          })
+        )
+      );
+      for (const c of createdList) {
+        await addHistoryEntry(createCreatedEntry(c.id, currentUserId, actorSource));
+      }
+      return Response.json(
+        { count: createdList.length, ids: createdList.map((c) => c.id) },
+        { status: 201 }
+      );
+    }
+
+    // ── Chemin historique : une seule accréditation (Palais, etc.) ─────────
     const created = await prisma.accreditation.create({
       data: {
         company,
@@ -263,49 +345,15 @@ export async function POST(req: NextRequest) {
         message: message ?? "",
         consent: consent ?? true,
         language: language ?? "fr",
-        status: raw.status ?? "ATTENTE",
+        status,
         currentZone: currentZone,
         category,
         categorySource,
-        vehicles: {
-          create: (vehicles as Array<Record<string, unknown>>).map((v) => ({
-            // `plate` est désormais nullable côté DB pour supporter le
-            // workflow RX (plaque saisie au scan à l'arrivée).
-            plate: (v.plate as string | null | undefined) ?? null,
-            size: (v.size as string) ?? "",
-            phoneCode: v.phoneCode as string,
-            phoneNumber: v.phoneNumber as string,
-            date: v.date as string,
-            time: (v.time as string) ?? "",
-            city: (v.city as string) ?? "",
-            unloading: JSON.stringify(v.unloading),
-            kms: (v.kms as string) ?? "",
-            vehicleType: (v.vehicleType as string) ?? null,
-            country: (v.country as "FRANCE" | "ESPAGNE" | "ITALIE" | "ALLEMAGNE" | "BELGIQUE" | "SUISSE" | "ROYAUME_UNI" | "PAYS_BAS" | "PORTUGAL" | "AUTRE") ?? null,
-            estimatedKms: v.estimatedKms != null ? Number(v.estimatedKms) : 0,
-            trailerPlate: (v.trailerPlate as string) ?? null,
-            emptyWeight: v.emptyWeight != null ? Number(v.emptyWeight) : null,
-            maxWeight: v.maxWeight != null ? Number(v.maxWeight) : null,
-            currentWeight: v.currentWeight != null ? Number(v.currentWeight) : null,
-          })),
-        },
-        ...(currentZone
-          ? {
-              zoneMovements: {
-                create: {
-                  toZone: currentZone,
-                  action: "ENTRY",
-                },
-              },
-            }
-          : {}),
+        vehicles: { create: vehiclesArr.map(buildVehicleCreate) },
+        ...zoneMovementCreate,
       },
       include: { vehicles: true },
     });
-    // Ajout historique création avec la source adéquate (PUBLIC_FORM si pas
-    // de session, SUPER_ADMIN ou LOGISTICIEN sinon)
-    const { inferActorSource } = await import("@/lib/accreditation-audit");
-    const actorSource = inferActorSource(currentUserId, currentUserRole);
     await addHistoryEntry(
       createCreatedEntry(created.id, currentUserId, actorSource)
     );

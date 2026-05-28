@@ -48,6 +48,8 @@ interface AccreditationWizardProps {
    * autre brouillon).
    */
   storageKey: string;
+  /** Contexte d'usage : formulaire public (défaut) ou back-office logisticien. */
+  mode?: "public" | "logisticien";
 }
 
 function LanguageSelectionStep({ orgSlug }: { orgSlug: string }) {
@@ -87,6 +89,7 @@ interface WizardContentProps {
   orgSlug: string;
   organizationId: string;
   storageKey: string;
+  mode: "public" | "logisticien";
 }
 
 function WizardContent({
@@ -94,6 +97,7 @@ function WizardContent({
   orgSlug,
   organizationId,
   storageKey,
+  mode,
 }: WizardContentProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -177,6 +181,7 @@ function WizardContent({
     onValidityChange: setStepValid,
     orgSlug,
     organizationId,
+    mode,
   };
 
   // Préparation du contexte StepFour pour le template Palais (équivalent
@@ -374,6 +379,7 @@ function WizardInner({
   formTemplate,
   organizationId,
   storageKey,
+  mode = "public",
 }: AccreditationWizardProps) {
   const searchParams = useSearchParams();
   const urlLang = searchParams.get("lang");
@@ -392,6 +398,7 @@ function WizardInner({
         orgSlug={orgSlug}
         organizationId={organizationId}
         storageKey={storageKey}
+        mode={mode}
       />
     </TranslationProvider>
   );

@@ -62,6 +62,29 @@ describe("rx template — mapPayload", () => {
     expect(payload.language).toBe("fr");
   });
 
+  it("statut par défaut NOUVEAU, pas de split par défaut", () => {
+    const payload = mapRxPayload(buildRxForm(), "fr");
+    expect(payload.status).toBe("NOUVEAU");
+    expect(payload.splitPerVehicle).toBe(false);
+  });
+
+  it("propage le statut et le flag split via les options", () => {
+    const payload = mapRxPayload(buildRxForm(), "fr", {
+      status: "ATTENTE",
+      split: true,
+    });
+    expect(payload.status).toBe("ATTENTE");
+    expect(payload.splitPerVehicle).toBe(true);
+  });
+
+  it("embarque le contexte de catégorie sur chaque véhicule (pour le split)", () => {
+    const payload = mapRxPayload(buildRxForm(), "fr", { split: true });
+    expect(payload.vehicles[0].categoryId).toBe("stand-nu-int");
+    expect(payload.vehicles[0].repDate).toBe("2026-09-14");
+    expect(payload.vehicles[0].repTime).toBe("10:00");
+    expect(payload.vehicles[1].categoryId).toBe("stand-nu-int");
+  });
+
   it("emporte l'extension complète (contact, catégories, espace, manutention)", () => {
     const payload = mapRxPayload(buildRxForm(), "fr");
     expect(payload.extension).toBeDefined();

@@ -26,6 +26,10 @@ export const rxVehicleSchema = z.object({
   emptyWeight: z.number().optional(),
   maxWeight: z.number().optional(),
   currentWeight: z.number().optional(),
+  // Contexte de catégorie embarqué (split 1 accréditation/véhicule).
+  categoryId: z.string().optional(),
+  repDate: z.string().optional(),
+  repTime: z.string().optional(),
 });
 
 export const rxExtensionSchema = z.object({
@@ -81,6 +85,7 @@ export const rxPayloadSchema = z.object({
   status: z.string().optional(),
   currentZone: z.string().nullable().optional(),
   category: z.string().optional(),
+  splitPerVehicle: z.boolean().optional(),
   extension: rxExtensionSchema,
 });
 

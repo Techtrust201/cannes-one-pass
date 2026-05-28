@@ -27,13 +27,12 @@ export async function GET(req: NextRequest) {
 
   try {
     const now = new Date();
+    const espaceParam = req.nextUrl.searchParams.get("espace")?.trim() || null;
 
     const scopeFilter: Record<string, unknown> = {};
     // Sur les endpoints non-publics, restreindre au périmètre du user
     // (Espaces + grants) + éventuel contexte d'Espace `?espace=<slug>`.
-    // Endpoint ?active=true reste public (formulaire exposant).
     if (!activeOnly && currentUserId) {
-      const espaceParam = req.nextUrl.searchParams.get("espace")?.trim() || null;
       const accessibleIds = await getAccessibleEventIdsForEspace(
         currentUserId,
         espaceParam
@@ -41,6 +40,22 @@ export async function GET(req: NextRequest) {
       if (accessibleIds !== "ALL") {
         scopeFilter.id = { in: accessibleIds };
       }
+    }
+
+    // Sur l'endpoint ?active=true (public, formulaire exposant), on accepte
+    // un filtre `&espace=<slug>` pour ne lister que les events d'une
+    // organisation donnée — sécurise le carrousel d'events de
+    // `/accreditation/[orgSlug]` côté multi-tenant.
+    let activeOrgFilter: Record<string, unknown> = {};
+    if (activeOnly && espaceParam) {
+      const org = await prisma.organization.findUnique({
+        where: { slug: espaceParam },
+        select: { id: true, isActive: true },
+      });
+      if (!org || !org.isActive) {
+        return Response.json([]);
+      }
+      activeOrgFilter = { organizationId: org.id };
     }
 
     const where = activeOnly
@@ -51,6 +66,7 @@ export async function GET(req: NextRequest) {
             { teardownEndDate: { not: null, gte: now } },
             { teardownEndDate: null, endDate: { gte: now } },
           ],
+          ...activeOrgFilter,
         }
       : scopeFilter;
 

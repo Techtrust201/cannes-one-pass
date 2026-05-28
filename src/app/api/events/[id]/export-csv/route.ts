@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/auth-helpers";
+import { assertEventAccess } from "@/lib/rbac";
 
 function escapeCsv(val: unknown): string {
   const s = String(val ?? "");
@@ -14,8 +15,10 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  let userId: string;
   try {
-    await requirePermission(req, "GESTION_DATES", "read");
+    const session = await requirePermission(req, "GESTION_DATES", "read");
+    userId = session.user.id;
   } catch (error) {
     if (error instanceof Response) {
       return new Response(error.body, { status: error.status });
@@ -24,6 +27,13 @@ export async function GET(
   }
 
   const { id } = await params;
+
+  try {
+    await assertEventAccess(userId, id);
+  } catch (err) {
+    if (err instanceof Response) return err;
+    throw err;
+  }
 
   try {
     const event = await prisma.event.findUnique({ where: { id } });

@@ -20,6 +20,19 @@ export async function POST(
       // Pas de session
     }
 
+    // Si l'utilisateur est authentifié, vérifier qu'il a bien accès à
+    // l'accréditation (scoping multi-tenant). Anonyme = on laisse passer
+    // pour préserver le flow public d'envoi PDF côté Palais.
+    if (currentUserId) {
+      const { assertAccreditationAccess } = await import("@/lib/rbac");
+      try {
+        await assertAccreditationAccess(currentUserId, params.id);
+      } catch (err) {
+        if (err instanceof Response) return err;
+        throw err;
+      }
+    }
+
     const { email } = (await req.json()) as { email?: string };
 
     const acc = await prisma.accreditation.findUnique({

@@ -35,6 +35,7 @@ const FEATURES: { key: Feature; label: string }[] = [
   { key: "GESTION_DATES", label: "Gestion dates" },
   { key: "ARCHIVES", label: "Archivage" },
   { key: "GESTION_ESPACES", label: "Gestion des Espaces" },
+  { key: "TICKETS", label: "Tickets de support" },
 ];
 
 const ROLES: { value: UserRole; label: string }[] = [

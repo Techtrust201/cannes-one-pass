@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Archive, Search, RotateCcw, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import StatusPill from "@/components/logisticien/StatusPill";
 import type { Accreditation } from "@/types";
 
 export default function ArchivesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const espace = searchParams?.get("espace") ?? null;
   const [accreditations, setAccreditations] = useState<Accreditation[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -17,7 +19,9 @@ export default function ArchivesPage() {
   const fetchArchived = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/accreditations?archived=true");
+      const qs = new URLSearchParams({ archived: "true" });
+      if (espace) qs.set("espace", espace);
+      const res = await fetch(`/api/accreditations?${qs.toString()}`);
       if (res.ok) {
         const data = await res.json();
         setAccreditations(data);
@@ -27,7 +31,7 @@ export default function ArchivesPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [espace]);
 
   useEffect(() => {
     fetchArchived();

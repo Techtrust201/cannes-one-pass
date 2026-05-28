@@ -105,6 +105,13 @@ export function useCarbonData(
         params.append("search", debouncedSearchQuery.trim());
       }
 
+      // Propage le contexte d'Espace (?espace=<slug>) au backend pour
+      // cloisonner les données carbone par organisation.
+      if (typeof window !== "undefined") {
+        const espace = new URLSearchParams(window.location.search).get("espace");
+        if (espace) params.append("espace", espace);
+      }
+
       const response = await fetch(`/api/carbon?${params}`, {
         method: "GET",
         headers: {

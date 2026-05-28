@@ -141,7 +141,12 @@ export default function ZonesPage() {
 
   const fetchZones = useCallback(async () => {
     try {
-      const res = await fetch("/api/zones");
+      const espace =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("espace")
+          : null;
+      const url = espace ? `/api/zones?espace=${encodeURIComponent(espace)}` : "/api/zones";
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         setZones(data);

@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
 
   // Valider la zone si fournie (ex: validation groupée NOUVEAU -> ATTENTE avec zone)
   if (zone) {
-    const validZone = await prisma.zoneConfig.findUnique({ where: { zone } });
+    const validZone = await prisma.zoneConfig.findFirst({ where: { zone } });
     if (!validZone || !validZone.isActive) {
       return Response.json({ error: "Zone invalide" }, { status: 400 });
     }

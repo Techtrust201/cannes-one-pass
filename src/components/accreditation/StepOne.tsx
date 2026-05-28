@@ -26,6 +26,13 @@ interface Props {
   data: Data;
   update: (patch: Partial<Data>) => void;
   onValidityChange: (v: boolean) => void;
+  /**
+   * Slug d'organisation utilisé pour scoper le carrousel d'events (et
+   * potentiellement la liste de prestataires de déchargement). Par défaut
+   * `palais` pour préserver le comportement historique des liens
+   * `/accreditation` non scopés.
+   */
+  orgSlug?: string;
 }
 
 interface EventOption {
@@ -37,13 +44,14 @@ interface EventOption {
 
 const FALLBACK_EVENTS: EventOption[] = [];
 
-function useActiveEvents(): { events: EventOption[]; loading: boolean } {
+function useActiveEvents(orgSlug: string): { events: EventOption[]; loading: boolean } {
   const [events, setEvents] = useState<EventOption[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/events?active=true")
+    const qs = orgSlug ? `?active=true&espace=${encodeURIComponent(orgSlug)}` : "?active=true";
+    fetch(`/api/events${qs}`)
       .then((r) => (r.ok ? r.json() : []))
       .then((data) => {
         if (cancelled) return;
@@ -67,14 +75,14 @@ function useActiveEvents(): { events: EventOption[]; loading: boolean } {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [orgSlug]);
 
   return { events, loading };
 }
 
-export default function StepOne({ data, update, onValidityChange }: Props) {
+export default function StepOne({ data, update, onValidityChange, orgSlug = "palais" }: Props) {
   const { company, stand, unloading, event } = data;
-  const { events, loading: eventsLoading } = useActiveEvents();
+  const { events, loading: eventsLoading } = useActiveEvents(orgSlug);
   const { providers: unloadingProviders } = useUnloadingProviders();
   const { t } = useTranslation();
 

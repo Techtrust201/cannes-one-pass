@@ -67,7 +67,10 @@ export async function readAccreditations(options?: {
         vehicles: a.vehicles.map(
           (v): Vehicle => ({
             id: v.id,
-            plate: v.plate,
+            // Vehicle.plate est nullable côté DB (workflow scan RX) ; côté
+            // type TS legacy, on fournit une chaîne vide quand non
+            // renseignée pour éviter une cascade de null-guards côté UI.
+            plate: v.plate ?? "",
             size: v.size || "",
             phoneCode: v.phoneCode,
             phoneNumber: v.phoneNumber,

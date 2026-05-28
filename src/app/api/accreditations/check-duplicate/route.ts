@@ -70,7 +70,9 @@ export async function POST(req: NextRequest) {
     const duplicates = candidates.filter((acc) => {
       // Vérifier la plaque
       const hasMatchingPlate = acc.vehicles.some(
-        (v) => v.plate.trim().toLowerCase().replace(/[^a-z0-9]/g, "") === normalizedPlate
+        (v) =>
+          v.plate != null &&
+          v.plate.trim().toLowerCase().replace(/[^a-z0-9]/g, "") === normalizedPlate
       );
       if (!hasMatchingPlate) return false;
 

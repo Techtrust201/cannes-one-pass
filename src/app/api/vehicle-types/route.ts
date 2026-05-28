@@ -1,11 +1,16 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, requirePermission } from "@/lib/auth-helpers";
+import { requireAuth, requirePermission, resolveEspaceOrgId } from "@/lib/auth-helpers";
 import { generateVehicleTypeCode } from "@/lib/vehicle-type-defaults";
 
 /**
- * GET /api/vehicle-types — Liste des gabarits véhicules
- * Auth requis. ?all=true pour inclure les désactivés (admin).
+ * GET /api/vehicle-types — Liste des gabarits véhicules accessibles.
+ *
+ * Si `?espace=<slug>` est fourni, on renvoie les gabarits de cette
+ * organisation **+** les gabarits globaux (organizationId=null).
+ *
+ * `?all=true` pour inclure les désactivés (admin) ; `?activeOnly=true`
+ * (alias de `?all=false`) pour ne renvoyer que les actifs (template RX).
  */
 export async function GET(req: NextRequest) {
   try {
@@ -20,9 +25,18 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const includeAll = searchParams.get("all") === "true";
+    const espace = searchParams.get("espace")?.trim() || null;
+    const orgId = await resolveEspaceOrgId(espace);
+
+    const scopeFilter = espace
+      ? { OR: [{ organizationId: null }, { organizationId: orgId }] }
+      : {};
 
     const types = await prisma.vehicleTypeConfig.findMany({
-      where: includeAll ? {} : { isActive: true },
+      where: {
+        ...(includeAll ? {} : { isActive: true }),
+        ...scopeFilter,
+      },
       orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
     });
 
@@ -47,6 +61,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const espace = req.nextUrl.searchParams.get("espace")?.trim() || null;
+    const orgId = await resolveEspaceOrgId(espace);
+
     const body = await req.json();
     const {
       code,
@@ -73,8 +90,8 @@ export async function POST(req: NextRequest) {
       (typeof code === "string" && code.trim()) ||
       generateVehicleTypeCode(String(label));
 
-    const existing = await prisma.vehicleTypeConfig.findUnique({
-      where: { code: finalCode },
+    const existing = await prisma.vehicleTypeConfig.findFirst({
+      where: { code: finalCode, organizationId: orgId },
     });
     if (existing) {
       return Response.json({ error: "Ce code gabarit existe déjà" }, { status: 409 });
@@ -93,6 +110,7 @@ export async function POST(req: NextRequest) {
         color: typeof color === "string" ? color : "gray",
         showTrailerPlate: Boolean(showTrailerPlate),
         sortOrder: Number(sortOrder ?? 0),
+        organizationId: orgId,
       },
     });
 

@@ -102,7 +102,7 @@ export async function PATCH(
 
   // Validation dynamique de la zone contre la table ZoneConfig
   if (currentZone !== undefined && currentZone !== null) {
-    const validZone = await prisma.zoneConfig.findUnique({ where: { zone: currentZone } });
+    const validZone = await prisma.zoneConfig.findFirst({ where: { zone: currentZone } });
     if (!validZone || !validZone.isActive) {
       return new Response("Invalid zone", { status: 400 });
     }

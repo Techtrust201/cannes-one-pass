@@ -1,10 +1,13 @@
 import { NextRequest } from "next/server";
 import { prisma, withRetry } from "@/lib/prisma";
-import { requireAuth, requirePermission } from "@/lib/auth-helpers";
+import { requireAuth, requirePermission, resolveEspaceOrgId } from "@/lib/auth-helpers";
 
 /**
- * GET /api/unloading-providers — Liste des prestataires de déchargement
- * Accessible à tout utilisateur authentifié (les selects en ont besoin)
+ * GET /api/unloading-providers — Liste des prestataires de déchargement.
+ *
+ * Cloisonnement : si `?espace=<slug>` est fourni, renvoie les prestataires
+ * de cette organisation **+** les prestataires globaux (héritage).
+ * Accessible à tout utilisateur authentifié (les selects en ont besoin).
  */
 export async function GET(req: NextRequest) {
   try {
@@ -19,11 +22,19 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const includeAll = searchParams.get("all") === "true";
+    const espace = searchParams.get("espace")?.trim() || null;
+    const orgId = await resolveEspaceOrgId(espace);
 
-    const providers = await withRetry(() => prisma.unloadingProvider.findMany({
-      where: includeAll ? {} : { isActive: true },
-      orderBy: { name: "asc" },
-    }));
+    const scopeFilter = espace
+      ? { OR: [{ organizationId: null }, { organizationId: orgId }] }
+      : {};
+
+    const providers = await withRetry(() =>
+      prisma.unloadingProvider.findMany({
+        where: { ...(includeAll ? {} : { isActive: true }), ...scopeFilter },
+        orderBy: { name: "asc" },
+      })
+    );
     return Response.json(providers);
   } catch (error) {
     console.error("GET /api/unloading-providers error:", error);
@@ -47,6 +58,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const espace = req.nextUrl.searchParams.get("espace")?.trim() || null;
+    const orgId = await resolveEspaceOrgId(espace);
+
     const body = await req.json();
     const { name } = body;
 
@@ -59,8 +73,8 @@ export async function POST(req: NextRequest) {
 
     const trimmedName = name.trim();
 
-    const existing = await prisma.unloadingProvider.findUnique({
-      where: { name: trimmedName },
+    const existing = await prisma.unloadingProvider.findFirst({
+      where: { name: trimmedName, organizationId: orgId },
     });
     if (existing) {
       if (!existing.isActive) {
@@ -77,7 +91,7 @@ export async function POST(req: NextRequest) {
     }
 
     const created = await prisma.unloadingProvider.create({
-      data: { name: trimmedName },
+      data: { name: trimmedName, organizationId: orgId },
     });
 
     return Response.json(created, { status: 201 });

@@ -183,6 +183,51 @@ export async function getAccessibleOrganizationIds(userId: string): Promise<Acce
 }
 
 /**
+ * Helper utilitaire : résout un slug d'Espace en `organizationId` (ou null
+ * si l'Espace n'est pas fourni / inconnu). Utilisé par les routes de
+ * configuration (zones, vehicle-types, unloading-providers) pour scoper
+ * la lecture/écriture à l'Espace courant.
+ */
+export async function resolveEspaceOrgId(
+  espaceSlug: string | null | undefined
+): Promise<string | null> {
+  if (!espaceSlug) return null;
+  const org = await prisma.organization.findUnique({
+    where: { slug: espaceSlug },
+    select: { id: true, isActive: true },
+  });
+  return org && org.isActive ? org.id : null;
+}
+
+/**
+ * Vérifie qu'un event donné appartient bien à une organisation spécifique.
+ * Utilisé pour sécuriser les POST publics : on s'assure que l'event passé
+ * dans le payload est bien rattaché à l'org dérivée du slug d'URL — empêche
+ * un exposant Palais de soumettre une accréditation avec un eventId RX
+ * (ou inversement) en bricolant le payload.
+ *
+ * Lance une Response 400 si l'event est introuvable ou n'appartient pas à l'org.
+ */
+export async function assertEventBelongsToOrg(
+  eventId: string,
+  organizationId: string
+): Promise<void> {
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { id: true, organizationId: true },
+  });
+  if (!event) {
+    throw new Response("Event inconnu", { status: 400 });
+  }
+  if (event.organizationId !== organizationId) {
+    throw new Response(
+      "L'event ne correspond pas à l'organisation cible",
+      { status: 400 }
+    );
+  }
+}
+
+/**
  * Vérifie que l'utilisateur peut gérer les Espaces (admin UI / API).
  * SUPER_ADMIN : toujours ; sinon permission GESTION_ESPACES.
  */
@@ -322,6 +367,7 @@ export async function getUserPermissions(userId: string) {
       "GESTION_DATES",
       "ARCHIVES",
       "GESTION_ESPACES",
+      "TICKETS",
     ];
     return allFeatures.map((feature) => ({
       feature,

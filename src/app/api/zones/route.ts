@@ -1,10 +1,13 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/lib/auth-helpers";
+import { requirePermission, resolveEspaceOrgId } from "@/lib/auth-helpers";
 
 /**
- * GET /api/zones — Lister toutes les zones avec coordonnées
- * Authentifié avec permission GESTION_ZONES en lecture
+ * GET /api/zones — Lister les zones accessibles.
+ *
+ * Cloisonnement : si `?espace=<slug>` est fourni, on renvoie les zones
+ * de cette organisation **+** les zones globales (organizationId=null,
+ * héritées). Sans `?espace=`, renvoie tout (pour rétrocompat admin).
  */
 export async function GET(req: NextRequest) {
   try {
@@ -17,7 +20,13 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const espace = req.nextUrl.searchParams.get("espace")?.trim() || null;
+    const orgId = await resolveEspaceOrgId(espace);
+    const where = espace
+      ? { OR: [{ organizationId: null }, { organizationId: orgId }] }
+      : {};
     const zones = await prisma.zoneConfig.findMany({
+      where,
       orderBy: { label: "asc" },
     });
     return Response.json(zones);
@@ -28,8 +37,10 @@ export async function GET(req: NextRequest) {
 }
 
 /**
- * POST /api/zones — Créer une nouvelle zone
- * Authentifié avec permission GESTION_ZONES en écriture
+ * POST /api/zones — Créer une nouvelle zone.
+ *
+ * Si `?espace=<slug>` est fourni, la zone est créée pour cette organisation
+ * uniquement. Sinon elle est globale (héritée par toutes les orgs).
  */
 export async function POST(req: NextRequest) {
   try {
@@ -42,6 +53,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const espace = req.nextUrl.searchParams.get("espace")?.trim() || null;
+    const orgId = await resolveEspaceOrgId(espace);
+
     const body = await req.json();
     const { zone, label, address, latitude, longitude, isFinalDestination, color } = body;
 
@@ -52,16 +66,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Normaliser l'identifiant de zone (majuscules, underscores)
     const zoneKey = zone.toUpperCase().replace(/[^A-Z0-9]/g, "_");
 
-    // Vérifier que la zone n'existe pas déjà
-    const existing = await prisma.zoneConfig.findUnique({ where: { zone: zoneKey } });
+    const existing = await prisma.zoneConfig.findFirst({
+      where: { zone: zoneKey, organizationId: orgId },
+    });
     if (existing) {
-      return Response.json(
-        { error: "Cette zone existe déjà" },
-        { status: 409 }
-      );
+      return Response.json({ error: "Cette zone existe déjà" }, { status: 409 });
     }
 
     const created = await prisma.zoneConfig.create({
@@ -73,6 +84,7 @@ export async function POST(req: NextRequest) {
         longitude: parseFloat(longitude),
         isFinalDestination: isFinalDestination ?? false,
         color: color ?? "gray",
+        organizationId: orgId,
       },
     });
 

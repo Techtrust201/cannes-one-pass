@@ -8,13 +8,28 @@ export interface UnloadingProvider {
   isActive: boolean;
 }
 
-export function useUnloadingProviders() {
+/**
+ * Hook de chargement des prestataires de déchargement.
+ *
+ * Multi-tenant : si `espaceSlug` est fourni (template d'accréditation,
+ * sidebar logisticien avec `?espace=`), on filtre les prestataires de
+ * cette organisation **+** ceux globaux. Sinon, comportement legacy.
+ */
+export function useUnloadingProviders(espaceSlug?: string | null) {
   const [providers, setProviders] = useState<UnloadingProvider[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/unloading-providers")
+    const espace =
+      espaceSlug ??
+      (typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("espace")
+        : null);
+    const url = espace
+      ? `/api/unloading-providers?espace=${encodeURIComponent(espace)}`
+      : "/api/unloading-providers";
+    fetch(url)
       .then((r) => (r.ok ? r.json() : []))
       .then((data) => {
         if (!cancelled && Array.isArray(data)) setProviders(data);
@@ -26,7 +41,7 @@ export function useUnloadingProviders() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [espaceSlug]);
 
   return { providers, loading };
 }

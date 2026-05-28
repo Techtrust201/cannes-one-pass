@@ -41,14 +41,15 @@ export async function PATCH(
 
     // Écrire l'historique de mise à jour du véhicule
     if (updated.accreditationId) {
+      const plateLabel = updated.plate ?? "(plaque non affectée)";
       const entry = createVehicleRemovedEntry(
         updated.accreditationId,
-        updated.plate,
+        plateLabel,
         currentUserId
       );
       // On utilise INFO_UPDATED pour un update (pas un remove)
       entry.action = "VEHICLE_UPDATED" as typeof entry.action;
-      entry.description = `Véhicule ${updated.plate} mis à jour`;
+      entry.description = `Véhicule ${plateLabel} mis à jour`;
       await writeHistoryDirect(entry);
     }
 
@@ -100,7 +101,7 @@ export async function DELETE(
     if (vehicle.accreditationId) {
       const entry = createVehicleRemovedEntry(
         vehicle.accreditationId,
-        vehicle.plate,
+        vehicle.plate ?? "(plaque non affectée)",
         currentUserId
       );
       await writeHistoryDirect(entry);

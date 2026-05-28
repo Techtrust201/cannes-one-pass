@@ -1,12 +1,15 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import type { Event } from "@/types";
 import EventCalendar from "@/components/dates/EventCalendar";
 import EventSheet from "@/components/dates/EventSheet";
 import { Plus, RefreshCw } from "lucide-react";
 
 export default function DatesPage() {
+  const searchParams = useSearchParams();
+  const espace = searchParams?.get("espace") ?? null;
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -17,14 +20,15 @@ export default function DatesPage() {
 
   const fetchEvents = useCallback(async () => {
     try {
-      const res = await fetch("/api/events");
+      const url = espace ? `/api/events?espace=${encodeURIComponent(espace)}` : "/api/events";
+      const res = await fetch(url);
       if (res.ok) setEvents(await res.json());
     } catch {
       /* silently fail */
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [espace]);
 
   useEffect(() => {
     fetchEvents();

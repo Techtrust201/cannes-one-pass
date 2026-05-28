@@ -92,7 +92,7 @@ export async function GET(
         entryAt: ts.entryAt.toISOString(),
         exitAt: ts.exitAt ? ts.exitAt.toISOString() : null,
         duration,
-        vehiclePlate: ts.vehicle.plate,
+        vehiclePlate: ts.vehicle.plate ?? "",
         vehicleSize: ts.vehicle.size,
       });
     }

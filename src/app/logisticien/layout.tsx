@@ -217,6 +217,49 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
             )
           )}
 
+          {/* Bloc Tickets de support */}
+          {hasPermission("TICKETS", "read") && (
+            collapsed ? (
+              <div className="space-y-1">
+                <Link
+                  href={withEspace("/logisticien/tickets")}
+                  className="flex items-center justify-center p-2.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors"
+                  title="Tickets de support"
+                  onClick={() => setSidebarOpen(false)}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white">
+                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+                  </svg>
+                </Link>
+              </div>
+            ) : (
+              <details open className="group">
+                <summary className="flex items-center justify-between cursor-pointer px-3 py-2.5 sm:py-2 bg-[#2C2F3F] rounded-lg text-xs font-semibold uppercase tracking-wide select-none">
+                  <span className="flex items-center gap-2">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white">
+                      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+                    </svg>
+                    Support
+                  </span>
+                  <svg className="w-3 h-3 transition-transform group-open:rotate-180" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M6 8l4 4 4-4" />
+                  </svg>
+                </summary>
+                <ul className="mt-2 pl-3 space-y-1 text-sm">
+                  <li>
+                    <Link
+                      href={withEspace("/logisticien/tickets")}
+                      className="flex items-center gap-2.5 px-3 py-2.5 sm:py-2 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
+                      onClick={() => setSidebarOpen(false)}
+                    >
+                      Tickets
+                    </Link>
+                  </li>
+                </ul>
+              </details>
+            )
+          )}
+
           {/* Bloc Scans */}
           {(hasPermission("PLAQUE", "read") ||
             hasPermission("QR_CODE", "read")) && (

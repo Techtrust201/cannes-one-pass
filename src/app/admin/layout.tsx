@@ -87,6 +87,12 @@ export default function AdminLayout({
                   Import CSV
                 </Link>
                 <Link
+                  href="/admin/exhibitors"
+                  className="text-white/80 hover:text-white text-sm transition-colors min-h-[44px] flex items-center"
+                >
+                  Exposants
+                </Link>
+                <Link
                   href="/logisticien"
                   className="text-white/80 hover:text-white text-sm transition-colors min-h-[44px] flex items-center"
                 >
@@ -157,6 +163,13 @@ export default function AdminLayout({
                     className="block text-white/80 hover:text-white hover:bg-white/10 text-sm transition-colors rounded-lg px-3 py-3 min-h-[44px]"
                   >
                     Import CSV
+                  </Link>
+                  <Link
+                    href="/admin/exhibitors"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block text-white/80 hover:text-white hover:bg-white/10 text-sm transition-colors rounded-lg px-3 py-3 min-h-[44px]"
+                  >
+                    Exposants
                   </Link>
                   <Link
                     href="/admin/qr"

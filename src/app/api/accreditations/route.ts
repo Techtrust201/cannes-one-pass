@@ -2,7 +2,13 @@ import { NextRequest } from "next/server";
 import prisma, { withRetry } from "@/lib/prisma";
 // import type { Accreditation } from "@/types";
 import { addHistoryEntry, createCreatedEntry } from "@/lib/history";
-import { requirePermission, getSession, getAccessibleEventIdsForEspace } from "@/lib/auth-helpers";
+import {
+  requirePermission,
+  getSession,
+  getAccessibleEventIdsForEspace,
+  assertEventBelongsToOrg,
+} from "@/lib/auth-helpers";
+import { getTemplate } from "@/templates/accreditation/registry";
 
 export async function GET(request: NextRequest) {
   let currentUserId: string | undefined;
@@ -122,31 +128,77 @@ export async function POST(req: NextRequest) {
     const raw = await req.json();
     const { company, stand, unloading, event, message, consent, vehicles, language } =
       raw;
-    if (
-      !company ||
-      !stand ||
-      !unloading ||
-      !event ||
-      !Array.isArray(vehicles) ||
-      vehicles.length === 0 ||
-      vehicles.some(
-        (v) =>
-          !v.plate ||
-          !v.size ||
-          !v.phoneCode ||
-          !v.phoneNumber ||
-          !v.date ||
-          !v.city ||
-          !v.unloading
-      )
-    ) {
-      return new Response("Invalid payload: missing vehicle fields", {
-        status: 400,
-      });
+
+    // Détermination du template via `organizationSlug` (nouveau, optionnel
+    // pour les anciens payloads Palais sans slug → fallback "palais").
+    const organizationSlug = (raw.organizationSlug as string | undefined)?.toLowerCase() ?? "palais";
+    const template = getTemplate(organizationSlug);
+
+    // Validation Zod différenciée par template (plaque obligatoire pour
+    // Palais, optionnelle pour RX, etc.). On accepte aussi le format
+    // legacy pour ne casser aucune intégration existante.
+    const zodResult = template.schema.safeParse({ ...raw, organizationSlug });
+    if (!zodResult.success) {
+      // Fallback validation minimale "ancien format" (compat liens diffusés)
+      if (
+        !company ||
+        !stand ||
+        !unloading ||
+        !event ||
+        !Array.isArray(vehicles) ||
+        // Pour le template Palais, on garde l'exigence historique ; pour
+        // les autres templates, la validation Zod ci-dessus a déjà tranché.
+        (organizationSlug === "palais" &&
+          (vehicles.length === 0 ||
+            vehicles.some(
+              (v) =>
+                !v.plate ||
+                !v.size ||
+                !v.phoneCode ||
+                !v.phoneNumber ||
+                !v.date ||
+                !v.city ||
+                !v.unloading
+            )))
+      ) {
+        return Response.json(
+          {
+            error: "Payload invalide",
+            details: zodResult.error.issues,
+          },
+          { status: 400 }
+        );
+      }
     }
     const currentZone = raw.currentZone ?? null;
 
+    // Vérifie la cohérence event ↔ organization quand le slug d'org est
+    // fourni : empêche un client de soumettre un event qui ne lui
+    // appartient pas. Pour les payloads legacy sans `organizationSlug`,
+    // on dérive l'organisation depuis l'event (rétrocompat Palais).
+    let organizationId: string | null = null;
+    const orgRecord = await prisma.organization.findUnique({
+      where: { slug: organizationSlug },
+      select: { id: true, isActive: true },
+    });
+    if (orgRecord && orgRecord.isActive) {
+      organizationId = orgRecord.id;
+    }
+
     const eventRecord = await prisma.event.findUnique({ where: { slug: event } });
+    if (eventRecord && organizationId) {
+      try {
+        await assertEventBelongsToOrg(eventRecord.id, organizationId);
+      } catch (err) {
+        if (err instanceof Response) return err;
+        throw err;
+      }
+    }
+    // Fallback rétrocompat : si l'org n'est pas fournie/valide, on dérive
+    // depuis l'event si possible (préserve les anciens liens Palais).
+    if (!organizationId && eventRecord?.organizationId) {
+      organizationId = eventRecord.organizationId;
+    }
 
     // Catégorie : soit fournie explicitement par le client (override manuel),
     // soit déduite automatiquement depuis stand + zone.
@@ -171,6 +223,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const extensionPayload = (raw.extension && typeof raw.extension === "object")
+      ? (raw.extension as Record<string, unknown>)
+      : null;
+
     const created = await prisma.accreditation.create({
       data: {
         company,
@@ -178,6 +234,8 @@ export async function POST(req: NextRequest) {
         unloading,
         event,
         eventId: eventRecord?.id ?? null,
+        organizationId: organizationId,
+        extension: extensionPayload === null ? undefined : (extensionPayload as object),
         message: message ?? "",
         consent: consent ?? true,
         language: language ?? "fr",
@@ -186,14 +244,16 @@ export async function POST(req: NextRequest) {
         category,
         categorySource,
         vehicles: {
-          create: vehicles.map((v: Record<string, unknown>) => ({
-            plate: v.plate as string,
-            size: v.size as string,
+          create: (vehicles as Array<Record<string, unknown>>).map((v) => ({
+            // `plate` est désormais nullable côté DB pour supporter le
+            // workflow RX (plaque saisie au scan à l'arrivée).
+            plate: (v.plate as string | null | undefined) ?? null,
+            size: (v.size as string) ?? "",
             phoneCode: v.phoneCode as string,
             phoneNumber: v.phoneNumber as string,
             date: v.date as string,
             time: (v.time as string) ?? "",
-            city: v.city as string,
+            city: (v.city as string) ?? "",
             unloading: JSON.stringify(v.unloading),
             kms: (v.kms as string) ?? "",
             vehicleType: (v.vehicleType as string) ?? null,

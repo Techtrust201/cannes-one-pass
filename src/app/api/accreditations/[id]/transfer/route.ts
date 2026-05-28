@@ -39,7 +39,7 @@ export async function POST(
   if (!targetZone) {
     return new Response("Invalid targetZone", { status: 400 });
   }
-  const validZone = await prisma.zoneConfig.findUnique({ where: { zone: targetZone } });
+  const validZone = await prisma.zoneConfig.findFirst({ where: { zone: targetZone } });
   if (!validZone || !validZone.isActive) {
     return new Response("Invalid targetZone", { status: 400 });
   }

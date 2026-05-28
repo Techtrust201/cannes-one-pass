@@ -350,7 +350,7 @@ function filterByDateRange(
 // ── GET /api/carbon ──────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
   try {
-    await requirePermission(req, "BILAN_CARBONE", "read");
+    const session = await requirePermission(req, "BILAN_CARBONE", "read");
     const { searchParams } = new URL(req.url);
     const today = new Date();
     const currentYear = today.getFullYear();
@@ -358,6 +358,19 @@ export async function GET(req: NextRequest) {
     const startDate = searchParams.get("start") || `${currentYear}-01-01`;
     const endDate = searchParams.get("end") || todayStr;
     const search = searchParams.get("search") || "";
+
+    // Cloisonnement multi-tenant : restreindre aux events accessibles à
+    // l'utilisateur (avec prise en compte du contexte d'Espace si fourni).
+    const espaceParam = searchParams.get("espace")?.trim() || null;
+    const { getAccessibleEventIdsForEspace } = await import("@/lib/auth-helpers");
+    const accessibleEventIds = await getAccessibleEventIdsForEspace(
+      session.user.id,
+      espaceParam
+    );
+    const scopeFilter =
+      accessibleEventIds === "ALL"
+        ? {}
+        : { eventId: { in: accessibleEventIds } };
 
     // Récupérer les accréditations ENTREE ou SORTIE (+ time slots pour round trips)
     const accreditations = await prisma.accreditation.findMany({
@@ -371,6 +384,7 @@ export async function GET(req: NextRequest) {
       where: {
         AND: [
           { status: { in: ["ENTREE", "SORTIE"] } },
+          scopeFilter,
           search
             ? {
                 OR: [
@@ -476,7 +490,7 @@ export async function GET(req: NextRequest) {
         carbonData.push({
           id: `${acc.id}-${vehicle.id}`,
           evenement: acc.event,
-          plaque: vehicle.plate,
+          plaque: vehicle.plate ?? "",
           entreprise: acc.company,
           stand: acc.stand,
           origine,

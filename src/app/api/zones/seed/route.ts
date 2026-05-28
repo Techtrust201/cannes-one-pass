@@ -56,23 +56,31 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const results = await prisma.$transaction(
-      DEFAULT_ZONES.map((z) =>
-        prisma.zoneConfig.upsert({
-          where: { zone: z.zone },
-          update: {
-            label: z.label,
-            address: z.address,
-            latitude: z.latitude,
-            longitude: z.longitude,
-            isFinalDestination: z.isFinalDestination,
-            color: z.color,
-          },
-          create: z,
-        })
-      )
-    );
-
+    // Seed des zones par défaut comme configurations globales
+    // (organizationId = null), héritées par toutes les organisations.
+    const results = [];
+    for (const z of DEFAULT_ZONES) {
+      const existing = await prisma.zoneConfig.findFirst({
+        where: { zone: z.zone, organizationId: null },
+      });
+      if (existing) {
+        results.push(
+          await prisma.zoneConfig.update({
+            where: { id: existing.id },
+            data: {
+              label: z.label,
+              address: z.address,
+              latitude: z.latitude,
+              longitude: z.longitude,
+              isFinalDestination: z.isFinalDestination,
+              color: z.color,
+            },
+          })
+        );
+      } else {
+        results.push(await prisma.zoneConfig.create({ data: z }));
+      }
+    }
     return Response.json({ success: true, zones: results });
   } catch (error) {
     console.error("POST /api/zones/seed error:", error);

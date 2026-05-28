@@ -50,8 +50,8 @@ export async function PATCH(
             { status: 409 }
           );
         }
-        const duplicate = await prisma.vehicleTypeConfig.findUnique({
-          where: { code: newCode },
+        const duplicate = await prisma.vehicleTypeConfig.findFirst({
+          where: { code: newCode, organizationId: existing.organizationId ?? null },
         });
         if (duplicate && duplicate.id !== numericId) {
           return Response.json({ error: "Ce code existe déjà" }, { status: 409 });

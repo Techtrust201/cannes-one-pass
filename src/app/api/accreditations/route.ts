@@ -172,15 +172,27 @@ export async function POST(req: NextRequest) {
     }
     const currentZone = raw.currentZone ?? null;
 
-    // Vérifie la cohérence event ↔ organization quand le slug d'org est
-    // fourni : empêche un client de soumettre un event qui ne lui
-    // appartient pas. Pour les payloads legacy sans `organizationSlug`,
-    // on dérive l'organisation depuis l'event (rétrocompat Palais).
+    // Résolution de l'organisation cible. Le `organizationSlug` du payload
+    // correspond à la clé du registry de template (ex: "palais", "rx") et
+    // pas forcément au `Organization.slug` en base (ex: "palais-des-festivals").
+    // Ordre de résolution :
+    //   1. Match exact sur `Organization.slug`.
+    //   2. Match sur `Organization.formTemplate` (cas legacy Palais où
+    //      le payload envoie "palais" mais l'org en base est
+    //      "palais-des-festivals").
+    //   3. Fallback final : dérive l'org depuis l'event soumis.
     let organizationId: string | null = null;
-    const orgRecord = await prisma.organization.findUnique({
+    let orgRecord = await prisma.organization.findUnique({
       where: { slug: organizationSlug },
       select: { id: true, isActive: true },
     });
+    if (!orgRecord || !orgRecord.isActive) {
+      orgRecord = await prisma.organization.findFirst({
+        where: { formTemplate: organizationSlug, isActive: true },
+        select: { id: true, isActive: true },
+        orderBy: { createdAt: "asc" },
+      });
+    }
     if (orgRecord && orgRecord.isActive) {
       organizationId = orgRecord.id;
     }
@@ -194,8 +206,9 @@ export async function POST(req: NextRequest) {
         throw err;
       }
     }
-    // Fallback rétrocompat : si l'org n'est pas fournie/valide, on dérive
-    // depuis l'event si possible (préserve les anciens liens Palais).
+    // Fallback rétrocompat : si l'org n'est toujours pas résolue, on dérive
+    // depuis l'event si possible (préserve les anciens liens Palais sans
+    // organizationSlug dans le payload).
     if (!organizationId && eventRecord?.organizationId) {
       organizationId = eventRecord.organizationId;
     }

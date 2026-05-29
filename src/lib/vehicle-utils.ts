@@ -1,5 +1,6 @@
 import { DEFAULT_VEHICLE_TYPES } from "@/lib/vehicle-type-defaults";
 import { getColorHex } from "@/lib/color-palette";
+import { withEspaceQuery } from "@/lib/url";
 
 export interface VehicleTypeData {
   id: number;
@@ -48,7 +49,10 @@ function normalizeVehicleType(raw: unknown): VehicleTypeData {
   };
 }
 
-export async function loadVehicleTypes(force = false): Promise<VehicleTypeData[]> {
+export async function loadVehicleTypes(
+  force = false,
+  orgSlug?: string | null
+): Promise<VehicleTypeData[]> {
   if (_loaded && !force) return _types;
   if (_loadingPromise && !force) {
     await _loadingPromise;
@@ -57,20 +61,22 @@ export async function loadVehicleTypes(force = false): Promise<VehicleTypeData[]
 
   _loadingPromise = (async () => {
     try {
-      const res = await fetch("/api/vehicle-types");
+      const url = withEspaceQuery("/api/vehicle-types", orgSlug);
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
           _types = data.map(normalizeVehicleType).filter((t) => t.isActive);
           _loaded = true;
+          return;
         }
       }
     } catch (error) {
       console.error("Erreur chargement gabarits véhicules:", error);
-      if (_types.length === 0) {
-        _types = DEFAULT_VEHICLE_TYPES_DATA;
-        _loaded = true;
-      }
+    }
+    if (_types.length === 0 || force) {
+      _types = DEFAULT_VEHICLE_TYPES_DATA;
+      _loaded = true;
     }
   })();
 

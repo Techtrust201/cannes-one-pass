@@ -6,29 +6,40 @@ import { generateVehicleTypeCode } from "@/lib/vehicle-type-defaults";
 /**
  * GET /api/vehicle-types — Liste des gabarits véhicules accessibles.
  *
- * Si `?espace=<slug>` est fourni, on renvoie les gabarits de cette
- * organisation **+** les gabarits globaux (organizationId=null).
+ * - `?espace=<slug>` ou `?orgSlug=<slug>` : lecture **publique** (formulaire
+ *   d'accréditation) — gabarits actifs de l'org + globaux (organizationId=null).
+ * - Sans slug : réservé au back-office (session requise).
  *
- * `?all=true` pour inclure les désactivés (admin) ; `?activeOnly=true`
- * (alias de `?all=false`) pour ne renvoyer que les actifs (template RX).
+ * `?all=true` pour inclure les désactivés (admin uniquement, avec auth).
  */
 export async function GET(req: NextRequest) {
-  try {
-    await requireAuth(req);
-  } catch (error) {
-    if (error instanceof Response) {
-      return new Response(error.body, { status: error.status, statusText: error.statusText });
+  const { searchParams } = new URL(req.url);
+  const includeAll = searchParams.get("all") === "true";
+  const orgSlug =
+    searchParams.get("espace")?.trim() ||
+    searchParams.get("orgSlug")?.trim() ||
+    null;
+
+  if (!orgSlug) {
+    try {
+      await requireAuth(req);
+    } catch (error) {
+      if (error instanceof Response) {
+        return new Response(error.body, { status: error.status, statusText: error.statusText });
+      }
+      return new Response("Non autorisé", { status: 401 });
     }
-    return new Response("Non autorisé", { status: 401 });
+  } else if (includeAll) {
+    return Response.json({ error: "Non autorisé" }, { status: 401 });
   }
 
   try {
-    const { searchParams } = new URL(req.url);
-    const includeAll = searchParams.get("all") === "true";
-    const espace = searchParams.get("espace")?.trim() || null;
-    const orgId = await resolveEspaceOrgId(espace);
+    const orgId = await resolveEspaceOrgId(orgSlug);
+    if (orgSlug && !orgId) {
+      return Response.json([]);
+    }
 
-    const scopeFilter = espace
+    const scopeFilter = orgSlug
       ? { OR: [{ organizationId: null }, { organizationId: orgId }] }
       : {};
 

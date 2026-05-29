@@ -1,18 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { useEspaceSlug } from "@/hooks/useEspaceSlug";
-import { withEspaceQuery } from "@/lib/url";
+import { useVehicleTypes } from "@/hooks/useVehicleTypes";
 import { RX_SPACES, PALAIS_CHOICE, genSlots, formatDateFR, formatSlot } from "../config";
 import type { StepProps } from "../../types";
 import type { RxFormData } from "../types";
-
-interface VehicleTypeOption {
-  id: number;
-  code: string;
-  label: string;
-}
 
 /**
  * Step 3 RX — Gestion des livraisons (montage).
@@ -24,21 +17,14 @@ interface VehicleTypeOption {
  *   créneau 1 h (généré dynamiquement depuis la plage du jour) + N véhicules
  *   (gabarit obligatoire, plaque optionnelle).
  */
-export function StepDeliveryRx({ data, update, onValidityChange }: StepProps<RxFormData>) {
+export function StepDeliveryRx({
+  data,
+  update,
+  onValidityChange,
+  orgSlug,
+}: StepProps<RxFormData>) {
   const { stepOne, stepTwo } = data;
-  const espace = useEspaceSlug();
-  const [vehicleTypes, setVehicleTypes] = useState<VehicleTypeOption[]>([]);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch(withEspaceQuery("/api/vehicle-types", espace ?? "rx"))
-      .then((r) => (r.ok ? r.json() : []))
-      .then((d) => !cancelled && setVehicleTypes(Array.isArray(d) ? d : []))
-      .catch(() => !cancelled && setVehicleTypes([]));
-    return () => {
-      cancelled = true;
-    };
-  }, [espace]);
+  const { types: vehicleTypes, loading: typesLoading } = useVehicleTypes(false, orgSlug);
 
   const needsPalaisChoice = stepOne.space === PALAIS_CHOICE || !stepOne.space;
   const currentSpace = useMemo(() => {
@@ -309,11 +295,20 @@ export function StepDeliveryRx({ data, update, onValidityChange }: StepProps<RxF
                       <button
                         type="button"
                         onClick={() => addVehicle(cat.id)}
-                        className="text-xs text-primary hover:underline"
+                        disabled={typesLoading || vehicleTypes.length === 0}
+                        className="text-xs text-primary hover:underline disabled:opacity-50 disabled:no-underline"
                       >
                         + Ajouter un véhicule
                       </button>
                     </div>
+                    {typesLoading && (
+                      <p className="text-xs text-gray-500">Chargement des gabarits…</p>
+                    )}
+                    {!typesLoading && vehicleTypes.length === 0 && (
+                      <p className="text-xs text-orange-700 bg-orange-50 border border-orange-200 rounded-md p-2">
+                        Aucun gabarit configuré pour le moment. Contactez l&apos;organisateur.
+                      </p>
+                    )}
                     {selected.vehicles.map((v, idx) => (
                       <div
                         key={idx}
@@ -328,8 +323,9 @@ export function StepDeliveryRx({ data, update, onValidityChange }: StepProps<RxF
                             onChange={(e) =>
                               updateVehicle(cat.id, idx, { vehicleType: e.target.value })
                             }
+                            disabled={typesLoading || vehicleTypes.length === 0}
                             className={cn(
-                              "w-full border rounded-md px-2 py-1.5 text-sm",
+                              "w-full border rounded-md px-2 py-1.5 text-sm disabled:bg-gray-100 disabled:text-gray-400",
                               !v.vehicleType && "border-red-400"
                             )}
                           >

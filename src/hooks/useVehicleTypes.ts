@@ -39,14 +39,17 @@ export function useVehicleTypes(includeInactive = false, espaceSlug?: string | n
             sortOrder: Number(item.sortOrder ?? 0),
             isActive: Boolean(item.isActive ?? true),
           }));
-          setTypes(includeInactive ? normalized : normalized.filter((t) => t.isActive));
-          return;
+          const active = includeInactive ? normalized : normalized.filter((t) => t.isActive);
+          if (active.length > 0) {
+            setTypes(active);
+            return;
+          }
         }
       }
-      const fallback = await loadVehicleTypes(true);
+      const fallback = await loadVehicleTypes(true, espaceSlug);
       setTypes(fallback);
     } catch {
-      const fallback = await loadVehicleTypes(true);
+      const fallback = await loadVehicleTypes(true, espaceSlug);
       setTypes(fallback);
     } finally {
       setLoading(false);

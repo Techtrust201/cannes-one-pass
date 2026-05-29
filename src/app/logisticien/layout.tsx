@@ -10,6 +10,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { authClient } from "@/lib/auth-client";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { withEspaceQuery } from "@/lib/url";
+import { ESPACE_COOKIE } from "@/lib/espace-cookie";
 import EspaceSwitcher from "@/components/logisticien/EspaceSwitcher";
 import EspaceChangeRefresher from "@/components/logisticien/EspaceChangeRefresher";
 
@@ -56,10 +57,9 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
   }, []);
 
   // Guard multi-tenant : toute sous-page logisticien doit avoir `?espace=`.
-  // Le dashboard racine `/logisticien` gère son propre redirect côté server
-  // (resolveDefaultEspaceSlugForUser), on le laisse faire pour préserver son
-  // flux d'auto-selection. Pour les sous-pages, on résout le default via
-  // l'API publique des espaces accessibles puis on redirige côté client.
+  // Le dashboard racine `/logisticien` gère son propre redirect côté serveur.
+  // Pour les sous-pages, on résout l'espace dans l'ordre : cookie « dernier
+  // espace » → Palais → 1er espace accessible, puis on redirige côté client.
   useEffect(() => {
     if (espace) return;
     if (!pathname || pathname === "/logisticien") return;
@@ -70,14 +70,21 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
         if (!res.ok) return;
         const list: Array<{ slug: string; name: string }> = await res.json();
         if (cancelled || list.length === 0) return;
+        // 1) Dernier espace choisi (cookie), s'il est toujours accessible.
+        const cookieEspace = document.cookie
+          .split("; ")
+          .find((c) => c.startsWith(`${ESPACE_COOKIE}=`))
+          ?.split("=")[1];
+        const decoded = cookieEspace ? decodeURIComponent(cookieEspace) : null;
+        const fromCookie = decoded && list.some((o) => o.slug === decoded) ? decoded : null;
+        // 2) Palais en priorité, 3) sinon le 1er accessible.
         const palais = list.find((o) => o.slug === "palais-des-festivals");
-        const target = (palais ?? list[0]).slug;
+        const target = fromCookie ?? (palais ?? list[0]).slug;
         const qs = new URLSearchParams(searchParams?.toString() ?? "");
         qs.set("espace", target);
         router.replace(`${pathname}?${qs.toString()}`);
       } catch {
-        // En cas d'erreur réseau : on laisse l'utilisateur sur la page,
-        // la sidebar lui proposera de choisir manuellement un espace.
+        // Erreur réseau : on laisse l'utilisateur sur la page.
       }
     })();
     return () => {

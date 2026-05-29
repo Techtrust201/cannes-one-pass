@@ -103,11 +103,29 @@ function WizardContent({
   const router = useRouter();
   const { t, lang } = useTranslation();
 
+  const isLogisticien = mode === "logisticien";
   const urlLang = searchParams.get("lang");
   const rawStep = searchParams.get("step");
 
   const hasLang = urlLang && isValidLang(urlLang);
-  const step = hasLang ? Number(rawStep ?? "1") : 0;
+  // En logisticien : pas d'étape de langue (UI back-office en français),
+  // on démarre directement à l'étape 1. En public : étape 0 = choix de langue.
+  const step = isLogisticien
+    ? Number(rawStep ?? "1") || 1
+    : hasLang
+      ? Number(rawStep ?? "1")
+      : 0;
+
+  // Construit l'URL d'une étape selon le contexte (public vs logisticien) :
+  // - public      → /accreditation/<orgSlug>?step=n&lang=...
+  // - logisticien → /logisticien/nouveau?step=n&espace=<orgSlug>
+  const buildStepUrl = useCallback(
+    (n: number) =>
+      isLogisticien
+        ? `/logisticien/nouveau?step=${n}&espace=${encodeURIComponent(orgSlug)}`
+        : `/accreditation/${orgSlug}?step=${n}&lang=${lang}`,
+    [isLogisticien, orgSlug, lang]
+  );
 
   const [stepValid, setStepValid] = useState(false);
   const [hasSaved, setHasSaved] = useState(false);
@@ -137,25 +155,27 @@ function WizardContent({
     window.localStorage.setItem(storageKey, JSON.stringify(formData));
   }, [formData, storageKey]);
 
-  useEffect(() => {
-    setStepValid(false);
-  }, [step]);
+  // NB : on ne réinitialise PLUS `stepValid` au changement d'étape. Chaque
+  // step est la source de vérité de sa validité (via son propre
+  // `onValidityChange(isValid)` au montage). Le reset provoquait une course
+  // (l'effet parent écrasait à `false` la validité signalée par l'enfant) →
+  // bouton « Suivant » bloqué tant qu'on ne modifiait pas un champ.
 
   useEffect(() => {
-    if (!hasLang) {
-      const stored =
-        typeof window !== "undefined" ? window.localStorage.getItem("acc_lang") : null;
-      if (stored && isValidLang(stored)) {
-        router.replace(`/accreditation/${orgSlug}?step=1&lang=${stored}`);
-      }
+    // Auto-langue uniquement en public (le logisticien n'a pas d'étape langue).
+    if (isLogisticien || hasLang) return;
+    const stored =
+      typeof window !== "undefined" ? window.localStorage.getItem("acc_lang") : null;
+    if (stored && isValidLang(stored)) {
+      router.replace(`/accreditation/${orgSlug}?step=1&lang=${stored}`);
     }
-  }, [hasLang, router, orgSlug]);
+  }, [isLogisticien, hasLang, router, orgSlug]);
 
   const gotoStep = useCallback(
     (n: number) => {
-      router.push(`/accreditation/${orgSlug}?step=${n}&lang=${lang}`);
+      router.push(buildStepUrl(n));
     },
-    [router, lang, orgSlug]
+    [router, buildStepUrl]
   );
 
   const clearForm = useCallback(() => {
@@ -215,7 +235,7 @@ function WizardContent({
           <p className="text-lg opacity-80">{t.pageSubtitle}</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-lg overflow-hidden flex flex-col lg:flex-row w-11/12 lg:w-3/4 lg:max-h-[65vh]">
+        <div className="bg-white rounded-2xl shadow-lg overflow-visible flex flex-col lg:flex-row w-11/12 lg:w-3/4">
           {step > 0 && template.meta.sideImage && (
             <div
               className={`relative lg:w-[35%] h-80 ${
@@ -274,7 +294,7 @@ function WizardContent({
                   })}
                 </div>
 
-                <div className="flex-1 overflow-y-auto overflow-x-hidden">
+                <div className="flex-1">
                   {ActiveStep ? (
                     palaisStepFourValue && ActiveStep.id === "recap" ? (
                       <PalaisStepFourProvider value={palaisStepFourValue}>

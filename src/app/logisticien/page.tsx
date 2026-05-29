@@ -11,7 +11,9 @@ import {
   getAvailableEspacesForUser,
   resolveEspaceOrgId,
 } from "@/lib/auth-helpers";
-import { resolveDefaultEspaceSlugForUser } from "@/lib/default-espace";
+import { pickPreferredEspaceSlug } from "@/lib/default-espace";
+import { cookies } from "next/headers";
+import { ESPACE_COOKIE } from "@/lib/espace-cookie";
 import { FilterBar } from "@/components/logisticien/FilterBar";
 import AccreditationTable from "@/components/logisticien/AccreditationTable";
 import { buildLink } from "@/lib/url";
@@ -60,7 +62,7 @@ export default async function LogisticienDashboard(props: {
   const espaceParam = paramsObj.espace?.trim() || null;
   const availableEspaces = await getAvailableEspacesForUser(session.user.id);
 
-  // Cas 1 : utilisateur standard sans aucune organisation → message dédié.
+  // Seul cas bloquant : un utilisateur standard sans AUCUNE organisation.
   if (!isSuperAdmin && availableEspaces.length === 0) {
     return (
       <div className="min-h-screen sm:h-screen flex flex-col">
@@ -69,51 +71,35 @@ export default async function LogisticienDashboard(props: {
     );
   }
 
-  // Cas 2 : un seul espace → redirect auto pour figer l'URL ergonomique.
-  if (!espaceParam && !isSuperAdmin && availableEspaces.length === 1) {
-    const qs = new URLSearchParams();
-    for (const [k, v] of Object.entries(paramsObj)) {
-      if (v === undefined || v === null || v === "") continue;
-      qs.set(k, String(v));
-    }
-    qs.set("espace", availableEspaces[0].slug);
-    redirect(`/logisticien?${qs.toString()}`);
-  }
+  // Résolution de l'espace courant (modèle multi-tenant standard) :
+  //   1. `?espace=` dans l'URL (et accessible) ;
+  //   2. sinon le dernier espace mémorisé en cookie (s'il est accessible) ;
+  //   3. sinon l'espace préféré (Palais en priorité, puis 1er accessible).
+  // On atterrit toujours sur un espace — jamais d'écran « choisir » bloquant.
+  const cookieStore = await cookies();
+  const cookieEspace = cookieStore.get(ESPACE_COOKIE)?.value || null;
+  const isAccessible = (slug: string | null) =>
+    !!slug && availableEspaces.some((o) => o.slug === slug);
 
-  // Cas 3 : utilisateur multi-org sans `espace` → auto-redirect vers l'espace préféré.
-  if (!espaceParam && !isSuperAdmin && availableEspaces.length > 1) {
-    const defaultSlug = await resolveDefaultEspaceSlugForUser(
-      session.user.id,
-      availableEspaces
-    );
-    if (defaultSlug) {
+  // Un slug d'URL non accessible (non super-admin) est ignoré → re-résolution.
+  const urlEspace =
+    espaceParam && (isSuperAdmin || isAccessible(espaceParam)) ? espaceParam : null;
+
+  if (!urlEspace) {
+    const resolved =
+      (isAccessible(cookieEspace) ? cookieEspace : null) ||
+      pickPreferredEspaceSlug(availableEspaces);
+    if (resolved) {
       const qs = new URLSearchParams();
       for (const [k, v] of Object.entries(paramsObj)) {
-        if (v === undefined || v === null || v === "") continue;
+        if (k === "espace" || v === undefined || v === null || v === "") continue;
         qs.set(k, String(v));
       }
-      qs.set("espace", defaultSlug);
+      qs.set("espace", resolved);
       redirect(`/logisticien?${qs.toString()}`);
     }
-    // Fallback (pool vide, ne devrait pas arriver) : afficher le sélecteur manuel.
-    return (
-      <div className="min-h-screen sm:h-screen flex flex-col">
-        <NoEspaceState
-          mode="choose"
-          espaces={availableEspaces}
-          currentSearchParams={paramsObj}
-        />
-      </div>
-    );
-  }
-
-  // Validation du slug `espace` : doit appartenir aux espaces accessibles
-  // (hors super-admin qui peut cibler n'importe quelle org).
-  if (espaceParam && !isSuperAdmin) {
-    const allowed = availableEspaces.some((o) => o.slug === espaceParam);
-    if (!allowed) {
-      redirect("/logisticien");
-    }
+    // resolved null = super-admin sans aucune organisation en base (rare) :
+    // on laisse passer sans scope (vue globale de repli).
   }
 
   const accessibleEventIds = await getAccessibleEventIdsForEspace(

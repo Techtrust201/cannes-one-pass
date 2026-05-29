@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Building2, ChevronDown, Check, X } from "lucide-react";
 import { PortalOverlay } from "@/components/ui/PortalOverlay";
+import { setEspaceCookie } from "@/lib/espace-cookie";
 
 interface EspaceOption {
   id: string;
@@ -79,6 +80,9 @@ export default function EspaceSwitcher({
   const current = espaces.find((o) => o.slug === currentEspace) ?? null;
 
   function switchTo(slug: string | null) {
+    // Mémorise le choix : il persistera au refresh / à la navigation / au
+    // prochain login (lu côté serveur par le dashboard et le guard).
+    if (slug) setEspaceCookie(slug);
     const qs = new URLSearchParams();
     if (slug) qs.set("espace", slug);
     // Au switch d'organisation, on repart d'un état URL "propre" sur la

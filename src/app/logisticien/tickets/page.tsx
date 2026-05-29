@@ -86,52 +86,86 @@ export default function TicketsListPage() {
       {tickets.length === 0 ? (
         <p className="text-sm text-gray-500">Aucun ticket à afficher.</p>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
-          <table className="w-full min-w-[640px] text-sm">
-            <thead className="bg-gray-50 text-xs text-gray-600 border-b">
-              <tr>
-                <th className="text-left py-2 px-3">Statut</th>
-                <th className="text-left py-2 px-3">Stand</th>
-                <th className="text-left py-2 px-3">Demandeur</th>
-                <th className="text-left py-2 px-3">Message</th>
-                <th className="text-left py-2 px-3">Date</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {tickets.map((t) => (
-                <tr key={t.id} className="border-b last:border-0 hover:bg-gray-50">
-                  <td className="py-2 px-3">
-                    <span
-                      className={`inline-block text-xs font-semibold border rounded-full px-2 py-0.5 ${STATUS_COLOR[t.status]}`}
-                    >
-                      {STATUS_LABEL[t.status]}
-                    </span>
-                  </td>
-                  <td className="py-2 px-3 font-medium">{t.stand}</td>
-                  <td className="py-2 px-3">
-                    <div className="text-gray-800">{t.email}</div>
-                    {t.phone && <div className="text-xs text-gray-500">{t.phone}</div>}
-                  </td>
-                  <td className="py-2 px-3 text-gray-700 max-w-md">
-                    <div className="line-clamp-2">{t.message}</div>
-                  </td>
-                  <td className="py-2 px-3 text-xs text-gray-500">
+        <>
+          {/* Mobile : cartes empilées */}
+          <div className="md:hidden space-y-3">
+            {tickets.map((t) => (
+              <div
+                key={t.id}
+                className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-2"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span
+                    className={`inline-block text-xs font-semibold border rounded-full px-2 py-0.5 shrink-0 ${STATUS_COLOR[t.status]}`}
+                  >
+                    {STATUS_LABEL[t.status]}
+                  </span>
+                  <span className="text-xs text-gray-500">
                     {new Date(t.createdAt).toLocaleString("fr-FR")}
-                  </td>
-                  <td className="py-2 px-3">
-                    <Link
-                      href={`/logisticien/tickets/${t.id}${espace ? `?espace=${espace}` : ""}`}
-                      className="text-primary text-xs hover:underline"
-                    >
-                      Ouvrir →
-                    </Link>
-                  </td>
+                  </span>
+                </div>
+                <div className="font-semibold text-gray-900">{t.stand}</div>
+                <div className="text-sm text-gray-700 break-all">{t.email}</div>
+                {t.phone && <div className="text-xs text-gray-500">{t.phone}</div>}
+                <p className="text-sm text-gray-600 line-clamp-3">{t.message}</p>
+                <Link
+                  href={`/logisticien/tickets/${t.id}${espace ? `?espace=${espace}` : ""}`}
+                  className="inline-block text-primary text-sm font-medium hover:underline"
+                >
+                  Ouvrir →
+                </Link>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop : table */}
+          <div className="hidden md:block bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-xs text-gray-600 border-b">
+                <tr>
+                  <th className="text-left py-2 px-3">Statut</th>
+                  <th className="text-left py-2 px-3">Stand</th>
+                  <th className="text-left py-2 px-3">Demandeur</th>
+                  <th className="text-left py-2 px-3">Message</th>
+                  <th className="text-left py-2 px-3">Date</th>
+                  <th />
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {tickets.map((t) => (
+                  <tr key={t.id} className="border-b last:border-0 hover:bg-gray-50">
+                    <td className="py-2 px-3">
+                      <span
+                        className={`inline-block text-xs font-semibold border rounded-full px-2 py-0.5 ${STATUS_COLOR[t.status]}`}
+                      >
+                        {STATUS_LABEL[t.status]}
+                      </span>
+                    </td>
+                    <td className="py-2 px-3 font-medium">{t.stand}</td>
+                    <td className="py-2 px-3">
+                      <div className="text-gray-800">{t.email}</div>
+                      {t.phone && <div className="text-xs text-gray-500">{t.phone}</div>}
+                    </td>
+                    <td className="py-2 px-3 text-gray-700 max-w-md">
+                      <div className="line-clamp-2">{t.message}</div>
+                    </td>
+                    <td className="py-2 px-3 text-xs text-gray-500">
+                      {new Date(t.createdAt).toLocaleString("fr-FR")}
+                    </td>
+                    <td className="py-2 px-3">
+                      <Link
+                        href={`/logisticien/tickets/${t.id}${espace ? `?espace=${espace}` : ""}`}
+                        className="text-primary text-xs hover:underline"
+                      >
+                        Ouvrir →
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );

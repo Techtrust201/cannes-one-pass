@@ -32,22 +32,22 @@ export default function VehicleCard({ vehicle, index, onEdit, onDelete }: Vehicl
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
       {/* Header: plaque + type + actions */}
-      <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-100">
-        <div className="flex items-center gap-3 min-w-0">
-          <span className="font-mono font-bold text-base text-gray-900 tracking-wider bg-white px-2.5 py-1 rounded-lg border border-gray-200 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 bg-gray-50 border-b border-gray-100">
+        <div className="flex flex-wrap items-center gap-2 min-w-0 flex-1">
+          <span className="font-mono font-bold text-base text-gray-900 tracking-wider bg-white px-2.5 py-1 rounded-lg border border-gray-200 shadow-sm shrink-0">
             {vehicle.plate || "—"}
           </span>
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-[#4F587E]/10 text-[#4F587E]">
-            <Truck size={12} />
-            {typeLabel}
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-[#4F587E]/10 text-[#4F587E] max-w-full truncate">
+            <Truck size={12} className="shrink-0" />
+            <span className="truncate">{typeLabel}</span>
           </span>
           {needsTrailerPlate(typeCode) && (
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-gray-500 shrink-0">
               Rem. <span className="font-mono font-medium">{vehicle.trailerPlate || "—"}</span>
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1 shrink-0 ml-2">
+        <div className="flex items-center gap-1 shrink-0">
           <button
             type="button"
             onClick={() => onEdit(vehicle)}

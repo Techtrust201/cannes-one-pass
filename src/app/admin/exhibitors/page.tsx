@@ -129,7 +129,7 @@ export default function AdminExhibitorsPage() {
   const ready = orgSlug && eventSlug;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 overflow-x-hidden min-w-0">
       <div className="max-w-3xl mx-auto">
         <Link
           href="/admin"
@@ -188,24 +188,26 @@ export default function AdminExhibitorsPage() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between gap-2 pt-2 border-t">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-2 border-t min-w-0">
             <a
               href="/api/admin/exhibitors/template"
-              className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
+              className="inline-flex items-center gap-2 text-sm text-primary hover:underline min-w-0 shrink-0"
             >
               <Download size={16} /> Télécharger le template CSV
             </a>
-            <input
-              type="file"
-              accept=".csv"
-              ref={inputRef}
-              disabled={!ready || uploading || committing}
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) handleFileSelected(f);
-              }}
-              className="text-sm"
-            />
+            <div className="min-w-0 w-full sm:flex-1 overflow-hidden">
+              <input
+                type="file"
+                accept=".csv"
+                ref={inputRef}
+                disabled={!ready || uploading || committing}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleFileSelected(f);
+                }}
+                className="text-sm w-full max-w-full"
+              />
+            </div>
           </div>
         </div>
 
@@ -242,7 +244,7 @@ export default function AdminExhibitorsPage() {
             <div className="flex items-center gap-2 text-gray-800 font-semibold mb-2">
               <FileUp size={18} /> Aperçu — {dryRun.totalLines} ligne(s) prêtes
             </div>
-            <div className="overflow-x-auto">
+            <div className="hidden sm:block overflow-x-auto">
               <table className="text-sm w-full">
                 <thead className="text-xs text-gray-500 border-b">
                   <tr>
@@ -263,12 +265,22 @@ export default function AdminExhibitorsPage() {
                   ))}
                 </tbody>
               </table>
-              {dryRun.totalLines && dryRun.totalLines > (dryRun.preview?.length ?? 0) && (
-                <p className="text-xs text-gray-500 mt-2">
-                  + {dryRun.totalLines - (dryRun.preview?.length ?? 0)} autres lignes…
-                </p>
-              )}
             </div>
+            <div className="sm:hidden space-y-2">
+              {(dryRun.preview ?? []).map((row, i) => (
+                <div key={i} className="rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm space-y-1">
+                  <div className="font-semibold text-gray-900 break-words">{row.name}</div>
+                  <div className="text-gray-700">Stand : {row.stand}</div>
+                  {row.sector && <div className="text-xs text-gray-500">Secteur : {row.sector}</div>}
+                  {row.zone && <div className="text-xs text-gray-500">Zone : {row.zone}</div>}
+                </div>
+              ))}
+            </div>
+            {dryRun.totalLines && dryRun.totalLines > (dryRun.preview?.length ?? 0) && (
+              <p className="text-xs text-gray-500 mt-2">
+                + {dryRun.totalLines - (dryRun.preview?.length ?? 0)} autres lignes…
+              </p>
+            )}
             <div className="flex items-center justify-end gap-3 pt-4 mt-4 border-t">
               <button
                 onClick={() => {

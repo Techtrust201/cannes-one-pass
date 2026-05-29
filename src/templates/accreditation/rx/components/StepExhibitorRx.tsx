@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { AnchoredDropdown } from "@/components/ui/AnchoredDropdown";
 import { deriveSpaceFromSector } from "../config";
 import type { StepProps } from "../../types";
 import type { RxFormData } from "../types";
@@ -39,6 +40,7 @@ export function StepExhibitorRx({
   update,
   onValidityChange,
   orgSlug,
+  mode = "public",
 }: StepProps<RxFormData>) {
   const { stepOne } = data;
   const [events, setEvents] = useState<RxEventOption[]>([]);
@@ -51,7 +53,7 @@ export function StepExhibitorRx({
       : ""
   );
   const [open, setOpen] = useState(false);
-  const comboRef = useRef<HTMLDivElement | null>(null);
+  const anchorRef = useRef<HTMLDivElement | null>(null);
 
   // 1) Résolution des événements RX actifs.
   useEffect(() => {
@@ -99,17 +101,6 @@ export function StepExhibitorRx({
       cancelled = true;
     };
   }, [orgSlug, stepOne.event]);
-
-  // Fermeture du panneau au clic extérieur.
-  useEffect(() => {
-    function onClickOutside(e: MouseEvent) {
-      if (comboRef.current && !comboRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
-  }, []);
 
   // Changer (ou effacer) l'exposant réinitialise systématiquement les
   // livraisons et la manutention : l'espace/les catégories diffèrent d'un
@@ -237,11 +228,11 @@ export function StepExhibitorRx({
       )}
 
       {/* Combobox exposant recherchable */}
-      <div className="space-y-1 relative" ref={comboRef}>
+      <div className="space-y-1">
         <label htmlFor="rx-exhibitor" className="text-sm font-semibold text-gray-700">
           Exposant <span className="text-red-500">*</span>
         </label>
-        <div className="relative">
+        <div className="relative" ref={anchorRef}>
           <input
             id="rx-exhibitor"
             autoComplete="off"
@@ -276,43 +267,46 @@ export function StepExhibitorRx({
           )}
         </div>
 
-        {open && stepOne.event && (
-          <div className="absolute z-30 mt-1 w-full max-h-[55vh] overflow-y-auto rounded-md border border-gray-200 bg-white shadow-xl">
-            {loadingExhibitors ? (
-              <div className="px-3 py-4 text-sm text-gray-500 text-center">
-                Chargement des exposants…
-              </div>
-            ) : grouped.length === 0 ? (
-              <div className="px-3 py-6 text-sm text-gray-500 text-center">
-                Aucun exposant trouvé
-              </div>
-            ) : (
-              grouped.map((group) => (
-                <div key={group.sector}>
-                  <div className="sticky top-0 bg-gray-50 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-gray-500 border-b border-gray-100">
-                    {group.sector}
-                  </div>
-                  {group.items.map((ex) => (
-                    <button
-                      type="button"
-                      key={ex.id}
-                      onClick={() => selectExhibitor(ex)}
-                      className={cn(
-                        "w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left text-sm hover:bg-gray-50 border-b border-gray-50",
-                        stepOne.exhibitorId === ex.id && "bg-primary/5 font-semibold"
-                      )}
-                    >
-                      <span className="truncate">{ex.name}</span>
-                      <span className="shrink-0 text-[11px] font-semibold text-gray-700 bg-gray-100 rounded-full px-2 py-0.5">
-                        {ex.zone || ex.stand}
-                      </span>
-                    </button>
-                  ))}
+        <AnchoredDropdown
+          open={open && !!stepOne.event}
+          onClose={() => setOpen(false)}
+          anchorRef={anchorRef}
+          bottomChrome={mode === "logisticien" ? "logisticien" : "public"}
+        >
+          {loadingExhibitors ? (
+            <div className="px-3 py-4 text-sm text-gray-500 text-center">
+              Chargement des exposants…
+            </div>
+          ) : grouped.length === 0 ? (
+            <div className="px-3 py-6 text-sm text-gray-500 text-center">
+              Aucun exposant trouvé
+            </div>
+          ) : (
+            grouped.map((group) => (
+              <div key={group.sector}>
+                <div className="sticky top-0 bg-gray-50 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-gray-500 border-b border-gray-100">
+                  {group.sector}
                 </div>
-              ))
-            )}
-          </div>
-        )}
+                {group.items.map((ex) => (
+                  <button
+                    type="button"
+                    key={ex.id}
+                    onClick={() => selectExhibitor(ex)}
+                    className={cn(
+                      "w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left text-sm hover:bg-gray-50 border-b border-gray-50",
+                      stepOne.exhibitorId === ex.id && "bg-primary/5 font-semibold"
+                    )}
+                  >
+                    <span className="truncate">{ex.name}</span>
+                    <span className="shrink-0 text-[11px] font-semibold text-gray-700 bg-gray-100 rounded-full px-2 py-0.5">
+                      {ex.zone || ex.stand}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ))
+          )}
+        </AnchoredDropdown>
       </div>
 
       {/* Panneau récap de l'exposant sélectionné */}

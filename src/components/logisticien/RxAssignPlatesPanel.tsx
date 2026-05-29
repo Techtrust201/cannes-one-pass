@@ -95,6 +95,15 @@ export function RxAssignPlatesPanel({ accreditationStand, vehicles }: Props) {
 
   const pending = rows.filter((v) => !v.plate);
 
+  function renderVehicleRow(v: VehicleRow) {
+    const draft = drafts[v.id] ?? { plate: "", trailerPlate: "" };
+    const assigned = !!v.plate;
+    const isBusy = !!busy[v.id];
+    const err = errors[v.id];
+
+    return { draft, assigned, isBusy, err };
+  }
+
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 mb-4">
       <div className="flex items-start justify-between gap-2 flex-wrap mb-3">
@@ -117,8 +126,81 @@ export function RxAssignPlatesPanel({ accreditationStand, vehicles }: Props) {
         )}
       </div>
 
-      <div className="overflow-x-auto -mx-1 px-1">
-        <table className="w-full min-w-[560px] text-sm">
+      {/* Mobile : une card par véhicule */}
+      <div className="md:hidden space-y-3">
+        {rows.map((v) => {
+          const { draft, assigned, isBusy, err } = renderVehicleRow(v);
+          return (
+            <div
+              key={v.id}
+              className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-3"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-gray-800">{v.vehicleType ?? "—"}</div>
+                  <div className="text-xs text-gray-500">
+                    {v.date} {v.time}
+                  </div>
+                </div>
+                {assigned ? (
+                  <span className="inline-flex items-center gap-1 text-green-700 text-xs shrink-0">
+                    <CheckCircle2 size={14} /> Affectée
+                  </span>
+                ) : null}
+              </div>
+              <div className="space-y-2">
+                <label className="block text-xs font-medium text-gray-600">
+                  Plaque
+                  <input
+                    value={assigned ? (v.plate ?? "") : draft.plate}
+                    onChange={(e) =>
+                      !assigned &&
+                      setDrafts((d) => ({
+                        ...d,
+                        [v.id]: { ...draft, plate: e.target.value },
+                      }))
+                    }
+                    disabled={assigned}
+                    placeholder="AB-123-CD"
+                    className="mt-1 w-full border border-gray-300 rounded-md px-2 py-2 text-sm font-mono disabled:bg-white"
+                  />
+                </label>
+                <label className="block text-xs font-medium text-gray-600">
+                  Remorque (optionnel)
+                  <input
+                    value={assigned ? (v.trailerPlate ?? "") : draft.trailerPlate}
+                    onChange={(e) =>
+                      !assigned &&
+                      setDrafts((d) => ({
+                        ...d,
+                        [v.id]: { ...draft, trailerPlate: e.target.value },
+                      }))
+                    }
+                    disabled={assigned}
+                    placeholder="(optionnel)"
+                    className="mt-1 w-full border border-gray-300 rounded-md px-2 py-2 text-sm font-mono disabled:bg-white"
+                  />
+                </label>
+              </div>
+              {err && <div className="text-xs text-red-600">{err}</div>}
+              {!assigned && (
+                <button
+                  onClick={() => handleAssign(v.id)}
+                  disabled={isBusy}
+                  className="w-full inline-flex items-center justify-center gap-1 text-sm bg-primary text-white px-3 py-2 rounded-md disabled:opacity-60"
+                >
+                  {isBusy && <Loader2 size={14} className="animate-spin" />}
+                  Affecter
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop : table */}
+      <div className="hidden md:block overflow-x-auto -mx-1 px-1">
+        <table className="w-full text-sm">
           <thead className="text-xs text-gray-500 border-b">
             <tr>
               <th className="text-left py-1 pr-3">Gabarit</th>
@@ -130,10 +212,7 @@ export function RxAssignPlatesPanel({ accreditationStand, vehicles }: Props) {
           </thead>
           <tbody>
             {rows.map((v) => {
-              const draft = drafts[v.id] ?? { plate: "", trailerPlate: "" };
-              const assigned = !!v.plate;
-              const isBusy = !!busy[v.id];
-              const err = errors[v.id];
+              const { draft, assigned, isBusy, err } = renderVehicleRow(v);
               return (
                 <tr key={v.id} className="border-b last:border-0 align-top">
                   <td className="py-2 pr-3 text-gray-800">{v.vehicleType ?? "—"}</td>

@@ -22,7 +22,14 @@ export default function MobileNavbar({ onBurger, hidden, espace }: MobileNavbarP
   const nouveauHref = withEspaceQuery("/logisticien/nouveau?step=1", espace);
 
   return (
-    <nav className="fixed bottom-0 left-0 w-full z-50 bg-white border-t border-gray-200 shadow-lg flex justify-around items-center sm:hidden pb-[env(safe-area-inset-bottom)]">
+    <nav
+      className="fixed bottom-0 left-0 w-full z-50 bg-white border-t border-gray-200 shadow-lg flex justify-around items-center md:hidden"
+      style={{
+        paddingBottom: "var(--safe-bottom)",
+        paddingLeft: "var(--safe-left)",
+        paddingRight: "var(--safe-right)",
+      }}
+    >
       <button
         onClick={onBurger}
         className="flex flex-col items-center justify-center text-[#4F587E] hover:text-[#3B4252] focus:outline-none min-h-[56px] min-w-[56px] py-2"

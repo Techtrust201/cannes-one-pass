@@ -134,7 +134,9 @@ export default function VehicleEditDialog({
           />
         </div>
 
-        <div className="shrink-0 flex gap-3 px-5 pb-5 pt-2 border-t border-gray-100" style={{ paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}>
+        <div
+          className="shrink-0 flex gap-3 px-5 pt-2 border-t border-gray-100 pb-[calc(1.25rem+var(--mobile-nav-total))] sm:pb-5"
+        >
           <button
             type="button"
             onClick={() => onOpenChange(false)}

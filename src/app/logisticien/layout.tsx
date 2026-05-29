@@ -599,9 +599,9 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
         )}
       </aside>
       {/* Contenu principal */}
-      <main className="flex-1 bg-gray-50 h-auto min-h-0 overflow-x-hidden pb-[calc(5rem+env(safe-area-inset-bottom))] sm:pb-0 flex flex-col">
+      <main className="flex-1 bg-gray-50 h-auto min-h-0 overflow-x-hidden pb-[var(--mobile-nav-total)] md:pb-0 flex flex-col">
         {/* Barre supérieure mobile : espace actif + accès rapide switch */}
-        <div className="sm:hidden sticky top-0 z-40 bg-[#3F4660] text-white px-3 py-2 flex items-center justify-between gap-2 shadow-sm pt-[calc(env(safe-area-inset-top)+0.5rem)]">
+        <div className="md:hidden sticky top-0 z-40 bg-[#3F4660] text-white px-3 py-2 flex items-center justify-between gap-2 shadow-sm pt-[calc(var(--safe-top)+0.5rem)]">
           <button
             type="button"
             onClick={() => setSidebarOpen(true)}

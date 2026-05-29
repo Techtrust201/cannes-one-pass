@@ -48,6 +48,15 @@ button {
 }
 
 :root {
+  /* Safe-area + chrome mobile (navbar logisticien, footer wizard public) */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --mobile-nav-height: 3.5rem; /* 56px — hauteur icônes navbar */
+  --mobile-nav-total: calc(var(--mobile-nav-height) + var(--safe-bottom));
+  --wizard-footer-height: 3rem;
+
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.13 0.028 261.692);

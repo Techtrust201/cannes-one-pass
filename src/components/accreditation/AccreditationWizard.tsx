@@ -12,6 +12,7 @@ import {
 import { LANGUAGES, isValidLang, type LangCode } from "@/lib/translations";
 import { PalaisStepFourProvider } from "@/templates/accreditation/palais/stepFourContext";
 import { getTemplate } from "@/templates/accreditation/registry";
+import { cn } from "@/lib/utils";
 import type { Vehicle } from "@/types";
 import type {
   AccreditationTemplate,
@@ -226,7 +227,12 @@ function WizardContent({
       className="min-h-screen flex flex-col text-gray-900"
       style={{ background: "linear-gradient(#353c52 0 50%, #ffffff 0 100%)" }}
     >
-      <main className="mb-48 flex-1 flex flex-col justify-evenly items-center px-4 sm:px-6 lg:px-8">
+      <main
+        className={cn(
+          "flex-1 flex flex-col justify-evenly items-center px-4 sm:px-6 lg:px-8",
+          isLogisticien ? "mb-6 sm:mb-12" : "mb-48"
+        )}
+      >
         <div className="px-4 flex flex-col items-center text-white gap-1 relative w-full max-w-4xl">
           <div className="absolute right-0 top-0">
             <LangSelector />
@@ -336,17 +342,19 @@ function WizardContent({
         </div>
       </main>
 
-      <footer className="fixed bottom-0 left-0 w-full py-3 px-6 bg-[#353c52] flex items-center justify-between shadow-md">
-        <Link href="/" className="text-white text-sm hover:underline">
-          &lt; {t.exit}
-        </Link>
-        <Link
-          href={`/accreditation/${orgSlug}/contact`}
-          className="text-white text-sm hover:underline"
-        >
-          Besoin d&apos;aide ?
-        </Link>
-      </footer>
+      {!isLogisticien && (
+        <footer className="fixed bottom-0 left-0 w-full py-3 px-6 bg-[#353c52] flex items-center justify-between shadow-md z-40">
+          <Link href="/" className="text-white text-sm hover:underline">
+            &lt; {t.exit}
+          </Link>
+          <Link
+            href={`/accreditation/${orgSlug}/contact`}
+            className="text-white text-sm hover:underline"
+          >
+            Besoin d&apos;aide ?
+          </Link>
+        </footer>
+      )}
     </div>
   );
 }

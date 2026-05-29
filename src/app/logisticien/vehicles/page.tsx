@@ -37,12 +37,12 @@ function FluxVehiculesPageContent() {
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
         <header className="mb-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-[#4F587E] rounded-xl text-white">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="p-2.5 bg-[#4F587E] rounded-xl text-white shrink-0">
               <Truck size={24} />
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">
                 Flux véhicules
               </h1>
               <p className="text-sm text-gray-500">

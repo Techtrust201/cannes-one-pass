@@ -123,6 +123,14 @@ button {
   body {
     @apply bg-background text-foreground;
   }
+  /* Filet anti-débordement horizontal global : empêche toute page de
+     défiler latéralement (titres coupés) si un élément large dépasse.
+     Le scroll vertical reste intact. */
+  html,
+  body {
+    overflow-x: hidden;
+    max-width: 100%;
+  }
 }
 
 @keyframes slideUp {

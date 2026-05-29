@@ -62,11 +62,12 @@ export default function TicketsListPage() {
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
-          <MessageSquare size={20} /> Tickets de support
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+        <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2 min-w-0">
+          <MessageSquare size={20} className="shrink-0" />
+          <span className="truncate">Tickets de support</span>
           {espace && (
-            <span className="text-xs font-normal text-gray-500 ml-2">— Espace : {espace}</span>
+            <span className="text-xs font-normal text-gray-500 ml-1 shrink-0">— Espace : {espace}</span>
           )}
         </h1>
         <select
@@ -85,8 +86,8 @@ export default function TicketsListPage() {
       {tickets.length === 0 ? (
         <p className="text-sm text-gray-500">Aucun ticket à afficher.</p>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
+          <table className="w-full min-w-[640px] text-sm">
             <thead className="bg-gray-50 text-xs text-gray-600 border-b">
               <tr>
                 <th className="text-left py-2 px-3">Statut</th>

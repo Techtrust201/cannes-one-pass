@@ -26,6 +26,10 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  // Active les variables env(safe-area-inset-*) (encoche / barre de gestes).
+  // Sans cela, le padding safe-area de la navbar mobile vaut 0 et la barre
+  // de gestes native recouvre la barre du bas.
+  viewportFit: "cover",
   themeColor: "#e30613",
 };
 

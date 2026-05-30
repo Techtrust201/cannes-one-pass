@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
+import { handleSanitizedPlateInput } from "@/lib/plate-utils";
 import { useVehicleTypes } from "@/hooks/useVehicleTypes";
 import { RX_SPACES, PALAIS_CHOICE, genSlots, formatDateFR, formatSlot } from "../config";
 import type { StepProps } from "../../types";
@@ -60,7 +61,7 @@ export function StepDeliveryRx({
               livTime: "",
               repDate: "",
               repTime: "",
-              vehicles: [{ vehicleType: "", plate: null }],
+              vehicles: [{ vehicleType: "", plate: null, repSameAsDelivery: true }],
             },
           ],
         },
@@ -88,7 +89,7 @@ export function StepDeliveryRx({
         ...stepTwo,
         categories: stepTwo.categories.map((c) =>
           c.categoryId === catId
-            ? { ...c, vehicles: [...c.vehicles, { vehicleType: "", plate: null }] }
+            ? { ...c, vehicles: [...c.vehicles, { vehicleType: "", plate: null, repSameAsDelivery: true }] }
             : c
         ),
       },
@@ -344,13 +345,13 @@ export function StepDeliveryRx({
                           <input
                             value={v.plate ?? ""}
                             onChange={(e) =>
-                              updateVehicle(cat.id, idx, {
-                                plate: e.target.value
-                                  ? e.target.value.toUpperCase()
-                                  : null,
-                              })
+                              handleSanitizedPlateInput(e, (sanitized) =>
+                                updateVehicle(cat.id, idx, {
+                                  plate: sanitized || null,
+                                })
+                              )
                             }
-                            placeholder="AA-123-BB"
+                            placeholder="AA123BB"
                             className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm uppercase"
                           />
                         </div>

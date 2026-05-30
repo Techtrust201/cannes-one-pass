@@ -101,6 +101,23 @@ describe("rx template — mapPayload", () => {
     expect(Array.isArray(ext.categories)).toBe(true);
   });
 
+  it("résout les champs reprise sur chaque véhicule", () => {
+    const form = buildRxForm();
+    form.stepTwo.categories[0].vehicles[1].repSameAsDelivery = false;
+    form.stepTwo.categories[0].vehicles[1].repVehicleType = "VL";
+    form.stepTwo.categories[0].vehicles[1].repPlate = "ZZ999ZZ";
+    form.stepTwo.categories[0].vehicles[1].repPhoneCode = "+33";
+    form.stepTwo.categories[0].vehicles[1].repPhoneNumber = "700000000";
+
+    const payload = mapRxPayload(form, "fr", { split: true });
+    expect(payload.vehicles[1].repSameAsDelivery).toBe(false);
+    expect(payload.vehicles[1].repVehicleType).toBe("VL");
+    expect(payload.vehicles[1].repPlate).toBe("ZZ999ZZ");
+    expect(payload.vehicles[1].repPhoneNumber).toBe("700000000");
+    expect(payload.vehicles[0].repSameAsDelivery).toBe(true);
+    expect(payload.vehicles[0].repVehicleType).toBe("PORTEUR");
+  });
+
   it("accepte un formulaire vide (état initial) sans crasher", () => {
     const empty = getDefaultRxFormData();
     const payload = mapRxPayload(empty, "fr");

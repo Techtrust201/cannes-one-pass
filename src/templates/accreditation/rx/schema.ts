@@ -30,6 +30,11 @@ export const rxVehicleSchema = z.object({
   categoryId: z.string().optional(),
   repDate: z.string().optional(),
   repTime: z.string().optional(),
+  repSameAsDelivery: z.boolean().optional(),
+  repVehicleType: z.string().optional(),
+  repPlate: z.string().nullable().optional(),
+  repPhoneCode: z.string().optional(),
+  repPhoneNumber: z.string().optional(),
 });
 
 export const rxExtensionSchema = z.object({
@@ -62,6 +67,11 @@ export const rxExtensionSchema = z.object({
               plate: z.string().nullable().optional(),
               trailerPlate: z.string().optional(),
               notes: z.string().optional(),
+              repSameAsDelivery: z.boolean().optional(),
+              repVehicleType: z.string().optional(),
+              repPlate: z.string().nullable().optional(),
+              repPhoneCode: z.string().optional(),
+              repPhoneNumber: z.string().optional(),
             })
           )
           .default([]),

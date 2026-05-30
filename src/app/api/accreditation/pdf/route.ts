@@ -2,38 +2,28 @@ import { NextRequest } from "next/server";
 // import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import QRCode from "qrcode";
-
-interface Vehicle {
-  id: number;
-  plate: string;
-  size: string;
-  phoneCode: string;
-  phoneNumber: string;
-  date: string;
-  time: string;
-  city: string;
-  unloading: string;
-  kms?: string;
-  trailerPlate?: string;
-}
-
-interface AccreditationPayload {
-  id?: string;
-  company: string;
-  stand: string;
-  unloading: string;
-  event: string;
-  vehicles: Vehicle[];
-  message: string;
-  consent: boolean;
-  status?: "ATTENTE" | "ENTREE" | "SORTIE";
-  entryAt?: string;
-  exitAt?: string;
-}
+import { generatePdfFromIds } from "@/lib/accreditation-pdf-ids";
 
 export async function POST(req: NextRequest) {
   try {
-    const body: AccreditationPayload = await req.json();
+    const body = await req.json();
+
+    // Mode multi-accréditations : charge depuis la base (workflow RX post-submit).
+    const ids: string[] | undefined = Array.isArray(body.ids)
+      ? body.ids
+      : body.id
+        ? [body.id as string]
+        : undefined;
+    if (ids && ids.length > 0 && !body.company && !body.vehicles) {
+      const pdfBytes = await generatePdfFromIds(ids);
+      return new Response(Buffer.from(pdfBytes), {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": "attachment; filename=accreditation.pdf",
+        },
+      });
+    }
+
     const {
       id,
       company,

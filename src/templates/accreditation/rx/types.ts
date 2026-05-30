@@ -29,10 +29,16 @@ export interface RxCategorySelection {
   repTime: string;
   /** Véhicules attendus pour cette catégorie (gabarit requis, plaque optionnelle). */
   vehicles: Array<{
-    vehicleType: string; // gabarit (code VehicleTypeConfig) — obligatoire
-    plate: string | null; // optionnelle à la création
+    vehicleType: string;
+    plate: string | null;
     trailerPlate?: string;
     notes?: string;
+    /** Reprise : même véhicule que la livraison (défaut true). */
+    repSameAsDelivery?: boolean;
+    repVehicleType?: string;
+    repPlate?: string | null;
+    repPhoneCode?: string;
+    repPhoneNumber?: string;
   }>;
 }
 

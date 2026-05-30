@@ -10,6 +10,7 @@ import type { CountryRegion } from "@/types";
 import { useTranslation } from "@/components/accreditation/TranslationProvider";
 import { useVehicleTypes } from "@/hooks/useVehicleTypes";
 import VehicleTypeReferenceTable from "@/components/accreditation/VehicleTypeReferenceTable";
+import { handleSanitizedPlateInput } from "@/lib/plate-utils";
 
 const COUNTRY_NAME_TO_ENUM: Record<string, CountryRegion> = {
   "France": "FRANCE", "Espagne": "ESPAGNE", "Italie": "ITALIE",
@@ -43,16 +44,12 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
 
   const handleSanitizedPlateChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>, field: "plate" | "trailerPlate") => {
-      const input = e.target;
-      const rawValue = input.value;
-      const cursorPos = input.selectionStart ?? rawValue.length;
-      const validCharsBefore = rawValue.slice(0, cursorPos).replace(/[^A-Za-z0-9]/g, "").length;
-      const sanitized = rawValue.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
-      update({ [field]: sanitized });
       const ref = field === "plate" ? plateRef : trailerPlateRef;
-      requestAnimationFrame(() => {
-        ref.current?.setSelectionRange(validCharsBefore, validCharsBefore);
-      });
+      handleSanitizedPlateInput(
+        e,
+        (sanitized) => update({ [field]: sanitized }),
+        ref
+      );
     },
     [update]
   );

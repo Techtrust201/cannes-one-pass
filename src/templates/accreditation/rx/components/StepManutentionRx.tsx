@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle, AlertTriangle, Loader2 } from "lucide-react";
+import { CheckCircle, AlertTriangle, Loader2, Download } from "lucide-react";
 import { useTranslation } from "@/components/accreditation/TranslationProvider";
 import { PortalOverlay } from "@/components/ui/PortalOverlay";
 import { mapRxPayload } from "../mapPayload";
@@ -33,6 +33,8 @@ export function StepManutentionRx({
   const [showModal, setShowModal] = useState(false);
   const [hasSaved, setHasSaved] = useState(false);
   const [createdCount, setCreatedCount] = useState(0);
+  const [createdIds, setCreatedIds] = useState<string[]>([]);
+  const [downloading, setDownloading] = useState(false);
   // Capturé au moment du submit pour rester correct sur l'écran de succès
   // même après purge du brouillon.
   const [scalesAtSubmit, setScalesAtSubmit] = useState(false);
@@ -81,6 +83,7 @@ export function StepManutentionRx({
       setCreatedCount(
         typeof created?.count === "number" ? created.count : fallbackCount
       );
+      setCreatedIds(Array.isArray(created?.ids) ? created.ids : []);
       setScalesAtSubmit(scalesRequired);
       setHasSaved(true);
       setShowModal(false);
@@ -92,6 +95,31 @@ export function StepManutentionRx({
       setError(t.saveError ?? "Une erreur est survenue lors de l'enregistrement.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function downloadPdf() {
+    if (createdIds.length === 0) return;
+    try {
+      setDownloading(true);
+      const res = await fetch("/api/accreditation/pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: createdIds }),
+      });
+      if (!res.ok) throw new Error("pdf error");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "accreditation.pdf";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+      setError(t.pdfError ?? "Impossible de générer le PDF.");
+    } finally {
+      setDownloading(false);
     }
   }
 
@@ -115,6 +143,25 @@ export function StepManutentionRx({
             ? "Elles sont validées et visibles dans la liste."
             : "Votre demande sera traitée puis validée par l'organisateur. Un e-mail de confirmation vous sera envoyé."}
         </p>
+        <p className="text-sm font-semibold text-gray-800 max-w-md">
+          Vous devez télécharger et présenter votre accréditation (QR code) à
+          l&apos;entrée du site.
+        </p>
+        {createdIds.length > 0 && (
+          <button
+            type="button"
+            onClick={downloadPdf}
+            disabled={downloading}
+            className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white font-semibold shadow hover:bg-primary-dark transition disabled:opacity-60"
+          >
+            {downloading ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : (
+              <Download size={18} />
+            )}
+            Télécharger mon accréditation
+          </button>
+        )}
         {scalesAtSubmit && (
           <div className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-3 text-sm text-orange-800 max-w-md text-left">
             <strong>⚠ Rappel Scales :</strong> n&apos;oubliez pas de prendre
@@ -127,6 +174,7 @@ export function StepManutentionRx({
             type="button"
             onClick={() => {
               setHasSaved(false);
+              setCreatedIds([]);
               onResetForm();
             }}
             className="mt-2 px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition"

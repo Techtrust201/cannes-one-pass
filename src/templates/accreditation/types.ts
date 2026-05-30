@@ -93,6 +93,11 @@ export interface CreateAccreditationPayload {
     categoryId?: string;
     repDate?: string;
     repTime?: string;
+    repSameAsDelivery?: boolean;
+    repVehicleType?: string;
+    repPlate?: string | null;
+    repPhoneCode?: string;
+    repPhoneNumber?: string;
   }>;
   message?: string;
   consent: boolean;

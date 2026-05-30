@@ -5,7 +5,7 @@ import type { Accreditation } from "@/types";
 import { getZoneLabel, getZoneColorClasses } from "@/lib/zone-utils";
 import { buildLink } from "@/lib/url";
 import { formatVehicleDate } from "@/lib/date-utils";
-import { needsTrailerPlate } from "@/lib/vehicle-utils";
+import { needsTrailerPlate, resolveVehicleTypeLabel } from "@/lib/vehicle-utils";
 import type { EventLogoMap } from "./AccreditationTable";
 
 interface MobileAccreditationListProps {
@@ -64,6 +64,11 @@ export default function MobileAccreditationList({
         const displayZone = acc.lastStepZone || zone;
         const duration = fmtDuration(displayEntry, displayExit);
         const plate = acc.vehicles?.[0]?.plate;
+        const vehicleTypeCode =
+          acc.vehicles?.[0]?.vehicleType || acc.vehicles?.[0]?.size;
+        const gabaritLabel = vehicleTypeCode
+          ? resolveVehicleTypeLabel(vehicleTypeCode, acc.vehicles?.[0]?.size)
+          : null;
 
         return (
           <div
@@ -98,6 +103,11 @@ export default function MobileAccreditationList({
                   {plate && (
                     <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-gray-100 text-[10px] font-mono font-bold text-gray-700 tracking-wide">
                       {plate}
+                    </span>
+                  )}
+                  {gabaritLabel && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#4F587E]/10 text-[10px] font-medium text-[#4F587E]">
+                      {gabaritLabel}
                     </span>
                   )}
                   {needsTrailerPlate(acc.vehicles?.[0]?.vehicleType || acc.vehicles?.[0]?.size || "") && (

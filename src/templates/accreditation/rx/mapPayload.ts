@@ -2,6 +2,24 @@ import type { CreateAccreditationPayload } from "../types";
 import type { RxFormData } from "./types";
 import { findCategory } from "./config";
 
+function resolveRepFields(
+  v: RxFormData["stepTwo"]["categories"][number]["vehicles"][number],
+  contact: RxFormData["stepOne"]["contact"]
+) {
+  const same = v.repSameAsDelivery !== false;
+  return {
+    repSameAsDelivery: same,
+    repVehicleType: same ? v.vehicleType : (v.repVehicleType ?? v.vehicleType),
+    repPlate: same ? (v.plate ?? null) : (v.repPlate ?? null),
+    repPhoneCode: same
+      ? contact.phoneCode
+      : (v.repPhoneCode ?? contact.phoneCode),
+    repPhoneNumber: same
+      ? contact.phoneNumber
+      : (v.repPhoneNumber ?? contact.phoneNumber),
+  };
+}
+
 /**
  * Mapping form data RX → payload `POST /api/accreditations`.
  *
@@ -21,6 +39,7 @@ export function mapRxPayload(
 
   for (const cat of form.stepTwo.categories) {
     for (const v of cat.vehicles) {
+      const rep = resolveRepFields(v, form.stepOne.contact);
       vehicles.push({
         plate: v.plate ?? null,
         size: "", // taille libre, non utilisée par RX → vide
@@ -38,6 +57,7 @@ export function mapRxPayload(
         categoryId: cat.categoryId,
         repDate: cat.repDate,
         repTime: cat.repTime,
+        ...rep,
       });
     }
   }

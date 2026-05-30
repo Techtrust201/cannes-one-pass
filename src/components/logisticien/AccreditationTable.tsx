@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import StatusPill from "./StatusPill";
 import MobileAccreditationList from "./MobileAccreditationList";
 import { formatVehicleDate } from "@/lib/date-utils";
-import { needsTrailerPlate } from "@/lib/vehicle-utils";
+import { needsTrailerPlate, resolveVehicleTypeLabel } from "@/lib/vehicle-utils";
 import {
   Pagination,
   PaginationContent,
@@ -422,11 +422,26 @@ export default function AccreditationTable({
 
                     {/* Plaque */}
                     <td className="px-2 py-2 md:py-1.5 max-w-[120px]">
-                      {acc.vehicles?.[0]?.plate ? (
+                      {acc.vehicles?.[0] ? (
                         <div>
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-gray-100 text-[11px] font-mono font-bold text-gray-700 tracking-wide">
-                            {acc.vehicles[0].plate}
-                          </span>
+                          {acc.vehicles[0].plate ? (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-gray-100 text-[11px] font-mono font-bold text-gray-700 tracking-wide">
+                              {acc.vehicles[0].plate}
+                            </span>
+                          ) : (
+                            <span className="text-gray-300">-</span>
+                          )}
+                          {(() => {
+                            const vt = acc.vehicles[0].vehicleType || acc.vehicles[0].size;
+                            const label = vt
+                              ? resolveVehicleTypeLabel(vt, acc.vehicles[0].size)
+                              : null;
+                            return label ? (
+                              <span className="block text-[9px] text-[#4F587E] mt-0.5 font-medium truncate max-w-[110px]">
+                                {label}
+                              </span>
+                            ) : null;
+                          })()}
                           {needsTrailerPlate(acc.vehicles[0].vehicleType || acc.vehicles[0].size || "") && (
                             <span className="block text-[9px] text-gray-400 mt-0.5 font-mono">
                               R: {acc.vehicles[0].trailerPlate || "—"}

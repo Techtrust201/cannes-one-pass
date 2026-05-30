@@ -2,11 +2,18 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ExternalLink, X } from "lucide-react";
+import { ExternalLink, X, CalendarClock } from "lucide-react";
 import type { Accreditation } from "@/types";
 import { PortalOverlay } from "@/components/ui/PortalOverlay";
+import { formatDateFR, formatSlot } from "@/templates/accreditation/rx/config";
 import AccreditationFormCard from "./AccreditationFormCard";
 import StatusPill from "./StatusPill";
+
+function fmtDate(iso: string | null | undefined): string {
+  if (!iso) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return formatDateFR(iso);
+  return iso;
+}
 
 export interface StandAccreditationRow {
   acc: Accreditation;
@@ -38,6 +45,13 @@ export default function StandAccreditationsList({ rows, espace }: Props) {
         {rows.map(({ acc, gabarit }) => {
           const v = acc.vehicles?.[0];
           const phone = v ? `${v.phoneCode ?? ""} ${v.phoneNumber ?? ""}`.trim() : "";
+          const ctx = (acc.extension ?? null) as {
+            vehicleContext?: { livDate?: string | null; livTime?: string | null };
+          } | null;
+          const livDate = ctx?.vehicleContext?.livDate ?? v?.date ?? null;
+          const livTime = ctx?.vehicleContext?.livTime ?? v?.time ?? null;
+          const dateLabel = fmtDate(livDate);
+          const slotLabel = livTime ? formatSlot(livTime) : "";
           return (
             <div
               key={acc.id}
@@ -67,6 +81,16 @@ export default function StandAccreditationsList({ rows, espace }: Props) {
                     <span className="truncate text-gray-500">{acc.company}</span>
                   )}
                 </div>
+                {(dateLabel || slotLabel) && (
+                  <div className="flex items-center gap-1.5 mt-1 text-xs text-gray-600">
+                    <CalendarClock size={12} className="text-gray-400 shrink-0" />
+                    <span>
+                      {dateLabel}
+                      {dateLabel && slotLabel ? " · " : ""}
+                      {slotLabel}
+                    </span>
+                  </div>
+                )}
               </div>
               <button
                 type="button"

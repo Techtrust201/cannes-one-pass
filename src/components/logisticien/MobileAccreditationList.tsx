@@ -88,8 +88,13 @@ export default function MobileAccreditationList({
                 </span>
               )}
 
-              <span className="ml-auto text-[10px] text-gray-400 whitespace-nowrap">
+              <span className="ml-auto text-[10px] text-gray-400 whitespace-nowrap text-right">
                 {formatVehicleDate(acc.vehicles?.[0]?.date)}
+                {acc.vehicles?.[0]?.time && (
+                  <span className="block text-[#4F587E] font-medium">
+                    {acc.vehicles[0].time.replace("-", " – ")}
+                  </span>
+                )}
               </span>
             </div>
 

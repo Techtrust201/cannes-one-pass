@@ -469,9 +469,14 @@ export default function AccreditationTable({
                       </span>
                     </td>
 
-                    {/* Date */}
+                    {/* Date + créneau choisi */}
                     <td className="px-2 py-2 md:py-1.5 text-gray-500 whitespace-nowrap">
-                      {formatVehicleDate(acc.vehicles?.[0]?.date)}
+                      <div>{formatVehicleDate(acc.vehicles?.[0]?.date)}</div>
+                      {acc.vehicles?.[0]?.time && (
+                        <div className="text-[10px] text-[#4F587E] font-medium">
+                          {acc.vehicles[0].time.replace("-", " – ")}
+                        </div>
+                      )}
                     </td>
 
                     {/* Horaires — dernier step uniquement */}

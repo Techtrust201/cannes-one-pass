@@ -57,6 +57,7 @@ export function mapRxPayload(
         categoryId: cat.categoryId,
         repDate: cat.repDate,
         repTime: cat.repTime,
+        interveningCompany: v.interveningCompany,
         ...rep,
       });
     }

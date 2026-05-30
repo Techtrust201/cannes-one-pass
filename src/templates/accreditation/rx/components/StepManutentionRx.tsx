@@ -125,63 +125,75 @@ export function StepManutentionRx({
 
   const totalVehicles = stepTwo.categories.reduce((s, c) => s + c.vehicles.length, 0);
 
-  // Écran de succès
+  // Écran de succès — aligné sur le pattern Palais (StepFour / StepFourLog) :
+  // carte blanche, encart « télécharger obligatoire » mis en avant, CTA principal
+  // de téléchargement (public ET logisticien), puis « Nouvelle demande ».
   if (hasSaved) {
     return (
-      <div className="flex flex-col items-center justify-center py-8 w-full text-center gap-4">
-        <CheckCircle size={56} className="text-green-500" />
-        <h2 className="text-2xl font-bold text-gray-900">
-          {createdCount > 1
-            ? `${createdCount} accréditations enregistrées !`
-            : "Accréditation enregistrée !"}
-        </h2>
-        <p className="text-sm text-gray-600 max-w-md">
-          {createdCount > 1
-            ? "Une accréditation a été créée par véhicule. "
-            : ""}
-          {mode === "logisticien"
-            ? "Elles sont validées et visibles dans la liste."
-            : "Votre demande sera traitée puis validée par l'organisateur. Un e-mail de confirmation vous sera envoyé."}
-        </p>
-        <p className="text-sm font-semibold text-gray-800 max-w-md">
-          Vous devez télécharger et présenter votre accréditation (QR code) à
-          l&apos;entrée du site.
-        </p>
-        {createdIds.length > 0 && (
-          <button
-            type="button"
-            onClick={downloadPdf}
-            disabled={downloading}
-            className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white font-semibold shadow hover:bg-primary-dark transition disabled:opacity-60"
-          >
-            {downloading ? (
-              <Loader2 size={18} className="animate-spin" />
-            ) : (
-              <Download size={18} />
-            )}
-            Télécharger mon accréditation
-          </button>
-        )}
-        {scalesAtSubmit && (
-          <div className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-3 text-sm text-orange-800 max-w-md text-left">
-            <strong>⚠ Rappel Scales :</strong> n&apos;oubliez pas de prendre
-            rendez-vous avec Scales pour les catégories concernées. Contact :{" "}
-            <strong>scales@manutention.fr</strong>
+      <div className="flex flex-col items-center py-4 md:py-8 w-full">
+        <div className="bg-white border border-gray-200 rounded-2xl shadow-lg px-5 py-7 md:px-8 md:py-8 w-full max-w-xl text-center space-y-5">
+          <div className="flex flex-col items-center gap-3">
+            <CheckCircle size={56} className="text-green-500" />
+            <h2 className="text-2xl font-bold text-gray-900">
+              {createdCount > 1
+                ? `${createdCount} accréditations enregistrées !`
+                : "Accréditation enregistrée !"}
+            </h2>
+            <p className="text-sm text-gray-600 max-w-md">
+              {createdCount > 1
+                ? "Une accréditation a été créée par véhicule. "
+                : ""}
+              {mode === "logisticien"
+                ? "Elles sont validées et visibles dans la liste."
+                : "Votre demande sera traitée puis validée par l'organisateur. Un e-mail de confirmation vous sera envoyé."}
+            </p>
           </div>
-        )}
-        {onResetForm && (
-          <button
-            type="button"
-            onClick={() => {
-              setHasSaved(false);
-              setCreatedIds([]);
-              onResetForm();
-            }}
-            className="mt-2 px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition"
-          >
-            Nouvelle demande
-          </button>
-        )}
+
+          {/* Encart téléchargement obligatoire (QR code) */}
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-left space-y-3">
+            <p className="text-sm font-semibold text-amber-900">
+              Vous devez télécharger et présenter votre accréditation (QR code)
+              à l&apos;entrée du site.
+            </p>
+            {createdIds.length > 0 && (
+              <button
+                type="button"
+                onClick={downloadPdf}
+                disabled={downloading}
+                className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-primary text-white font-semibold text-base shadow hover:bg-primary-dark transition disabled:opacity-60"
+              >
+                {downloading ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <Download size={18} />
+                )}
+                {downloading ? "Génération…" : "Télécharger mon accréditation"}
+              </button>
+            )}
+          </div>
+
+          {scalesAtSubmit && (
+            <div className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-3 text-sm text-orange-800 text-left">
+              <strong>⚠ Rappel Scales :</strong> n&apos;oubliez pas de prendre
+              rendez-vous avec Scales pour les catégories concernées. Contact :{" "}
+              <strong>scales@manutention.fr</strong>
+            </div>
+          )}
+
+          {onResetForm && (
+            <button
+              type="button"
+              onClick={() => {
+                setHasSaved(false);
+                setCreatedIds([]);
+                onResetForm();
+              }}
+              className="w-full px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition"
+            >
+              Nouvelle demande
+            </button>
+          )}
+        </div>
       </div>
     );
   }

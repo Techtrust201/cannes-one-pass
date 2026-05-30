@@ -276,6 +276,42 @@ export async function POST(req: NextRequest) {
       currentWeight: v.currentWeight != null ? Number(v.currentWeight) : null,
     });
 
+    // Résolution du Stand : upsert par (organizationId, eventId, number=stand)
+    // pour relier l'accréditation au niveau « Stand » (centralisation RX).
+    let standId: string | null = null;
+    if (organizationId && stand && String(stand).trim() !== "") {
+      const exhibitor =
+        extensionPayload && typeof extensionPayload.exhibitor === "object"
+          ? (extensionPayload.exhibitor as Record<string, unknown>)
+          : null;
+      const sector = exhibitor?.sector ? String(exhibitor.sector) : null;
+      const eventIdForStand = eventRecord?.id ?? null;
+      try {
+        const existing = await prisma.stand.findFirst({
+          where: { organizationId, eventId: eventIdForStand, number: stand },
+          select: { id: true },
+        });
+        if (existing) {
+          standId = existing.id;
+          if (sector) {
+            await prisma.stand.update({
+              where: { id: existing.id },
+              data: { sector },
+            });
+          }
+        } else {
+          const created = await prisma.stand.create({
+            data: { organizationId, eventId: eventIdForStand, number: stand, sector },
+            select: { id: true },
+          });
+          standId = created.id;
+        }
+      } catch (e) {
+        // Ne bloque pas la création d'accréditation si le stand échoue.
+        console.error("Stand resolution failed", e);
+      }
+    }
+
     const zoneMovementCreate = currentZone
       ? { zoneMovements: { create: { toZone: currentZone, action: "ENTRY" as const } } }
       : {};
@@ -298,6 +334,7 @@ export async function POST(req: NextRequest) {
               event,
               eventId: eventRecord?.id ?? null,
               organizationId: organizationId,
+              standId: standId,
               // Extension partagée + contexte de la catégorie de CE véhicule.
               extension: {
                 ...(extensionPayload ?? {}),
@@ -312,6 +349,7 @@ export async function POST(req: NextRequest) {
                   repVehicleType: (v.repVehicleType as string) ?? null,
                   repPhoneCode: (v.repPhoneCode as string) ?? null,
                   repPhoneNumber: (v.repPhoneNumber as string) ?? null,
+                  interveningCompany: (v.interveningCompany as string) ?? null,
                 },
               },
               message: message ?? "",
@@ -346,6 +384,7 @@ export async function POST(req: NextRequest) {
         event,
         eventId: eventRecord?.id ?? null,
         organizationId: organizationId,
+        standId: standId,
         extension: extensionPayload === null ? undefined : (extensionPayload as object),
         message: message ?? "",
         consent: consent ?? true,

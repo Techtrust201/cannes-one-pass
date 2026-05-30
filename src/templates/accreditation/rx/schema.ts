@@ -35,6 +35,7 @@ export const rxVehicleSchema = z.object({
   repPlate: z.string().nullable().optional(),
   repPhoneCode: z.string().optional(),
   repPhoneNumber: z.string().optional(),
+  interveningCompany: z.string().optional(),
 });
 
 export const rxExtensionSchema = z.object({
@@ -67,6 +68,7 @@ export const rxExtensionSchema = z.object({
               plate: z.string().nullable().optional(),
               trailerPlate: z.string().optional(),
               notes: z.string().optional(),
+              interveningCompany: z.string().optional(),
               repSameAsDelivery: z.boolean().optional(),
               repVehicleType: z.string().optional(),
               repPlate: z.string().nullable().optional(),

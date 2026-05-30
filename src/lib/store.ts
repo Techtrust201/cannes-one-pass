@@ -79,6 +79,8 @@ export async function readAccreditations(options?: {
         exitAt: a.exitAt ?? undefined,
         currentZone: a.currentZone ?? null,
         isArchived: a.isArchived,
+        standId: a.standId ?? null,
+        extension: (a.extension as Record<string, unknown> | null) ?? null,
         lastStepEntryAt,
         lastStepExitAt,
         lastStepZone,

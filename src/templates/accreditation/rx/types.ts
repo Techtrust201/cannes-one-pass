@@ -33,6 +33,8 @@ export interface RxCategorySelection {
     plate: string | null;
     trailerPlate?: string;
     notes?: string;
+    /** Société réalisant la prestation avec ce véhicule (transporteur, décorateur, prestataire…). */
+    interveningCompany?: string;
     /** Reprise : même véhicule que la livraison (défaut true). */
     repSameAsDelivery?: boolean;
     repVehicleType?: string;

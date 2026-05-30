@@ -243,6 +243,7 @@ model Organization {
   unloadingProviders UnloadingProvider[]
   exhibitors         Exhibitor[]
   supportTickets     SupportTicket[]
+  stands             Stand[]
 
   @@index([isActive])
 }
@@ -316,9 +317,33 @@ model Event {
   userGrants     UserEvent[]
   exhibitors     Exhibitor[]
   supportTickets SupportTicket[]
+  stands         Stand[]
 
   @@index([isArchived, startDate])
   @@index([organizationId])
+}
+
+// ============================================================
+// STANDS — niveau de centralisation des accréditations par stand
+// (1 accréditation par véhicule conservée ; le stand regroupe les demandes)
+// ============================================================
+
+model Stand {
+  id             String        @id @default(uuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  eventId        String?
+  eventRef       Event?        @relation(fields: [eventId], references: [id])
+  number         String // libellé stand (ex: "PALAIS 110")
+  sector         String?
+  zone           String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  accreditations Accreditation[]
+
+  @@unique([organizationId, eventId, number])
+  @@index([organizationId])
+  @@index([eventId])
 }
 
 model Accreditation {
@@ -354,6 +379,10 @@ model Accreditation {
   extension      Json? // Payload spécifique au template d'org (ex: rx → contact, catégories, créneaux…)
   publicCode     String?       @unique // Identifiant public formaté (ex: YC2026-00001), généré côté serveur
 
+  // Niveau « Stand » : centralise les accréditations d'un même stand (RX).
+  standId String?
+  standRef Stand? @relation(fields: [standId], references: [id])
+
   vehicles      Vehicle[]
   emailHistory  AccreditationEmailHistory[]
   history       AccreditationHistory[]
@@ -363,6 +392,7 @@ model Accreditation {
 
   @@index([eventId])
   @@index([organizationId])
+  @@index([standId])
 }
 
 model Vehicle {

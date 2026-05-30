@@ -148,6 +148,10 @@ export default async function LogisticienDashboard(props: {
         ...formatTimeForSearch(acc.entryAt),
         ...formatTimeForSearch(acc.exitAt),
       ];
+      const ext = (acc.extension ?? null) as {
+        vehicleContext?: { interveningCompany?: string | null };
+      } | null;
+      const interveningCompany = ext?.vehicleContext?.interveningCompany ?? null;
       const haystack = [
         acc.id,
         acc.status,
@@ -155,6 +159,7 @@ export default async function LogisticienDashboard(props: {
         acc.stand,
         acc.event,
         acc.vehicles?.[0]?.date,
+        interveningCompany,
         ...(acc.vehicles?.flatMap((v) => [v.plate, v.trailerPlate]) ?? []),
         ...timeHay,
       ]

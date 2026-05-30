@@ -23,6 +23,7 @@ import AccreditationHistory from "./AccreditationHistory";
 import DailyTimeSlotHistory from "./DailyTimeSlotHistory";
 import AccreditationChat from "./AccreditationChat";
 import VehicleCard from "./VehicleCard";
+import RxServiceDetails from "./RxServiceDetails";
 import VehicleEditDialog from "./VehicleEditDialog";
 import { PortalOverlay } from "@/components/ui/PortalOverlay";
 import { useEventOptions } from "@/hooks/useEventOptions";
@@ -398,6 +399,9 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
               />
             </FormField>
           </div>
+
+          {/* Détail des services RX */}
+          <RxServiceDetails extension={acc.extension} />
 
           {/* Véhicules */}
           <div className="space-y-2">

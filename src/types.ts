@@ -94,6 +94,10 @@ export interface Accreditation {
   sentAt?: Date;
   currentZone?: Zone | null;
   isArchived?: boolean;
+  /** Identifiant du stand de rattachement (niveau de centralisation). */
+  standId?: string | null;
+  /** Payload spécifique au template (ex: RX → contact, catégories, vehicleContext…). */
+  extension?: Record<string, unknown> | null;
   /** Heure d'entrée au Palais (time slot le plus récent) — legacy */
   palaisEntryAt?: Date | null;
   /** Heure de sortie du Palais (time slot le plus récent) — legacy */

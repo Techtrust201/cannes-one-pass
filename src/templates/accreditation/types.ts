@@ -98,6 +98,7 @@ export interface CreateAccreditationPayload {
     repPlate?: string | null;
     repPhoneCode?: string;
     repPhoneNumber?: string;
+    interveningCompany?: string;
   }>;
   message?: string;
   consent: boolean;

@@ -99,7 +99,12 @@ export function StepDeliveryRx({
   const updateVehicle = (
     catId: string,
     idx: number,
-    patch: { vehicleType?: string; plate?: string | null; trailerPlate?: string }
+    patch: {
+      vehicleType?: string;
+      plate?: string | null;
+      trailerPlate?: string;
+      interveningCompany?: string;
+    }
   ) => {
     update({
       stepTwo: {
@@ -315,6 +320,21 @@ export function StepDeliveryRx({
                         key={idx}
                         className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2 items-end"
                       >
+                        <div className="sm:col-span-3">
+                          <label className="text-xs text-gray-600 block mb-0.5">
+                            Société intervenante
+                          </label>
+                          <input
+                            value={v.interveningCompany ?? ""}
+                            onChange={(e) =>
+                              updateVehicle(cat.id, idx, {
+                                interveningCompany: e.target.value,
+                              })
+                            }
+                            placeholder="Transporteur, décorateur, prestataire…"
+                            className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm"
+                          />
+                        </div>
                         <div>
                           <label className="text-xs text-gray-600 block mb-0.5">
                             Gabarit <span className="text-red-500">*</span>

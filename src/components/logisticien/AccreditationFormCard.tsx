@@ -8,6 +8,7 @@ import AccreditationHistory from "./AccreditationHistory";
 import DailyTimeSlotHistory from "./DailyTimeSlotHistory";
 import AccreditationChat from "./AccreditationChat";
 import VehicleCard from "./VehicleCard";
+import RxServiceDetails from "./RxServiceDetails";
 import VehicleEditDialog from "./VehicleEditDialog";
 import ActionButtons from "./ActionButtons";
 import { PortalOverlay } from "@/components/ui/PortalOverlay";
@@ -206,6 +207,9 @@ export default function AccreditationFormCard({ acc }: Props) {
         <div className="mb-6 bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
           <DailyTimeSlotHistory accreditationId={acc.id} refreshKey={historyVersion} />
         </div>
+
+        {/* Détail des services RX (créneaux liv/rep, manutention, société intervenante) */}
+        <RxServiceDetails extension={acc.extension} />
 
         {/* Liste des véhicules */}
         <div className="mb-8">

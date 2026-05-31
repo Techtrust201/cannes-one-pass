@@ -5,24 +5,34 @@ import { requireAuth, requirePermission, resolveEspaceOrgId } from "@/lib/auth-h
 /**
  * GET /api/unloading-providers — Liste des prestataires de déchargement.
  *
- * Cloisonnement : si `?espace=<slug>` est fourni, renvoie les prestataires
- * de cette organisation **+** les prestataires globaux (héritage).
- * Accessible à tout utilisateur authentifié (les selects en ont besoin).
+ * - `?espace=<slug>` ou `?orgSlug=<slug>` : lecture **publique** (formulaire
+ *   d'accréditation) — prestataires actifs de l'org + globaux (organizationId=null).
+ * - Sans slug : réservé au back-office (session requise).
+ *
+ * `?all=true` (désactivés inclus) reste réservé à l'admin authentifié.
  */
 export async function GET(req: NextRequest) {
-  try {
-    await requireAuth(req);
-  } catch (error) {
-    if (error instanceof Response) {
-      return new Response(error.body, { status: error.status, statusText: error.statusText });
+  const { searchParams } = new URL(req.url);
+  const includeAll = searchParams.get("all") === "true";
+  const espace =
+    searchParams.get("espace")?.trim() ||
+    searchParams.get("orgSlug")?.trim() ||
+    null;
+
+  if (!espace) {
+    try {
+      await requireAuth(req);
+    } catch (error) {
+      if (error instanceof Response) {
+        return new Response(error.body, { status: error.status, statusText: error.statusText });
+      }
+      return new Response("Non autorisé", { status: 401 });
     }
-    return new Response("Non autorisé", { status: 401 });
+  } else if (includeAll) {
+    return Response.json({ error: "Non autorisé" }, { status: 401 });
   }
 
   try {
-    const { searchParams } = new URL(req.url);
-    const includeAll = searchParams.get("all") === "true";
-    const espace = searchParams.get("espace")?.trim() || null;
     const orgId = await resolveEspaceOrgId(espace);
 
     const scopeFilter = espace

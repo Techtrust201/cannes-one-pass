@@ -197,6 +197,35 @@ export function resolveVehicleTypeLabel(
   return getVehicleTypeLabel("PORTEUR");
 }
 
+/**
+ * Libellé compact d'un gabarit pour l'affichage en liste :
+ * - VL → "VL" ; volumes "N m³" (10/15/20) → le gabarit tel quel ;
+ * - autres (porteur, porteur articulé, semi-remorque…) → l'appellation seule
+ *   (label sans la partie entre parenthèses).
+ */
+export function toShortVehicleLabel(type: {
+  gabarit?: string | null;
+  label?: string | null;
+}): string {
+  const gabarit = (type.gabarit ?? "").trim();
+  if (gabarit === "VL") return "VL";
+  if (/^\d+\s*m³$/.test(gabarit)) return gabarit;
+  const label = (type.label ?? "").trim();
+  return label.replace(/\s*\([^)]*\)\s*$/, "").trim() || label || gabarit;
+}
+
+export function resolveVehicleTypeShortLabel(
+  vehicleType: string | null | undefined,
+  fallbackSize?: string | null
+): string {
+  const type =
+    (vehicleType ? getVehicleType(vehicleType) : undefined) ??
+    (fallbackSize ? getVehicleType(fallbackSize) : undefined);
+  if (type) return toShortVehicleLabel(type);
+  // Pas de type résolu → repli sur le label complet (comportement historique).
+  return resolveVehicleTypeLabel(vehicleType, fallbackSize);
+}
+
 export function resolveVehicleTypeCode(
   vehicleType: string | null | undefined,
   fallbackSize?: string | null

@@ -343,10 +343,7 @@ function WizardContent({
       </main>
 
       {!isLogisticien && (
-        <footer className="fixed bottom-0 left-0 w-full py-3 px-6 bg-[#353c52] flex items-center justify-between shadow-md z-40">
-          <Link href="/" className="text-white text-sm hover:underline">
-            &lt; {t.exit}
-          </Link>
+        <footer className="fixed bottom-0 left-0 w-full py-3 px-6 bg-[#353c52] flex items-center justify-end shadow-md z-40">
           <Link
             href={`/accreditation/${orgSlug}/contact`}
             className="text-white text-sm hover:underline"

@@ -9,7 +9,6 @@ import { getAverageWeight } from "@/lib/vehicle-utils";
 import type { CountryRegion } from "@/types";
 import { useTranslation } from "@/components/accreditation/TranslationProvider";
 import { useVehicleTypes } from "@/hooks/useVehicleTypes";
-import VehicleTypeReferenceTable from "@/components/accreditation/VehicleTypeReferenceTable";
 import { handleSanitizedPlateInput } from "@/lib/plate-utils";
 
 const COUNTRY_NAME_TO_ENUM: Record<string, CountryRegion> = {
@@ -22,11 +21,12 @@ interface Props {
   data: Vehicle;
   update: (patch: Partial<Vehicle>) => void;
   onValidityChange: (v: boolean) => void;
+  orgSlug?: string;
 }
 
-export default function VehicleForm({ data, update, onValidityChange }: Props) {
+export default function VehicleForm({ data, update, onValidityChange, orgSlug }: Props) {
   const { t } = useTranslation();
-  const { types, loading: typesLoading } = useVehicleTypes();
+  const { types, loading: typesLoading } = useVehicleTypes(false, orgSlug);
   const plateRef = useRef<HTMLInputElement>(null);
   const trailerPlateRef = useRef<HTMLInputElement>(null);
 
@@ -393,8 +393,6 @@ export default function VehicleForm({ data, update, onValidityChange }: Props) {
           </label>
         </div>
       </div>
-
-      <VehicleTypeReferenceTable />
     </div>
   );
 }

@@ -29,7 +29,7 @@ function PalaisStepOne({ data, update, onValidityChange, orgSlug }: StepProps<Pa
   );
 }
 
-function PalaisStepTwo({ data, update, onValidityChange }: StepProps<PalaisFormData>) {
+function PalaisStepTwo({ data, update, onValidityChange, orgSlug }: StepProps<PalaisFormData>) {
   return (
     <StepTwo
       data={data.vehicle}
@@ -37,6 +37,7 @@ function PalaisStepTwo({ data, update, onValidityChange }: StepProps<PalaisFormD
         update({ vehicle: { ...data.vehicle, ...patch } as Vehicle })
       }
       onValidityChange={onValidityChange}
+      orgSlug={orgSlug}
     />
   );
 }

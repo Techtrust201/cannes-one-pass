@@ -9,7 +9,7 @@ import type { Accreditation } from "@/types";
 import {
   mapDbVehicleType,
   mapDefaultVehicleTypes,
-  resolveVehicleTypeLabelFromList,
+  resolveVehicleTypeShortLabelFromList,
 } from "@/lib/vehicle-type-server";
 import type { VehicleTypeData } from "@/lib/vehicle-utils";
 import { withEspaceQuery } from "@/lib/url";
@@ -77,7 +77,7 @@ export default async function StandDetailPage(props: {
     };
     const v0 = a.vehicles[0];
     const gabarit = v0
-      ? resolveVehicleTypeLabelFromList(vehicleTypes, v0.vehicleType, v0.size)
+      ? resolveVehicleTypeShortLabelFromList(vehicleTypes, v0.vehicleType, v0.size)
       : "";
     return { acc: safeAcc as unknown as Accreditation, gabarit };
   });

@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import StatusPill from "./StatusPill";
 import MobileAccreditationList from "./MobileAccreditationList";
 import { formatVehicleDate } from "@/lib/date-utils";
-import { needsTrailerPlate, resolveVehicleTypeLabel } from "@/lib/vehicle-utils";
+import { needsTrailerPlate, resolveVehicleTypeShortLabel } from "@/lib/vehicle-utils";
 import {
   Pagination,
   PaginationContent,
@@ -434,7 +434,7 @@ export default function AccreditationTable({
                           {(() => {
                             const vt = acc.vehicles[0].vehicleType || acc.vehicles[0].size;
                             const label = vt
-                              ? resolveVehicleTypeLabel(vt, acc.vehicles[0].size)
+                              ? resolveVehicleTypeShortLabel(vt, acc.vehicles[0].size)
                               : null;
                             return label ? (
                               <span className="block text-[9px] text-[#4F587E] mt-0.5 font-medium truncate max-w-[110px]">

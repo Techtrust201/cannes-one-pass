@@ -5,7 +5,7 @@ import type { Accreditation } from "@/types";
 import { getZoneLabel, getZoneColorClasses } from "@/lib/zone-utils";
 import { buildLink } from "@/lib/url";
 import { formatVehicleDate } from "@/lib/date-utils";
-import { needsTrailerPlate, resolveVehicleTypeLabel } from "@/lib/vehicle-utils";
+import { needsTrailerPlate, resolveVehicleTypeShortLabel } from "@/lib/vehicle-utils";
 import type { EventLogoMap } from "./AccreditationTable";
 
 interface MobileAccreditationListProps {
@@ -67,7 +67,7 @@ export default function MobileAccreditationList({
         const vehicleTypeCode =
           acc.vehicles?.[0]?.vehicleType || acc.vehicles?.[0]?.size;
         const gabaritLabel = vehicleTypeCode
-          ? resolveVehicleTypeLabel(vehicleTypeCode, acc.vehicles?.[0]?.size)
+          ? resolveVehicleTypeShortLabel(vehicleTypeCode, acc.vehicles?.[0]?.size)
           : null;
 
         return (

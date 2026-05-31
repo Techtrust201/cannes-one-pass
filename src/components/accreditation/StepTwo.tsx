@@ -7,9 +7,10 @@ interface Props {
   data: Vehicle;
   update: (v: Partial<Vehicle>) => void;
   onValidityChange: (v: boolean) => void;
+  orgSlug?: string;
 }
 
-export default function StepTwo({ data, update, onValidityChange }: Props) {
+export default function StepTwo({ data, update, onValidityChange, orgSlug }: Props) {
   // Initialisation par défaut, si unloading est vide, on force ['rear'] (une seule fois)
   const didInit = useRef(false);
   useEffect(() => {
@@ -39,6 +40,7 @@ export default function StepTwo({ data, update, onValidityChange }: Props) {
         data={data}
         update={(patch) => update({ ...data, ...patch })}
         onValidityChange={onValidityChange}
+        orgSlug={orgSlug}
       />
     </div>
   );

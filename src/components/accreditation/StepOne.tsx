@@ -83,7 +83,7 @@ function useActiveEvents(orgSlug: string): { events: EventOption[]; loading: boo
 export default function StepOne({ data, update, onValidityChange, orgSlug = "palais" }: Props) {
   const { company, stand, unloading, event } = data;
   const { events, loading: eventsLoading } = useActiveEvents(orgSlug);
-  const { providers: unloadingProviders } = useUnloadingProviders();
+  const { providers: unloadingProviders } = useUnloadingProviders(orgSlug);
   const { t } = useTranslation();
 
   const isValid = !!(company && stand && unloading && event);

@@ -162,7 +162,7 @@ export default function StepFour({
 
         {/* Message principal */}
         <div
-          className={`rounded-lg px-4 py-3 text-base font-medium ${hasSaved ? "bg-green-50 border border-green-200 text-green-800" : "bg-gray-50 border border-gray-200 text-gray-700"}`}
+          className={`rounded-lg px-4 py-3 text-base font-medium ${hasSaved ? "bg-green-100 border border-green-400 text-green-900" : "bg-gray-50 border border-gray-200 text-gray-700"}`}
         >
           {hasSaved ? (
             <>

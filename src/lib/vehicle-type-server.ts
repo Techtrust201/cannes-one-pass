@@ -58,6 +58,26 @@ export function resolveVehicleTypeLabelFromList(
   return byCode("PORTEUR")?.label ?? "Porteur moyen (15 m³)";
 }
 
+export function resolveVehicleTypeShortLabelFromList(
+  types: VehicleTypeData[],
+  vehicleType: string | null | undefined,
+  fallbackSize?: string | null
+): string {
+  const byCode = (code: string) =>
+    types.find((t) => t.code === code || t.code === code.toUpperCase());
+  const type =
+    (vehicleType ? byCode(vehicleType) : undefined) ??
+    (fallbackSize ? byCode(fallbackSize) : undefined);
+  if (type) {
+    const gabarit = (type.gabarit ?? "").trim();
+    if (gabarit === "VL") return "VL";
+    if (/^\d+\s*m³$/.test(gabarit)) return gabarit;
+    const label = (type.label ?? "").trim();
+    return label.replace(/\s*\([^)]*\)\s*$/, "").trim() || label || gabarit;
+  }
+  return resolveVehicleTypeLabelFromList(types, vehicleType, fallbackSize);
+}
+
 export function resolveVehicleTypeCodeFromList(
   types: VehicleTypeData[],
   vehicleType: string | null | undefined,

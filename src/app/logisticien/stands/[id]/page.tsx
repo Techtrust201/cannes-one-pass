@@ -16,6 +16,7 @@ import { withEspaceQuery } from "@/lib/url";
 import StandAccreditationsList, {
   type StandAccreditationRow,
 } from "@/components/logisticien/StandAccreditationsList";
+import QrCodeBlock from "@/components/logisticien/QrCodeBlock";
 
 async function loadVehicleTypesForOrg(
   orgId: string | null
@@ -103,7 +104,19 @@ export default async function StandDetailPage(props: {
         </p>
       </div>
 
-      <StandAccreditationsList rows={rows} espace={espace} />
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 items-start">
+        <div className="min-w-0">
+          <StandAccreditationsList rows={rows} espace={espace} />
+        </div>
+        <div className="lg:w-64">
+          <QrCodeBlock
+            path={`/logisticien/stands/${stand.id}`}
+            label="QR Stand"
+            caption="Accès à toutes les accréditations de ce stand."
+            fileName={`qr-stand-${stand.number}`}
+          />
+        </div>
+      </div>
     </div>
   );
 }

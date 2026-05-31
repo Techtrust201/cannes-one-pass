@@ -107,6 +107,7 @@ async function renderAccreditationPage(
     entryAt: Date | null;
     exitAt: Date | null;
     extension: unknown;
+    standId: string | null;
     vehicles: Array<{
       plate: string | null;
       size: string;
@@ -119,7 +120,8 @@ async function renderAccreditationPage(
     }>;
   },
   vehicleTypes: VehicleTypeData[],
-  isRx: boolean
+  isRx: boolean,
+  baseUrl: string
 ): Promise<void> {
   const page = pdfDoc.addPage();
   const { width, height, MIN_Y, drawText, drawWrapped } = helpers;
@@ -289,19 +291,38 @@ async function renderAccreditationPage(
     noteY -= 12;
   }
 
-  const qrBuffer = await QRCode.toBuffer(JSON.stringify({ id: acc.id }), {
-    type: "png",
-  });
-  const qrImage = await pdfDoc.embedPng(qrBuffer);
-  page.drawImage(qrImage, {
-    x: width - 100,
-    y: 60,
-    width: 80,
-    height: 80,
-  });
+  // QR Véhicule : URL ouvrable vers la fiche accréditation (au lieu du JSON brut).
+  const vehicleUrl = `${baseUrl}/logisticien/${acc.id}`;
+  const vehicleQrBuffer = await QRCode.toBuffer(vehicleUrl, { type: "png" });
+  const vehicleQrImage = await pdfDoc.embedPng(vehicleQrBuffer);
+  const QR_SIZE = 80;
+  const QR_Y = 70;
+
+  if (acc.standId) {
+    // Deux QR côte à côte : Stand (gauche) + Véhicule (droite), avec libellés.
+    const standUrl = `${baseUrl}/logisticien/stands/${acc.standId}`;
+    const standQrBuffer = await QRCode.toBuffer(standUrl, { type: "png" });
+    const standQrImage = await pdfDoc.embedPng(standQrBuffer);
+
+    const vehX = width - 50 - QR_SIZE;
+    const standX = vehX - QR_SIZE - 20;
+
+    page.drawImage(standQrImage, { x: standX, y: QR_Y, width: QR_SIZE, height: QR_SIZE });
+    drawText(page, "QR Stand", standX + 16, QR_Y - 12, 9, { color: [0.3, 0.3, 0.3] });
+
+    page.drawImage(vehicleQrImage, { x: vehX, y: QR_Y, width: QR_SIZE, height: QR_SIZE });
+    drawText(page, "QR Véhicule", vehX + 8, QR_Y - 12, 9, { color: [0.3, 0.3, 0.3] });
+  } else {
+    const vehX = width - 50 - QR_SIZE;
+    page.drawImage(vehicleQrImage, { x: vehX, y: QR_Y, width: QR_SIZE, height: QR_SIZE });
+    drawText(page, "QR Véhicule", vehX + 8, QR_Y - 12, 9, { color: [0.3, 0.3, 0.3] });
+  }
 }
 
-export async function generatePdfFromIds(ids: string[]): Promise<Uint8Array> {
+export async function generatePdfFromIds(
+  ids: string[],
+  baseUrl: string
+): Promise<Uint8Array> {
   const uniqueIds = [...new Set(ids.filter(Boolean))];
   if (uniqueIds.length === 0) {
     throw new Error("Aucun identifiant fourni");
@@ -399,7 +420,7 @@ export async function generatePdfFromIds(ids: string[]): Promise<Uint8Array> {
 
   for (const acc of ordered) {
     const isRx = acc.organization?.slug === "rx" || Boolean(parseExtension(acc.extension).exhibitor);
-    await renderAccreditationPage(pdfDoc, helpers, acc, vehicleTypes, isRx);
+    await renderAccreditationPage(pdfDoc, helpers, acc, vehicleTypes, isRx, baseUrl);
   }
 
   return pdfDoc.save();

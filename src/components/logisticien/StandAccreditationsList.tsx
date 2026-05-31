@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ExternalLink, X, CalendarClock } from "lucide-react";
+import { ExternalLink, X, CalendarClock, Search } from "lucide-react";
 import type { Accreditation } from "@/types";
 import { PortalOverlay } from "@/components/ui/PortalOverlay";
 import { formatDateFR, formatSlot } from "@/templates/accreditation/rx/config";
@@ -27,6 +27,26 @@ interface Props {
 
 export default function StandAccreditationsList({ rows, espace }: Props) {
   const [openAcc, setOpenAcc] = useState<Accreditation | null>(null);
+  const [query, setQuery] = useState("");
+
+  const filteredRows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter(({ acc, gabarit }) => {
+      const v = acc.vehicles?.[0];
+      const haystack = [
+        v?.plate,
+        gabarit,
+        v?.phoneNumber,
+        v?.phoneCode,
+        acc.company,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [rows, query]);
 
   if (rows.length === 0) {
     return (
@@ -41,8 +61,26 @@ export default function StandAccreditationsList({ rows, espace }: Props) {
 
   return (
     <>
+      <div className="relative mb-3">
+        <Search
+          size={15}
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+        />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Rechercher par plaque, gabarit, téléphone…"
+          className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-sm focus:ring-1 focus:ring-[#4F587E] focus:border-[#4F587E]"
+        />
+      </div>
+
+      {filteredRows.length === 0 ? (
+        <div className="text-center py-10 text-gray-400 text-sm">
+          Aucun véhicule ne correspond à « {query} ».
+        </div>
+      ) : (
       <div className="space-y-2">
-        {rows.map(({ acc, gabarit }) => {
+        {filteredRows.map(({ acc, gabarit }) => {
           const v = acc.vehicles?.[0];
           const phone = v ? `${v.phoneCode ?? ""} ${v.phoneNumber ?? ""}`.trim() : "";
           const ctx = (acc.extension ?? null) as {
@@ -104,6 +142,7 @@ export default function StandAccreditationsList({ rows, espace }: Props) {
           );
         })}
       </div>
+      )}
 
       {openAcc && (
         <PortalOverlay>

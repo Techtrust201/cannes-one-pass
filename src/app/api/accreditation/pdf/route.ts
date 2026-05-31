@@ -15,7 +15,13 @@ export async function POST(req: NextRequest) {
         ? [body.id as string]
         : undefined;
     if (ids && ids.length > 0 && !body.company && !body.vehicles) {
-      const pdfBytes = await generatePdfFromIds(ids);
+      const { getBaseUrl } = await import("@/lib/base-url");
+      const host = req.headers.get("host") ?? "";
+      const proto = host.includes("localhost")
+        ? "http"
+        : (req.headers.get("x-forwarded-proto") ?? "https");
+      const baseUrl = host ? `${proto}://${host}` : getBaseUrl();
+      const pdfBytes = await generatePdfFromIds(ids, baseUrl);
       return new Response(Buffer.from(pdfBytes), {
         headers: {
           "Content-Type": "application/pdf",
@@ -481,9 +487,15 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    // QR code global (id)
+    // QR code global (id) — URL ouvrable vers la fiche accréditation.
     if (id) {
-      const qrBuffer: Buffer = await QRCode.toBuffer(JSON.stringify({ id }), {
+      const { getBaseUrl } = await import("@/lib/base-url");
+      const host = req.headers.get("host") ?? "";
+      const proto = host.includes("localhost")
+        ? "http"
+        : (req.headers.get("x-forwarded-proto") ?? "https");
+      const baseUrl = host ? `${proto}://${host}` : getBaseUrl();
+      const qrBuffer: Buffer = await QRCode.toBuffer(`${baseUrl}/logisticien/${id}`, {
         type: "png",
       });
       const qrImage = await pdfDoc.embedPng(qrBuffer);

@@ -24,6 +24,7 @@ import DailyTimeSlotHistory from "./DailyTimeSlotHistory";
 import AccreditationChat from "./AccreditationChat";
 import VehicleCard from "./VehicleCard";
 import RxServiceDetails from "./RxServiceDetails";
+import QrCodeBlock from "./QrCodeBlock";
 import VehicleEditDialog from "./VehicleEditDialog";
 import { PortalOverlay } from "@/components/ui/PortalOverlay";
 import { useEventOptions } from "@/hooks/useEventOptions";
@@ -402,6 +403,17 @@ export default function MobileAccreditationEditCard({ acc }: Props) {
 
           {/* Détail des services RX */}
           <RxServiceDetails extension={acc.extension} />
+
+          {/* QR Véhicule */}
+          <div className="flex justify-center my-2">
+            <QrCodeBlock
+              path={`/logisticien/${acc.id}`}
+              label="QR Véhicule"
+              caption="Accès direct à cette accréditation."
+              fileName={`qr-vehicule-${acc.id}`}
+              className="w-full max-w-xs"
+            />
+          </div>
 
           {/* Véhicules */}
           <div className="space-y-2">

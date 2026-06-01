@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CheckCircle, AlertTriangle, Loader2, Download } from "lucide-react";
 import { useTranslation } from "@/components/accreditation/TranslationProvider";
 import { PortalOverlay } from "@/components/ui/PortalOverlay";
+import { useUnloadingProviders } from "@/hooks/useUnloadingProviders";
 import { mapRxPayload } from "../mapPayload";
 import { RX_MANUTENTION_PROVIDERS, findCategory } from "../config";
 import type { StepProps } from "../../types";
@@ -25,9 +26,25 @@ export function StepManutentionRx({
   mode,
   onClearDraft,
   onResetForm,
+  orgSlug,
 }: StepProps<RxFormData>) {
   const { t, lang } = useTranslation();
   const { stepOne, stepTwo, stepThree } = data;
+
+  // Prestataires de manutention chargés depuis la BDD pour l'organisation
+  // courante (scoping multi-tenant). On conserve l'option sentinelle "Aucun"
+  // et, en cas de liste vide (BDD indisponible), un repli sur la liste codée.
+  const { providers: dbProviders } = useUnloadingProviders(orgSlug);
+  const manutentionOptions = useMemo(() => {
+    if (dbProviders.length === 0) return RX_MANUTENTION_PROVIDERS;
+    return [
+      ...dbProviders.map((p) => ({ value: p.name, label: p.name })),
+      {
+        value: "Autonome",
+        label: "Aucun (Scales uniquement pour catégories concernées)",
+      },
+    ];
+  }, [dbProviders]);
 
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -229,7 +246,7 @@ export function StepManutentionRx({
           className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
         >
           <option value="">— Sélectionnez un prestataire —</option>
-          {RX_MANUTENTION_PROVIDERS.map((p) => (
+          {manutentionOptions.map((p) => (
             <option key={p.value} value={p.value}>
               {p.label}
             </option>

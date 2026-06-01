@@ -31,11 +31,11 @@ function resolveTarget(decoded: string): string | null {
     return text;
   }
 
-  // 3) JSON legacy { id }
+  // 3) JSON { id } (format du PDF et du badge QR) → page de vérification guérite
   try {
     const obj = JSON.parse(text);
     if (obj && typeof obj.id === "string") {
-      return `/logisticien/${obj.id}`;
+      return `/logisticien/${obj.id}/verify`;
     }
   } catch {
     /* ignore */

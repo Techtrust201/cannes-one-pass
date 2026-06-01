@@ -19,60 +19,79 @@ export interface ZoneConfigData {
 }
 
 // ────────────────────────────────────────────────────────────────
-// Cache local (chargé une fois via loadZones)
+// Cache local par Espace (chargé via loadZones)
+//
+// Multi-tenant : les zones sont scopées par organisation. On garde un cache
+// par slug d'Espace (clé "__global__" quand aucun espace n'est fourni) afin
+// d'éviter de mélanger les zones de plusieurs organisations dans les
+// sélecteurs (entrée/transfert).
 // ────────────────────────────────────────────────────────────────
-let _zones: ZoneConfigData[] = [];
-let _loaded = false;
-let _loadingPromise: Promise<void> | null = null;
+const GLOBAL_SCOPE = "__global__";
+const _zonesByScope = new Map<string, ZoneConfigData[]>();
+const _loadingByScope = new Map<string, Promise<ZoneConfigData[]>>();
+let _currentScope = GLOBAL_SCOPE;
 
 /**
- * Charge les zones depuis l'API /api/zones (client-side).
- * Peut être appelé plusieurs fois — ne recharge que si non déjà chargé.
+ * Charge les zones depuis l'API /api/zones (client-side), scopées à l'Espace.
+ * Le cache est indexé par slug d'Espace ; le dernier scope chargé devient le
+ * scope "courant" utilisé par les helpers synchrones.
  */
-export async function loadZones(force = false): Promise<ZoneConfigData[]> {
-  if (_loaded && !force) return _zones;
-  if (_loadingPromise && !force) {
-    await _loadingPromise;
-    return _zones;
-  }
+export async function loadZones(
+  force = false,
+  espace?: string | null
+): Promise<ZoneConfigData[]> {
+  const scope = espace?.trim() || GLOBAL_SCOPE;
+  _currentScope = scope;
 
-  _loadingPromise = (async () => {
+  if (!force && _zonesByScope.has(scope)) return _zonesByScope.get(scope)!;
+  if (!force && _loadingByScope.has(scope)) return _loadingByScope.get(scope)!;
+
+  const promise = (async () => {
     try {
-      const res = await fetch("/api/zones");
+      const url =
+        scope === GLOBAL_SCOPE
+          ? "/api/zones"
+          : `/api/zones?espace=${encodeURIComponent(scope)}`;
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
-        _zones = (data as ZoneConfigData[]).filter((z) => z.isActive);
-        _loaded = true;
+        const active = (data as ZoneConfigData[]).filter((z) => z.isActive);
+        _zonesByScope.set(scope, active);
+        return active;
       }
     } catch (e) {
       console.error("Erreur chargement zones:", e);
-      // Fallback aux zones hardcodées
-      if (_zones.length === 0) {
-        _zones = DEFAULT_ZONES;
-        _loaded = true;
-      }
     }
+    // Fallback aux zones par défaut si rien n'est chargé pour ce scope.
+    const fallback = _zonesByScope.get(scope) ?? DEFAULT_ZONES;
+    _zonesByScope.set(scope, fallback);
+    return fallback;
   })();
 
-  await _loadingPromise;
-  _loadingPromise = null;
-  return _zones;
+  _loadingByScope.set(scope, promise);
+  const result = await promise;
+  _loadingByScope.delete(scope);
+  return result;
 }
 
 /**
- * Retourne les zones déjà chargées (synchrone).
- * Si pas encore chargé, retourne les valeurs par défaut.
+ * Retourne les zones déjà chargées pour le scope courant (synchrone).
+ * Si rien n'est chargé, retourne les valeurs par défaut.
  */
 export function getZonesSync(): ZoneConfigData[] {
-  return _loaded ? _zones : DEFAULT_ZONES;
+  return (
+    _zonesByScope.get(_currentScope) ??
+    _zonesByScope.get(GLOBAL_SCOPE) ??
+    DEFAULT_ZONES
+  );
 }
 
 /**
  * Force la mise à jour du cache (après ajout/modification de zone).
  */
 export function invalidateZoneCache(): void {
-  _loaded = false;
-  _loadingPromise = null;
+  _zonesByScope.clear();
+  _loadingByScope.clear();
 }
 
 // ────────────────────────────────────────────────────────────────

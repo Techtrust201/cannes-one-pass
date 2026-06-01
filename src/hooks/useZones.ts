@@ -2,13 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { loadZones, type ZoneConfigData } from "@/lib/zone-utils";
+import { useEspaceSlug } from "@/hooks/useEspaceSlug";
 
 export function useZones() {
+  const espace = useEspaceSlug();
   const [zones, setZones] = useState<ZoneConfigData[]>([]);
 
   useEffect(() => {
-    loadZones().then(setZones);
-  }, []);
+    loadZones(false, espace).then(setZones);
+  }, [espace]);
 
   return {
     zones,

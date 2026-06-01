@@ -1,9 +1,12 @@
 import { NextRequest } from "next/server";
-import { requirePermission } from "@/lib/auth-helpers";
+import { requirePermission, resolveEspaceOrgId } from "@/lib/auth-helpers";
 import { seedVehicleTypes } from "@/lib/vehicle-type-seed";
 
 /**
- * POST /api/vehicle-types/seed — Initialise les gabarits par défaut (idempotent)
+ * POST /api/vehicle-types/seed — Initialise les gabarits par défaut (idempotent).
+ *
+ * `?espace=<slug>` : seed scopé à cette organisation. Sans slug, seed global
+ * (legacy) — conservé pour rétrocompatibilité.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -16,7 +19,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const types = await seedVehicleTypes();
+    const espace = req.nextUrl.searchParams.get("espace")?.trim() || null;
+    const orgId = await resolveEspaceOrgId(espace);
+    const types = await seedVehicleTypes(orgId);
     return Response.json({ success: true, types });
   } catch (error) {
     console.error("POST /api/vehicle-types/seed error:", error);

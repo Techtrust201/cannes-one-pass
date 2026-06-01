@@ -1,49 +1,13 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/auth-helpers";
-
-const DEFAULT_ZONES = [
-  {
-    zone: "LA_BOCCA",
-    label: "La Bocca",
-    address: "Zone de stockage La Bocca, Cannes",
-    latitude: 43.5519,
-    longitude: 6.9629,
-    isFinalDestination: false,
-    color: "orange",
-  },
-  {
-    zone: "PALAIS_DES_FESTIVALS",
-    label: "Palais des Festivals",
-    address: "1 Bd de la Croisette, 06400 Cannes",
-    latitude: 43.5506,
-    longitude: 7.0175,
-    isFinalDestination: true,
-    color: "green",
-  },
-  {
-    zone: "PANTIERO",
-    label: "Pantiero",
-    address: "Prom. de la Pantiero, 06400 Cannes",
-    latitude: 43.5509,
-    longitude: 7.0140,
-    isFinalDestination: false,
-    color: "blue",
-  },
-  {
-    zone: "MACE",
-    label: "Macé",
-    address: "Plage Macé, Bd de la Croisette, 06400 Cannes",
-    latitude: 43.5503,
-    longitude: 7.0223,
-    isFinalDestination: false,
-    color: "purple",
-  },
-];
+import { requireRole, resolveEspaceOrgId } from "@/lib/auth-helpers";
+import { seedZones } from "@/lib/zone-seed";
 
 /**
- * POST /api/zones/seed — Initialise les zones par défaut
+ * POST /api/zones/seed — Initialise les zones par défaut pour l'org courante.
  * Réservé aux SUPER_ADMIN. Idempotent (upsert).
+ *
+ * `?espace=<slug>` : seed scopé à cette organisation. Sans slug, seed global
+ * (legacy) — conservé pour rétrocompatibilité.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -56,31 +20,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Seed des zones par défaut comme configurations globales
-    // (organizationId = null), héritées par toutes les organisations.
-    const results = [];
-    for (const z of DEFAULT_ZONES) {
-      const existing = await prisma.zoneConfig.findFirst({
-        where: { zone: z.zone, organizationId: null },
-      });
-      if (existing) {
-        results.push(
-          await prisma.zoneConfig.update({
-            where: { id: existing.id },
-            data: {
-              label: z.label,
-              address: z.address,
-              latitude: z.latitude,
-              longitude: z.longitude,
-              isFinalDestination: z.isFinalDestination,
-              color: z.color,
-            },
-          })
-        );
-      } else {
-        results.push(await prisma.zoneConfig.create({ data: z }));
-      }
-    }
+    const espace = req.nextUrl.searchParams.get("espace")?.trim() || null;
+    const orgId = await resolveEspaceOrgId(espace);
+    const results = await seedZones(orgId);
     return Response.json({ success: true, zones: results });
   } catch (error) {
     console.error("POST /api/zones/seed error:", error);

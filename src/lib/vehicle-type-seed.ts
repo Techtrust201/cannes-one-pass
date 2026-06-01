@@ -2,16 +2,17 @@ import { prisma } from "@/lib/prisma";
 import { DEFAULT_VEHICLE_TYPES } from "@/lib/vehicle-type-defaults";
 
 /**
- * Seed des gabarits de véhicules. Insère les entrées par défaut comme
- * configurations "globales" (organizationId = null), héritées par toutes
- * les organisations. Une organisation peut ensuite créer ses propres
- * surcharges via l'admin.
+ * Seed des gabarits de véhicules pour une organisation donnée.
+ *
+ * @param orgId organisation cible. `null` = configuration globale (legacy).
+ *   En multi-tenant, on passe l'`organizationId` pour que chaque org dispose
+ *   de sa propre copie indépendante des gabarits par défaut.
  */
-export async function seedVehicleTypes() {
+export async function seedVehicleTypes(orgId: string | null = null) {
   const results = [];
   for (const t of DEFAULT_VEHICLE_TYPES) {
     const existing = await prisma.vehicleTypeConfig.findFirst({
-      where: { code: t.code, organizationId: null },
+      where: { code: t.code, organizationId: orgId },
     });
     if (existing) {
       results.push(
@@ -48,6 +49,7 @@ export async function seedVehicleTypes() {
             showTrailerPlate: t.showTrailerPlate,
             sortOrder: t.sortOrder,
             isActive: true,
+            organizationId: orgId,
           },
         })
       );

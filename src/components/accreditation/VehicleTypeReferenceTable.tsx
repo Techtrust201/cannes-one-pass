@@ -1,11 +1,13 @@
 "use client";
 
 import { useVehicleTypes } from "@/hooks/useVehicleTypes";
+import { useEspaceSlug } from "@/hooks/useEspaceSlug";
 import { getColorClasses } from "@/lib/color-palette";
 import { formatNumber } from "@/lib/carbonData";
 
 export default function VehicleTypeReferenceTable() {
-  const { types, loading } = useVehicleTypes();
+  const espace = useEspaceSlug();
+  const { types, loading } = useVehicleTypes(false, espace);
 
   if (loading) {
     return (

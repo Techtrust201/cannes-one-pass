@@ -5,6 +5,8 @@ import {
   requireEspaceManagement,
   getAccessibleOrganizationIds,
 } from "@/lib/auth-helpers";
+import { seedVehicleTypes } from "@/lib/vehicle-type-seed";
+import { seedZones } from "@/lib/zone-seed";
 
 function handleAuthError(error: unknown) {
   if (error instanceof Response)
@@ -115,6 +117,18 @@ export async function POST(req: NextRequest) {
         isActive: isActive ?? true,
       },
     });
+
+    // Auto-seed des gabarits + zones par défaut pour la nouvelle organisation,
+    // afin qu'elle démarre opérationnelle (non bloquant si le seed échoue).
+    try {
+      await seedVehicleTypes(created.id);
+      await seedZones(created.id);
+    } catch (seedError) {
+      console.error(
+        "Auto-seed config pour la nouvelle organisation a échoué:",
+        seedError
+      );
+    }
 
     return Response.json(created, { status: 201 });
   } catch (error) {

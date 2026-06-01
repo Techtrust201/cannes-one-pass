@@ -20,7 +20,12 @@ export async function GET(req: NextRequest) {
     searchParams.get("orgSlug")?.trim() ||
     null;
 
-  if (!orgSlug) {
+  // Règles d'accès :
+  // - `all=true` (inclut les désactivés) : toujours réservé à un utilisateur
+  //   authentifié, qu'un espace soit fourni ou non (back-office admin).
+  // - sans `espace` : back-office authentifié.
+  // - `espace` + sans `all` : lecture publique (formulaire d'accréditation).
+  if (includeAll || !orgSlug) {
     try {
       await requireAuth(req);
     } catch (error) {
@@ -29,8 +34,6 @@ export async function GET(req: NextRequest) {
       }
       return new Response("Non autorisé", { status: 401 });
     }
-  } else if (includeAll) {
-    return Response.json({ error: "Non autorisé" }, { status: 401 });
   }
 
   try {

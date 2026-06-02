@@ -46,7 +46,7 @@ function FluxVehiculesPageContent() {
                 Flux véhicules
               </h1>
               <p className="text-sm text-gray-500">
-                Prestataires de déchargement, gabarits véhicules et
+                Prestataires de déchargement, types de véhicule et
                 accréditations permanentes.
               </p>
             </div>

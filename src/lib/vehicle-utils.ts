@@ -26,9 +26,18 @@ const DEFAULT_VEHICLE_TYPES_DATA: VehicleTypeData[] = DEFAULT_VEHICLE_TYPES.map(
   })
 );
 
-let _types: VehicleTypeData[] = DEFAULT_VEHICLE_TYPES_DATA;
-let _loaded = false;
-let _loadingPromise: Promise<void> | null = null;
+// ────────────────────────────────────────────────────────────────
+// Cache local par Espace (chargé via loadVehicleTypes)
+//
+// Multi-tenant : les gabarits sont scopés par organisation. On garde un cache
+// par slug d'Espace (clé "__global__" quand aucun espace n'est fourni) afin
+// d'éviter de mélanger/dupliquer les gabarits de plusieurs organisations dans
+// les helpers synchrones (tables, PDF, bilan carbone…).
+// ────────────────────────────────────────────────────────────────
+const GLOBAL_SCOPE = "__global__";
+const _typesByScope = new Map<string, VehicleTypeData[]>();
+const _loadingByScope = new Map<string, Promise<VehicleTypeData[]>>();
+let _currentScope = GLOBAL_SCOPE;
 
 function normalizeVehicleType(raw: unknown): VehicleTypeData {
   const item = raw as Record<string, unknown>;
@@ -53,45 +62,52 @@ export async function loadVehicleTypes(
   force = false,
   orgSlug?: string | null
 ): Promise<VehicleTypeData[]> {
-  if (_loaded && !force) return _types;
-  if (_loadingPromise && !force) {
-    await _loadingPromise;
-    return _types;
-  }
+  const scope = orgSlug?.trim() || GLOBAL_SCOPE;
+  _currentScope = scope;
 
-  _loadingPromise = (async () => {
+  if (!force && _typesByScope.has(scope)) return _typesByScope.get(scope)!;
+  if (!force && _loadingByScope.has(scope)) return _loadingByScope.get(scope)!;
+
+  const promise = (async () => {
     try {
       const url = withEspaceQuery("/api/vehicle-types", orgSlug);
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
-          _types = data.map(normalizeVehicleType).filter((t) => t.isActive);
-          _loaded = true;
-          return;
+          const active = data
+            .map(normalizeVehicleType)
+            .filter((t) => t.isActive);
+          _typesByScope.set(scope, active);
+          return active;
         }
       }
     } catch (error) {
       console.error("Erreur chargement gabarits véhicules:", error);
     }
-    if (_types.length === 0 || force) {
-      _types = DEFAULT_VEHICLE_TYPES_DATA;
-      _loaded = true;
-    }
+    // Fallback aux gabarits par défaut si rien n'est chargé pour ce scope.
+    const fallback = _typesByScope.get(scope) ?? DEFAULT_VEHICLE_TYPES_DATA;
+    _typesByScope.set(scope, fallback);
+    return fallback;
   })();
 
-  await _loadingPromise;
-  _loadingPromise = null;
-  return _types;
+  _loadingByScope.set(scope, promise);
+  const result = await promise;
+  _loadingByScope.delete(scope);
+  return result;
 }
 
 export function getVehicleTypesSync(): VehicleTypeData[] {
-  return _loaded ? _types : DEFAULT_VEHICLE_TYPES_DATA;
+  return (
+    _typesByScope.get(_currentScope) ??
+    _typesByScope.get(GLOBAL_SCOPE) ??
+    DEFAULT_VEHICLE_TYPES_DATA
+  );
 }
 
 export function invalidateVehicleTypeCache(): void {
-  _loaded = false;
-  _loadingPromise = null;
+  _typesByScope.clear();
+  _loadingByScope.clear();
 }
 
 export function getVehicleType(code: string): VehicleTypeData | undefined {

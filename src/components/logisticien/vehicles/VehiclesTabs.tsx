@@ -18,7 +18,7 @@ interface TabDef {
 
 const TABS: TabDef[] = [
   { id: "providers", label: "Prestataires", icon: Truck },
-  { id: "types", label: "Gabarits", icon: Box },
+  { id: "types", label: "Types de véhicule", icon: Box },
   { id: "permanents", label: "Accès permanents", icon: ShieldCheck, badge: "Bientôt" },
 ];
 

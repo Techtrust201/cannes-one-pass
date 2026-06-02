@@ -295,7 +295,7 @@ export function StepDeliveryRx({
                       <span className="text-xs font-semibold text-gray-700">
                         Véhicule(s){" "}
                         <span className="font-normal text-gray-400">
-                          (gabarit obligatoire · plaque optionnelle)
+                          (type de véhicule obligatoire · plaque optionnelle)
                         </span>
                       </span>
                       <button
@@ -308,11 +308,11 @@ export function StepDeliveryRx({
                       </button>
                     </div>
                     {typesLoading && (
-                      <p className="text-xs text-gray-500">Chargement des gabarits…</p>
+                      <p className="text-xs text-gray-500">Chargement des types de véhicule…</p>
                     )}
                     {!typesLoading && vehicleTypes.length === 0 && (
                       <p className="text-xs text-orange-700 bg-orange-50 border border-orange-200 rounded-md p-2">
-                        Aucun gabarit configuré pour le moment. Contactez l&apos;organisateur.
+                        Aucun type de véhicule configuré pour le moment. Contactez l&apos;organisateur.
                       </p>
                     )}
                     {selected.vehicles.map((v, idx) => (
@@ -337,7 +337,7 @@ export function StepDeliveryRx({
                         </div>
                         <div>
                           <label className="text-xs text-gray-600 block mb-0.5">
-                            Gabarit <span className="text-red-500">*</span>
+                            Type de véhicule <span className="text-red-500">*</span>
                           </label>
                           <select
                             value={v.vehicleType}
@@ -409,7 +409,7 @@ export function StepDeliveryRx({
       {!isValid && (
         <p className="text-gray-400 text-xs text-center">
           Sélectionnez au moins une catégorie avec sa date, son créneau et un
-          véhicule (gabarit).
+          véhicule (type de véhicule).
         </p>
       )}
     </div>

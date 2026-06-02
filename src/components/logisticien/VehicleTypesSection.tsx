@@ -307,7 +307,7 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
     return (
       <div className="flex items-center gap-2 text-gray-500 py-8">
         <Loader2 className="animate-spin" size={18} />
-        <span className="text-sm">Chargement des gabarits...</span>
+        <span className="text-sm">Chargement des types de véhicule...</span>
       </div>
     );
   }
@@ -317,7 +317,7 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 bg-orange-500 rounded-full" />
-          <h2 className="text-base font-bold text-gray-800">Gabarits véhicules</h2>
+          <h2 className="text-base font-bold text-gray-800">Types de véhicule</h2>
           <span className="text-xs text-gray-400 font-medium ml-1">
             {activeTypes.length} actif{activeTypes.length > 1 ? "s" : ""}
           </span>
@@ -342,7 +342,7 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
               className="flex items-center gap-1.5 px-3 py-2 bg-[#4F587E] text-white rounded-lg text-xs font-semibold hover:bg-[#3B4252]"
             >
               <PlusCircle size={14} />
-              Nouveau gabarit
+              Nouveau type
             </button>
           </div>
         )}
@@ -350,7 +350,7 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
 
       {showCreateForm && canWrite && (
         <div className="mb-6 bg-white rounded-2xl border-2 border-dashed border-orange-300/40 p-5 shadow-sm">
-          <h3 className="text-sm font-bold text-gray-800 mb-3">Ajouter un gabarit</h3>
+          <h3 className="text-sm font-bold text-gray-800 mb-3">Ajouter un type de véhicule</h3>
           {renderFormFields(createForm, (patch) =>
             setCreateForm((prev) => ({ ...prev, ...patch }))
           )}
@@ -457,7 +457,7 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
         </div>
       ) : (
         <div className="text-center py-10 bg-white rounded-xl border border-gray-200">
-          <p className="text-sm font-semibold text-gray-500">Aucun gabarit configuré</p>
+          <p className="text-sm font-semibold text-gray-500">Aucun type de véhicule configuré</p>
           {canWrite && (
             <button
               onClick={handleSeed}
@@ -465,7 +465,7 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
               className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-[#4F587E] text-white rounded-lg text-sm font-semibold"
             >
               {seeding ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
-              Initialiser les gabarits par défaut
+              Initialiser les types par défaut
             </button>
           )}
         </div>
@@ -474,7 +474,7 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
       {canWrite && inactiveTypes.length > 0 && (
         <div className="mt-8">
           <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
-            Gabarits désactivés
+            Types de véhicule désactivés
           </h3>
           <div className="grid gap-3">
             {inactiveTypes.map((type) => (

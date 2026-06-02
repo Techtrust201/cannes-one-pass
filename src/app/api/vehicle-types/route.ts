@@ -1,14 +1,31 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, requirePermission, resolveEspaceOrgId } from "@/lib/auth-helpers";
+import {
+  requireAuth,
+  requirePermission,
+  resolveEspaceOrgId,
+  getAccessibleOrganizationIds,
+} from "@/lib/auth-helpers";
 import { generateVehicleTypeCode } from "@/lib/vehicle-type-defaults";
+
+type VehicleTypeRow = { code: string };
+
+/** Dé-duplique une liste de gabarits par `code` (garde la première occurrence,
+ * l'ordre étant déjà déterministe via le `orderBy` de la requête). Filet de
+ * sécurité pour ne jamais renvoyer de doublon cross-organisation. */
+function dedupeByCode<T extends VehicleTypeRow>(rows: T[]): T[] {
+  const seen = new Set<string>();
+  return rows.filter((r) => (seen.has(r.code) ? false : (seen.add(r.code), true)));
+}
 
 /**
  * GET /api/vehicle-types — Liste des gabarits véhicules accessibles.
  *
+ * Cloisonnement strict par organisation (plus aucun gabarit « global ») :
  * - `?espace=<slug>` ou `?orgSlug=<slug>` : lecture **publique** (formulaire
- *   d'accréditation) — gabarits actifs de l'org + globaux (organizationId=null).
- * - Sans slug : réservé au back-office (session requise).
+ *   d'accréditation) — gabarits de cette organisation uniquement.
+ * - Sans slug : back-office authentifié — gabarits des organisations
+ *   accessibles à l'utilisateur (dé-dupliqués par code si plusieurs orgs).
  *
  * `?all=true` pour inclure les désactivés (admin uniquement, avec auth).
  */
@@ -25,9 +42,10 @@ export async function GET(req: NextRequest) {
   //   authentifié, qu'un espace soit fourni ou non (back-office admin).
   // - sans `espace` : back-office authentifié.
   // - `espace` + sans `all` : lecture publique (formulaire d'accréditation).
+  let authed: Awaited<ReturnType<typeof requireAuth>> | null = null;
   if (includeAll || !orgSlug) {
     try {
-      await requireAuth(req);
+      authed = await requireAuth(req);
     } catch (error) {
       if (error instanceof Response) {
         return new Response(error.body, { status: error.status, statusText: error.statusText });
@@ -37,24 +55,40 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const orgId = await resolveEspaceOrgId(orgSlug);
-    if (orgSlug && !orgId) {
-      return Response.json([]);
+    const activeFilter = includeAll ? {} : { isActive: true };
+    const orderBy = [{ sortOrder: "asc" as const }, { label: "asc" as const }];
+
+    // Cas 1 : espace fourni → scope strict à cette organisation.
+    if (orgSlug) {
+      const orgId = await resolveEspaceOrgId(orgSlug);
+      if (!orgId) return Response.json([]);
+      const types = await prisma.vehicleTypeConfig.findMany({
+        where: { ...activeFilter, organizationId: orgId },
+        orderBy,
+      });
+      return Response.json(types);
     }
 
-    const scopeFilter = orgSlug
-      ? { OR: [{ organizationId: null }, { organizationId: orgId }] }
-      : {};
+    // Cas 2/3 : pas d'espace (back-office authentifié) → orgs accessibles.
+    const accessible = authed
+      ? await getAccessibleOrganizationIds(authed.session.user.id)
+      : [];
 
+    if (Array.isArray(accessible) && accessible.length > 0) {
+      const types = await prisma.vehicleTypeConfig.findMany({
+        where: { ...activeFilter, organizationId: { in: accessible } },
+        orderBy,
+      });
+      // Mono-org → pas de doublon possible. Multi-org → dé-dup par code.
+      return Response.json(accessible.length > 1 ? dedupeByCode(types) : types);
+    }
+
+    // Super-admin ("ALL") ou aucune org rattachée → tout, dé-dupliqué par code.
     const types = await prisma.vehicleTypeConfig.findMany({
-      where: {
-        ...(includeAll ? {} : { isActive: true }),
-        ...scopeFilter,
-      },
-      orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
+      where: activeFilter,
+      orderBy,
     });
-
-    return Response.json(types);
+    return Response.json(dedupeByCode(types));
   } catch (error) {
     console.error("GET /api/vehicle-types error:", error);
     return Response.json({ error: "Erreur serveur" }, { status: 500 });

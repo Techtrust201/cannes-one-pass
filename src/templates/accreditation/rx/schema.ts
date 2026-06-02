@@ -19,7 +19,7 @@ export const rxVehicleSchema = z.object({
   city: z.string().optional().default(""),
   unloading: z.array(z.string()).min(1),
   kms: z.string().optional(),
-  vehicleType: z.string().min(1, "Le gabarit est obligatoire"),
+  vehicleType: z.string().min(1, "Le type de véhicule est obligatoire"),
   country: z.string().optional(),
   estimatedKms: z.number().optional(),
   trailerPlate: z.string().optional(),

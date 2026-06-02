@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import type { Vehicle } from "@/types";
 import { Loader2 } from "lucide-react";
 import VehicleForm from "@/components/accreditation/VehicleForm";
+import { useEspaceSlug } from "@/hooks/useEspaceSlug";
 import {
   Dialog,
   DialogContent,
@@ -45,6 +46,7 @@ export default function VehicleEditDialog({
   onSuccess,
   onToast,
 }: VehicleEditDialogProps) {
+  const espace = useEspaceSlug();
   const [formData, setFormData] = useState<Vehicle>(() =>
     vehicle ? { ...vehicle } : makeEmptyVehicle()
   );
@@ -131,6 +133,7 @@ export default function VehicleEditDialog({
             data={formData}
             update={handleUpdate}
             onValidityChange={setIsValid}
+            orgSlug={espace ?? undefined}
           />
         </div>
 

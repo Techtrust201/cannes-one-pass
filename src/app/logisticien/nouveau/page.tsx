@@ -219,6 +219,7 @@ function LogisticienNewContent() {
                   data={formData.vehicle}
                   update={(patch) => updateForm("vehicle", patch)}
                   onValidityChange={setStepValid}
+                  orgSlug={espace ?? "palais-des-festivals"}
                 />
               )}
               {step === 3 && (

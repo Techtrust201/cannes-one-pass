@@ -253,7 +253,7 @@ export function StepPickupRx({
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                           <div>
                             <label className="text-xs text-gray-600 block mb-0.5">
-                              Gabarit reprise <span className="text-red-500">*</span>
+                              Type de véhicule (reprise) <span className="text-red-500">*</span>
                             </label>
                             <select
                               value={v.repVehicleType ?? ""}

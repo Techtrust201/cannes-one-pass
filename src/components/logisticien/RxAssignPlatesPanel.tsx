@@ -203,7 +203,7 @@ export function RxAssignPlatesPanel({ accreditationStand, vehicles }: Props) {
         <table className="w-full text-sm">
           <thead className="text-xs text-gray-500 border-b">
             <tr>
-              <th className="text-left py-1 pr-3">Gabarit</th>
+              <th className="text-left py-1 pr-3">Type de véhicule</th>
               <th className="text-left py-1 pr-3">Créneau</th>
               <th className="text-left py-1 pr-3">Plaque</th>
               <th className="text-left py-1 pr-3">Remorque</th>

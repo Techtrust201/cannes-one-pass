@@ -69,7 +69,7 @@ export default function StandAccreditationsList({ rows, espace }: Props) {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Rechercher par plaque, gabarit, téléphone…"
+          placeholder="Rechercher par plaque, type de véhicule, téléphone…"
           className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-sm focus:ring-1 focus:ring-[#4F587E] focus:border-[#4F587E]"
         />
       </div>

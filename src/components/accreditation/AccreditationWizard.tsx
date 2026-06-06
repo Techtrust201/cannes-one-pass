@@ -54,7 +54,7 @@ interface AccreditationWizardProps {
 }
 
 function LanguageSelectionStep({ orgSlug }: { orgSlug: string }) {
-  const { setLang } = useTranslation();
+  const { t, setLang } = useTranslation();
   const router = useRouter();
   function pick(code: LangCode) {
     setLang(code);
@@ -63,7 +63,7 @@ function LanguageSelectionStep({ orgSlug }: { orgSlug: string }) {
   return (
     <div className="flex flex-col items-center py-8 px-4 w-full">
       <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2 text-center">
-        Choisissez votre langue
+        {t.chooseLang}
       </h2>
       <p className="text-gray-500 text-sm mb-8 text-center">Choose your language</p>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full max-w-md">
@@ -220,7 +220,18 @@ function WizardContent({
       ? buildPalaisStepFourCtx(formData, resetAll, clearForm, setHasSaved)
       : null;
 
-  const stepLabel = (idx: number) => template.steps[idx]?.label ?? `Step ${idx + 1}`;
+  // Libellés de la progress bar (aria-label). Pour RX, on traduit via le
+  // namespace dédié `t.rx.steps` indexé par id de step ; le Palais conserve ses
+  // libellés statiques (fallback `step.label`).
+  const stepLabel = (idx: number) => {
+    const def = template.steps[idx];
+    if (!def) return `Step ${idx + 1}`;
+    if (template.slug === "rx") {
+      const rxLabel = t.rx.steps[def.id as keyof typeof t.rx.steps];
+      if (rxLabel) return rxLabel;
+    }
+    return def.label;
+  };
 
   return (
     <div
@@ -348,7 +359,7 @@ function WizardContent({
             href={`/accreditation/${orgSlug}/contact`}
             className="text-white text-sm hover:underline"
           >
-            Besoin d&apos;aide ?
+            {t.needHelp}
           </Link>
         </footer>
       )}

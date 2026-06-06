@@ -4,7 +4,9 @@ import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { handleSanitizedPlateInput } from "@/lib/plate-utils";
 import { useVehicleTypes } from "@/hooks/useVehicleTypes";
-import { findCategory, genSlots, formatDateFR, formatSlot } from "../config";
+import { useTranslation } from "@/components/accreditation/TranslationProvider";
+import { findCategory, genSlots, formatSlot } from "../config";
+import { getLocalizedCategory, formatDateLocalized } from "../i18n";
 import type { StepProps } from "../../types";
 import type { RxFormData, RxCategorySelection } from "../types";
 
@@ -30,6 +32,7 @@ export function StepPickupRx({
   onValidityChange,
   orgSlug,
 }: StepProps<RxFormData>) {
+  const { t, lang } = useTranslation();
   const { stepOne, stepTwo } = data;
   const { types: vehicleTypes, loading: typesLoading } = useVehicleTypes(false, orgSlug);
 
@@ -123,11 +126,9 @@ export function StepPickupRx({
     return (
       <div className="flex flex-col w-full gap-3">
         <h2 className="text-base font-semibold text-gray-800">
-          Gestion des reprises (démontage)
+          {t.rx.pickup.title}
         </h2>
-        <p className="text-sm text-gray-500 italic">
-          Configurez d&apos;abord vos livraisons à l&apos;étape précédente.
-        </p>
+        <p className="text-sm text-gray-500 italic">{t.rx.pickup.emptyHint}</p>
       </div>
     );
   }
@@ -136,19 +137,16 @@ export function StepPickupRx({
     <div className="flex flex-col w-full gap-4">
       <div>
         <h2 className="text-base font-semibold text-gray-800 mb-1">
-          Gestion des reprises (démontage)
+          {t.rx.pickup.title}
         </h2>
-        <p className="text-sm text-gray-500">
-          ⏪ Les catégories sélectionnées au montage sont reprises
-          automatiquement. Renseignez la date, le créneau et le véhicule de
-          reprise pour chacune.
-        </p>
+        <p className="text-sm text-gray-500">⏪ {t.rx.pickup.intro}</p>
       </div>
 
       <div className="space-y-3">
         {stepTwo.categories.map((cat) => {
           const def = findCategory(stepOne.space, cat.categoryId);
           if (!def) return null;
+          const localizedDef = getLocalizedCategory(def, t);
           const slots = cat.repDate ? genSlots(def.rep[cat.repDate] ?? "") : [];
           return (
             <div key={cat.categoryId} className="border rounded-lg p-3 bg-white">
@@ -158,16 +156,16 @@ export function StepPickupRx({
                   checked
                   disabled
                   className="accent-primary opacity-70"
-                  aria-label={`${def.name} (verrouillé)`}
+                  aria-label={`${localizedDef.name} ${t.rx.pickup.lockedAria}`}
                 />
                 <span className="text-sm font-semibold text-gray-800">
-                  {def.icon} {def.name}
+                  {def.icon} {localizedDef.name}
                 </span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                 <div>
                   <label className="text-xs font-semibold text-gray-700 block mb-1">
-                    Date de reprise <span className="text-red-500">*</span>
+                    {t.rx.pickup.pickupDate} <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={cat.repDate}
@@ -182,17 +180,17 @@ export function StepPickupRx({
                       !cat.repDate && "border-red-400"
                     )}
                   >
-                    <option value="">— Choisir une date —</option>
+                    <option value="">{t.rx.pickup.chooseDate}</option>
                     {Object.keys(def.rep).map((date) => (
                       <option key={date} value={date}>
-                        {formatDateFR(date)}
+                        {formatDateLocalized(date, lang)}
                       </option>
                     ))}
                   </select>
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-gray-700 block mb-1">
-                    Créneau <span className="text-red-500">*</span>
+                    {t.rx.pickup.slot} <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={cat.repTime}
@@ -206,9 +204,7 @@ export function StepPickupRx({
                     )}
                   >
                     <option value="">
-                      {cat.repDate
-                        ? "— Choisir un créneau —"
-                        : "— Choisir d'abord une date —"}
+                      {cat.repDate ? t.rx.pickup.chooseSlot : t.rx.pickup.chooseDateFirst}
                     </option>
                     {slots.map((s) => (
                       <option key={s} value={s}>
@@ -221,7 +217,7 @@ export function StepPickupRx({
 
               <div className="space-y-3 border-t border-gray-100 pt-3">
                 <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
-                  Véhicules de reprise
+                  {t.rx.pickup.pickupVehicles}
                 </p>
                 {cat.vehicles.map((v, idx) => {
                   const sameVehicle = v.repSameAsDelivery !== false;
@@ -233,7 +229,7 @@ export function StepPickupRx({
                       className="rounded-md border border-gray-200 bg-gray-50 p-3 space-y-2"
                     >
                       <p className="text-xs text-gray-600">
-                        Véhicule livraison {idx + 1}
+                        {t.rx.pickup.deliveryVehicle} {idx + 1}
                         {deliveryLabel ? ` — ${deliveryLabel}` : ""}
                         {v.plate ? ` (${v.plate})` : ""}
                       </p>
@@ -246,14 +242,14 @@ export function StepPickupRx({
                           }
                           className="mt-0.5 accent-primary"
                         />
-                        <span>Reprise par le même véhicule</span>
+                        <span>{t.rx.pickup.sameVehicle}</span>
                       </label>
 
                       {!sameVehicle && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                           <div>
                             <label className="text-xs text-gray-600 block mb-0.5">
-                              Type de véhicule (reprise) <span className="text-red-500">*</span>
+                              {t.rx.pickup.pickupVehicleType} <span className="text-red-500">*</span>
                             </label>
                             <select
                               value={v.repVehicleType ?? ""}
@@ -268,7 +264,7 @@ export function StepPickupRx({
                                 !v.repVehicleType && "border-red-400"
                               )}
                             >
-                              <option value="">— Choisir —</option>
+                              <option value="">{t.rx.pickup.choose}</option>
                               {vehicleTypes.map((vt) => (
                                 <option key={vt.id} value={vt.code}>
                                   {vt.label}
@@ -278,7 +274,7 @@ export function StepPickupRx({
                           </div>
                           <div>
                             <label className="text-xs text-gray-600 block mb-0.5">
-                              Plaque reprise (optionnelle)
+                              {t.rx.pickup.pickupPlateOptional}
                             </label>
                             <input
                               value={v.repPlate ?? ""}
@@ -295,7 +291,7 @@ export function StepPickupRx({
                           </div>
                           <div className="sm:col-span-2">
                             <label className="text-xs text-gray-600 block mb-0.5">
-                              Téléphone conducteur reprise{" "}
+                              {t.rx.pickup.driverPhonePickup}{" "}
                               <span className="text-red-500">*</span>
                             </label>
                             <div className="flex gap-2">
@@ -338,8 +334,7 @@ export function StepPickupRx({
 
       {!isValid && (
         <p className="text-gray-400 text-xs text-center">
-          Renseignez la date, le créneau et les véhicules de reprise pour chaque
-          catégorie.
+          {t.rx.pickup.validationHint}
         </p>
       )}
     </div>

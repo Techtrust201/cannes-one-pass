@@ -41,10 +41,10 @@ export function StepManutentionRx({
       ...dbProviders.map((p) => ({ value: p.name, label: p.name })),
       {
         value: "Autonome",
-        label: "Aucun (Scales uniquement pour catégories concernées)",
+        label: t.rx.manutention.noneOption,
       },
     ];
-  }, [dbProviders]);
+  }, [dbProviders, t.rx.manutention.noneOption]);
 
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -153,24 +153,21 @@ export function StepManutentionRx({
             <CheckCircle size={56} className="text-green-500" />
             <h2 className="text-2xl font-bold text-gray-900">
               {createdCount > 1
-                ? `${createdCount} accréditations enregistrées !`
-                : "Accréditation enregistrée !"}
+                ? `${createdCount} ${t.rx.manutention.successTitleMany}`
+                : t.rx.manutention.successTitleOne}
             </h2>
             <p className="text-sm text-gray-600 max-w-md">
-              {createdCount > 1
-                ? "Une accréditation a été créée par véhicule. "
-                : ""}
+              {createdCount > 1 ? t.rx.manutention.successPerVehicle : ""}
               {mode === "logisticien"
-                ? "Elles sont validées et visibles dans la liste."
-                : "Votre demande sera traitée puis validée par l'organisateur. Un e-mail de confirmation vous sera envoyé."}
+                ? t.rx.manutention.successLogisticien
+                : t.rx.manutention.successPublic}
             </p>
           </div>
 
           {/* Encart téléchargement obligatoire (QR code) */}
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-left space-y-3">
             <p className="text-sm font-semibold text-amber-900">
-              Vous devez télécharger et présenter votre accréditation (QR code)
-              à l&apos;entrée du site.
+              {t.rx.manutention.downloadNotice}
             </p>
             {createdIds.length > 0 && (
               <button
@@ -184,15 +181,14 @@ export function StepManutentionRx({
                 ) : (
                   <Download size={18} />
                 )}
-                {downloading ? "Génération…" : "Télécharger mon accréditation"}
+                {downloading ? t.rx.manutention.generating : t.rx.manutention.downloadCta}
               </button>
             )}
           </div>
 
           {scalesAtSubmit && (
             <div className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-3 text-sm text-orange-800 text-left">
-              <strong>⚠ Rappel Scales :</strong> n&apos;oubliez pas de prendre
-              rendez-vous avec Scales pour les catégories concernées. Contact :{" "}
+              <strong>⚠ {t.rx.manutention.scalesReminder}</strong> {t.rx.delivery.scalesContact}{" "}
               <strong>scales@manutention.fr</strong>
             </div>
           )}
@@ -207,7 +203,7 @@ export function StepManutentionRx({
               }}
               className="w-full px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition"
             >
-              Nouvelle demande
+              {t.rx.manutention.newRequest}
             </button>
           )}
         </div>
@@ -219,24 +215,20 @@ export function StepManutentionRx({
     <div className="flex flex-col w-full gap-4">
       <div>
         <h2 className="text-base font-semibold text-gray-800 mb-1">
-          Prestataire de manutention
+          {t.rx.manutention.title}
         </h2>
-        <p className="text-sm text-gray-500">
-          Société pour la manutention non-Scales.
-        </p>
+        <p className="text-sm text-gray-500">{t.rx.manutention.subtitle}</p>
       </div>
 
       {scalesRequired && (
         <div className="bg-orange-50 border border-orange-200 rounded-md p-3 text-sm text-orange-800">
-          <strong>⚠ Scales sera automatiquement assigné</strong> pour les
-          catégories cochées le nécessitant (bateaux à terre, motoristes…). Vous
-          pouvez choisir un prestataire complémentaire pour le reste.
+          ⚠ {t.rx.manutention.scalesAutoNotice}
         </div>
       )}
 
       <div className="space-y-1">
         <label className="text-sm font-semibold text-gray-700">
-          Prestataire complémentaire
+          {t.rx.manutention.complementaryProvider}
         </label>
         <select
           value={stepThree.manutentionProvider}
@@ -245,7 +237,7 @@ export function StepManutentionRx({
           }
           className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
         >
-          <option value="">— Sélectionnez un prestataire —</option>
+          <option value="">{t.rx.manutention.chooseProvider}</option>
           {manutentionOptions.map((p) => (
             <option key={p.value} value={p.value}>
               {p.label}
@@ -265,8 +257,7 @@ export function StepManutentionRx({
             className="mt-1 accent-orange-600"
           />
           <span>
-            Je prendrai contact avec <strong>Scales</strong> pour planifier la
-            manutention des catégories concernées (
+            {t.rx.manutention.scalesAck} (
             <a href="mailto:scales@manutention.fr" className="underline">
               scales@manutention.fr
             </a>
@@ -282,25 +273,22 @@ export function StepManutentionRx({
           onChange={(e) => update({ stepThree: { ...stepThree, consent: e.target.checked } })}
           className="mt-1 accent-primary"
         />
-        <span>
-          J&apos;autorise le traitement de ces informations dans le cadre de
-          l&apos;accréditation logistique de l&apos;événement.
-        </span>
+        <span>{t.rx.manutention.consent}</span>
       </label>
 
       {/* Récap compact */}
       <div className="rounded-lg bg-gray-50 border border-gray-200 p-3 text-sm space-y-1">
         <div>
-          <span className="font-semibold">Exposant :</span> {stepOne.exhibitorName}{" "}
+          <span className="font-semibold">{t.rx.manutention.recapExhibitor}</span> {stepOne.exhibitorName}{" "}
           <span className="text-gray-500">({stepOne.exhibitorStand})</span>
         </div>
         <div>
-          <span className="font-semibold">Catégories :</span> {stepTwo.categories.length}
+          <span className="font-semibold">{t.rx.manutention.recapCategories}</span> {stepTwo.categories.length}
           {" · "}
-          <span className="font-semibold">Véhicules :</span> {totalVehicles}
+          <span className="font-semibold">{t.rx.manutention.recapVehicles}</span> {totalVehicles}
         </div>
         <div>
-          <span className="font-semibold">Contact :</span> {stepOne.contact.firstName}{" "}
+          <span className="font-semibold">{t.rx.manutention.recapContact}</span> {stepOne.contact.firstName}{" "}
           {stepOne.contact.lastName} · {stepOne.contact.email}
         </div>
       </div>
@@ -319,13 +307,14 @@ export function StepManutentionRx({
         className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-base shadow transition-all duration-150 bg-primary text-white hover:bg-primary-dark disabled:opacity-50"
       >
         {loading ? <Loader2 size={18} className="animate-spin" /> : "✅"}
-        Valider l&apos;accréditation
+        {t.rx.manutention.validate}
       </button>
 
       {!isValid && (
         <p className="text-gray-400 text-xs text-center">
-          Confirmez le consentement
-          {scalesRequired ? " et l'acquittement Scales" : ""} pour valider.
+          {t.rx.manutention.validateHint}
+          {scalesRequired ? t.rx.manutention.validateHintScales : ""}
+          {t.rx.manutention.validateHintEnd}
         </p>
       )}
 

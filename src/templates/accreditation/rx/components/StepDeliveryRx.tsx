@@ -4,7 +4,9 @@ import { useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { handleSanitizedPlateInput } from "@/lib/plate-utils";
 import { useVehicleTypes } from "@/hooks/useVehicleTypes";
-import { RX_SPACES, PALAIS_CHOICE, genSlots, formatDateFR, formatSlot } from "../config";
+import { useTranslation } from "@/components/accreditation/TranslationProvider";
+import { RX_SPACES, PALAIS_CHOICE, genSlots, formatSlot } from "../config";
+import { getLocalizedSpace, getLocalizedCategory, formatDateLocalized } from "../i18n";
 import type { StepProps } from "../../types";
 import type { RxFormData } from "../types";
 
@@ -24,6 +26,7 @@ export function StepDeliveryRx({
   onValidityChange,
   orgSlug,
 }: StepProps<RxFormData>) {
+  const { t, lang } = useTranslation();
   const { stepOne, stepTwo } = data;
   const { types: vehicleTypes, loading: typesLoading } = useVehicleTypes(false, orgSlug);
 
@@ -155,12 +158,9 @@ export function StepDeliveryRx({
       <div className="flex flex-col w-full gap-4">
         <div>
           <h2 className="text-base font-semibold text-gray-800 mb-1">
-            Gestion des livraisons (montage)
+            {t.rx.delivery.title}
           </h2>
-          <p className="text-sm text-gray-500">
-            Votre stand est dans le Palais des Festivals. Précisez son
-            emplacement pour afficher les catégories.
-          </p>
+          <p className="text-sm text-gray-500">{t.rx.delivery.palaisIntro}</p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <button
@@ -169,9 +169,11 @@ export function StepDeliveryRx({
             className="border-2 border-gray-300 hover:border-primary rounded-xl p-4 text-left transition"
           >
             <div className="text-2xl mb-1">🏛️</div>
-            <div className="font-semibold text-gray-800">Intérieur Palais</div>
+            <div className="font-semibold text-gray-800">
+              {t.rx.delivery.interiorPalais}
+            </div>
             <div className="text-xs text-gray-500">
-              À l&apos;intérieur du Palais des Festivals
+              {t.rx.delivery.interiorPalaisDesc}
             </div>
           </button>
           <button
@@ -180,9 +182,11 @@ export function StepDeliveryRx({
             className="border-2 border-gray-300 hover:border-primary rounded-xl p-4 text-left transition"
           >
             <div className="text-2xl mb-1">⛺</div>
-            <div className="font-semibold text-gray-800">Extérieur Palais</div>
+            <div className="font-semibold text-gray-800">
+              {t.rx.delivery.exteriorPalais}
+            </div>
             <div className="text-xs text-gray-500">
-              Esplanade extérieure (Macé, etc.)
+              {t.rx.delivery.exteriorPalaisDesc}
             </div>
           </button>
         </div>
@@ -190,29 +194,29 @@ export function StepDeliveryRx({
     );
   }
 
+  const localizedSpace = getLocalizedSpace(currentSpace!, t);
+
   return (
     <div className="flex flex-col w-full gap-4">
       <div>
         <h2 className="text-base font-semibold text-gray-800 mb-1">
-          Gestion des livraisons (montage)
+          {t.rx.delivery.title}
         </h2>
         <div className="rounded-md bg-blue-50 border border-blue-200 p-2.5 text-sm text-blue-900 mt-2">
-          <strong>📍 Espace :</strong> {currentSpace!.label}
-          {currentSpace!.note ? (
-            <span className="block text-xs text-blue-700 mt-0.5">{currentSpace!.note}</span>
+          <strong>📍 {t.rx.delivery.spaceLabel}</strong> {localizedSpace.label}
+          {localizedSpace.note ? (
+            <span className="block text-xs text-blue-700 mt-0.5">{localizedSpace.note}</span>
           ) : null}
         </div>
       </div>
 
-      <p className="text-sm text-gray-700">
-        ✅ Cochez chaque catégorie applicable à votre stand, puis renseignez la
-        date, le créneau et le(s) véhicule(s) pour chacune.
-      </p>
+      <p className="text-sm text-gray-700">✅ {t.rx.delivery.instructions}</p>
 
       <div className="space-y-3">
         {currentSpace!.categories.map((cat) => {
           const selected = stepTwo.categories.find((c) => c.categoryId === cat.id);
           const slots = selected?.livDate ? genSlots(cat.liv[selected.livDate] ?? "") : [];
+          const localizedCat = getLocalizedCategory(cat, t);
           return (
             <div
               key={cat.id}
@@ -230,11 +234,11 @@ export function StepDeliveryRx({
                 />
                 <div className="flex-1">
                   <div className="font-semibold text-gray-800">
-                    {cat.icon} {cat.name}
+                    {cat.icon} {localizedCat.name}
                   </div>
                   {cat.scales && (
                     <span className="inline-block text-[11px] text-orange-700 bg-orange-50 border border-orange-200 rounded-full px-2 py-0.5 mt-1">
-                      ⚠ RDV Scales
+                      ⚠ {t.rx.delivery.rdvScales}
                     </span>
                   )}
                 </div>
@@ -245,7 +249,7 @@ export function StepDeliveryRx({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs font-semibold text-gray-700 block mb-1">
-                        Date <span className="text-red-500">*</span>
+                        {t.rx.delivery.date} <span className="text-red-500">*</span>
                       </label>
                       <select
                         value={selected.livDate}
@@ -257,17 +261,17 @@ export function StepDeliveryRx({
                           !selected.livDate && "border-red-400"
                         )}
                       >
-                        <option value="">— Choisir une date —</option>
+                        <option value="">{t.rx.delivery.chooseDate}</option>
                         {Object.keys(cat.liv).map((date) => (
                           <option key={date} value={date}>
-                            {formatDateFR(date)}
+                            {formatDateLocalized(date, lang)}
                           </option>
                         ))}
                       </select>
                     </div>
                     <div>
                       <label className="text-xs font-semibold text-gray-700 block mb-1">
-                        Créneau <span className="text-red-500">*</span>
+                        {t.rx.delivery.slot} <span className="text-red-500">*</span>
                       </label>
                       <select
                         value={selected.livTime}
@@ -279,7 +283,7 @@ export function StepDeliveryRx({
                         )}
                       >
                         <option value="">
-                          {selected.livDate ? "— Choisir un créneau —" : "— Choisir d'abord une date —"}
+                          {selected.livDate ? t.rx.delivery.chooseSlot : t.rx.delivery.chooseDateFirst}
                         </option>
                         {slots.map((s) => (
                           <option key={s} value={s}>
@@ -293,9 +297,9 @@ export function StepDeliveryRx({
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold text-gray-700">
-                        Véhicule(s){" "}
+                        {t.rx.delivery.vehicles}{" "}
                         <span className="font-normal text-gray-400">
-                          (type de véhicule obligatoire · plaque optionnelle)
+                          {t.rx.delivery.vehiclesHint}
                         </span>
                       </span>
                       <button
@@ -304,15 +308,15 @@ export function StepDeliveryRx({
                         disabled={typesLoading || vehicleTypes.length === 0}
                         className="text-xs text-primary hover:underline disabled:opacity-50 disabled:no-underline"
                       >
-                        + Ajouter un véhicule
+                        {t.rx.delivery.addVehicle}
                       </button>
                     </div>
                     {typesLoading && (
-                      <p className="text-xs text-gray-500">Chargement des types de véhicule…</p>
+                      <p className="text-xs text-gray-500">{t.rx.delivery.loadingTypes}</p>
                     )}
                     {!typesLoading && vehicleTypes.length === 0 && (
                       <p className="text-xs text-orange-700 bg-orange-50 border border-orange-200 rounded-md p-2">
-                        Aucun type de véhicule configuré pour le moment. Contactez l&apos;organisateur.
+                        {t.rx.delivery.noTypes}
                       </p>
                     )}
                     {selected.vehicles.map((v, idx) => (
@@ -322,7 +326,7 @@ export function StepDeliveryRx({
                       >
                         <div className="sm:col-span-3">
                           <label className="text-xs text-gray-600 block mb-0.5">
-                            Société intervenante
+                            {t.rx.delivery.interveningCompany}
                           </label>
                           <input
                             value={v.interveningCompany ?? ""}
@@ -331,13 +335,13 @@ export function StepDeliveryRx({
                                 interveningCompany: e.target.value,
                               })
                             }
-                            placeholder="Transporteur, décorateur, prestataire…"
+                            placeholder={t.rx.delivery.interveningPlaceholder}
                             className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm"
                           />
                         </div>
                         <div>
                           <label className="text-xs text-gray-600 block mb-0.5">
-                            Type de véhicule <span className="text-red-500">*</span>
+                            {t.rx.delivery.vehicleType} <span className="text-red-500">*</span>
                           </label>
                           <select
                             value={v.vehicleType}
@@ -350,7 +354,7 @@ export function StepDeliveryRx({
                               !v.vehicleType && "border-red-400"
                             )}
                           >
-                            <option value="">— Choisir —</option>
+                            <option value="">{t.rx.delivery.choose}</option>
                             {vehicleTypes.map((vt) => (
                               <option key={vt.id} value={vt.code}>
                                 {vt.label}
@@ -360,7 +364,7 @@ export function StepDeliveryRx({
                         </div>
                         <div>
                           <label className="text-xs text-gray-600 block mb-0.5">
-                            Plaque (optionnelle)
+                            {t.rx.delivery.plateOptional}
                           </label>
                           <input
                             value={v.plate ?? ""}
@@ -380,7 +384,7 @@ export function StepDeliveryRx({
                             type="button"
                             onClick={() => removeVehicle(cat.id, idx)}
                             className="text-xs text-red-600 hover:underline pb-1.5"
-                            aria-label="Retirer ce véhicule"
+                            aria-label={t.rx.delivery.removeVehicle}
                           >
                             ✕
                           </button>
@@ -393,10 +397,9 @@ export function StepDeliveryRx({
 
                   {cat.scales && (
                     <div className="text-xs bg-orange-50 border border-orange-200 rounded-md p-2.5 text-orange-800">
-                      <strong>Coordination Scales obligatoire :</strong>{" "}
-                      {cat.scalesNote ??
-                        "cette catégorie nécessite la prise de RDV avec Scales."}{" "}
-                      Contact : <strong>scales@manutention.fr</strong>
+                      <strong>{t.rx.delivery.scalesMandatory}</strong>{" "}
+                      {localizedCat.scalesNote ?? t.rx.delivery.scalesDefault}{" "}
+                      {t.rx.delivery.scalesContact} <strong>scales@manutention.fr</strong>
                     </div>
                   )}
                 </div>
@@ -408,8 +411,7 @@ export function StepDeliveryRx({
 
       {!isValid && (
         <p className="text-gray-400 text-xs text-center">
-          Sélectionnez au moins une catégorie avec sa date, son créneau et un
-          véhicule (type de véhicule).
+          {t.rx.delivery.validationHint}
         </p>
       )}
     </div>

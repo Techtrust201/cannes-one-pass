@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { AnchoredDropdown } from "@/components/ui/AnchoredDropdown";
+import EventCarouselSelector from "@/components/accreditation/EventCarouselSelector";
+import { useTranslation } from "@/components/accreditation/TranslationProvider";
 import { deriveSpaceFromSector } from "../config";
 import type { StepProps } from "../../types";
 import type { RxFormData } from "../types";
@@ -15,18 +17,11 @@ interface ExhibitorOption {
   zone: string | null;
 }
 
-interface RxEventOption {
-  id: string;
-  slug: string;
-  name: string;
-}
-
 /**
- * Step 1 RX — Sélection de l'exposant.
+ * Step 1 RX — Sélection de l'événement puis de l'exposant.
  *
- * - Événement RX résolu implicitement : s'il n'y a qu'un seul événement RX
- *   actif (cas Yachting 2026), il est auto-sélectionné sans UI. S'il y en a
- *   plusieurs, un sélecteur compact apparaît (RX peut piloter N événements).
+ * - Événement choisi via le carrousel visuel partagé avec le Palais
+ *   (`EventCarouselSelector`), scopé strictement à l'organisation RX.
  * - Combobox recherchable sur la liste fermée d'exposants pré-importés
  *   (recherche par nom / stand / secteur), groupée visuellement par secteur.
  * - À la sélection : l'espace logistique est auto-déduit du secteur figé de
@@ -42,11 +37,11 @@ export function StepExhibitorRx({
   orgSlug,
   mode = "public",
 }: StepProps<RxFormData>) {
+  const { t } = useTranslation();
   const { stepOne } = data;
-  const [events, setEvents] = useState<RxEventOption[]>([]);
-  const [eventsLoaded, setEventsLoaded] = useState(false);
   const [exhibitors, setExhibitors] = useState<ExhibitorOption[]>([]);
   const [loadingExhibitors, setLoadingExhibitors] = useState(false);
+  const [noEvents, setNoEvents] = useState(false);
   const [query, setQuery] = useState(
     stepOne.exhibitorName
       ? `${stepOne.exhibitorName} · ${stepOne.exhibitorStand}`
@@ -55,34 +50,7 @@ export function StepExhibitorRx({
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLDivElement | null>(null);
 
-  // 1) Résolution des événements RX actifs.
-  useEffect(() => {
-    let cancelled = false;
-    fetch(`/api/events?active=true&espace=${encodeURIComponent(orgSlug)}`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((list: RxEventOption[]) => {
-        if (cancelled) return;
-        const arr = Array.isArray(list) ? list : [];
-        setEvents(arr);
-        setEventsLoaded(true);
-        // Auto-sélection si un seul event actif et aucun déjà choisi.
-        if (!stepOne.event && arr.length === 1) {
-          update({ stepOne: { ...stepOne, event: arr[0].slug } });
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setEvents([]);
-          setEventsLoaded(true);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orgSlug]);
-
-  // 2) Chargement des exposants de l'event courant.
+  // Chargement des exposants de l'event courant.
   useEffect(() => {
     if (!stepOne.event) {
       setExhibitors([]);
@@ -109,6 +77,31 @@ export function StepExhibitorRx({
   const RESET_DOWNSTREAM: Partial<RxFormData> = {
     stepTwo: { categories: [] },
     stepThree: { manutentionProvider: "", scalesAcknowledged: false, consent: false },
+  };
+
+  // Changement d'événement via le carrousel : on réinitialise l'exposant
+  // sélectionné (et l'aval) uniquement si un exposant était réellement choisi,
+  // afin de ne pas perturber l'auto-sélection initiale ni la restauration d'un
+  // brouillon.
+  const handleEventChange = (slug: string) => {
+    if (slug === stepOne.event) return;
+    if (stepOne.exhibitorId) {
+      setQuery("");
+      update({
+        stepOne: {
+          ...stepOne,
+          event: slug,
+          exhibitorId: "",
+          exhibitorName: "",
+          exhibitorStand: "",
+          exhibitorSector: "",
+          space: "",
+        },
+        ...RESET_DOWNSTREAM,
+      });
+    } else {
+      update({ stepOne: { ...stepOne, event: slug } });
+    }
   };
 
   const selectExhibitor = (ex: ExhibitorOption | null) => {
@@ -153,7 +146,7 @@ export function StepExhibitorRx({
     });
     const map = new Map<string, ExhibitorOption[]>();
     for (const ex of matching) {
-      const key = ex.sector || "Autres";
+      const key = ex.sector || t.rx.exhibitor.othersSector;
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(ex);
     }
@@ -167,77 +160,47 @@ export function StepExhibitorRx({
       out.push({ sector, items: slice });
     }
     return out;
-  }, [exhibitors, query, stepOne.exhibitorId]);
+  }, [exhibitors, query, stepOne.exhibitorId, t.rx.exhibitor.othersSector]);
 
   const isValid = !!stepOne.event && !!stepOne.exhibitorId;
   useEffect(() => {
     onValidityChange(isValid);
   }, [isValid, onValidityChange]);
 
-  const noEvents = eventsLoaded && events.length === 0;
-
   return (
     <div className="flex flex-col w-full gap-6">
       <div>
         <h2 className="text-base font-semibold text-gray-800 mb-1">
-          Sélection de l&apos;exposant
+          {t.rx.exhibitor.title}
         </h2>
-        <p className="text-sm text-gray-500">
-          Choisissez votre société dans la liste officielle.
-        </p>
+        <p className="text-sm text-gray-500">{t.rx.exhibitor.subtitle}</p>
       </div>
 
       {noEvents && (
         <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-800">
-          Aucun événement actif n&apos;est ouvert aux accréditations pour le
-          moment. Contactez l&apos;organisateur.
+          {t.rx.exhibitor.noEventsBanner}
         </div>
       )}
 
-      {/* Sélecteur d'événement : visible seulement si plusieurs events RX actifs */}
-      {events.length > 1 && (
-        <div className="space-y-1">
-          <label className="text-sm font-semibold text-gray-700">
-            Événement <span className="text-red-500">*</span>
-          </label>
-          <select
-            value={stepOne.event}
-            onChange={(e) =>
-              update({
-                stepOne: {
-                  ...stepOne,
-                  event: e.target.value,
-                  exhibitorId: "",
-                  exhibitorName: "",
-                  exhibitorStand: "",
-                  exhibitorSector: "",
-                  space: "",
-                },
-              })
-            }
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-          >
-            <option value="">— Choisir un événement —</option>
-            {events.map((ev) => (
-              <option key={ev.id} value={ev.slug}>
-                {ev.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
+      {/* Sélecteur d'événement : carrousel visuel scopé à l'organisation RX */}
+      <EventCarouselSelector
+        orgSlug={orgSlug}
+        value={stepOne.event}
+        onChange={handleEventChange}
+        onEventsResolved={(count) => setNoEvents(count === 0)}
+      />
 
       {/* Combobox exposant recherchable */}
       <div className="space-y-1">
         <label htmlFor="rx-exhibitor" className="text-sm font-semibold text-gray-700">
-          Exposant <span className="text-red-500">*</span>
+          {t.rx.exhibitor.label} <span className="text-red-500">*</span>
         </label>
         <div className="relative" ref={anchorRef}>
           <input
             id="rx-exhibitor"
             autoComplete="off"
             spellCheck={false}
-            placeholder="Rechercher par nom ou n° de stand…"
+            placeholder={t.rx.exhibitor.searchPlaceholder}
             value={query}
             onFocus={() => setOpen(true)}
             onChange={(e) => {
@@ -260,7 +223,7 @@ export function StepExhibitorRx({
                 setOpen(true);
               }}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 text-sm"
-              aria-label="Effacer"
+              aria-label={t.rx.exhibitor.clear}
             >
               ✕
             </button>
@@ -275,11 +238,11 @@ export function StepExhibitorRx({
         >
           {loadingExhibitors ? (
             <div className="px-3 py-4 text-sm text-gray-500 text-center">
-              Chargement des exposants…
+              {t.rx.exhibitor.loading}
             </div>
           ) : grouped.length === 0 ? (
             <div className="px-3 py-6 text-sm text-gray-500 text-center">
-              Aucun exposant trouvé
+              {t.rx.exhibitor.notFound}
             </div>
           ) : (
             grouped.map((group) => (
@@ -324,7 +287,7 @@ export function StepExhibitorRx({
           </div>
           <div className="shrink-0 text-center">
             <div className="text-[10px] uppercase tracking-wider text-gray-400">
-              N° de stand
+              {t.rx.exhibitor.standNumber}
             </div>
             <div className="text-base font-bold text-gray-900">
               {stepOne.exhibitorStand}
@@ -335,7 +298,7 @@ export function StepExhibitorRx({
 
       {!isValid && stepOne.event && (
         <p className="text-gray-400 text-xs text-center">
-          Sélectionnez votre exposant pour continuer.
+          {t.rx.exhibitor.selectToContinue}
         </p>
       )}
     </div>

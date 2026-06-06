@@ -1,3 +1,5 @@
+import { rxTranslations, type RxT } from "./rx-translations";
+
 export type LangCode = "fr" | "en" | "pl" | "cs" | "lt" | "de" | "tr" | "es" | "pt" | "it" | "ru";
 
 export const LANGUAGES: { code: LangCode; label: string; flag: string }[] = [
@@ -82,6 +84,12 @@ export interface T {
   alreadySavedNotice: string;
   saveError: string;
   pdfError: string;
+
+  // Need help (footer)
+  needHelp: string;
+
+  // RX template (Cannes Yachting Festival) — consommé uniquement par les steps RX.
+  rx: RxT;
 }
 
 const fr: T = {
@@ -141,6 +149,8 @@ const fr: T = {
   alreadySavedNotice: "Vous avez déjà enregistré votre demande. Elle doit être validée par un agent.",
   saveError: "Impossible d'enregistrer la demande",
   pdfError: "Impossible de télécharger le PDF",
+  needHelp: "Besoin d'aide ?",
+  rx: rxTranslations.fr,
 };
 
 const en: T = {
@@ -200,6 +210,8 @@ const en: T = {
   alreadySavedNotice: "You have already saved your request. It must be validated by an agent.",
   saveError: "Unable to save the request",
   pdfError: "Unable to download the PDF",
+  needHelp: "Need help?",
+  rx: rxTranslations.en,
 };
 
 const de: T = {
@@ -259,6 +271,8 @@ const de: T = {
   alreadySavedNotice: "Sie haben Ihren Antrag bereits gespeichert. Er muss von einem Agenten validiert werden.",
   saveError: "Antrag konnte nicht gespeichert werden",
   pdfError: "PDF konnte nicht heruntergeladen werden",
+  needHelp: "Brauchen Sie Hilfe?",
+  rx: rxTranslations.de,
 };
 
 const es: T = {
@@ -318,6 +332,8 @@ const es: T = {
   alreadySavedNotice: "Ya ha guardado su solicitud. Debe ser validada por un agente.",
   saveError: "No se pudo guardar la solicitud",
   pdfError: "No se pudo descargar el PDF",
+  needHelp: "¿Necesita ayuda?",
+  rx: rxTranslations.es,
 };
 
 const pt: T = {
@@ -377,6 +393,8 @@ const pt: T = {
   alreadySavedNotice: "Já guardou o seu pedido. Deve ser validado por um agente.",
   saveError: "Não foi possível guardar o pedido",
   pdfError: "Não foi possível descarregar o PDF",
+  needHelp: "Precisa de ajuda?",
+  rx: rxTranslations.pt,
 };
 
 const it: T = {
@@ -436,6 +454,8 @@ const it: T = {
   alreadySavedNotice: "Hai già salvato la tua richiesta. Deve essere convalidata da un agente.",
   saveError: "Impossibile salvare la richiesta",
   pdfError: "Impossibile scaricare il PDF",
+  needHelp: "Hai bisogno di aiuto?",
+  rx: rxTranslations.it,
 };
 
 const pl: T = {
@@ -495,6 +515,8 @@ const pl: T = {
   alreadySavedNotice: "Wniosek został już zapisany. Musi zostać zatwierdzony przez agenta.",
   saveError: "Nie udało się zapisać wniosku",
   pdfError: "Nie udało się pobrać PDF",
+  needHelp: "Potrzebujesz pomocy?",
+  rx: rxTranslations.pl,
 };
 
 const cs: T = {
@@ -554,6 +576,8 @@ const cs: T = {
   alreadySavedNotice: "Vaše žádost již byla uložena. Musí být ověřena agentem.",
   saveError: "Žádost se nepodařilo uložit",
   pdfError: "PDF se nepodařilo stáhnout",
+  needHelp: "Potřebujete pomoc?",
+  rx: rxTranslations.cs,
 };
 
 const lt: T = {
@@ -613,6 +637,8 @@ const lt: T = {
   alreadySavedNotice: "Jūsų prašymas jau buvo išsaugotas. Jis turi būti patvirtintas agento.",
   saveError: "Nepavyko išsaugoti prašymo",
   pdfError: "Nepavyko atsisiųsti PDF",
+  needHelp: "Reikia pagalbos?",
+  rx: rxTranslations.lt,
 };
 
 const tr: T = {
@@ -672,6 +698,8 @@ const tr: T = {
   alreadySavedNotice: "Talebiniz zaten kaydedildi. Bir ajan tarafından onaylanması gerekiyor.",
   saveError: "Talep kaydedilemedi",
   pdfError: "PDF indirilemedi",
+  needHelp: "Yardıma mı ihtiyacınız var?",
+  rx: rxTranslations.tr,
 };
 
 const ru: T = {
@@ -731,6 +759,8 @@ const ru: T = {
   alreadySavedNotice: "Ваша заявка уже сохранена. Она должна быть подтверждена агентом.",
   saveError: "Не удалось сохранить заявку",
   pdfError: "Не удалось скачать PDF",
+  needHelp: "Нужна помощь?",
+  rx: rxTranslations.ru,
 };
 
 export const translations: Record<LangCode, T> = { fr, en, de, es, pt, it, pl, cs, lt, tr, ru };

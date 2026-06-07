@@ -133,6 +133,19 @@ export interface RxT {
     downloadCta: string;
     scalesReminder: string;
     newRequest: string;
+    /** Modal / succès / PDF — flux public (demande NOUVEAU). */
+    confirmPublicTitle?: string;
+    confirmPublicMsg?: string;
+    confirmPublicCta?: string;
+    /** Modal / succès / PDF — flux logisticien (accréditation ATTENTE). */
+    confirmLogisticienTitle?: string;
+    confirmLogisticienMsg?: string;
+    confirmLogisticienCta?: string;
+    successTitleOneLog?: string;
+    successTitleManyLog?: string;
+    downloadOfficialNotice?: string;
+    downloadOfficialCta?: string;
+    newAccreditation?: string;
     /** Étape 5 — option « Autre » prestataire + champ libre obligatoire. */
     otherProvider?: string;
     otherProviderLabel?: string;
@@ -160,6 +173,11 @@ export interface RxT {
     contactScales: string;
     noConvoy: string;
     autoUnload: string;
+  };
+  /** En-tête wizard back-office logisticien (distinct du public). */
+  logisticien?: {
+    pageTitle: string;
+    pageSubtitle: string;
   };
   spaces: Record<string, RxSpaceT>;
   categories: Record<string, RxCategoryT>;
@@ -356,10 +374,29 @@ const fr: RxT = {
     scalesReminder:
       "Rappel Scales : n'oubliez pas de prendre rendez-vous avec Scales pour les catégories concernées.",
     newRequest: "Nouvelle demande",
+    confirmPublicTitle: "Confirmer l'envoi de la demande",
+    confirmPublicMsg:
+      "Votre demande sera enregistrée au statut Nouveau. Elle devra être validée par l'équipe logistique avant d'être utilisable.",
+    confirmPublicCta: "Confirmer l'envoi",
+    confirmLogisticienTitle: "Confirmer la création",
+    confirmLogisticienMsg:
+      "L'accréditation sera créée directement au statut Attente (validée). Elle sera immédiatement visible et opérationnelle dans la liste.",
+    confirmLogisticienCta: "Créer l'accréditation",
+    successTitleOneLog: "Accréditation créée !",
+    successTitleManyLog: "accréditations créées !",
+    downloadOfficialNotice:
+      "Téléchargez l'accréditation officielle à transmettre au transporteur ou à l'exposant.",
+    downloadOfficialCta: "Télécharger l'accréditation (PDF officiel)",
+    newAccreditation: "Nouvelle accréditation",
     otherProvider: "Autre",
     otherProviderLabel: "Nom du prestataire",
     otherProviderPlaceholder: "Précisez le transporteur / prestataire",
     otherProviderRequired: "Veuillez préciser le nom du prestataire.",
+  },
+  logisticien: {
+    pageTitle: "Créer une accréditation",
+    pageSubtitle:
+      "Saisie directe par l'équipe logistique — accréditation validée à la création",
   },
   skip: {
     montageLabel: "Je souhaite une accréditation uniquement pour le démontage",

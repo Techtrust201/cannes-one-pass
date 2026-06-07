@@ -12,6 +12,7 @@ import {
 import { LANGUAGES, isValidLang, type LangCode } from "@/lib/translations";
 import { PalaisStepFourProvider } from "@/templates/accreditation/palais/stepFourContext";
 import { getTemplate } from "@/templates/accreditation/registry";
+import { getRxFlowT } from "@/templates/accreditation/rx/i18n";
 import { cn } from "@/lib/utils";
 import type { Vehicle } from "@/types";
 import type {
@@ -107,6 +108,10 @@ function WizardContent({
   const { t, lang } = useTranslation();
 
   const isLogisticien = mode === "logisticien";
+  const rxFlowT =
+    isLogisticien && orgSlug === "rx" ? getRxFlowT(t, "logisticien") : null;
+  const pageTitle = rxFlowT?.pageTitle ?? t.pageTitle;
+  const pageSubtitle = rxFlowT?.pageSubtitle ?? t.pageSubtitle;
   const urlLang = searchParams.get("lang");
   const rawStep = searchParams.get("step");
 
@@ -270,11 +275,13 @@ function WizardContent({
         )}
       >
         <div className="px-4 flex flex-col items-center text-white gap-1 relative w-full max-w-4xl">
-          <div className="absolute right-0 top-0">
-            <LangSelector />
-          </div>
-          <h1 className="text-4xl font-bold">{t.pageTitle}</h1>
-          <p className="text-lg opacity-80">{t.pageSubtitle}</p>
+          {!isLogisticien && (
+            <div className="absolute right-0 top-0">
+              <LangSelector />
+            </div>
+          )}
+          <h1 className="text-4xl font-bold">{pageTitle}</h1>
+          <p className="text-lg opacity-80">{pageSubtitle}</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-lg overflow-visible flex flex-col lg:flex-row w-11/12 lg:w-3/4">

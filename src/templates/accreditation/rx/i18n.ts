@@ -83,6 +83,89 @@ export function getOtherProviderT(t: T): {
   };
 }
 
+
+const FLOW_FR = {
+  confirmPublicTitle: "Confirmer l'envoi de la demande",
+  confirmPublicMsg:
+    "Votre demande sera enregistrée au statut Nouveau. Elle devra être validée par l'équipe logistique avant d'être utilisable.",
+  confirmPublicCta: "Confirmer l'envoi",
+  confirmLogisticienTitle: "Confirmer la création",
+  confirmLogisticienMsg:
+    "L'accréditation sera créée directement au statut Attente (validée). Elle sera immédiatement visible et opérationnelle dans la liste.",
+  confirmLogisticienCta: "Créer l'accréditation",
+  successTitleOne: "Demande enregistrée !",
+  successTitleMany: "demandes enregistrées !",
+  successTitleOneLog: "Accréditation créée !",
+  successTitleManyLog: "accréditations créées !",
+  successPerVehicle: "Une accréditation a été créée par véhicule. ",
+  successPublic:
+    "Votre demande sera traitée puis validée par l'organisateur. Un e-mail de confirmation vous sera envoyé.",
+  successLogisticien: "Validée(s) et visible(s) dans la liste.",
+  downloadNotice:
+    "Ce document peut être transmis au transporteur à titre informatif. Il ne constitue pas une accréditation d'accès.",
+  downloadCta: "Télécharger ma demande",
+  downloadOfficialNotice:
+    "Téléchargez l'accréditation officielle à transmettre au transporteur ou à l'exposant.",
+  downloadOfficialCta: "Télécharger l'accréditation (PDF officiel)",
+  newRequest: "Nouvelle demande",
+  newAccreditation: "Nouvelle accréditation",
+  pageTitleLog: "Créer une accréditation",
+  pageSubtitleLog:
+    "Saisie directe par l'équipe logistique — accréditation validée à la création",
+};
+
+/** Textes modal / succès / en-tête selon le flux public vs logisticien (repli FR). */
+export function getRxFlowT(t: T, mode: "public" | "logisticien" = "public") {
+  const m = t.rx.manutention;
+  const log = t.rx.logisticien;
+  const base = {
+    ...FLOW_FR,
+    ...m,
+    pageTitleLog: log?.pageTitle ?? FLOW_FR.pageTitleLog,
+    pageSubtitleLog: log?.pageSubtitle ?? FLOW_FR.pageSubtitleLog,
+  };
+  const isLog = mode === "logisticien";
+  return {
+    confirmTitle: isLog
+      ? (base.confirmLogisticienTitle ?? FLOW_FR.confirmLogisticienTitle)
+      : (base.confirmPublicTitle ?? FLOW_FR.confirmPublicTitle),
+    confirmMsg: isLog
+      ? (base.confirmLogisticienMsg ?? FLOW_FR.confirmLogisticienMsg)
+      : (base.confirmPublicMsg ?? FLOW_FR.confirmPublicMsg),
+    confirmCta: isLog
+      ? (base.confirmLogisticienCta ?? FLOW_FR.confirmLogisticienCta)
+      : (base.confirmPublicCta ?? FLOW_FR.confirmPublicCta),
+    successTitleOne: isLog
+      ? (base.successTitleOneLog ?? FLOW_FR.successTitleOneLog)
+      : (base.successTitleOne ?? FLOW_FR.successTitleOne),
+    successTitleMany: isLog
+      ? (base.successTitleManyLog ?? FLOW_FR.successTitleManyLog)
+      : (base.successTitleMany ?? FLOW_FR.successTitleMany),
+    successSubtext: isLog
+      ? `${base.successPerVehicle ?? FLOW_FR.successPerVehicle}${base.successLogisticien ?? FLOW_FR.successLogisticien}`
+      : (base.successPublic ?? FLOW_FR.successPublic),
+    downloadNotice: isLog
+      ? (base.downloadOfficialNotice ?? FLOW_FR.downloadOfficialNotice)
+      : (base.downloadNotice ?? FLOW_FR.downloadNotice),
+    downloadCta: isLog
+      ? (base.downloadOfficialCta ?? FLOW_FR.downloadOfficialCta)
+      : (base.downloadCta ?? FLOW_FR.downloadCta),
+    resetCta: isLog
+      ? (base.newAccreditation ?? FLOW_FR.newAccreditation)
+      : (base.newRequest ?? FLOW_FR.newRequest),
+    downloadBoxClass: isLog
+      ? "rounded-xl border border-green-200 bg-green-50 px-4 py-4 text-left space-y-3"
+      : "rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-left space-y-3",
+    downloadNoticeClass: isLog
+      ? "text-sm font-semibold text-green-900"
+      : "text-sm font-semibold text-amber-900",
+    pdfMode: isLog ? ("official" as const) : ("request" as const),
+    pdfFilename: isLog ? "accreditation.pdf" : "demande-accreditation.pdf",
+    pageTitle: base.pageTitleLog,
+    pageSubtitle: base.pageSubtitleLog,
+  };
+}
+
 /**
  * Formate une date ISO "YYYY-MM-DD" en format court localisé (ex. "jeu. 3 sept."
  * en français, "Thu, Sep 3" en anglais), via `Intl.DateTimeFormat`.

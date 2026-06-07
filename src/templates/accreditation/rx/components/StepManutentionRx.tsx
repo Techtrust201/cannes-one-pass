@@ -8,7 +8,7 @@ import { PortalOverlay } from "@/components/ui/PortalOverlay";
 import { useUnloadingProviders } from "@/hooks/useUnloadingProviders";
 import { mapRxPayload } from "../mapPayload";
 import { RX_MANUTENTION_PROVIDERS, findCategory } from "../config";
-import { getSkipT, getOtherProviderT } from "../i18n";
+import { getSkipT, getOtherProviderT, getRxFlowT } from "../i18n";
 import type { StepProps } from "../../types";
 import type { RxFormData } from "../types";
 
@@ -41,6 +41,8 @@ export function StepManutentionRx({
   const { providers: dbProviders } = useUnloadingProviders(orgSlug);
   const skipT = getSkipT(t);
   const otherT = getOtherProviderT(t);
+  const flowMode = mode === "logisticien" ? "logisticien" : "public";
+  const flowT = getRxFlowT(t, flowMode);
   const manutentionOptions = useMemo(() => {
     const base =
       dbProviders.length === 0
@@ -140,14 +142,14 @@ export function StepManutentionRx({
       const res = await fetch("/api/accreditation/pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: createdIds }),
+        body: JSON.stringify({ ids: createdIds, mode: flowT.pdfMode }),
       });
       if (!res.ok) throw new Error("pdf error");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "demande-accreditation.pdf";
+      a.download = flowT.pdfFilename;
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
@@ -160,9 +162,7 @@ export function StepManutentionRx({
 
   const totalVehicles = stepTwo.categories.reduce((s, c) => s + c.vehicles.length, 0);
 
-  // Écran de succès — aligné sur le pattern Palais (StepFour / StepFourLog) :
-  // carte blanche, encart « télécharger obligatoire » mis en avant, CTA principal
-  // de téléchargement (public ET logisticien), puis « Nouvelle demande ».
+  // Écran de succès — wording et PDF distincts : public (demande) vs logisticien (officiel).
   if (hasSaved) {
     return (
       <div className="flex flex-col items-center py-4 md:py-8 w-full">
@@ -171,22 +171,14 @@ export function StepManutentionRx({
             <CheckCircle size={56} className="text-green-500" />
             <h2 className="text-2xl font-bold text-gray-900">
               {createdCount > 1
-                ? `${createdCount} ${t.rx.manutention.successTitleMany}`
-                : t.rx.manutention.successTitleOne}
+                ? `${createdCount} ${flowT.successTitleMany}`
+                : flowT.successTitleOne}
             </h2>
-            <p className="text-sm text-gray-600 max-w-md">
-              {createdCount > 1 ? t.rx.manutention.successPerVehicle : ""}
-              {mode === "logisticien"
-                ? t.rx.manutention.successLogisticien
-                : t.rx.manutention.successPublic}
-            </p>
+            <p className="text-sm text-gray-600 max-w-md">{flowT.successSubtext}</p>
           </div>
 
-          {/* Encart téléchargement obligatoire (QR code) */}
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-left space-y-3">
-            <p className="text-sm font-semibold text-amber-900">
-              {t.rx.manutention.downloadNotice}
-            </p>
+          <div className={flowT.downloadBoxClass}>
+            <p className={flowT.downloadNoticeClass}>{flowT.downloadNotice}</p>
             {createdIds.length > 0 && (
               <button
                 type="button"
@@ -199,7 +191,7 @@ export function StepManutentionRx({
                 ) : (
                   <Download size={18} />
                 )}
-                {downloading ? t.rx.manutention.generating : t.rx.manutention.downloadCta}
+                {downloading ? t.rx.manutention.generating : flowT.downloadCta}
               </button>
             )}
           </div>
@@ -221,7 +213,7 @@ export function StepManutentionRx({
               }}
               className="w-full px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition"
             >
-              {t.rx.manutention.newRequest}
+              {flowT.resetCta}
             </button>
           )}
         </div>
@@ -387,10 +379,10 @@ export function StepManutentionRx({
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[70] px-4">
             <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full border border-gray-200">
               <h2 className="text-lg font-bold mb-4 text-gray-900 text-center">
-                {t.confirmTitle ?? "Confirmer l'envoi"}
+                {flowT.confirmTitle}
               </h2>
               <p className="mb-6 text-gray-700 leading-relaxed text-center text-sm">
-                {t.confirmMsg1 ?? "Confirmez-vous l'envoi de cette accréditation ?"}
+                {flowT.confirmMsg}
               </p>
               <div className="flex flex-col sm:flex-row justify-center gap-4">
                 <button
@@ -407,7 +399,7 @@ export function StepManutentionRx({
                 >
                   {loading
                     ? (t.savingProgress ?? "Envoi…")
-                    : (t.confirm ?? "Confirmer")}
+                    : flowT.confirmCta}
                 </button>
               </div>
             </div>

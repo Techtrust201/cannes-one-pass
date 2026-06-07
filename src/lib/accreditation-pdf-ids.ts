@@ -339,10 +339,33 @@ async function renderAccreditationPage(
     );
   }
 
-  // Layout QR : on dispose les QR en bas à droite, AU-DESSUS du footer légal
-  // (footer ancré à y≈40) pour éviter tout chevauchement texte/QR.
+  // Layout QR : zone bas de page réservée (cf. MIN_Y=200). QR remontés pour ne
+  // pas chevaucher le consentement ni les notes légales.
   const QR_SIZE = 80;
-  const QR_Y = 60;
+  const QR_Y = 130;
+  const FOOTER_TEXT_MAX_W = width - 240;
+
+  const drawFooterWrapped = (lines: string[], startY: number) => {
+    let noteY = startY;
+    for (const raw of lines) {
+      const words = raw.split(" ");
+      let line = "";
+      for (const w of words) {
+        const test = line ? `${line} ${w}` : w;
+        if (font.widthOfTextAtSize(test, 9) > FOOTER_TEXT_MAX_W && line) {
+          drawRaw(line, LABEL_X, noteY);
+          noteY -= 12;
+          line = w;
+        } else {
+          line = test;
+        }
+      }
+      if (line) {
+        drawRaw(line, LABEL_X, noteY);
+        noteY -= 12;
+      }
+    }
+  };
   const skipMontage = (ext as { skipMontage?: boolean }).skipMontage === true;
   const skipDemontage = (ext as { skipDemontage?: boolean }).skipDemontage === true;
 
@@ -354,17 +377,13 @@ async function renderAccreditationPage(
     const qrImg = await pdfDoc.embedPng(qrBuf);
     const x = width - 50 - QR_SIZE;
     page.drawImage(qrImg, { x, y: QR_Y, width: QR_SIZE, height: QR_SIZE });
-    drawRaw("QR de suivi de demande", x - 18, QR_Y - 12);
+    drawRaw("QR de suivi de demande", x - 18, QR_Y - 14);
 
     const noteLines = [
       "Ce document peut être transmis au transporteur à titre informatif.",
       "Il ne constitue pas une accréditation d'accès au site.",
     ];
-    let noteY = 44;
-    for (const line of noteLines) {
-      drawRaw(line, LABEL_X, noteY);
-      noteY -= 12;
-    }
+    drawFooterWrapped(noteLines, 52);
     return;
   }
 
@@ -394,7 +413,7 @@ async function renderAccreditationPage(
     const buf = await QRCode.toBuffer(def.url, { type: "png" });
     const img = await pdfDoc.embedPng(buf);
     page.drawImage(img, { x: qrX, y: QR_Y, width: QR_SIZE, height: QR_SIZE });
-    drawRaw(def.label, qrX, QR_Y - 12, 8);
+    drawRaw(def.label, qrX, QR_Y - 14, 8);
     qrX -= QR_SIZE + 24;
   }
 
@@ -402,11 +421,7 @@ async function renderAccreditationPage(
     "Cette accréditation est valable pour une durée de 24 heures à compter de l'heure d'entrée validée.",
     "Veuillez présenter ce document (QR code) à l'entrée du site.",
   ];
-  let noteY = 44;
-  for (const line of noteLines) {
-    drawRaw(line, LABEL_X, noteY);
-    noteY -= 12;
-  }
+  drawFooterWrapped(noteLines, 52);
 }
 
 /** Statuts opérationnels autorisant un PDF officiel (cf. plan §3.4b). */
@@ -454,7 +469,7 @@ export async function generatePdfFromIds(
 
   const pdfDoc = await PDFDocument.create();
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const MIN_Y = 100;
+  const MIN_Y = 200; // FOOTER_RESERVE : zone QR + notes légales
 
   const drawText = (
     targetPage: unknown,

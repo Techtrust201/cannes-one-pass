@@ -21,6 +21,7 @@ import {
 } from "../i18n";
 import type { StepProps } from "../../types";
 import type { RxFormData } from "../types";
+import { RxVehicleCityField } from "./RxVehicleCityField";
 
 /**
  * Step 3 RX — Gestion des livraisons (montage).

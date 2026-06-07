@@ -3,6 +3,12 @@
 import { Search, Download, RefreshCw, ChevronDown } from "lucide-react";
 import type { DateRange } from "@/app/logisticien/carbon/page";
 import { useMemo, useState, useRef, useEffect } from "react";
+import { useEspaceSlug } from "@/hooks/useEspaceSlug";
+
+interface EventOption {
+  slug: string;
+  name: string;
+}
 
 interface CarbonHeaderProps {
   searchQuery: string;
@@ -73,9 +79,38 @@ export default function CarbonHeader({
   isSearching = false,
   onRefresh,
 }: CarbonHeaderProps) {
+  const espace = useEspaceSlug();
   const presets = useMemo(() => buildPresets(), []);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [events, setEvents] = useState<EventOption[]>([]);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!espace) {
+      setEvents([]);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/events?espace=${encodeURIComponent(espace)}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => {
+        if (cancelled || !Array.isArray(data)) return;
+        setEvents(
+          data
+            .map((e: { slug?: string; name?: string }) => ({
+              slug: e.slug ?? "",
+              name: e.name ?? e.slug ?? "",
+            }))
+            .filter((e: EventOption) => e.slug)
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setEvents([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [espace]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -101,20 +136,29 @@ export default function CarbonHeader({
         <div className="flex flex-col gap-2 w-full md:w-auto md:flex-shrink-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs text-gray-500 shrink-0">Événement :</span>
-            {(["", "MIPIM", "IT & HRM"] as const).map((preset) => {
-              const isActive = searchQuery === preset;
-              const label = preset || "Tous";
+            <button
+              onClick={() => onSearchChange("")}
+              className={`px-2.5 py-1 text-xs rounded font-medium transition-colors ${
+                searchQuery === ""
+                  ? "bg-emerald-600 text-white"
+                  : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+              }`}
+            >
+              Tous
+            </button>
+            {events.map((event) => {
+              const isActive = searchQuery === event.slug;
               return (
                 <button
-                  key={preset || "all"}
-                  onClick={() => onSearchChange(preset)}
+                  key={event.slug}
+                  onClick={() => onSearchChange(event.slug)}
                   className={`px-2.5 py-1 text-xs rounded font-medium transition-colors ${
                     isActive
                       ? "bg-emerald-600 text-white"
                       : "bg-gray-100 hover:bg-gray-200 text-gray-700"
                   }`}
                 >
-                  {label}
+                  {event.name}
                 </button>
               );
             })}

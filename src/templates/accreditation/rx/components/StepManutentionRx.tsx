@@ -2,13 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle, AlertTriangle, Loader2, Download } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useTranslation } from "@/components/accreditation/TranslationProvider";
 import { PortalOverlay } from "@/components/ui/PortalOverlay";
 import { useUnloadingProviders } from "@/hooks/useUnloadingProviders";
 import { mapRxPayload } from "../mapPayload";
 import { RX_MANUTENTION_PROVIDERS, findCategory } from "../config";
+import { getSkipT, getOtherProviderT } from "../i18n";
 import type { StepProps } from "../../types";
 import type { RxFormData } from "../types";
+
+const OTHER_PROVIDER = "Autre" as const;
 
 /**
  * Step 5 RX — Manutention + validation finale.
@@ -35,16 +39,22 @@ export function StepManutentionRx({
   // courante (scoping multi-tenant). On conserve l'option sentinelle "Aucun"
   // et, en cas de liste vide (BDD indisponible), un repli sur la liste codée.
   const { providers: dbProviders } = useUnloadingProviders(orgSlug);
+  const skipT = getSkipT(t);
+  const otherT = getOtherProviderT(t);
   const manutentionOptions = useMemo(() => {
-    if (dbProviders.length === 0) return RX_MANUTENTION_PROVIDERS;
+    const base =
+      dbProviders.length === 0
+        ? RX_MANUTENTION_PROVIDERS.map((p) => ({ id: p.value, value: p.value, label: p.label }))
+        : dbProviders.map((p) => ({ id: p.id, value: p.name, label: p.name }));
+
+    const withoutOther = base.filter((p) => p.value !== OTHER_PROVIDER);
+
+    // Option « Autre » toujours disponible (champ libre obligatoire ensuite).
     return [
-      ...dbProviders.map((p) => ({ value: p.name, label: p.name })),
-      {
-        value: "Autonome",
-        label: t.rx.manutention.noneOption,
-      },
+      ...withoutOther,
+      { id: "__other__", value: OTHER_PROVIDER, label: otherT.otherProvider },
     ];
-  }, [dbProviders, t.rx.manutention.noneOption]);
+  }, [dbProviders, otherT.otherProvider]);
 
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -65,9 +75,17 @@ export function StepManutentionRx({
     [stepOne.space, stepTwo.categories]
   );
 
+  // Si « Autre » prestataire est sélectionné, le champ libre est obligatoire.
+  const providerOk =
+    stepThree.manutentionProvider !== OTHER_PROVIDER ||
+    !!stepThree.manutentionProviderOther?.trim();
+
   // L'étape est "valide" (bouton Suivant) dès que le consentement est donné ;
   // mais comme c'est la dernière étape, la validation réelle se fait au submit.
-  const isValid = stepThree.consent && (!scalesRequired || stepThree.scalesAcknowledged);
+  const isValid =
+    stepThree.consent &&
+    (!scalesRequired || stepThree.scalesAcknowledged) &&
+    providerOk;
 
   useEffect(() => {
     onValidityChange(isValid);
@@ -129,7 +147,7 @@ export function StepManutentionRx({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "accreditation.pdf";
+      a.download = "demande-accreditation.pdf";
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
@@ -189,7 +207,7 @@ export function StepManutentionRx({
           {scalesAtSubmit && (
             <div className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-3 text-sm text-orange-800 text-left">
               <strong>⚠ {t.rx.manutention.scalesReminder}</strong> {t.rx.delivery.scalesContact}{" "}
-              <strong>scales@manutention.fr</strong>
+              <strong>scales.expo@scales.fr</strong>
             </div>
           )}
 
@@ -213,6 +231,22 @@ export function StepManutentionRx({
 
   return (
     <div className="flex flex-col w-full gap-4">
+      {/* Réactivation du démontage si l'exposant l'avait sauté. */}
+      {stepTwo.skipDemontage && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-900">
+          <span>{skipT.addDemontageBanner}</span>
+          <button
+            type="button"
+            onClick={() =>
+              update({ stepTwo: { ...stepTwo, skipDemontage: false } })
+            }
+            className="text-amber-800 font-semibold underline hover:no-underline"
+          >
+            + {skipT.addDemontageCta}
+          </button>
+        </div>
+      )}
+
       <div>
         <h2 className="text-base font-semibold text-gray-800 mb-1">
           {t.rx.manutention.title}
@@ -239,11 +273,41 @@ export function StepManutentionRx({
         >
           <option value="">{t.rx.manutention.chooseProvider}</option>
           {manutentionOptions.map((p) => (
-            <option key={p.value} value={p.value}>
+            <option key={p.id} value={p.value}>
               {p.label}
             </option>
           ))}
         </select>
+        {stepThree.manutentionProvider === OTHER_PROVIDER && (
+          <div className="pt-2">
+            <label className="text-sm font-semibold text-gray-700 block mb-1">
+              {otherT.otherProviderLabel} <span className="text-red-500">*</span>
+            </label>
+            <input
+              value={stepThree.manutentionProviderOther ?? ""}
+              onChange={(e) =>
+                update({
+                  stepThree: {
+                    ...stepThree,
+                    manutentionProviderOther: e.target.value,
+                  },
+                })
+              }
+              placeholder={otherT.otherProviderPlaceholder}
+              className={cn(
+                "w-full border rounded-md px-3 py-2 text-sm",
+                !stepThree.manutentionProviderOther?.trim()
+                  ? "border-red-400"
+                  : "border-gray-300"
+              )}
+            />
+            {!stepThree.manutentionProviderOther?.trim() && (
+              <p className="text-[11px] text-red-500 mt-1">
+                {otherT.otherProviderRequired}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {scalesRequired && (
@@ -258,8 +322,8 @@ export function StepManutentionRx({
           />
           <span>
             {t.rx.manutention.scalesAck} (
-            <a href="mailto:scales@manutention.fr" className="underline">
-              scales@manutention.fr
+            <a href="mailto:scales.expo@scales.fr" className="underline">
+              scales.expo@scales.fr
             </a>
             ).
           </span>

@@ -37,9 +37,10 @@ export async function POST(
 
     const acc = await prisma.accreditation.findUnique({
       where: { id: params.id },
-      include: { vehicles: true },
+      include: { vehicles: true, organization: { select: { slug: true } } },
     });
     if (!acc) return new Response("Not found", { status: 404 });
+    const isRx = acc.organization?.slug === "rx";
 
     const targetEmail = email || (acc as { email?: string }).email;
     if (!targetEmail) return new Response("Email manquant", { status: 400 });
@@ -52,28 +53,40 @@ export async function POST(
       });
     }
 
-    // Génération PDF via appel interne
     const { getBaseUrl } = await import("@/lib/base-url");
     const origin = getBaseUrl();
-    const pdfRes = await fetch(`${origin}/api/accreditation/pdf`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id: acc.id,
-        company: acc.company,
-        stand: acc.stand,
-        unloading: acc.unloading,
-        event: acc.event,
-        vehicles: acc.vehicles,
-        message: acc.message ?? "",
-        consent: acc.consent,
-        status: acc.status,
-        entryAt: acc.entryAt?.toISOString(),
-        exitAt: acc.exitAt?.toISOString(),
-      }),
-    });
-    if (!pdfRes.ok) return new Response("PDF error", { status: 500 });
-    const pdfBuffer = Buffer.from(await pdfRes.arrayBuffer());
+
+    let pdfBuffer: Buffer;
+    if (isRx) {
+      // RX : rendu dédié (mode officiel = accréditation d'accès), pas le
+      // layout Palais legacy. L'envoi reste manuel (pas d'emaileur auto).
+      const { generatePdfFromIds } = await import("@/lib/accreditation-pdf-ids");
+      const bytes = await generatePdfFromIds([acc.id], origin, {
+        mode: "official",
+      });
+      pdfBuffer = Buffer.from(bytes);
+    } else {
+      // Palais : chemin historique inchangé.
+      const pdfRes = await fetch(`${origin}/api/accreditation/pdf`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: acc.id,
+          company: acc.company,
+          stand: acc.stand,
+          unloading: acc.unloading,
+          event: acc.event,
+          vehicles: acc.vehicles,
+          message: acc.message ?? "",
+          consent: acc.consent,
+          status: acc.status,
+          entryAt: acc.entryAt?.toISOString(),
+          exitAt: acc.exitAt?.toISOString(),
+        }),
+      });
+      if (!pdfRes.ok) return new Response("PDF error", { status: 500 });
+      pdfBuffer = Buffer.from(await pdfRes.arrayBuffer());
+    }
 
     const resend = new Resend(process.env.RESEND_API_KEY!);
     await resend.emails.send({

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   CheckCircle,
@@ -54,6 +54,21 @@ export default function ActionButtons({ acc, onActionComplete }: Props) {
 
   const status = acc.status as AccreditationStatus;
   const currentZone = acc.currentZone || undefined;
+
+  // Zone pré-assignée automatiquement (RX) selon gabarit × port. Sert à
+  // pré-remplir le sélecteur de zone à la validation (modifiable). Palais
+  // n'expose pas `suggestedZone` → pré-sélection vide, comportement inchangé.
+  const suggestedZone =
+    (acc.extension as { suggestedZone?: string } | null | undefined)
+      ?.suggestedZone ?? "";
+
+  // À l'ouverture du modal avec sélecteur de zone, pré-remplit avec la zone
+  // suggérée si l'utilisateur n'a encore rien choisi.
+  useEffect(() => {
+    if (confirmAction?.needsZonePicker && !selectedZone && suggestedZone) {
+      setSelectedZone(suggestedZone);
+    }
+  }, [confirmAction, selectedZone, suggestedZone]);
 
   /* ---------- helpers API ---------- */
 

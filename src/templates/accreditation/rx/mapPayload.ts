@@ -1,6 +1,7 @@
 import type { CreateAccreditationPayload } from "../types";
 import type { RxFormData } from "./types";
 import { findCategory } from "./config";
+import { suggestZone } from "@/lib/rx-zone-rules";
 
 function resolveRepFields(
   v: RxFormData["stepTwo"]["categories"][number]["vehicles"][number],
@@ -40,13 +41,17 @@ export function mapRxPayload(
   for (const cat of form.stepTwo.categories) {
     for (const v of cat.vehicles) {
       const rep = resolveRepFields(v, form.stepOne.contact);
+      // Date/heure principale du véhicule : montage si présent, sinon
+      // démontage (cas « accréditation uniquement pour le démontage »).
+      const primaryDate = cat.livDate || cat.repDate;
+      const primaryTime = cat.livTime || cat.repTime;
       vehicles.push({
         plate: v.plate ?? null,
         size: "", // taille libre, non utilisée par RX → vide
         phoneCode: form.stepOne.contact.phoneCode,
         phoneNumber: form.stepOne.contact.phoneNumber,
-        date: cat.livDate,
-        time: cat.livTime,
+        date: primaryDate,
+        time: primaryTime,
         city: "",
         unloading: ["rear"],
         vehicleType: v.vehicleType,
@@ -69,11 +74,26 @@ export function mapRxPayload(
     (c) => findCategory(form.stepOne.space, c.categoryId)?.scales === true
   );
 
+  // Zone de déchargement suggérée (pré-assignation back-office) : déduite du
+  // gabarit du 1er véhicule et du port de l'exposant. Le logisticien pourra
+  // la modifier à la validation.
+  const firstVehicleType = form.stepTwo.categories[0]?.vehicles[0]?.vehicleType;
+  const suggestedZone = suggestZone(
+    firstVehicleType,
+    form.stepOne.exhibitorSector
+  );
+
+  // Libellé prestataire effectif : si « Autre », on prend le texte libre.
+  const provider = form.stepThree.manutentionProvider;
+  const providerOther = form.stepThree.manutentionProviderOther?.trim();
+  const resolvedProvider =
+    provider === "Autre" && providerOther ? `Autre : ${providerOther}` : provider;
+
   return {
     organizationSlug: "rx",
     company: form.stepOne.exhibitorName,
     stand: form.stepOne.exhibitorStand,
-    unloading: form.stepThree.manutentionProvider || "Autonome",
+    unloading: resolvedProvider || "Autonome",
     event: form.stepOne.event,
     vehicles,
     consent: form.stepThree.consent,
@@ -95,6 +115,10 @@ export function mapRxPayload(
       categories: form.stepTwo.categories,
       scalesAssigned,
       manutentionProvider: form.stepThree.manutentionProvider,
+      manutentionProviderOther: providerOther || undefined,
+      skipMontage: form.stepTwo.skipMontage ?? false,
+      skipDemontage: form.stepTwo.skipDemontage ?? false,
+      suggestedZone: suggestedZone ?? undefined,
     },
   };
 }

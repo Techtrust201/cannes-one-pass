@@ -124,6 +124,34 @@ describe("rx template — mapPayload", () => {
     expect(payload.organizationSlug).toBe("rx");
     expect(payload.vehicles).toEqual([]);
   });
+
+  it("propage skipMontage / skipDemontage dans l'extension", () => {
+    const form = buildRxForm();
+    form.stepTwo.skipMontage = true;
+    form.stepTwo.skipDemontage = false;
+    const ext = mapRxPayload(form, "fr").extension!;
+    expect(ext.skipMontage).toBe(true);
+    expect(ext.skipDemontage).toBe(false);
+  });
+
+  it("skip montage : la date principale du véhicule retombe sur la reprise", () => {
+    const form = buildRxForm();
+    form.stepTwo.skipMontage = true;
+    // Pas de montage : on vide les dates de livraison.
+    form.stepTwo.categories[0].livDate = "";
+    form.stepTwo.categories[0].livTime = "";
+    const payload = mapRxPayload(form, "fr", { split: true });
+    expect(payload.vehicles[0].date).toBe("2026-09-14"); // = repDate
+  });
+
+  it("prestataire « Autre » : libellé résolu + texte libre en extension", () => {
+    const form = buildRxForm();
+    form.stepThree.manutentionProvider = "Autre";
+    form.stepThree.manutentionProviderOther = "Transports Durand";
+    const payload = mapRxPayload(form, "fr");
+    expect(payload.unloading).toBe("Autre : Transports Durand");
+    expect(payload.extension!.manutentionProviderOther).toBe("Transports Durand");
+  });
 });
 
 describe("rx template — schema", () => {

@@ -348,6 +348,9 @@ model Stand {
 
 model Accreditation {
   id          String              @id @default(uuid())
+  // Jeton public non devinable, distinct de `id` : sert au QR de SUIVI du PDF
+  // « demande » (page /suivi/{token}) sans exposer l'identifiant d'accès.
+  publicToken String?             @unique
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
   version     Int                 @default(0)
@@ -393,6 +396,11 @@ model Accreditation {
   @@index([eventId])
   @@index([organizationId])
   @@index([standId])
+  // Accélère le chargement back-office (liste filtrée par espace/statut, tri
+  // par date) — requêtes les plus fréquentes du dashboard logisticien.
+  @@index([organizationId, isArchived, status])
+  @@index([eventId, isArchived])
+  @@index([isArchived, createdAt])
 }
 
 model Vehicle {
@@ -630,10 +638,14 @@ model SupportTicket {
   organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   eventId        String?
   eventRef       Event?              @relation(fields: [eventId], references: [id], onDelete: SetNull)
-  stand          String // Saisi à la main par le visiteur
+  stand          String // Saisi à la main par le visiteur (optionnel côté RX)
   email          String
   phone          String?
   message        String              @db.Text
+  // Champs enrichis (formulaire RX) — nullable pour rétrocompat Palais.
+  company        String? // Société qui rencontre le problème (filtre back-office)
+  problemType    String? // Objet / type de problème (accréditation, créneau, zone, autre)
+  identification String? // Plaque, n° de demande, stand… (retrouver le ticket)
   status         SupportTicketStatus @default(OPEN)
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt

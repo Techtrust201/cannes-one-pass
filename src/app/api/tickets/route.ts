@@ -18,10 +18,16 @@ import {
 const createSchema = z.object({
   organizationSlug: z.string().min(1),
   eventSlug: z.string().optional(),
-  stand: z.string().min(1).max(120),
+  // `stand` optionnel : le formulaire RX ne le demande pas (remplacé par
+  // `identification`), mais le formulaire Palais l'envoie toujours.
+  stand: z.string().max(120).optional(),
   email: z.email(),
   phone: z.string().max(40).optional(),
   message: z.string().min(5).max(5000),
+  // Champs enrichis RX (optionnels au schéma ; requis côté UI RX).
+  company: z.string().max(200).optional(),
+  problemType: z.string().max(120).optional(),
+  identification: z.string().max(200).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -40,7 +46,17 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { organizationSlug, eventSlug, stand, email, phone, message } = parsed.data;
+  const {
+    organizationSlug,
+    eventSlug,
+    stand,
+    email,
+    phone,
+    message,
+    company,
+    problemType,
+    identification,
+  } = parsed.data;
 
   const org = await prisma.organization.findUnique({
     where: { slug: organizationSlug },
@@ -75,10 +91,13 @@ export async function POST(req: NextRequest) {
     data: {
       organizationId: org.id,
       eventId,
-      stand,
+      stand: stand ?? identification ?? "",
       email,
       phone: phone ?? null,
       message,
+      company: company ?? null,
+      problemType: problemType ?? null,
+      identification: identification ?? null,
     },
   });
 
@@ -141,6 +160,9 @@ export async function GET(req: NextRequest) {
         email: true,
         phone: true,
         message: true,
+        company: true,
+        problemType: true,
+        identification: true,
         status: true,
         createdAt: true,
         updatedAt: true,

@@ -97,9 +97,11 @@ async function renderAccreditationPage(
   helpers: DrawHelpers,
   acc: {
     id: string;
+    publicToken: string | null;
     company: string;
     stand: string;
     event: string;
+    eventName: string;
     unloading: string;
     message: string | null;
     consent: boolean;
@@ -108,6 +110,7 @@ async function renderAccreditationPage(
     exitAt: Date | null;
     extension: unknown;
     standId: string | null;
+    zone: { label: string; address: string; latitude: number; longitude: number } | null;
     vehicles: Array<{
       plate: string | null;
       size: string;
@@ -121,11 +124,26 @@ async function renderAccreditationPage(
   },
   vehicleTypes: VehicleTypeData[],
   isRx: boolean,
-  baseUrl: string
+  baseUrl: string,
+  /** 'official' = accréditation d'accès (QR montage/démontage, validité 24h) ;
+   *  'request' = demande non validée (QR de suivi, pas d'accès). */
+  mode: "request" | "official"
 ): Promise<void> {
   const page = pdfDoc.addPage();
-  const { width, height, MIN_Y, drawText, drawWrapped } = helpers;
+  const { width, height, MIN_Y, drawText, drawWrapped, font } = helpers;
   let y = height - 50;
+
+  // Dessin "brut" sans garde MIN_Y : réservé au pied de page (QR + notes
+  // légales) qui se trouve volontairement sous la marge basse.
+  const drawRaw = (
+    text: string,
+    x: number,
+    yy: number,
+    size = 9,
+    color: [number, number, number] = [0.3, 0.3, 0.3]
+  ) => {
+    page.drawText(text, { x, y: yy, size, font, color: rgb(...color) });
+  };
 
   const todayStr = new Intl.DateTimeFormat("fr-FR", {
     day: "2-digit",
@@ -133,11 +151,18 @@ async function renderAccreditationPage(
     year: "numeric",
   }).format(new Date());
 
-  drawText(page, "Accréditation Véhicule", 50, height - 50, 22);
+  const isRequest = mode === "request";
+  drawText(
+    page,
+    isRequest ? "Demande d'accréditation Véhicule" : "Accréditation Véhicule",
+    50,
+    height - 50,
+    isRequest ? 18 : 22
+  );
   drawText(
     page,
     isRx
-      ? "Salon nautique — Accréditation logistique"
+      ? "Cannes Yachting Festival — Logistique"
       : "Palais des Festivals et des Congrès de Cannes",
     50,
     height - 75,
@@ -153,7 +178,29 @@ async function renderAccreditationPage(
     dashArray: [3, 3],
   });
 
-  y = height - 130;
+  // Bandeau rouge très visible pour les demandes non validées : ce document
+  // n'autorise PAS l'accès au site (sécurité opérationnelle).
+  let bannerOffset = 0;
+  if (isRequest) {
+    page.drawRectangle({
+      x: 50,
+      y: height - 138,
+      width: width - 100,
+      height: 26,
+      color: rgb(0.86, 0.15, 0.15),
+    });
+    drawText(
+      page,
+      "DEMANDE NON VALIDEE — NE PERMET PAS L'ACCES AU SITE",
+      60,
+      height - 131,
+      12,
+      { color: [1, 1, 1] }
+    );
+    bannerOffset = 36;
+  }
+
+  y = height - 130 - bannerOffset;
   const ext = parseExtension(acc.extension);
   const ctx = ext.vehicleContext ?? {};
   const v = acc.vehicles[0];
@@ -175,7 +222,18 @@ async function renderAccreditationPage(
 
   addLabelVal("Exposant / Décorateur", acc.company);
   addLabelVal("Stand", acc.stand);
-  addLabelVal("Événement", acc.event);
+  addLabelVal("Événement", acc.eventName);
+  if (isRequest && acc.publicToken) {
+    addLabelVal("Référence de la demande", acc.publicToken);
+  }
+  if (acc.zone) {
+    addLabelVal("Zone de déchargement", acc.zone.label);
+    if (acc.zone.address) addLabelVal("Adresse", acc.zone.address);
+    addLabelVal(
+      "Coordonnées GPS",
+      `${acc.zone.latitude.toFixed(5)}, ${acc.zone.longitude.toFixed(5)}`
+    );
+  }
 
   if (isRx && ext.contact) {
     const contactName = [ext.contact.firstName, ext.contact.lastName]
@@ -281,47 +339,83 @@ async function renderAccreditationPage(
     );
   }
 
+  // Layout QR : on dispose les QR en bas à droite, AU-DESSUS du footer légal
+  // (footer ancré à y≈40) pour éviter tout chevauchement texte/QR.
+  const QR_SIZE = 80;
+  const QR_Y = 60;
+  const skipMontage = (ext as { skipMontage?: boolean }).skipMontage === true;
+  const skipDemontage = (ext as { skipDemontage?: boolean }).skipDemontage === true;
+
+  if (isRequest) {
+    // Demande : un seul QR de SUIVI (page publique /suivi/{token}), jamais une
+    // URL de contrôle d'accès. Ne permet pas l'entrée sur site.
+    const suiviUrl = `${baseUrl}/suivi/${acc.publicToken ?? ""}`;
+    const qrBuf = await QRCode.toBuffer(suiviUrl, { type: "png" });
+    const qrImg = await pdfDoc.embedPng(qrBuf);
+    const x = width - 50 - QR_SIZE;
+    page.drawImage(qrImg, { x, y: QR_Y, width: QR_SIZE, height: QR_SIZE });
+    drawRaw("QR de suivi de demande", x - 18, QR_Y - 12);
+
+    const noteLines = [
+      "Ce document peut être transmis au transporteur à titre informatif.",
+      "Il ne constitue pas une accréditation d'accès au site.",
+    ];
+    let noteY = 44;
+    for (const line of noteLines) {
+      drawRaw(line, LABEL_X, noteY);
+      noteY -= 12;
+    }
+    return;
+  }
+
+  // Mode officiel : QR Montage / Démontage (URL de contrôle d'accès), libellés
+  // explicites + créneau, conditionnés par les éventuels skip.
+  const livLabel = ctx.livDate ? ` ${formatDateTime(ctx.livDate)}` : "";
+  const repLabel = ctx.repDate ? ` ${formatDateTime(ctx.repDate)}` : "";
+  const qrDefs: { label: string; url: string }[] = [];
+  if (!skipMontage) {
+    qrDefs.push({
+      label: `QR Montage${livLabel}`,
+      url: `${baseUrl}/logisticien/${acc.id}?phase=livraison`,
+    });
+  }
+  if (!skipDemontage) {
+    qrDefs.push({
+      label: `QR Démontage${repLabel}`,
+      url: `${baseUrl}/logisticien/${acc.id}?phase=reprise`,
+    });
+  }
+  if (qrDefs.length === 0) {
+    qrDefs.push({ label: "QR Véhicule", url: `${baseUrl}/logisticien/${acc.id}` });
+  }
+
+  let qrX = width - 50 - QR_SIZE;
+  for (const def of qrDefs) {
+    const buf = await QRCode.toBuffer(def.url, { type: "png" });
+    const img = await pdfDoc.embedPng(buf);
+    page.drawImage(img, { x: qrX, y: QR_Y, width: QR_SIZE, height: QR_SIZE });
+    drawRaw(def.label, qrX, QR_Y - 12, 8);
+    qrX -= QR_SIZE + 24;
+  }
+
   const noteLines = [
     "Cette accréditation est valable pour une durée de 24 heures à compter de l'heure d'entrée validée.",
     "Veuillez présenter ce document (QR code) à l'entrée du site.",
   ];
-  let noteY = 120;
+  let noteY = 44;
   for (const line of noteLines) {
-    drawText(page, line, LABEL_X, noteY, 9);
+    drawRaw(line, LABEL_X, noteY);
     noteY -= 12;
-  }
-
-  // QR Véhicule : URL ouvrable vers la fiche accréditation (au lieu du JSON brut).
-  const vehicleUrl = `${baseUrl}/logisticien/${acc.id}`;
-  const vehicleQrBuffer = await QRCode.toBuffer(vehicleUrl, { type: "png" });
-  const vehicleQrImage = await pdfDoc.embedPng(vehicleQrBuffer);
-  const QR_SIZE = 80;
-  const QR_Y = 70;
-
-  if (acc.standId) {
-    // Deux QR côte à côte : Stand (gauche) + Véhicule (droite), avec libellés.
-    const standUrl = `${baseUrl}/logisticien/stands/${acc.standId}`;
-    const standQrBuffer = await QRCode.toBuffer(standUrl, { type: "png" });
-    const standQrImage = await pdfDoc.embedPng(standQrBuffer);
-
-    const vehX = width - 50 - QR_SIZE;
-    const standX = vehX - QR_SIZE - 20;
-
-    page.drawImage(standQrImage, { x: standX, y: QR_Y, width: QR_SIZE, height: QR_SIZE });
-    drawText(page, "QR Stand", standX + 16, QR_Y - 12, 9, { color: [0.3, 0.3, 0.3] });
-
-    page.drawImage(vehicleQrImage, { x: vehX, y: QR_Y, width: QR_SIZE, height: QR_SIZE });
-    drawText(page, "QR Véhicule", vehX + 8, QR_Y - 12, 9, { color: [0.3, 0.3, 0.3] });
-  } else {
-    const vehX = width - 50 - QR_SIZE;
-    page.drawImage(vehicleQrImage, { x: vehX, y: QR_Y, width: QR_SIZE, height: QR_SIZE });
-    drawText(page, "QR Véhicule", vehX + 8, QR_Y - 12, 9, { color: [0.3, 0.3, 0.3] });
   }
 }
 
+/** Statuts opérationnels autorisant un PDF officiel (cf. plan §3.4b). */
+const OFFICIAL_STATUSES = new Set(["ATTENTE", "ENTREE", "SORTIE"]);
+
 export async function generatePdfFromIds(
   ids: string[],
-  baseUrl: string
+  baseUrl: string,
+  opts: { mode?: "request" | "official" } = {}
 ): Promise<Uint8Array> {
   const uniqueIds = [...new Set(ids.filter(Boolean))];
   if (uniqueIds.length === 0) {
@@ -333,6 +427,7 @@ export async function generatePdfFromIds(
     include: {
       vehicles: true,
       organization: { select: { slug: true, id: true } },
+      eventRef: { select: { name: true } },
     },
   });
 
@@ -347,6 +442,15 @@ export async function generatePdfFromIds(
 
   const orgId = ordered[0].organization?.id ?? null;
   const vehicleTypes = await loadVehicleTypes(orgId);
+
+  // Zones de l'organisation (label + adresse + GPS) pour l'affichage PDF.
+  const zoneRows = orgId
+    ? await prisma.zoneConfig.findMany({
+        where: { organizationId: orgId },
+        select: { zone: true, label: true, address: true, latitude: true, longitude: true },
+      })
+    : [];
+  const zoneByCode = new Map(zoneRows.map((z) => [z.zone, z]));
 
   const pdfDoc = await PDFDocument.create();
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -419,8 +523,33 @@ export async function generatePdfFromIds(
   };
 
   for (const acc of ordered) {
-    const isRx = acc.organization?.slug === "rx" || Boolean(parseExtension(acc.extension).exhibitor);
-    await renderAccreditationPage(pdfDoc, helpers, acc, vehicleTypes, isRx, baseUrl);
+    const isRx =
+      acc.organization?.slug === "rx" ||
+      Boolean(parseExtension(acc.extension).exhibitor);
+    // Mode : explicite si fourni, sinon déduit du statut. Garde-fou §3.4b :
+    // 'official' (QR d'accès) n'est produit QUE pour un statut opérationnel
+    // (ATTENTE/ENTREE/SORTIE). Tout autre statut → 'request', même si
+    // 'official' est demandé explicitement.
+    const wantsOfficial =
+      (opts.mode ?? (OFFICIAL_STATUSES.has(acc.status) ? "official" : "request")) ===
+      "official";
+    const mode: "request" | "official" =
+      wantsOfficial && OFFICIAL_STATUSES.has(acc.status) ? "official" : "request";
+    const zone = acc.currentZone ? zoneByCode.get(acc.currentZone) ?? null : null;
+    const accForRender = {
+      ...acc,
+      eventName: acc.eventRef?.name ?? acc.event,
+      zone,
+    };
+    await renderAccreditationPage(
+      pdfDoc,
+      helpers,
+      accForRender,
+      vehicleTypes,
+      isRx,
+      baseUrl,
+      mode
+    );
   }
 
   return pdfDoc.save();

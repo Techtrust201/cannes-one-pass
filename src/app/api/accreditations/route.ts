@@ -322,6 +322,11 @@ export async function POST(req: NextRequest) {
     const vehiclesArr = vehicles as Array<Record<string, unknown>>;
     const splitPerVehicle = raw.splitPerVehicle === true && vehiclesArr.length > 0;
 
+    // Jeton public non devinable (QR de suivi du PDF « demande »), distinct de
+    // l'id d'accès. Généré pour chaque accréditation créée.
+    const { randomBytes } = await import("crypto");
+    const genPublicToken = () => randomBytes(12).toString("base64url");
+
     // ── Workflow RX : une accréditation par véhicule ───────────────────────
     if (splitPerVehicle) {
       const createdList = await prisma.$transaction(
@@ -332,6 +337,7 @@ export async function POST(req: NextRequest) {
               stand,
               unloading,
               event,
+              publicToken: genPublicToken(),
               eventId: eventRecord?.id ?? null,
               organizationId: organizationId,
               standId: standId,
@@ -382,6 +388,7 @@ export async function POST(req: NextRequest) {
         stand,
         unloading,
         event,
+        publicToken: genPublicToken(),
         eventId: eventRecord?.id ?? null,
         organizationId: organizationId,
         standId: standId,

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import CarbonHeader from "@/components/logisticien/carbon/CarbonHeader";
+import { useEspaceSlug } from "@/hooks/useEspaceSlug";
 import CarbonTabs from "@/components/logisticien/carbon/CarbonTabs";
 import CarbonStats from "@/components/logisticien/carbon/CarbonStats";
 import TableauTab from "@/components/logisticien/carbon/TableauTab";
@@ -30,9 +31,14 @@ function getDefaultDateRange(): DateRange {
 }
 
 export default function CarbonPage() {
+  const espace = useEspaceSlug();
   const [searchQuery, setSearchQuery] = useState("");
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
   const [activeTab, setActiveTab] = useState<CarbonTab>("Tableau");
+
+  useEffect(() => {
+    setSearchQuery("");
+  }, [espace]);
 
   // Récupération des données réelles
   const { data, loading, error, isSearching, refetch } = useCarbonData(

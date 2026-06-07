@@ -21,11 +21,18 @@ export async function POST(req: NextRequest) {
         ? "http"
         : (req.headers.get("x-forwarded-proto") ?? "https");
       const baseUrl = host ? `${proto}://${host}` : getBaseUrl();
-      const pdfBytes = await generatePdfFromIds(ids, baseUrl);
+      // Mode explicite optionnel (request|official) ; sinon déduit du statut.
+      const mode =
+        body.mode === "official" || body.mode === "request"
+          ? (body.mode as "official" | "request")
+          : undefined;
+      const pdfBytes = await generatePdfFromIds(ids, baseUrl, mode ? { mode } : {});
+      const filename =
+        mode === "official" ? "accreditation.pdf" : "demande-accreditation.pdf";
       return new Response(Buffer.from(pdfBytes), {
         headers: {
           "Content-Type": "application/pdf",
-          "Content-Disposition": "attachment; filename=accreditation.pdf",
+          "Content-Disposition": `attachment; filename=${filename}`,
         },
       });
     }

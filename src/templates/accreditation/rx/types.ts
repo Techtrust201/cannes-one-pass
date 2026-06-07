@@ -57,9 +57,23 @@ export interface RxFormData {
   };
   stepTwo: {
     categories: RxCategorySelection[];
+    /**
+     * Skip montage : « Je souhaite une accréditation uniquement pour le
+     * démontage ». Si true, l'étape Livraison (montage) disparaît de la
+     * progress bar et les catégories sont sélectionnées à l'étape Reprise.
+     */
+    skipMontage?: boolean;
+    /**
+     * Skip démontage : « Je ne souhaite pas d'accréditation pour le
+     * démontage ». Si true, l'étape Reprise (démontage) disparaît et on
+     * passe directement à la Manutention.
+     */
+    skipDemontage?: boolean;
   };
   stepThree: {
     manutentionProvider: string;
+    /** Nom libre du prestataire si « Autre » est choisi (obligatoire alors). */
+    manutentionProviderOther?: string;
     scalesAcknowledged: boolean;
     consent: boolean;
   };
@@ -82,9 +96,10 @@ export function getDefaultRxFormData(): RxFormData {
         phoneNumber: "",
       },
     },
-    stepTwo: { categories: [] },
+    stepTwo: { categories: [], skipMontage: false, skipDemontage: false },
     stepThree: {
       manutentionProvider: "",
+      manutentionProviderOther: "",
       scalesAcknowledged: false,
       consent: false,
     },
@@ -108,6 +123,14 @@ export interface RxExtension {
   categories: RxCategorySelection[];
   scalesAssigned: boolean;
   manutentionProvider: string;
+  /** Prestataire libre saisi quand « Autre » est sélectionné à l'étape 5. */
+  manutentionProviderOther?: string;
+  /** Skip montage : accréditation pour le démontage uniquement. */
+  skipMontage?: boolean;
+  /** Skip démontage : pas d'accréditation pour le démontage. */
+  skipDemontage?: boolean;
+  /** Zone de déchargement suggérée (gabarit × port) — pré-sélection validation. */
+  suggestedZone?: string;
 }
 
 // Re-export pratique du type Vehicle pour les futurs templates ; aucun

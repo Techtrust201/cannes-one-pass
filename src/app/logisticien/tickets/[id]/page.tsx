@@ -19,12 +19,22 @@ interface TicketDetail {
   email: string;
   phone: string | null;
   message: string;
+  company: string | null;
+  problemType: string | null;
+  identification: string | null;
   status: "OPEN" | "IN_PROGRESS" | "ANSWERED" | "CLOSED";
   createdAt: string;
   organization: { id: string; slug: string; name: string };
   eventRef: { id: string; slug: string; name: string } | null;
   replies: Reply[];
 }
+
+const PROBLEM_LABEL: Record<string, string> = {
+  accreditation: "Accréditation",
+  creneau: "Créneau / horaire",
+  zone: "Zone / accès",
+  autre: "Autre",
+};
 
 export default function TicketDetailPage() {
   const params = useParams<{ id: string }>();
@@ -98,7 +108,9 @@ export default function TicketDetailPage() {
         <ArrowLeft size={16} /> Tous les tickets
       </Link>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl sm:text-2xl font-bold">Ticket — {ticket.stand}</h1>
+        <h1 className="text-xl sm:text-2xl font-bold">
+          Ticket — {ticket.company || ticket.stand || ticket.email}
+        </h1>
         <select
           value={ticket.status}
           onChange={(e) => setStatus(e.target.value as TicketDetail["status"])}
@@ -112,8 +124,18 @@ export default function TicketDetailPage() {
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600 mb-2">
+          {ticket.eventRef && <span>📅 {ticket.eventRef.name}</span>}
+          {ticket.company && <span>🏢 {ticket.company}</span>}
+          {ticket.problemType && (
+            <span>{PROBLEM_LABEL[ticket.problemType] ?? ticket.problemType}</span>
+          )}
+          {ticket.identification && <span>🔖 {ticket.identification}</span>}
+        </div>
         <div className="text-xs text-gray-500 mb-2">
-          {ticket.email}
+          <a href={`mailto:${ticket.email}`} className="text-primary hover:underline">
+            {ticket.email}
+          </a>
           {ticket.phone ? ` · ${ticket.phone}` : ""} ·{" "}
           {new Date(ticket.createdAt).toLocaleString("fr-FR")}
         </div>

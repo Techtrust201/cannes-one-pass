@@ -11,12 +11,22 @@ interface TicketRow {
   email: string;
   phone: string | null;
   message: string;
+  company: string | null;
+  problemType: string | null;
+  identification: string | null;
   status: "OPEN" | "IN_PROGRESS" | "ANSWERED" | "CLOSED";
   createdAt: string;
   organization: { id: string; slug: string; name: string };
   eventRef: { id: string; slug: string; name: string } | null;
   _count: { replies: number };
 }
+
+const PROBLEM_LABEL: Record<string, string> = {
+  accreditation: "Accréditation",
+  creneau: "Créneau / horaire",
+  zone: "Zone / accès",
+  autre: "Autre",
+};
 
 const STATUS_LABEL: Record<TicketRow["status"], string> = {
   OPEN: "Nouveau",
@@ -37,6 +47,7 @@ export default function TicketsListPage() {
 
   const [tickets, setTickets] = useState<TicketRow[] | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("");
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -60,6 +71,24 @@ export default function TicketsListPage() {
     );
   }
 
+  // Recherche libre : email, société, identification, événement, stand.
+  // Permet de retrouver un ticket même si l'exposant s'est trompé d'événement.
+  const needle = search.trim().toLowerCase();
+  const visibleTickets = needle
+    ? tickets.filter((t) =>
+        [
+          t.email,
+          t.company,
+          t.identification,
+          t.stand,
+          t.eventRef?.name,
+          t.eventRef?.slug,
+        ]
+          .filter(Boolean)
+          .some((v) => String(v).toLowerCase().includes(needle))
+      )
+    : tickets;
+
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
@@ -70,26 +99,34 @@ export default function TicketsListPage() {
             <span className="text-xs font-normal text-gray-500 ml-1 shrink-0">— Espace : {espace}</span>
           )}
         </h1>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="border rounded-md px-2 py-1 text-sm"
-        >
-          <option value="">Tous statuts</option>
-          <option value="OPEN">Nouveaux</option>
-          <option value="IN_PROGRESS">En cours</option>
-          <option value="ANSWERED">Répondus</option>
-          <option value="CLOSED">Fermés</option>
-        </select>
+        <div className="flex items-center gap-2 flex-wrap">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Rechercher (email, société, plaque, événement…)"
+            className="border rounded-md px-2 py-1 text-sm w-64 max-w-full"
+          />
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="border rounded-md px-2 py-1 text-sm"
+          >
+            <option value="">Tous statuts</option>
+            <option value="OPEN">Nouveaux</option>
+            <option value="IN_PROGRESS">En cours</option>
+            <option value="ANSWERED">Répondus</option>
+            <option value="CLOSED">Fermés</option>
+          </select>
+        </div>
       </div>
 
-      {tickets.length === 0 ? (
+      {visibleTickets.length === 0 ? (
         <p className="text-sm text-gray-500">Aucun ticket à afficher.</p>
       ) : (
         <>
           {/* Mobile : cartes empilées */}
           <div className="md:hidden space-y-3">
-            {tickets.map((t) => (
+            {visibleTickets.map((t) => (
               <div
                 key={t.id}
                 className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-2"
@@ -104,7 +141,20 @@ export default function TicketsListPage() {
                     {new Date(t.createdAt).toLocaleString("fr-FR")}
                   </span>
                 </div>
-                <div className="font-semibold text-gray-900">{t.stand}</div>
+                <div className="font-semibold text-gray-900">
+                  {t.company || t.stand || "—"}
+                </div>
+                {t.eventRef && (
+                  <div className="text-xs text-gray-500">📅 {t.eventRef.name}</div>
+                )}
+                {t.problemType && (
+                  <div className="text-xs text-gray-500">
+                    {PROBLEM_LABEL[t.problemType] ?? t.problemType}
+                  </div>
+                )}
+                {t.identification && (
+                  <div className="text-xs text-gray-500">🔖 {t.identification}</div>
+                )}
                 <div className="text-sm text-gray-700 break-all">{t.email}</div>
                 {t.phone && <div className="text-xs text-gray-500">{t.phone}</div>}
                 <p className="text-sm text-gray-600 line-clamp-3">{t.message}</p>
@@ -124,7 +174,8 @@ export default function TicketsListPage() {
               <thead className="bg-gray-50 text-xs text-gray-600 border-b">
                 <tr>
                   <th className="text-left py-2 px-3">Statut</th>
-                  <th className="text-left py-2 px-3">Stand</th>
+                  <th className="text-left py-2 px-3">Société / Stand</th>
+                  <th className="text-left py-2 px-3">Événement</th>
                   <th className="text-left py-2 px-3">Demandeur</th>
                   <th className="text-left py-2 px-3">Message</th>
                   <th className="text-left py-2 px-3">Date</th>
@@ -132,7 +183,7 @@ export default function TicketsListPage() {
                 </tr>
               </thead>
               <tbody>
-                {tickets.map((t) => (
+                {visibleTickets.map((t) => (
                   <tr key={t.id} className="border-b last:border-0 hover:bg-gray-50">
                     <td className="py-2 px-3">
                       <span
@@ -141,7 +192,22 @@ export default function TicketsListPage() {
                         {STATUS_LABEL[t.status]}
                       </span>
                     </td>
-                    <td className="py-2 px-3 font-medium">{t.stand}</td>
+                    <td className="py-2 px-3 font-medium">
+                      <div>{t.company || t.stand || "—"}</div>
+                      {t.identification && (
+                        <div className="text-xs font-normal text-gray-500">
+                          🔖 {t.identification}
+                        </div>
+                      )}
+                      {t.problemType && (
+                        <div className="text-xs font-normal text-gray-400">
+                          {PROBLEM_LABEL[t.problemType] ?? t.problemType}
+                        </div>
+                      )}
+                    </td>
+                    <td className="py-2 px-3 text-gray-700">
+                      {t.eventRef?.name ?? "—"}
+                    </td>
                     <td className="py-2 px-3">
                       <div className="text-gray-800">{t.email}</div>
                       {t.phone && <div className="text-xs text-gray-500">{t.phone}</div>}

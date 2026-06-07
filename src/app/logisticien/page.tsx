@@ -110,9 +110,14 @@ export default async function LogisticienDashboard(props: {
   // des accréditations rattachées à l'org même si leur eventId est null (le
   // contrôle d'accès à l'espace a déjà été validé plus haut).
   const espaceOrgId = espaceParam ? await resolveEspaceOrgId(espaceParam) : null;
+  // Pré-filtres SQL (perf) : on pousse statut + zone au niveau base pour ne
+  // charger que le sous-ensemble pertinent. La recherche texte et le tri (sur
+  // champs calculés) restent appliqués en mémoire ci-dessous, à l'identique.
   const data = await readAccreditations({
     accessibleEventIds,
     organizationId: espaceOrgId,
+    status: paramsObj.status ?? null,
+    zone: paramsObj.zone ?? null,
   });
 
   const {
@@ -154,6 +159,7 @@ export default async function LogisticienDashboard(props: {
       const interveningCompany = ext?.vehicleContext?.interveningCompany ?? null;
       const haystack = [
         acc.id,
+        acc.publicToken,
         acc.status,
         acc.company,
         acc.stand,
@@ -349,8 +355,12 @@ export default async function LogisticienDashboard(props: {
     { value: "ABSENT", label: "Absent" },
   ];
 
+  // Isolation multi-tenant : on scope les zones et les types de véhicule à
+  // l'organisation de l'espace courant. Sans ce filtre, les zones d'une org
+  // (ex. Palm Beach côté RX) pollueraient les filtres d'une autre (Palais).
+  // espaceOrgId null = super-admin sans scope → vue globale de repli.
   const activeZones = await prisma.zoneConfig.findMany({
-    where: { isActive: true },
+    where: { isActive: true, ...(espaceOrgId ? { organizationId: espaceOrgId } : {}) },
     orderBy: { label: "asc" },
   });
   const zoneOptions = [
@@ -359,7 +369,7 @@ export default async function LogisticienDashboard(props: {
   ];
 
   const activeVehicleTypes = await prisma.vehicleTypeConfig.findMany({
-    where: { isActive: true },
+    where: { isActive: true, ...(espaceOrgId ? { organizationId: espaceOrgId } : {}) },
     orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
   });
   const vehicleTypeOptions = [

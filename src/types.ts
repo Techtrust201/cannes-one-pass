@@ -77,6 +77,8 @@ export type AccreditationStatus =
 
 export interface Accreditation {
   id: string;
+  /** Jeton public (référence imprimée sur le PDF demande, QR de suivi). */
+  publicToken?: string | null;
   createdAt: Date;
   updatedAt: Date;
   version: number;

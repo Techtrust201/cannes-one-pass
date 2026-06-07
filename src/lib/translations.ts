@@ -19,6 +19,10 @@ export const LANGUAGES: { code: LangCode; label: string; flag: string }[] = [
 export interface T {
   // Language selection
   chooseLang: string;
+  /** Sous-titre de l'écran de choix de langue (optionnel ; repli FR/EN). */
+  chooseLangSub?: string;
+  /** Message d'étape inconnue dans le wizard (optionnel ; repli FR). */
+  unknownStep?: string;
 
   // Page layout
   pageTitle: string;
@@ -94,6 +98,8 @@ export interface T {
 
 const fr: T = {
   chooseLang: "Choisissez votre langue",
+  chooseLangSub: "Choisissez votre langue",
+  unknownStep: "Étape inconnue.",
   pageTitle: "Demande d'accréditation",
   pageSubtitle: "Suivez les étapes pour réaliser votre demande",
   back: "Retour",
@@ -155,6 +161,8 @@ const fr: T = {
 
 const en: T = {
   chooseLang: "Choose your language",
+  chooseLangSub: "Choose your language",
+  unknownStep: "Unknown step.",
   pageTitle: "Accreditation request",
   pageSubtitle: "Follow the steps to complete your request",
   back: "Back",

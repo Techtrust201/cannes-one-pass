@@ -65,7 +65,9 @@ function LanguageSelectionStep({ orgSlug }: { orgSlug: string }) {
       <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2 text-center">
         {t.chooseLang}
       </h2>
-      <p className="text-gray-500 text-sm mb-8 text-center">Choose your language</p>
+      <p className="text-gray-500 text-sm mb-8 text-center">
+        {t.chooseLangSub ?? "Choose your language"}
+      </p>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full max-w-md">
         {LANGUAGES.map((l) => (
           <button
@@ -192,9 +194,32 @@ function WizardContent({
     gotoStep(1);
   }, [clearForm, gotoStep]);
 
-  const stepCount = template.steps.length;
+  // Étapes visibles : pour les templates qui définissent `getVisibleSteps`
+  // (ex. RX skip montage/démontage), on filtre dynamiquement. Sinon (Palais),
+  // on utilise `steps` tel quel → comportement statique inchangé.
+  // L'indexation de la navigation (URL `?step=n`) se fait sur CETTE liste :
+  // masquer une étape décale donc naturellement les suivantes.
+  const visibleSteps = useMemo<StepDef<unknown>[]>(
+    () =>
+      template.getVisibleSteps
+        ? template.getVisibleSteps(formData)
+        : template.steps,
+    [template, formData]
+  );
+
+  const stepCount = visibleSteps.length;
   const activeStepIdx = step - 1;
-  const ActiveStep: StepDef<unknown> | undefined = template.steps[activeStepIdx];
+  const ActiveStep: StepDef<unknown> | undefined = visibleSteps[activeStepIdx];
+
+  // Garde-fou : si l'étape courante sort de la plage visible (deep-link,
+  // brouillon restauré, ou une étape vient de disparaître), on recale sur la
+  // dernière étape visible valide. Ne s'applique pas à l'étape 0 (langue).
+  useEffect(() => {
+    if (step <= 0) return;
+    if (step > stepCount) {
+      gotoStep(stepCount);
+    }
+  }, [step, stepCount, gotoStep]);
 
   const clearDraft = useCallback(() => {
     if (typeof window !== "undefined") {
@@ -224,7 +249,7 @@ function WizardContent({
   // namespace dédié `t.rx.steps` indexé par id de step ; le Palais conserve ses
   // libellés statiques (fallback `step.label`).
   const stepLabel = (idx: number) => {
-    const def = template.steps[idx];
+    const def = visibleSteps[idx];
     if (!def) return `Step ${idx + 1}`;
     if (template.slug === "rx") {
       const rxLabel = t.rx.steps[def.id as keyof typeof t.rx.steps];
@@ -321,7 +346,9 @@ function WizardContent({
                       <ActiveStep.component {...stepProps} />
                     )
                   ) : (
-                    <p className="text-center text-gray-500">Étape inconnue.</p>
+                    <p className="text-center text-gray-500">
+                      {t.unknownStep ?? "Étape inconnue."}
+                    </p>
                   )}
                 </div>
 

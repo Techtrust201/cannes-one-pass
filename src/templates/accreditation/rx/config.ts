@@ -1,21 +1,29 @@
 /**
  * Configuration métier RX / Cannes Yachting Festival 2026.
  *
- * Source : cahier des charges RX (matrice espace × catégorie × jour),
- * transposé du planning officiel. Format des plages : `"HH:MM-HH:MM"`,
- * UNE entrée par jour (jamais de plage traversant minuit en une seule
- * chaîne — sinon `genSlots` renvoie une liste vide).
+ * Les plannings (matrice espace × catégorie × jour) proviennent du planning
+ * officiel RX et sont générés dans `planning-data.ts` (cf.
+ * `scripts/import-rx-planning.ts`). Ce fichier ne contient que la logique
+ * métier : construction des espaces, dérivation depuis le secteur exposant,
+ * restriction « bateaux à terre », génération des créneaux.
  *
- * À l'affichage, chaque couple (catégorie, date) propose des créneaux
- * d'une heure générés dynamiquement par `genSlots`.
+ * Modèle unifié : chaque espace propose les **3 catégories** identiques
+ * (parité avec le planning) — Ponton privatif / Stand sous tente / Bateaux à
+ * terre — une catégorie n'étant proposée que si elle a au moins une plage.
  */
 
-export type DateTimeSlots = Record<string, string>; // "YYYY-MM-DD" → "HH:MM-HH:MM"
+import {
+  RX_PLANNING,
+  RX_SPACE_LABELS,
+  type DateTimeSlots,
+  type RxCategoryId,
+} from "./planning-data";
+
+export type { DateTimeSlots, RxCategoryId };
 
 export interface RxCategory {
   id: string;
   name: string;
-  icon: string;
   /** Plages de livraison (montage) par date. */
   liv: DateTimeSlots;
   /** Plages de reprise (démontage) par date. */
@@ -34,460 +42,87 @@ export interface RxSpaceDef {
   categories: RxCategory[];
 }
 
-/** Tous les espaces logistiques RX. */
-export const RX_SPACES: Record<string, RxSpaceDef> = {
-  INTERIEUR_PALAIS: {
-    id: "INTERIEUR_PALAIS",
-    label: "Intérieur Palais des Festivals",
-    categories: [
-      {
-        id: "stand-nu-int",
-        name: "Stand nu",
-        icon: "🛠️",
-        liv: {
-          "2026-09-03": "08:00-23:00",
-          "2026-09-04": "08:00-23:00",
-          "2026-09-05": "08:00-23:00",
-          "2026-09-06": "08:00-23:00",
-          "2026-09-07": "08:00-23:00",
-        },
-        rep: {
-          "2026-09-13": "19:00-23:00",
-          "2026-09-14": "00:00-23:00",
-          "2026-09-15": "00:00-12:00",
-        },
-        scales: false,
-      },
-      {
-        id: "cle-en-main",
-        name: "Stand Clé en main / Saphir",
-        icon: "🔑",
-        liv: { "2026-09-07": "08:00-23:00" },
-        rep: {
-          "2026-09-13": "19:00-23:00",
-          "2026-09-14": "00:00-12:00",
-        },
-        scales: false,
-      },
-      {
-        id: "bateau-terre-int",
-        name: "Bateau à terre",
-        icon: "⛵",
-        liv: {
-          "2026-09-03": "08:00-23:00",
-          "2026-09-04": "08:00-23:00",
-          "2026-09-05": "08:00-19:00",
-        },
-        rep: { "2026-09-15": "08:00-12:00" },
-        scales: true,
-        scalesNote:
-          "Manutention bateaux intérieur Palais réalisée le mardi 15/09 selon planning Scales.",
-      },
-    ],
+/**
+ * Métadonnées des 3 catégories unifiées. Seule « Bateaux à terre » déclenche
+ * la manutention Scales automatique. Les libellés sont traduits via
+ * `t.rx.categories[id]` (repli sur `name` ci-dessous).
+ */
+const CATEGORY_META: Record<
+  RxCategoryId,
+  { name: string; scales: boolean; scalesNote?: string }
+> = {
+  "ponton-privatif": { name: "Ponton privatif", scales: false },
+  "stand-tente": {
+    name: "Stand sous tente / Espace nu devant bateau",
+    scales: false,
   },
-  EXTERIEUR_PALAIS: {
-    id: "EXTERIEUR_PALAIS",
-    label: "Extérieur Palais des Festivals",
-    categories: [
-      {
-        id: "bateau-terre-ext",
-        name: "Bateau à terre",
-        icon: "⛵",
-        liv: {
-          "2026-09-05": "16:00-23:00",
-          "2026-09-06": "00:00-12:00",
-        },
-        rep: {
-          "2026-09-13": "19:00-23:00",
-          "2026-09-14": "00:00-18:00",
-        },
-        scales: true,
-        scalesNote: "Mise en place via Scales entre sam 5/09 16h et dim 6/09 12h.",
-      },
-      {
-        id: "tente-ext",
-        name: "Stand sous tente",
-        icon: "⛺",
-        liv: { "2026-09-07": "08:00-23:00" },
-        rep: {
-          "2026-09-13": "19:00-23:00",
-          "2026-09-14": "00:00-17:00",
-        },
-        scales: false,
-      },
-      {
-        id: "motoristes",
-        name: "Structures spécifiques (motoristes)",
-        icon: "⚙️",
-        liv: {
-          "2026-09-03": "18:00-23:00",
-          "2026-09-04": "18:00-23:00",
-        },
-        rep: {
-          "2026-09-13": "19:00-23:00",
-          "2026-09-14": "00:00-17:00",
-        },
-        scales: true,
-        scalesNote:
-          "Pour les moteurs, RDV obligatoire avec Scales (réception 1er–2 sept).",
-      },
-    ],
-  },
-  QML: {
-    id: "QML",
-    label: "Quai Max Laubeuf (QML) + traversante",
-    categories: [
-      {
-        id: "flot-qml",
-        name: "Bateau à flot / ponton privatif",
-        icon: "🛥️",
-        liv: {
-          "2026-09-03": "12:00-23:00",
-          "2026-09-04": "00:00-23:00",
-          "2026-09-05": "00:00-23:00",
-          "2026-09-06": "00:00-23:00",
-          "2026-09-07": "00:00-19:00",
-        },
-        rep: {
-          "2026-09-13": "19:00-23:00",
-          "2026-09-14": "00:00-12:00",
-        },
-        scales: false,
-      },
-      {
-        id: "tente-qml",
-        name: "Stand sous tente / espace nu devant bateau",
-        icon: "⛺",
-        liv: {
-          "2026-09-05": "08:00-23:00",
-          "2026-09-06": "08:00-23:00",
-          "2026-09-07": "08:00-23:00",
-        },
-        rep: {
-          "2026-09-13": "19:00-23:00",
-          "2026-09-14": "00:00-17:00",
-        },
-        scales: false,
-      },
-    ],
-  },
-  QSP: {
-    id: "QSP",
-    label: "Quai Saint-Pierre",
-    categories: [
-      {
-        id: "flot-qsp",
-        name: "Bateau à flot / ponton privatif",
-        icon: "🛥️",
-        liv: {
-          "2026-09-04": "12:00-23:00",
-          "2026-09-05": "00:00-23:00",
-          "2026-09-06": "00:00-23:00",
-          "2026-09-07": "00:00-19:00",
-        },
-        rep: {
-          "2026-09-13": "19:00-23:00",
-          "2026-09-14": "00:00-23:00",
-          "2026-09-15": "00:00-08:00",
-        },
-        scales: false,
-      },
-      {
-        id: "tente-qsp",
-        name: "Stand sous tente / espace nu devant bateau",
-        icon: "⛺",
-        liv: {
-          "2026-09-05": "08:00-23:00",
-          "2026-09-06": "08:00-23:00",
-          "2026-09-07": "08:00-23:00",
-        },
-        rep: {
-          "2026-09-13": "19:00-23:00",
-          "2026-09-14": "00:00-17:00",
-        },
-        scales: false,
-      },
-    ],
-  },
-  PANTIERO: {
-    id: "PANTIERO",
-    label: "Pantiero",
-    categories: [
-      {
-        id: "flot-pan",
-        name: "Bateau à flot / ponton privatif",
-        icon: "🛥️",
-        liv: {
-          "2026-09-06": "12:00-23:00",
-          "2026-09-07": "00:00-19:00",
-        },
-        rep: {
-          "2026-09-13": "19:00-23:00",
-          "2026-09-14": "00:00-12:00",
-        },
-        scales: true,
-        scalesNote: "Planning d'arrivée individuel envoyé par l'organisateur.",
-      },
-      {
-        id: "tente-pan",
-        name: "Stand sous tente / espace nu devant bateau",
-        icon: "⛺",
-        liv: {
-          "2026-09-05": "08:00-23:00",
-          "2026-09-06": "08:00-23:00",
-          "2026-09-07": "08:00-23:00",
-        },
-        rep: {
-          "2026-09-13": "19:00-23:00",
-          "2026-09-14": "00:00-17:00",
-        },
-        scales: false,
-      },
-    ],
-  },
-  JETEE: {
-    id: "JETEE",
-    label: "Jetée Nord / Sud",
-    categories: [
-      {
-        id: "flot-jetee",
-        name: "Bateau à flot / ponton privatif",
-        icon: "🛥️",
-        liv: {
-          "2026-09-06": "12:00-23:00",
-          "2026-09-07": "08:00-19:00",
-        },
-        rep: {
-          "2026-09-13": "19:00-23:00",
-          "2026-09-14": "00:00-12:00",
-        },
-        scales: false,
-      },
-      {
-        id: "tente-jetee",
-        name: "Stand sous tente",
-        icon: "⛺",
-        liv: {
-          "2026-09-05": "08:00-23:00",
-          "2026-09-06": "08:00-23:00",
-          "2026-09-07": "08:00-23:00",
-        },
-        rep: {
-          "2026-09-13": "19:00-23:00",
-          "2026-09-14": "00:00-17:00",
-        },
-        scales: false,
-      },
-      {
-        id: "nus-jetee",
-        name: "Espace nu devant bateau",
-        icon: "📐",
-        liv: {
-          "2026-09-04": "12:00-23:00",
-          "2026-09-05": "00:00-23:00",
-          "2026-09-06": "00:00-23:00",
-          "2026-09-07": "00:00-23:00",
-        },
-        rep: {
-          "2026-09-13": "19:00-23:00",
-          "2026-09-14": "00:00-17:00",
-        },
-        scales: false,
-      },
-    ],
-  },
-  SYE: {
-    id: "SYE",
-    label: "Super Yachts Extension",
-    categories: [
-      {
-        id: "flot-sye",
-        name: "Bateau à flot / ponton privatif",
-        icon: "🛥️",
-        liv: {
-          "2026-09-06": "12:00-23:00",
-          "2026-09-07": "00:00-19:00",
-        },
-        rep: {
-          "2026-09-13": "19:00-23:00",
-          "2026-09-14": "00:00-12:00",
-        },
-        scales: true,
-        scalesNote: "Planning d'arrivée individuel envoyé par l'organisateur.",
-      },
-      {
-        id: "tente-sye",
-        name: "Stand sous tente",
-        icon: "⛺",
-        liv: { "2026-09-07": "08:00-23:00" },
-        rep: {
-          "2026-09-13": "19:00-23:00",
-          "2026-09-14": "00:00-17:00",
-        },
-        scales: false,
-      },
-    ],
-  },
-  TENDERS: {
-    id: "TENDERS",
-    label: "Espace Tenders (proche du Palais)",
-    note: "Espace proche du Palais — règles équivalentes à l'Extérieur Palais.",
-    categories: [
-      {
-        id: "tender-bateau",
-        name: "Bateau / Tender",
-        icon: "🛥️",
-        liv: {
-          "2026-09-05": "16:00-23:00",
-          "2026-09-06": "00:00-12:00",
-        },
-        rep: {
-          "2026-09-13": "19:00-23:00",
-          "2026-09-14": "00:00-18:00",
-        },
-        scales: true,
-        scalesNote: "Manutention via Scales selon planning individuel.",
-      },
-      {
-        id: "tender-tente",
-        name: "Stand sous tente",
-        icon: "⛺",
-        liv: { "2026-09-07": "08:00-23:00" },
-        rep: {
-          "2026-09-13": "19:00-23:00",
-          "2026-09-14": "00:00-17:00",
-        },
-        scales: false,
-      },
-    ],
-  },
-  BROKER: {
-    id: "BROKER",
-    label: "Espace Broker et Toys",
-    categories: [
-      {
-        id: "flot-broker",
-        name: "Bateau à flot / ponton privatif",
-        icon: "🛥️",
-        liv: {
-          "2026-09-03": "08:00-23:00",
-          "2026-09-04": "08:00-23:00",
-          "2026-09-05": "08:00-23:00",
-          "2026-09-06": "08:00-23:00",
-          "2026-09-07": "08:00-19:00",
-        },
-        rep: {
-          "2026-09-13": "19:00-23:00",
-          "2026-09-14": "00:00-12:00",
-        },
-        scales: true,
-        scalesNote: "Planning individuel à coordonner avec Scales.",
-      },
-      {
-        id: "tente-broker",
-        name: "Tente / espace nu / devant bateau",
-        icon: "⛺",
-        liv: {
-          "2026-09-05": "08:00-23:00",
-          "2026-09-06": "08:00-23:00",
-          "2026-09-07": "08:00-23:00",
-        },
-        rep: {
-          "2026-09-13": "19:00-23:00",
-          "2026-09-14": "00:00-17:00",
-        },
-        scales: false,
-      },
-    ],
-  },
-  SAIL: {
-    id: "SAIL",
-    label: "Espace Voile (Mono / Multicoque)",
-    categories: [
-      {
-        id: "flot-sail",
-        name: "Bateau à flot / ponton privatif",
-        icon: "⛵",
-        liv: {
-          "2026-09-04": "12:00-23:00",
-          "2026-09-05": "00:00-23:00",
-          "2026-09-06": "00:00-23:00",
-          "2026-09-07": "00:00-19:00",
-        },
-        rep: {
-          "2026-09-13": "19:00-23:00",
-          "2026-09-14": "00:00-12:00",
-        },
-        scales: false,
-      },
-      {
-        id: "tente-sail",
-        name: "Stand sous tente",
-        icon: "⛺",
-        liv: {
-          "2026-09-05": "08:00-23:00",
-          "2026-09-06": "08:00-23:00",
-          "2026-09-07": "08:00-23:00",
-        },
-        rep: {
-          "2026-09-13": "19:00-23:00",
-          "2026-09-14": "00:00-17:00",
-        },
-        scales: false,
-      },
-      {
-        id: "nus-sail",
-        name: "Espace nu devant bateau",
-        icon: "📐",
-        liv: {
-          "2026-09-05": "08:00-23:00",
-          "2026-09-06": "08:00-23:00",
-          "2026-09-07": "08:00-23:00",
-        },
-        rep: {
-          "2026-09-13": "19:00-23:00",
-          "2026-09-14": "00:00-17:00",
-        },
-        scales: false,
-      },
-    ],
-  },
-  POWER: {
-    id: "POWER",
-    label: "Power Boat Marina",
-    categories: [
-      {
-        id: "flot-power",
-        name: "Bateau à flot",
-        icon: "🛥️",
-        liv: {
-          "2026-09-05": "12:00-23:00",
-          "2026-09-06": "00:00-23:00",
-        },
-        rep: {
-          "2026-09-13": "19:00-23:00",
-          "2026-09-14": "00:00-17:00",
-        },
-        scales: false,
-      },
-      {
-        id: "terre-power",
-        name: "Bateau à terre",
-        icon: "⛵",
-        liv: {
-          "2026-09-04": "14:00-23:00",
-          "2026-09-05": "00:00-20:00",
-        },
-        rep: { "2026-09-15": "08:00-17:00" },
-        scales: true,
-        scalesNote: "Manutention via Scales obligatoire pour les bateaux à terre.",
-      },
-    ],
+  "bateau-terre": {
+    name: "Bateaux à terre",
+    scales: true,
+    scalesNote:
+      "Manutention via Scales obligatoire pour les bateaux à terre.",
   },
 };
 
+const CATEGORY_ORDER: RxCategoryId[] = [
+  "ponton-privatif",
+  "stand-tente",
+  "bateau-terre",
+];
+
+/** Construit les espaces RX depuis le planning généré. */
+function buildSpaces(): Record<string, RxSpaceDef> {
+  const out: Record<string, RxSpaceDef> = {};
+  for (const [spaceId, cats] of Object.entries(RX_PLANNING)) {
+    const labelDef = RX_SPACE_LABELS[spaceId] ?? { label: spaceId };
+    const categories: RxCategory[] = [];
+    for (const catId of CATEGORY_ORDER) {
+      const sched = cats[catId];
+      const hasData =
+        Object.keys(sched.liv).length > 0 || Object.keys(sched.rep).length > 0;
+      if (!hasData) continue;
+      const meta = CATEGORY_META[catId];
+      categories.push({
+        id: catId,
+        name: meta.name,
+        liv: sched.liv,
+        rep: sched.rep,
+        scales: meta.scales,
+        scalesNote: meta.scalesNote,
+      });
+    }
+    out[spaceId] = {
+      id: spaceId,
+      label: labelDef.label,
+      note: labelDef.note,
+      categories,
+    };
+  }
+  return out;
+}
+
+/** Tous les espaces logistiques RX (3 catégories unifiées par espace). */
+export const RX_SPACES: Record<string, RxSpaceDef> = buildSpaces();
+
 /** Espace spécial signalant qu'un choix Intérieur/Extérieur Palais est requis. */
 export const PALAIS_CHOICE = "PALAIS_CHOICE";
+
+/**
+ * « Bateaux à terre » n'est proposé que pour certains secteurs (règle RX) :
+ *   - Port Canto — POWER
+ *   - Vieux Port — PALAIS extérieur
+ * Pour tout autre secteur, la catégorie est masquée même si l'espace la
+ * contient (les bateaux à terre en auto-déchargement choisissent « Stand sous
+ * tente / Espace nu devant bateau »).
+ */
+export function isBateauTerreAllowed(sector: string): boolean {
+  const s = (sector ?? "").toUpperCase();
+  const cantoPower = s.includes("CANTO") && s.includes("POWER");
+  const palaisExt =
+    s.includes("PALAIS") &&
+    (s.includes("EXT") || s.includes("EXTÉRIEUR") || s.includes("EXTERIEUR"));
+  return cantoPower || palaisExt;
+}
 
 /**
  * Mapping `secteur` (figé sur l'exposant) → clé d'espace logistique.
@@ -502,8 +137,16 @@ export function deriveSpaceFromSector(sector: string): {
   if (s.includes("PALAIS — PALAIS") || s.includes("PALAIS – PALAIS")) {
     return { space: PALAIS_CHOICE, requiresUserChoice: true };
   }
+  if (s.includes("PALAIS EXT")) {
+    return { space: "EXTERIEUR_PALAIS", requiresUserChoice: false };
+  }
+  if (s.includes("PALAIS INT")) {
+    return { space: "INTERIEUR_PALAIS", requiresUserChoice: false };
+  }
   if (s.includes("SYE")) return { space: "SYE", requiresUserChoice: false };
-  if (s.includes("PANTIERO")) return { space: "PANTIERO", requiresUserChoice: false };
+  if (s.includes("PANTIERO") || s.includes("PAN")) {
+    return { space: "PANTIERO", requiresUserChoice: false };
+  }
   if (s.includes("QSP")) return { space: "QSP", requiresUserChoice: false };
   if (s.includes("JETEE") || s.includes("JETÉE")) {
     return { space: "JETEE", requiresUserChoice: false };
@@ -526,15 +169,34 @@ export function findCategory(
   return space.categories.find((c) => c.id === categoryId) ?? null;
 }
 
+export interface GenSlotsOptions {
+  /**
+   * Si true (défaut RX), l'heure de fin de la plage représente le **début du
+   * dernier créneau de départ autorisé** : une plage `"08:00-19:00"` produit
+   * donc un dernier créneau `19:00-20:00`. Si false, comportement classique
+   * (dernier créneau `18:00-19:00`).
+   */
+  inclusiveLastStart?: boolean;
+  /**
+   * Heure de fin maximale d'un créneau (défaut 23) : empêche de générer un
+   * créneau traversant minuit (ex. `23:00-00:00`) sur les plages finissant à
+   * 23:00 — non demandé par RX (dernier créneau métier = 19h–20h).
+   */
+  maxEndHour?: number;
+}
+
 /**
  * Génère des créneaux d'une heure depuis une plage `"HH:MM-HH:MM"`.
  *
- * Exemple : `"08:00-12:00"` → `["08:00-09:00", …, "11:00-12:00"]`.
+ * Exemple (RX, `inclusiveLastStart`) :
+ *   `"08:00-19:00"` → `["08:00-09:00", …, "18:00-19:00", "19:00-20:00"]`
+ *   `"00:00-23:00"` → `[…, "22:00-23:00"]` (pas de `23:00-00:00`)
  *
  * IMPORTANT : une plage doit être stockée par jour (jamais `"19:00-17:00"`
  * traversant minuit, qui produirait une liste vide).
  */
-export function genSlots(range: string): string[] {
+export function genSlots(range: string, opts: GenSlotsOptions = {}): string[] {
+  const { inclusiveLastStart = true, maxEndHour = 23 } = opts;
   if (!range || !range.includes("-")) return [];
   const [start, end] = range.split("-");
   const sh = parseInt(start.split(":")[0], 10);
@@ -544,6 +206,13 @@ export function genSlots(range: string): string[] {
   for (let h = sh; h < eh; h++) {
     slots.push(
       `${String(h).padStart(2, "0")}:00-${String(h + 1).padStart(2, "0")}:00`
+    );
+  }
+  // Créneau supplémentaire dont le DÉBUT = heure de fin de plage (règle RX),
+  // borné pour ne jamais traverser minuit ni dépasser `maxEndHour`.
+  if (inclusiveLastStart && eh + 1 <= maxEndHour) {
+    slots.push(
+      `${String(eh).padStart(2, "0")}:00-${String(eh + 1).padStart(2, "0")}:00`
     );
   }
   return slots;
@@ -569,10 +238,14 @@ export function formatSlot(slot: string): string {
   return slot ? slot.replace("-", " – ") : "";
 }
 
-/** Liste des prestataires de manutention pour la Step Manutention RX. */
+/**
+ * Liste des prestataires de manutention pour l'étape 5 RX (repli si la BDD
+ * n'en renvoie aucun). L'option « Autre » (champ libre) est ajoutée par le
+ * composant, pas ici.
+ */
 export const RX_MANUTENTION_PROVIDERS = [
-  { value: "SVMM", label: "SVMM" },
-  { value: "Mathez", label: "Mathez" },
   { value: "Scales", label: "Scales" },
-  { value: "Autonome", label: "Aucun (Scales uniquement pour catégories concernées)" },
+  { value: "Mathez", label: "Mathez" },
+  { value: "SVMM", label: "SVMM" },
+  { value: "Clamageran", label: "Clamageran" },
 ];

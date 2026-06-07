@@ -61,7 +61,6 @@ export default function RxServiceDetails({
       <div className="space-y-3 text-sm">
         {categoryDef && (
           <div className="flex items-center gap-2 text-gray-800 font-medium">
-            <span>{categoryDef.icon}</span>
             <span>{categoryDef.name}</span>
           </div>
         )}

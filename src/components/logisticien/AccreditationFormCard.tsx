@@ -35,6 +35,37 @@ export default function AccreditationFormCard({ acc }: Props) {
 
   const [email, setEmail] = useState(acc.email ?? "");
   const [sending, setSending] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  // Détection RX (extension contient l'exposant) + statut opérationnel
+  // autorisant le PDF officiel (accréditation d'accès, cf. §3.4b).
+  const isRx = Boolean(
+    (acc.extension as { exhibitor?: unknown } | null)?.exhibitor
+  );
+  const isOperational = ["ATTENTE", "ENTREE", "SORTIE"].includes(acc.status);
+
+  async function downloadOfficialPdf() {
+    try {
+      setDownloadingPdf(true);
+      const res = await fetch(`/api/accreditation/pdf`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [acc.id], mode: "official" }),
+      });
+      if (!res.ok) throw new Error("pdf error");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `accreditation-${acc.id}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setDownloadingPdf(false);
+    }
+  }
 
   const [emailHistory, setEmailHistory] = useState<
     { email: string; sentAt: string }[]
@@ -443,6 +474,36 @@ export default function AccreditationFormCard({ acc }: Props) {
                 </button>
               </div>
             </div>
+
+            {/* RX : actions dédiées — PDF officiel (statut opérationnel) +
+                contact exposant via mailto (canal principal). */}
+            {isRx && (
+              <div className="col-span-full flex flex-wrap items-center gap-2 pt-1">
+                {isOperational && (
+                  <button
+                    type="button"
+                    onClick={downloadOfficialPdf}
+                    disabled={downloadingPdf}
+                    className="inline-flex items-center gap-2 px-3 h-9 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    {downloadingPdf ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Save size={14} />
+                    )}
+                    Télécharger le PDF officiel
+                  </button>
+                )}
+                {email && (
+                  <a
+                    href={`mailto:${email}`}
+                    className="inline-flex items-center gap-2 px-3 h-9 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                  >
+                    <Send size={14} /> Contacter l&apos;exposant
+                  </a>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Alerte conflit */}

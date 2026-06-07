@@ -66,7 +66,6 @@ export interface RxT {
     exteriorPalaisDesc: string;
     spaceLabel: string;
     instructions: string;
-    rdvScales: string;
     date: string;
     chooseDate: string;
     slot: string;
@@ -134,6 +133,33 @@ export interface RxT {
     downloadCta: string;
     scalesReminder: string;
     newRequest: string;
+    /** Étape 5 — option « Autre » prestataire + champ libre obligatoire. */
+    otherProvider?: string;
+    otherProviderLabel?: string;
+    otherProviderPlaceholder?: string;
+    otherProviderRequired?: string;
+  };
+  /**
+   * Libellés liés au skip montage/démontage (étapes 3/4) et aux bannières de
+   * réactivation. Optionnel dans l'interface : un helper (`getSkipT`) fournit
+   * un repli français pour les langues non encore traduites — le typage reste
+   * strict et l'app fonctionne dans toutes les langues.
+   */
+  skip?: {
+    montageLabel: string;
+    demontageLabel: string;
+    addMontageBanner: string;
+    addMontageCta: string;
+    addDemontageBanner: string;
+    addDemontageCta: string;
+    selectCategoriesIntro: string;
+    bothSkippedWarning: string;
+  };
+  /** Consigne « bateaux à terre » (étape 3) — Scales + auto-déchargement. */
+  bateauTerre?: {
+    contactScales: string;
+    noConvoy: string;
+    autoUnload: string;
   };
   spaces: Record<string, RxSpaceT>;
   categories: Record<string, RxCategoryT>;
@@ -147,6 +173,8 @@ interface CategoryConcepts {
   standTente: string;
   motoristes: string;
   flotPonton: string;
+  /** Libellé de la catégorie unifiée « Ponton privatif » (repli FR si absent). */
+  pontonPrivatif?: string;
   tenteNuDevant: string;
   nuDevant: string;
   tender: string;
@@ -168,6 +196,12 @@ interface CategoryConcepts {
  */
 function buildCategories(c: CategoryConcepts): Record<string, RxCategoryT> {
   return {
+    // Modèle unifié (3 catégories) — ids alignés sur planning-data.ts.
+    "ponton-privatif": { name: c.pontonPrivatif ?? "Ponton privatif" },
+    "stand-tente": { name: c.tenteNuDevant },
+    "bateau-terre": { name: c.bateauTerre, scalesNote: c.noteG },
+    // Anciennes catégories conservées pour rétrocompat (accréditations déjà
+    // créées avant la refonte).
     "stand-nu-int": { name: c.standNu },
     "cle-en-main": { name: c.cleEnMain },
     "bateau-terre-int": { name: c.bateauTerre, scalesNote: c.noteA },
@@ -245,7 +279,6 @@ const fr: RxT = {
     spaceLabel: "Espace :",
     instructions:
       "Cochez chaque catégorie applicable à votre stand, puis renseignez la date, le créneau et le(s) véhicule(s) pour chacune.",
-    rdvScales: "RDV Scales",
     date: "Date",
     chooseDate: "— Choisir une date —",
     slot: "Créneau",
@@ -310,19 +343,44 @@ const fr: RxT = {
     validateHint: "Confirmez le consentement",
     validateHintScales: " et l'acquittement Scales",
     validateHintEnd: " pour valider.",
-    successTitleOne: "Accréditation enregistrée !",
-    successTitleMany: "accréditations enregistrées !",
+    successTitleOne: "Demande enregistrée !",
+    successTitleMany: "demandes enregistrées !",
     successPerVehicle: "Une accréditation a été créée par véhicule. ",
     successLogisticien: "Elles sont validées et visibles dans la liste.",
     successPublic:
       "Votre demande sera traitée puis validée par l'organisateur. Un e-mail de confirmation vous sera envoyé.",
     downloadNotice:
-      "Vous devez télécharger et présenter votre accréditation (QR code) à l'entrée du site.",
+      "Ce document peut être transmis au transporteur à titre informatif. Il ne constitue pas une accréditation d'accès.",
     generating: "Génération…",
-    downloadCta: "Télécharger mon accréditation",
+    downloadCta: "Télécharger ma demande",
     scalesReminder:
       "Rappel Scales : n'oubliez pas de prendre rendez-vous avec Scales pour les catégories concernées.",
     newRequest: "Nouvelle demande",
+    otherProvider: "Autre",
+    otherProviderLabel: "Nom du prestataire",
+    otherProviderPlaceholder: "Précisez le transporteur / prestataire",
+    otherProviderRequired: "Veuillez préciser le nom du prestataire.",
+  },
+  skip: {
+    montageLabel: "Je souhaite une accréditation uniquement pour le démontage",
+    demontageLabel: "Je ne souhaite pas d'accréditation pour le démontage",
+    addMontageBanner:
+      "Vous avez demandé une accréditation uniquement pour le démontage.",
+    addMontageCta: "Ajouter le montage",
+    addDemontageBanner:
+      "Vous n'avez pas demandé d'accréditation pour le démontage.",
+    addDemontageCta: "Ajouter le démontage",
+    selectCategoriesIntro:
+      "Sélectionnez les catégories concernées par le démontage, puis renseignez la date, le créneau et le véhicule.",
+    bothSkippedWarning:
+      "Vous devez conserver au moins le montage ou le démontage.",
+  },
+  bateauTerre: {
+    contactScales:
+      "Il est impératif de contacter notre manutentionnaire Scales (scales.expo@scales.fr) afin d'être intégré au planning des arrivées.",
+    noConvoy: "Les convois non prévus au planning n'auront pas accès aux quais.",
+    autoUnload:
+      "Bateaux à terre en auto-déchargement : sélectionnez « Stand sous tente / Espace nu devant bateau ».",
   },
   spaces: {
     INTERIEUR_PALAIS: { label: "Intérieur Palais des Festivals" },
@@ -347,7 +405,8 @@ const fr: RxT = {
     standTente: "Stand sous tente",
     motoristes: "Structures spécifiques (motoristes)",
     flotPonton: "Bateau à flot / ponton privatif",
-    tenteNuDevant: "Stand sous tente / espace nu devant bateau",
+    pontonPrivatif: "Ponton privatif",
+    tenteNuDevant: "Stand sous tente / Espace nu devant bateau",
     nuDevant: "Espace nu devant bateau",
     tender: "Bateau / Tender",
     tenteNuDevantSlash: "Tente / espace nu / devant bateau",
@@ -411,7 +470,6 @@ const en: RxT = {
     spaceLabel: "Area:",
     instructions:
       "Tick each category applicable to your stand, then enter the date, time slot and vehicle(s) for each one.",
-    rdvScales: "Scales appointment",
     date: "Date",
     chooseDate: "— Choose a date —",
     slot: "Time slot",
@@ -476,19 +534,41 @@ const en: RxT = {
     validateHint: "Confirm consent",
     validateHintScales: " and the Scales acknowledgement",
     validateHintEnd: " to validate.",
-    successTitleOne: "Accreditation saved!",
-    successTitleMany: "accreditations saved!",
+    successTitleOne: "Request registered!",
+    successTitleMany: "requests registered!",
     successPerVehicle: "One accreditation was created per vehicle. ",
     successLogisticien: "They are validated and visible in the list.",
     successPublic:
-      "Your request will be processed and validated by the organiser. A confirmation email will be sent to you.",
+      "Your request will be reviewed by the logistics team.",
     downloadNotice:
-      "You must download and present your accreditation (QR code) at the site entrance.",
+      "This document may be shared with your carrier for information only. It is not an access accreditation.",
     generating: "Generating…",
-    downloadCta: "Download my accreditation",
+    downloadCta: "Download my request",
     scalesReminder:
       "Scales reminder: do not forget to book an appointment with Scales for the relevant categories.",
     newRequest: "New request",
+    otherProvider: "Other",
+    otherProviderLabel: "Provider name",
+    otherProviderPlaceholder: "Specify the carrier / provider",
+    otherProviderRequired: "Please specify the provider name.",
+  },
+  skip: {
+    montageLabel: "I only need an accreditation for the teardown",
+    demontageLabel: "I do not need an accreditation for the teardown",
+    addMontageBanner: "You requested an accreditation for the teardown only.",
+    addMontageCta: "Add the set-up",
+    addDemontageBanner: "You did not request an accreditation for the teardown.",
+    addDemontageCta: "Add the teardown",
+    selectCategoriesIntro:
+      "Select the categories concerned by the teardown, then fill in the date, time slot and vehicle.",
+    bothSkippedWarning: "You must keep at least the set-up or the teardown.",
+  },
+  bateauTerre: {
+    contactScales:
+      "You must contact our handling company Scales (scales.expo@scales.fr) to be added to the arrival schedule.",
+    noConvoy: "Convoys not on the schedule will not be allowed on the quays.",
+    autoUnload:
+      "Boats ashore with self-unloading: select \u201cTented stand / bare space in front of boat\u201d.",
   },
   spaces: {
     INTERIEUR_PALAIS: { label: "Inside Palais des Festivals" },
@@ -513,6 +593,7 @@ const en: RxT = {
     standTente: "Tented stand",
     motoristes: "Specific structures (engine builders)",
     flotPonton: "Boat afloat / private pontoon",
+    pontonPrivatif: "Private pontoon",
     tenteNuDevant: "Tented stand / bare space in front of boat",
     nuDevant: "Bare space in front of boat",
     tender: "Boat / Tender",
@@ -578,7 +659,6 @@ const de: RxT = {
     spaceLabel: "Bereich:",
     instructions:
       "Kreuzen Sie jede für Ihren Stand zutreffende Kategorie an und geben Sie dann Datum, Zeitfenster und Fahrzeug(e) für jede an.",
-    rdvScales: "Scales-Termin",
     date: "Datum",
     chooseDate: "— Datum wählen —",
     slot: "Zeitfenster",
@@ -745,7 +825,6 @@ const es: RxT = {
     spaceLabel: "Espacio:",
     instructions:
       "Marque cada categoría aplicable a su stand y, a continuación, indique la fecha, la franja horaria y el/los vehículo(s) para cada una.",
-    rdvScales: "Cita Scales",
     date: "Fecha",
     chooseDate: "— Elegir una fecha —",
     slot: "Franja horaria",
@@ -912,7 +991,6 @@ const pt: RxT = {
     spaceLabel: "Espaço:",
     instructions:
       "Assinale cada categoria aplicável ao seu stand e indique a data, o intervalo de tempo e o(s) veículo(s) para cada uma.",
-    rdvScales: "Marcação Scales",
     date: "Data",
     chooseDate: "— Escolher uma data —",
     slot: "Intervalo de tempo",
@@ -1079,7 +1157,6 @@ const it: RxT = {
     spaceLabel: "Spazio:",
     instructions:
       "Seleziona ogni categoria applicabile al tuo stand, poi indica la data, la fascia oraria e il/i veicolo/i per ciascuna.",
-    rdvScales: "Appuntamento Scales",
     date: "Data",
     chooseDate: "— Scegli una data —",
     slot: "Fascia oraria",
@@ -1246,7 +1323,6 @@ const pl: RxT = {
     spaceLabel: "Strefa:",
     instructions:
       "Zaznacz każdą kategorię dotyczącą Twojego stoiska, a następnie podaj datę, przedział czasowy i pojazd(y) dla każdej.",
-    rdvScales: "Spotkanie Scales",
     date: "Data",
     chooseDate: "— Wybierz datę —",
     slot: "Przedział czasowy",
@@ -1413,7 +1489,6 @@ const cs: RxT = {
     spaceLabel: "Prostor:",
     instructions:
       "Zaškrtněte každou kategorii platnou pro váš stánek a poté zadejte datum, časové okno a vozidlo/vozidla pro každou.",
-    rdvScales: "Schůzka Scales",
     date: "Datum",
     chooseDate: "— Vyberte datum —",
     slot: "Časové okno",
@@ -1580,7 +1655,6 @@ const lt: RxT = {
     spaceLabel: "Zona:",
     instructions:
       "Pažymėkite kiekvieną jūsų stendui taikomą kategoriją, tada nurodykite datą, laiko tarpą ir transporto priemonę(-es) kiekvienai.",
-    rdvScales: "Scales susitikimas",
     date: "Data",
     chooseDate: "— Pasirinkite datą —",
     slot: "Laiko tarpas",
@@ -1747,7 +1821,6 @@ const tr: RxT = {
     spaceLabel: "Alan:",
     instructions:
       "Standınıza uygun her kategoriyi işaretleyin, ardından her biri için tarih, zaman aralığı ve araç(lar)ı girin.",
-    rdvScales: "Scales randevusu",
     date: "Tarih",
     chooseDate: "— Bir tarih seçin —",
     slot: "Zaman aralığı",
@@ -1914,7 +1987,6 @@ const ru: RxT = {
     spaceLabel: "Зона:",
     instructions:
       "Отметьте каждую применимую к вашему стенду категорию, затем укажите дату, временной интервал и транспортное(ые) средство(а) для каждой.",
-    rdvScales: "Встреча Scales",
     date: "Дата",
     chooseDate: "— Выберите дату —",
     slot: "Временной интервал",

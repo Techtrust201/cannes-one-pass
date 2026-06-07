@@ -126,6 +126,14 @@ export interface AccreditationTemplate<TData = unknown> {
   slug: TemplateSlug;
   /** Nombre total de steps (sert à la progress bar). */
   steps: StepDef<TData>[];
+  /**
+   * Hook optionnel : renvoie la liste des étapes **visibles** pour un état
+   * de formulaire donné. Permet à un template (ex. RX avec skip montage /
+   * démontage) de masquer dynamiquement certaines étapes de la progress bar
+   * et de la navigation. Si non défini (ex. Palais), `steps` est utilisé tel
+   * quel → comportement statique strictement inchangé.
+   */
+  getVisibleSteps?: (form: TData) => StepDef<TData>[];
   /** Valeur initiale du form data — restaurée depuis localStorage si possible. */
   initialData: () => TData;
   /** Schéma Zod côté serveur pour valider le payload complet à l'arrivée. */

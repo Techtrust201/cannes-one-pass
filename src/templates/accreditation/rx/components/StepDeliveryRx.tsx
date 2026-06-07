@@ -5,8 +5,20 @@ import { cn } from "@/lib/utils";
 import { handleSanitizedPlateInput } from "@/lib/plate-utils";
 import { useVehicleTypes } from "@/hooks/useVehicleTypes";
 import { useTranslation } from "@/components/accreditation/TranslationProvider";
-import { RX_SPACES, PALAIS_CHOICE, genSlots, formatSlot } from "../config";
-import { getLocalizedSpace, getLocalizedCategory, formatDateLocalized } from "../i18n";
+import {
+  RX_SPACES,
+  PALAIS_CHOICE,
+  genSlots,
+  formatSlot,
+  isBateauTerreAllowed,
+} from "../config";
+import {
+  getLocalizedSpace,
+  getLocalizedCategory,
+  formatDateLocalized,
+  getSkipT,
+  getBateauTerreT,
+} from "../i18n";
 import type { StepProps } from "../../types";
 import type { RxFormData } from "../types";
 
@@ -36,11 +48,30 @@ export function StepDeliveryRx({
     return RX_SPACES[stepOne.space] ?? null;
   }, [needsPalaisChoice, stepOne.space]);
 
+  const skipT = getSkipT(t);
+
   const setPalaisChoice = (choice: "INTERIEUR_PALAIS" | "EXTERIEUR_PALAIS") => {
     // Les catégories diffèrent entre Intérieur et Extérieur Palais : on
     // réinitialise les livraisons déjà saisies pour éviter de conserver des
     // catégories de l'autre espace.
-    update({ stepOne: { ...stepOne, space: choice }, stepTwo: { categories: [] } });
+    update({
+      stepOne: { ...stepOne, space: choice },
+      stepTwo: { ...stepTwo, categories: [] },
+    });
+  };
+
+  // Skip montage : « accréditation uniquement pour le démontage ». Coché ici,
+  // l'étape Livraison disparaît (cf. getVisibleSteps) et les catégories sont
+  // sélectionnées à l'étape Reprise. On vide les catégories pour repartir
+  // proprement côté démontage.
+  const setSkipMontage = (v: boolean) => {
+    update({
+      stepTwo: {
+        ...stepTwo,
+        skipMontage: v,
+        categories: v ? [] : stepTwo.categories,
+      },
+    });
   };
 
   const toggleCategory = (catId: string) => {
@@ -168,7 +199,6 @@ export function StepDeliveryRx({
             onClick={() => setPalaisChoice("INTERIEUR_PALAIS")}
             className="border-2 border-gray-300 hover:border-primary rounded-xl p-4 text-left transition"
           >
-            <div className="text-2xl mb-1">🏛️</div>
             <div className="font-semibold text-gray-800">
               {t.rx.delivery.interiorPalais}
             </div>
@@ -181,7 +211,6 @@ export function StepDeliveryRx({
             onClick={() => setPalaisChoice("EXTERIEUR_PALAIS")}
             className="border-2 border-gray-300 hover:border-primary rounded-xl p-4 text-left transition"
           >
-            <div className="text-2xl mb-1">⛺</div>
             <div className="font-semibold text-gray-800">
               {t.rx.delivery.exteriorPalais}
             </div>
@@ -195,6 +224,18 @@ export function StepDeliveryRx({
   }
 
   const localizedSpace = getLocalizedSpace(currentSpace!, t);
+  const bateauTerreT = getBateauTerreT(t);
+
+  // Catégories affichées au montage : uniquement celles ayant des plages de
+  // livraison, et « Bateaux à terre » seulement si le secteur l'autorise
+  // (Canto POWER / Vieux Port PALAIS ext).
+  const visibleCategories = currentSpace!.categories.filter((cat) => {
+    if (Object.keys(cat.liv).length === 0) return false;
+    if (cat.id === "bateau-terre" && !isBateauTerreAllowed(stepOne.exhibitorSector)) {
+      return false;
+    }
+    return true;
+  });
 
   return (
     <div className="flex flex-col w-full gap-4">
@@ -203,17 +244,31 @@ export function StepDeliveryRx({
           {t.rx.delivery.title}
         </h2>
         <div className="rounded-md bg-blue-50 border border-blue-200 p-2.5 text-sm text-blue-900 mt-2">
-          <strong>📍 {t.rx.delivery.spaceLabel}</strong> {localizedSpace.label}
+          <strong>{t.rx.delivery.spaceLabel}</strong> {localizedSpace.label}
           {localizedSpace.note ? (
             <span className="block text-xs text-blue-700 mt-0.5">{localizedSpace.note}</span>
           ) : null}
         </div>
       </div>
 
-      <p className="text-sm text-gray-700">✅ {t.rx.delivery.instructions}</p>
+      {/* Skip montage : on ne le propose que si le démontage n'est pas déjà
+          sauté (au moins une phase doit rester). */}
+      {!stepTwo.skipDemontage && (
+        <label className="flex items-start gap-2 text-sm bg-gray-50 border border-gray-200 rounded-lg p-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={!!stepTwo.skipMontage}
+            onChange={(e) => setSkipMontage(e.target.checked)}
+            className="mt-0.5 accent-primary"
+          />
+          <span className="text-gray-700">{skipT.montageLabel}</span>
+        </label>
+      )}
+
+      <p className="text-sm text-gray-700">{t.rx.delivery.instructions}</p>
 
       <div className="space-y-3">
-        {currentSpace!.categories.map((cat) => {
+        {visibleCategories.map((cat) => {
           const selected = stepTwo.categories.find((c) => c.categoryId === cat.id);
           const slots = selected?.livDate ? genSlots(cat.liv[selected.livDate] ?? "") : [];
           const localizedCat = getLocalizedCategory(cat, t);
@@ -234,13 +289,8 @@ export function StepDeliveryRx({
                 />
                 <div className="flex-1">
                   <div className="font-semibold text-gray-800">
-                    {cat.icon} {localizedCat.name}
+                    {localizedCat.name}
                   </div>
-                  {cat.scales && (
-                    <span className="inline-block text-[11px] text-orange-700 bg-orange-50 border border-orange-200 rounded-full px-2 py-0.5 mt-1">
-                      ⚠ {t.rx.delivery.rdvScales}
-                    </span>
-                  )}
                 </div>
               </label>
 
@@ -395,11 +445,11 @@ export function StepDeliveryRx({
                     ))}
                   </div>
 
-                  {cat.scales && (
-                    <div className="text-xs bg-orange-50 border border-orange-200 rounded-md p-2.5 text-orange-800">
-                      <strong>{t.rx.delivery.scalesMandatory}</strong>{" "}
-                      {localizedCat.scalesNote ?? t.rx.delivery.scalesDefault}{" "}
-                      {t.rx.delivery.scalesContact} <strong>scales@manutention.fr</strong>
+                  {cat.id === "bateau-terre" && (
+                    <div className="text-xs bg-orange-50 border border-orange-200 rounded-md p-2.5 text-orange-800 space-y-1">
+                      <p>{bateauTerreT.contactScales}</p>
+                      <p>{bateauTerreT.noConvoy}</p>
+                      <p className="italic">{bateauTerreT.autoUnload}</p>
                     </div>
                   )}
                 </div>

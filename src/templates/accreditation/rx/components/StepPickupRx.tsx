@@ -5,8 +5,18 @@ import { cn } from "@/lib/utils";
 import { handleSanitizedPlateInput } from "@/lib/plate-utils";
 import { useVehicleTypes } from "@/hooks/useVehicleTypes";
 import { useTranslation } from "@/components/accreditation/TranslationProvider";
-import { findCategory, genSlots, formatSlot } from "../config";
-import { getLocalizedCategory, formatDateLocalized } from "../i18n";
+import {
+  RX_SPACES,
+  findCategory,
+  genSlots,
+  formatSlot,
+  isBateauTerreAllowed,
+} from "../config";
+import {
+  getLocalizedCategory,
+  formatDateLocalized,
+  getSkipT,
+} from "../i18n";
 import type { StepProps } from "../../types";
 import type { RxFormData, RxCategorySelection } from "../types";
 
@@ -21,10 +31,13 @@ type RepVehiclePatch = Partial<{
 /**
  * Step 4 RX — Gestion des reprises (démontage).
  *
- * Les catégories cochées au montage sont reprises automatiquement
- * (verrouillées : on ne peut ni ajouter ni retirer ici). Pour chacune,
- * l'exposant choisit la date + le créneau 1 h de reprise parmi les jours
- * d'ouverture `rep` de la catégorie, puis précise le véhicule de reprise.
+ * Deux modes :
+ * - **Normal** (montage rempli) : les catégories cochées au montage sont
+ *   reprises automatiquement (verrouillées). Pour chacune, date + créneau +
+ *   véhicule de reprise.
+ * - **Skip montage** (« accréditation uniquement pour le démontage ») : les
+ *   catégories sont **sélectionnées ici**, avec date/créneau et véhicule
+ *   (gabarit obligatoire, plaque optionnelle).
  */
 export function StepPickupRx({
   data,
@@ -35,7 +48,12 @@ export function StepPickupRx({
   const { t, lang } = useTranslation();
   const { stepOne, stepTwo } = data;
   const { types: vehicleTypes, loading: typesLoading } = useVehicleTypes(false, orgSlug);
+  const skipT = getSkipT(t);
 
+  const skipMontage = !!stepTwo.skipMontage;
+  const currentSpace = RX_SPACES[stepOne.space] ?? null;
+
+  // ── Mutations communes ──────────────────────────────────────────────
   const patchReturn = (catId: string, patch: { repDate?: string; repTime?: string }) => {
     update({
       stepTwo: {
@@ -69,6 +87,91 @@ export function StepPickupRx({
     });
   };
 
+  // ── Mutations spécifiques au mode skip montage (sélection ici) ───────
+  const toggleCategory = (catId: string) => {
+    const existing = stepTwo.categories.find((c) => c.categoryId === catId);
+    if (existing) {
+      update({
+        stepTwo: {
+          ...stepTwo,
+          categories: stepTwo.categories.filter((c) => c.categoryId !== catId),
+        },
+      });
+    } else {
+      update({
+        stepTwo: {
+          ...stepTwo,
+          categories: [
+            ...stepTwo.categories,
+            {
+              categoryId: catId,
+              livDate: "",
+              livTime: "",
+              repDate: "",
+              repTime: "",
+              vehicles: [{ vehicleType: "", plate: null, repSameAsDelivery: true }],
+            },
+          ],
+        },
+      });
+    }
+  };
+
+  const addVehicle = (catId: string) => {
+    update({
+      stepTwo: {
+        ...stepTwo,
+        categories: stepTwo.categories.map((c) =>
+          c.categoryId === catId
+            ? { ...c, vehicles: [...c.vehicles, { vehicleType: "", plate: null, repSameAsDelivery: true }] }
+            : c
+        ),
+      },
+    });
+  };
+
+  const updateVehicle = (
+    catId: string,
+    idx: number,
+    patch: { vehicleType?: string; plate?: string | null; interveningCompany?: string }
+  ) => {
+    update({
+      stepTwo: {
+        ...stepTwo,
+        categories: stepTwo.categories.map((c) =>
+          c.categoryId === catId
+            ? {
+                ...c,
+                vehicles: c.vehicles.map((v, i) => (i === idx ? { ...v, ...patch } : v)),
+              }
+            : c
+        ),
+      },
+    });
+  };
+
+  const removeVehicle = (catId: string, idx: number) => {
+    update({
+      stepTwo: {
+        ...stepTwo,
+        categories: stepTwo.categories.map((c) =>
+          c.categoryId === catId
+            ? { ...c, vehicles: c.vehicles.filter((_, i) => i !== idx) }
+            : c
+        ),
+      },
+    });
+  };
+
+  // ── Réactivation du montage / skip démontage ────────────────────────
+  const reAddMontage = () => {
+    update({ stepTwo: { ...stepTwo, skipMontage: false } });
+  };
+  const setSkipDemontage = (v: boolean) => {
+    update({ stepTwo: { ...stepTwo, skipDemontage: v } });
+  };
+
+  // ── Reprise « même véhicule que la livraison » (mode normal) ─────────
   const copyDeliveryToRep = (
     cat: RxCategorySelection,
     vehicleIdx: number
@@ -101,33 +204,257 @@ export function StepPickupRx({
     }
   };
 
+  // ── Validation ──────────────────────────────────────────────────────
   const repVehicleValid = (cat: RxCategorySelection) =>
     cat.vehicles.every((v) => {
       const same = v.repSameAsDelivery !== false;
       if (same) return true;
       return Boolean(
-        v.repVehicleType &&
-          v.repPhoneCode?.trim() &&
-          v.repPhoneNumber?.trim()
+        v.repVehicleType && v.repPhoneCode?.trim() && v.repPhoneNumber?.trim()
       );
     });
 
-  const isValid =
-    stepTwo.categories.length > 0 &&
-    stepTwo.categories.every(
-      (c) => c.repDate && c.repTime && repVehicleValid(c)
-    );
+  const isValid = skipMontage
+    ? // Mode sélection : ≥1 catégorie, date + créneau + véhicule (gabarit).
+      stepTwo.categories.length > 0 &&
+      stepTwo.categories.every(
+        (c) =>
+          c.repDate &&
+          c.repTime &&
+          c.vehicles.length > 0 &&
+          c.vehicles.every((v) => v.vehicleType)
+      )
+    : // Mode normal : catégories héritées du montage, reprise renseignée.
+      stepTwo.categories.length > 0 &&
+      stepTwo.categories.every(
+        (c) => c.repDate && c.repTime && repVehicleValid(c)
+      );
 
   useEffect(() => {
     onValidityChange(isValid);
   }, [isValid, onValidityChange]);
 
+  // Bannière de réactivation du montage (mode skip montage).
+  const montageBanner = skipMontage ? (
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-900">
+      <span>{skipT.addMontageBanner}</span>
+      <button
+        type="button"
+        onClick={reAddMontage}
+        className="text-amber-800 font-semibold underline hover:no-underline"
+      >
+        + {skipT.addMontageCta}
+      </button>
+    </div>
+  ) : null;
+
+  // ── Rendu : mode skip montage (sélection des catégories ici) ─────────
+  if (skipMontage) {
+    return (
+      <div className="flex flex-col w-full gap-4">
+        {montageBanner}
+        <div>
+          <h2 className="text-base font-semibold text-gray-800 mb-1">
+            {t.rx.pickup.title}
+          </h2>
+          <p className="text-sm text-gray-500">{skipT.selectCategoriesIntro}</p>
+        </div>
+
+        {!currentSpace && (
+          <p className="text-sm text-gray-500 italic">{t.rx.pickup.emptyHint}</p>
+        )}
+
+        <div className="space-y-3">
+          {(currentSpace?.categories ?? [])
+            .filter((cat) => {
+              if (Object.keys(cat.rep).length === 0) return false;
+              if (
+                cat.id === "bateau-terre" &&
+                !isBateauTerreAllowed(stepOne.exhibitorSector)
+              ) {
+                return false;
+              }
+              return true;
+            })
+            .map((cat) => {
+            const selected = stepTwo.categories.find((c) => c.categoryId === cat.id);
+            const slots = selected?.repDate ? genSlots(cat.rep[selected.repDate] ?? "") : [];
+            const localizedCat = getLocalizedCategory(cat, t);
+            return (
+              <div
+                key={cat.id}
+                className={cn(
+                  "border rounded-lg p-3 transition",
+                  selected ? "border-primary bg-primary/5" : "border-gray-200 bg-white"
+                )}
+              >
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!selected}
+                    onChange={() => toggleCategory(cat.id)}
+                    className="mt-1 accent-primary"
+                  />
+                  <span className="font-semibold text-gray-800">{localizedCat.name}</span>
+                </label>
+
+                {selected && (
+                  <div className="mt-3 pl-6 space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-semibold text-gray-700 block mb-1">
+                          {t.rx.pickup.pickupDate} <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          value={selected.repDate}
+                          onChange={(e) =>
+                            patchReturn(cat.id, { repDate: e.target.value, repTime: "" })
+                          }
+                          className={cn(
+                            "w-full border rounded-md px-2 py-1.5 text-sm",
+                            !selected.repDate && "border-red-400"
+                          )}
+                        >
+                          <option value="">{t.rx.pickup.chooseDate}</option>
+                          {Object.keys(cat.rep).map((date) => (
+                            <option key={date} value={date}>
+                              {formatDateLocalized(date, lang)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-gray-700 block mb-1">
+                          {t.rx.pickup.slot} <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          value={selected.repTime}
+                          disabled={!selected.repDate}
+                          onChange={(e) => patchReturn(cat.id, { repTime: e.target.value })}
+                          className={cn(
+                            "w-full border rounded-md px-2 py-1.5 text-sm disabled:bg-gray-100 disabled:text-gray-400",
+                            selected.repDate && !selected.repTime && "border-red-400"
+                          )}
+                        >
+                          <option value="">
+                            {selected.repDate ? t.rx.pickup.chooseSlot : t.rx.pickup.chooseDateFirst}
+                          </option>
+                          {slots.map((s) => (
+                            <option key={s} value={s}>
+                              {formatSlot(s)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-gray-700">
+                          {t.rx.pickup.pickupVehicles}{" "}
+                          <span className="font-normal text-gray-400">
+                            {t.rx.delivery.vehiclesHint}
+                          </span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => addVehicle(cat.id)}
+                          disabled={typesLoading || vehicleTypes.length === 0}
+                          className="text-xs text-primary hover:underline disabled:opacity-50 disabled:no-underline"
+                        >
+                          {t.rx.delivery.addVehicle}
+                        </button>
+                      </div>
+                      {selected.vehicles.map((v, idx) => (
+                        <div
+                          key={idx}
+                          className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2 items-end"
+                        >
+                          <div className="sm:col-span-3">
+                            <label className="text-xs text-gray-600 block mb-0.5">
+                              {t.rx.delivery.interveningCompany}
+                            </label>
+                            <input
+                              value={v.interveningCompany ?? ""}
+                              onChange={(e) =>
+                                updateVehicle(cat.id, idx, { interveningCompany: e.target.value })
+                              }
+                              placeholder={t.rx.delivery.interveningPlaceholder}
+                              className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-gray-600 block mb-0.5">
+                              {t.rx.delivery.vehicleType} <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                              value={v.vehicleType}
+                              onChange={(e) =>
+                                updateVehicle(cat.id, idx, { vehicleType: e.target.value })
+                              }
+                              disabled={typesLoading || vehicleTypes.length === 0}
+                              className={cn(
+                                "w-full border rounded-md px-2 py-1.5 text-sm disabled:bg-gray-100 disabled:text-gray-400",
+                                !v.vehicleType && "border-red-400"
+                              )}
+                            >
+                              <option value="">{t.rx.delivery.choose}</option>
+                              {vehicleTypes.map((vt) => (
+                                <option key={vt.id} value={vt.code}>
+                                  {vt.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-xs text-gray-600 block mb-0.5">
+                              {t.rx.delivery.plateOptional}
+                            </label>
+                            <input
+                              value={v.plate ?? ""}
+                              onChange={(e) =>
+                                handleSanitizedPlateInput(e, (sanitized) =>
+                                  updateVehicle(cat.id, idx, { plate: sanitized || null })
+                                )
+                              }
+                              placeholder="AA123BB"
+                              className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm uppercase"
+                            />
+                          </div>
+                          {selected.vehicles.length > 1 ? (
+                            <button
+                              type="button"
+                              onClick={() => removeVehicle(cat.id, idx)}
+                              className="text-xs text-red-600 hover:underline pb-1.5"
+                              aria-label={t.rx.delivery.removeVehicle}
+                            >
+                              ✕
+                            </button>
+                          ) : (
+                            <span />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {!isValid && (
+          <p className="text-gray-400 text-xs text-center">{t.rx.pickup.validationHint}</p>
+        )}
+      </div>
+    );
+  }
+
+  // ── Rendu : mode normal (catégories héritées du montage, verrouillées) ─
   if (stepTwo.categories.length === 0) {
     return (
       <div className="flex flex-col w-full gap-3">
-        <h2 className="text-base font-semibold text-gray-800">
-          {t.rx.pickup.title}
-        </h2>
+        <h2 className="text-base font-semibold text-gray-800">{t.rx.pickup.title}</h2>
         <p className="text-sm text-gray-500 italic">{t.rx.pickup.emptyHint}</p>
       </div>
     );
@@ -141,6 +468,18 @@ export function StepPickupRx({
         </h2>
         <p className="text-sm text-gray-500">⏪ {t.rx.pickup.intro}</p>
       </div>
+
+      {/* Skip démontage : « Je ne souhaite pas d'accréditation pour le
+          démontage ». Coché, l'étape disparaît et on passe à la manutention. */}
+      <label className="flex items-start gap-2 text-sm bg-gray-50 border border-gray-200 rounded-lg p-3 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={!!stepTwo.skipDemontage}
+          onChange={(e) => setSkipDemontage(e.target.checked)}
+          className="mt-0.5 accent-primary"
+        />
+        <span className="text-gray-700">{skipT.demontageLabel}</span>
+      </label>
 
       <div className="space-y-3">
         {stepTwo.categories.map((cat) => {
@@ -159,7 +498,7 @@ export function StepPickupRx({
                   aria-label={`${localizedDef.name} ${t.rx.pickup.lockedAria}`}
                 />
                 <span className="text-sm font-semibold text-gray-800">
-                  {def.icon} {localizedDef.name}
+                  {localizedDef.name}
                 </span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
@@ -222,7 +561,7 @@ export function StepPickupRx({
                 {cat.vehicles.map((v, idx) => {
                   const sameVehicle = v.repSameAsDelivery !== false;
                   const deliveryLabel =
-                    v.vehicleType && vehicleTypes.find((t) => t.code === v.vehicleType)?.label;
+                    v.vehicleType && vehicleTypes.find((vt) => vt.code === v.vehicleType)?.label;
                   return (
                     <div
                       key={idx}

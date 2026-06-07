@@ -34,7 +34,7 @@ export default async function ContactPage({ params }: PageProps) {
       <main className="mb-24 flex-1 flex flex-col items-center px-4 sm:px-6 lg:px-8 py-10">
         <div className="px-4 flex flex-col items-center text-white gap-1 w-full max-w-3xl mb-8">
           <h1 className="text-4xl font-bold">Besoin d&apos;aide ?</h1>
-          <p className="text-lg opacity-80">{org.name} — Ouverture de ticket</p>
+          <p className="text-lg opacity-80">Support logistique</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8 w-11/12 max-w-2xl">

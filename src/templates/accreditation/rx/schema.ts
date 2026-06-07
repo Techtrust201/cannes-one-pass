@@ -82,6 +82,57 @@ export const rxExtensionSchema = z.object({
     .min(1, "Au moins une catégorie est requise"),
   scalesAssigned: z.boolean(),
   manutentionProvider: z.string(),
+  // Prestataire libre quand l'exposant choisit « Autre » à l'étape 5.
+  manutentionProviderOther: z.string().optional(),
+  // Skip montage / démontage : au moins une des deux phases doit rester.
+  // Les dates liv/rep correspondantes sont alors vides (déjà autorisé :
+  // livDate/livTime/repDate/repTime sont des z.string() sans .min()).
+  skipMontage: z.boolean().optional(),
+  skipDemontage: z.boolean().optional(),
+  // Zone de déchargement suggérée (pré-assignation back-office RX).
+  suggestedZone: z.string().optional(),
+}).superRefine((ext, ctx) => {
+  const skipMontage = ext.skipMontage === true;
+  const skipDemontage = ext.skipDemontage === true;
+
+  // Au moins une phase (montage OU démontage) doit rester.
+  if (skipMontage && skipDemontage) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Au moins le montage ou le démontage doit être conservé.",
+      path: ["skipMontage"],
+    });
+  }
+
+  // Dates conditionnelles : requises sauf si la phase correspondante est sautée.
+  ext.categories.forEach((cat, i) => {
+    if (!skipMontage && (!cat.livDate || !cat.livTime)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Date et créneau de livraison requis (montage).",
+        path: ["categories", i, "livDate"],
+      });
+    }
+    if (!skipDemontage && (!cat.repDate || !cat.repTime)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Date et créneau de reprise requis (démontage).",
+        path: ["categories", i, "repDate"],
+      });
+    }
+  });
+
+  // « Autre » prestataire → texte libre obligatoire.
+  if (
+    ext.manutentionProvider === "Autre" &&
+    !ext.manutentionProviderOther?.trim()
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Veuillez préciser le nom du prestataire.",
+      path: ["manutentionProviderOther"],
+    });
+  }
 });
 
 export const rxPayloadSchema = z.object({

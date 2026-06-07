@@ -13,9 +13,19 @@ export async function readAccreditations(options?: {
    * bien rattachées à l'organisation.
    */
   organizationId?: string | null;
+  /**
+   * Pré-filtres poussés au niveau SQL (perf back-office) : réduisent le jeu
+   * chargé en mémoire. Équivalents stricts aux filtres d'égalité appliqués
+   * côté page (statut, zone), donc sans changement de résultat. La recherche
+   * texte et le tri restent en mémoire (champs calculés).
+   */
+  status?: string | null;
+  zone?: string | null;
 }): Promise<Accreditation[]> {
   const scope = options?.accessibleEventIds ?? "ALL";
   const orgId = options?.organizationId ?? null;
+  const statusFilter = options?.status && options.status !== "all" ? options.status : null;
+  const zoneFilter = options?.zone && options.zone !== "all" ? options.zone : null;
 
   // Construction du filtre tenant :
   // - scope "ALL" sans org → aucun filtre (super-admin global).
@@ -32,7 +42,12 @@ export async function readAccreditations(options?: {
   }
 
   const rows = await withRetry(() => prisma.accreditation.findMany({
-    where: { isArchived: false, ...tenantFilter },
+    where: {
+      isArchived: false,
+      ...tenantFilter,
+      ...(statusFilter ? { status: statusFilter as never } : {}),
+      ...(zoneFilter ? { currentZone: zoneFilter } : {}),
+    },
     include: {
       vehicles: {
         include: {
@@ -65,6 +80,7 @@ export async function readAccreditations(options?: {
 
       return {
         id: a.id,
+        publicToken: a.publicToken ?? null,
         createdAt: a.createdAt,
         updatedAt: a.updatedAt,
         version: a.version,

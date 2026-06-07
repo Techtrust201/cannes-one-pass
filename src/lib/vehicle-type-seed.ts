@@ -29,6 +29,7 @@ export async function seedVehicleTypes(orgId: string | null = null) {
             color: t.color,
             showTrailerPlate: t.showTrailerPlate,
             sortOrder: t.sortOrder,
+            rxPalmBeachAtCanto: t.rxPalmBeachAtCanto ?? false,
             isActive: true,
           },
         })
@@ -48,6 +49,7 @@ export async function seedVehicleTypes(orgId: string | null = null) {
             color: t.color,
             showTrailerPlate: t.showTrailerPlate,
             sortOrder: t.sortOrder,
+            rxPalmBeachAtCanto: t.rxPalmBeachAtCanto ?? false,
             isActive: true,
             organizationId: orgId,
           },

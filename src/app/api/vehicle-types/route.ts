@@ -125,6 +125,7 @@ export async function POST(req: NextRequest) {
       color,
       showTrailerPlate,
       sortOrder,
+      rxPalmBeachAtCanto,
     } = body as Record<string, unknown>;
 
     if (!label || !gabarit) {
@@ -145,11 +146,15 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "Ce code gabarit existe déjà" }, { status: 409 });
     }
 
+    const trimmedGabarit = String(gabarit).trim();
+    const trimmedLabel =
+      (typeof label === "string" && label.trim()) || trimmedGabarit;
+
     const created = await prisma.vehicleTypeConfig.create({
       data: {
         code: finalCode,
-        label: String(label).trim(),
-        gabarit: String(gabarit).trim(),
+        label: trimmedLabel,
+        gabarit: trimmedGabarit,
         tonnageMini: Number(tonnageMini ?? 0),
         tonnageMoyen: Number(tonnageMoyen ?? 0),
         tonnageMaxi: Number(tonnageMaxi ?? 0),
@@ -157,6 +162,7 @@ export async function POST(req: NextRequest) {
         pdfCode: typeof pdfCode === "string" ? pdfCode : "C",
         color: typeof color === "string" ? color : "gray",
         showTrailerPlate: Boolean(showTrailerPlate),
+        rxPalmBeachAtCanto: Boolean(rxPalmBeachAtCanto ?? false),
         sortOrder: Number(sortOrder ?? 0),
         organizationId: orgId,
       },

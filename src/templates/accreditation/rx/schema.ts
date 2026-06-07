@@ -9,8 +9,7 @@ import { z } from "zod";
  */
 export const rxVehicleSchema = z.object({
   plate: z.string().nullable().optional(),
-  // size / city sont rendus optionnels pour RX (renseignés à l'arrivée
-  // au scan QR — pas obligatoires à la création).
+  // size est optionnel pour RX ; city est optionnelle (bilan carbone, saisie exposant).
   size: z.string().optional().default(""),
   phoneCode: z.string().min(1),
   phoneNumber: z.string().min(1),

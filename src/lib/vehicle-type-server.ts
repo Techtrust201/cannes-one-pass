@@ -16,6 +16,7 @@ export function mapDbVehicleType(type: VehicleTypeConfig): VehicleTypeData {
     pdfCode: type.pdfCode as VehicleTypeData["pdfCode"],
     color: type.color,
     showTrailerPlate: type.showTrailerPlate,
+    rxPalmBeachAtCanto: type.rxPalmBeachAtCanto,
     sortOrder: type.sortOrder,
     isActive: type.isActive,
   };
@@ -25,6 +26,7 @@ export function mapDefaultVehicleTypes(): VehicleTypeData[] {
   return DEFAULT_VEHICLE_TYPES.map((t, index) => ({
     id: index + 1,
     ...t,
+    rxPalmBeachAtCanto: t.rxPalmBeachAtCanto ?? false,
     isActive: true,
   }));
 }
@@ -39,23 +41,23 @@ export function resolveVehicleTypeLabelFromList(
 
   if (vehicleType) {
     const match = byCode(vehicleType);
-    if (match) return match.label;
+    if (match) return match.gabarit.trim() || match.label;
   }
 
   if (fallbackSize) {
     const match = byCode(fallbackSize);
-    if (match) return match.label;
+    if (match) return match.gabarit.trim() || match.label;
 
     const s = fallbackSize.toUpperCase();
-    if (s.includes("SEMI")) return byCode("SEMI_REMORQUE")?.label ?? "Semi-remorque";
-    if (s.includes("ARTICUL")) return byCode("PORTEUR_ARTICULE")?.label ?? "Porteur articulé";
-    if (s.includes("GROS") || s.includes("20")) return byCode("GROS_PORTEUR")?.label ?? "Gros porteur (20 m³)";
-    if (s.includes("LEGER") || s.includes("10")) return byCode("PORTEUR_LEGER")?.label ?? "Porteur léger (10 m³)";
-    if (s.includes("VL") || s.includes("FOURGON")) return byCode("VL")?.label ?? "Fourgon / VL";
-    if (s.includes("PORTEUR")) return byCode("PORTEUR")?.label ?? "Porteur moyen (15 m³)";
+    if (s.includes("SEMI")) return byCode("SEMI_REMORQUE")?.gabarit ?? "~90 m³";
+    if (s.includes("ARTICUL")) return byCode("PORTEUR_ARTICULE")?.gabarit ?? "~100 m³";
+    if (s.includes("GROS") || s.includes("20")) return byCode("GROS_PORTEUR")?.gabarit ?? "20 m³";
+    if (s.includes("LEGER") || s.includes("10")) return byCode("PORTEUR_LEGER")?.gabarit ?? "10 m³";
+    if (s.includes("VL") || s.includes("FOURGON")) return byCode("VL")?.gabarit ?? "VL";
+    if (s.includes("PORTEUR")) return byCode("PORTEUR")?.gabarit ?? "15 m³";
   }
 
-  return byCode("PORTEUR")?.label ?? "Porteur moyen (15 m³)";
+  return byCode("PORTEUR")?.gabarit ?? "15 m³";
 }
 
 export function resolveVehicleTypeShortLabelFromList(

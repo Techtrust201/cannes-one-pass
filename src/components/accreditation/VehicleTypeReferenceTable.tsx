@@ -40,7 +40,7 @@ export default function VehicleTypeReferenceTable() {
                     <span
                       className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${colors.bg} ${colors.text}`}
                     >
-                      {type.label}
+                      {type.gabarit}
                     </span>
                   </td>
                   <td className="px-3 py-2 text-right font-mono">

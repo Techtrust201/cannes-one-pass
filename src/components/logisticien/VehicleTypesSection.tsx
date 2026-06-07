@@ -24,6 +24,7 @@ interface VehicleTypesSectionProps {
 const EMPTY_FORM = {
   label: "",
   gabarit: "",
+  code: "",
   tonnageMini: "",
   tonnageMoyen: "",
   tonnageMaxi: "",
@@ -31,6 +32,7 @@ const EMPTY_FORM = {
   pdfCode: "C",
   color: "gray",
   showTrailerPlate: false,
+  rxPalmBeachAtCanto: false,
   sortOrder: "0",
 };
 
@@ -73,8 +75,8 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          label: createForm.label.trim(),
           gabarit: createForm.gabarit.trim(),
+          label: createForm.gabarit.trim(),
           tonnageMini: Number(createForm.tonnageMini || 0),
           tonnageMoyen: Number(createForm.tonnageMoyen || 0),
           tonnageMaxi: Number(createForm.tonnageMaxi || 0),
@@ -82,6 +84,7 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
           pdfCode: createForm.pdfCode,
           color: createForm.color,
           showTrailerPlate: createForm.showTrailerPlate,
+          rxPalmBeachAtCanto: createForm.rxPalmBeachAtCanto,
           sortOrder: Number(createForm.sortOrder || 0),
         }),
       });
@@ -106,6 +109,7 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
     setEditForm({
       label: type.label,
       gabarit: type.gabarit,
+      code: type.code,
       tonnageMini: String(type.tonnageMini),
       tonnageMoyen: String(type.tonnageMoyen),
       tonnageMaxi: String(type.tonnageMaxi),
@@ -113,6 +117,7 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
       pdfCode: type.pdfCode,
       color: type.color,
       showTrailerPlate: type.showTrailerPlate,
+      rxPalmBeachAtCanto: type.rxPalmBeachAtCanto,
       sortOrder: String(type.sortOrder),
     });
     setEditError("");
@@ -133,8 +138,9 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          label: String(editForm.label).trim(),
           gabarit: String(editForm.gabarit).trim(),
+          label: String(editForm.gabarit).trim(),
+          code: String(editForm.code).trim(),
           tonnageMini: Number(editForm.tonnageMini),
           tonnageMoyen: Number(editForm.tonnageMoyen),
           tonnageMaxi: Number(editForm.tonnageMaxi),
@@ -142,6 +148,7 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
           pdfCode: String(editForm.pdfCode),
           color: String(editForm.color),
           showTrailerPlate: Boolean(editForm.showTrailerPlate),
+          rxPalmBeachAtCanto: Boolean(editForm.rxPalmBeachAtCanto),
           sortOrder: Number(editForm.sortOrder),
         }),
       });
@@ -190,28 +197,42 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
 
   const renderFormFields = (
     form: typeof createForm | Record<string, string | boolean>,
-    setForm: (patch: Record<string, string | boolean>) => void
+    setForm: (patch: Record<string, string | boolean>) => void,
+    isEditing = false
   ) => (
     <div className="grid gap-3 sm:grid-cols-2">
-      <div>
-        <label className="text-xs font-semibold text-gray-500 uppercase">Libellé UI</label>
-        <input
-          type="text"
-          value={String(form.label ?? "")}
-          onChange={(e) => setForm({ label: e.target.value })}
-          className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-        />
-      </div>
-      <div>
-        <label className="text-xs font-semibold text-gray-500 uppercase">Gabarit</label>
+      <div className="sm:col-span-2">
+        <label className="text-xs font-semibold text-gray-500 uppercase">
+          Appellation (gabarit)
+        </label>
         <input
           type="text"
           value={String(form.gabarit ?? "")}
           onChange={(e) => setForm({ gabarit: e.target.value })}
-          placeholder="VL, 10 m³, ~90 m³..."
+          placeholder="10 m³, VL, ~90 m³ Semi-remorque…"
           className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
         />
+        <p className="text-[10px] text-gray-400 mt-1">
+          Texte affiché dans les formulaires, listes et exports.
+        </p>
       </div>
+      {isEditing && (
+        <div className="sm:col-span-2">
+          <label className="text-xs font-semibold text-gray-500 uppercase">
+            Identifiant technique
+          </label>
+          <input
+            type="text"
+            value={String(form.code ?? "")}
+            onChange={(e) => setForm({ code: e.target.value })}
+            className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
+          />
+          <p className="text-[10px] text-gray-400 mt-1">
+            Clé stable en base (véhicules existants). Modifiable uniquement si aucun
+            véhicule ne l&apos;utilise encore.
+          </p>
+        </div>
+      )}
       <div>
         <label className="text-xs font-semibold text-gray-500 uppercase">Tonnage mini (T)</label>
         <input
@@ -299,6 +320,20 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
           />
           Plaque de remorque requise
         </label>
+      </div>
+      <div className="sm:col-span-2">
+        <label className="inline-flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={Boolean(form.rxPalmBeachAtCanto)}
+            onChange={(e) => setForm({ rxPalmBeachAtCanto: e.target.checked })}
+          />
+          Palm Beach au Port Canto (RX)
+        </label>
+        <p className="text-[10px] text-gray-400 mt-1">
+          Pré-assignation zone Palm Beach pour ce gabarit lorsque l&apos;exposant est au
+          Port Canto. Sans impact sur le flux Palais.
+        </p>
       </div>
     </div>
   );
@@ -394,8 +429,10 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
                 <div className="p-4">
                   {isEditing ? (
                     <>
-                      {renderFormFields(editForm, (patch) =>
-                        setEditForm((prev) => ({ ...prev, ...patch }))
+                      {renderFormFields(
+                        editForm,
+                        (patch) => setEditForm((prev) => ({ ...prev, ...patch })),
+                        true
                       )}
                       {editError && <p className="text-red-500 text-xs mt-2">{editError}</p>}
                       <div className="flex gap-2 mt-4">
@@ -418,17 +455,21 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
                   ) : (
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${colors.bg} ${colors.text}`}>
                             {type.gabarit}
                           </span>
-                          <span className="font-semibold text-gray-900 truncate">{type.label}</span>
+                          {type.rxPalmBeachAtCanto && (
+                            <span className="text-[10px] text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded">
+                              Palm Beach Canto
+                            </span>
+                          )}
                         </div>
-                        <p className="text-xs text-gray-500 font-mono">
+                        <p className="text-xs text-gray-500">
                           {type.tonnageMini}–{type.tonnageMaxi} t · CO₂ {type.co2Coefficient} · PDF {type.pdfCode}
                           {type.showTrailerPlate ? " · Remorque" : ""}
                         </p>
-                        <p className="text-[10px] text-gray-400 mt-0.5">{type.code}</p>
+                        <p className="text-[10px] text-gray-400 mt-0.5 font-mono">{type.code}</p>
                       </div>
                       {canWrite && (
                         <div className="flex items-center gap-1 shrink-0">

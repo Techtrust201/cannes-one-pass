@@ -6,13 +6,24 @@ import { cn } from "@/lib/utils";
 import { useTranslation } from "@/components/accreditation/TranslationProvider";
 import { PortalOverlay } from "@/components/ui/PortalOverlay";
 import { useUnloadingProviders } from "@/hooks/useUnloadingProviders";
+import { useVehicleTypes } from "@/hooks/useVehicleTypes";
+import { buildPalmBeachAtCantoCodes } from "@/lib/vehicle-type-defaults";
 import { mapRxPayload } from "../mapPayload";
+import { rxPayloadSchema } from "../schema";
 import { RX_MANUTENTION_PROVIDERS, findCategory } from "../config";
 import { getSkipT, getOtherProviderT, getRxFlowT } from "../i18n";
+import type { ZodIssue } from "zod";
 import type { StepProps } from "../../types";
 import type { RxFormData } from "../types";
 
 const OTHER_PROVIDER = "Autre" as const;
+
+function formatZodIssues(issues: ZodIssue[]): string {
+  return (
+    issues[0]?.message ??
+    "Certaines informations sont incomplètes ou invalides."
+  );
+}
 
 /**
  * Step 5 RX — Manutention + validation finale.
@@ -39,6 +50,11 @@ export function StepManutentionRx({
   // courante (scoping multi-tenant). On conserve l'option sentinelle "Aucun"
   // et, en cas de liste vide (BDD indisponible), un repli sur la liste codée.
   const { providers: dbProviders } = useUnloadingProviders(orgSlug);
+  const { types: vehicleTypes } = useVehicleTypes(false, orgSlug);
+  const palmBeachAtCantoCodes = useMemo(
+    () => buildPalmBeachAtCantoCodes(vehicleTypes),
+    [vehicleTypes]
+  );
   const skipT = getSkipT(t);
   const otherT = getOtherProviderT(t);
   const flowMode = mode === "logisticien" ? "logisticien" : "public";
@@ -68,6 +84,7 @@ export function StepManutentionRx({
   // même après purge du brouillon.
   const [scalesAtSubmit, setScalesAtSubmit] = useState(false);
   const [error, setError] = useState("");
+  const [eventLoading, setEventLoading] = useState(false);
 
   const scalesRequired = useMemo(
     () =>
@@ -89,9 +106,68 @@ export function StepManutentionRx({
     (!scalesRequired || stepThree.scalesAcknowledged) &&
     providerOk;
 
+  const waitingForEvent =
+    mode === "logisticien" && !stepOne.event?.trim() && eventLoading;
+
   useEffect(() => {
     onValidityChange(isValid);
   }, [isValid, onValidityChange]);
+
+  // Logisticien : si l'utilisateur arrive directement à l'étape 5 (deep-link)
+  // sans passer par le carrousel événement, on pré-sélectionne le 1er event actif.
+  useEffect(() => {
+    if (mode !== "logisticien" || stepOne.event?.trim()) return;
+    let cancelled = false;
+    setEventLoading(true);
+    fetch(`/api/events?active=true&espace=${encodeURIComponent(orgSlug ?? "rx")}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => {
+        if (cancelled || !Array.isArray(data) || data.length === 0) return;
+        const slug = data[0]?.slug;
+        if (slug) update({ stepOne: { ...stepOne, event: String(slug) } });
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setEventLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, stepOne.event, orgSlug, update, stepOne]);
+
+  function validateBeforeSubmit(): string | null {
+    if (!stepOne.event?.trim()) {
+      return "Événement manquant. Retournez à l'étape 1 pour le sélectionner.";
+    }
+    if (!stepOne.exhibitorId?.trim()) {
+      return "Exposant manquant. Retournez à l'étape 1 pour le sélectionner.";
+    }
+    const vehicleCount = stepTwo.categories.reduce((s, c) => s + c.vehicles.length, 0);
+    if (vehicleCount === 0) {
+      return "Aucun véhicule renseigné. Retournez aux étapes Livraison / Reprise pour compléter le formulaire.";
+    }
+    const status = mode === "logisticien" ? "ATTENTE" : "NOUVEAU";
+    const payload = mapRxPayload(data, lang, {
+      status,
+      split: true,
+      palmBeachAtCantoCodes,
+    });
+    const parsed = rxPayloadSchema.safeParse(payload);
+    if (!parsed.success) {
+      return formatZodIssues(parsed.error.issues);
+    }
+    return null;
+  }
+
+  function handleValidateClick() {
+    setError("");
+    const validationError = validateBeforeSubmit();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    setShowModal(true);
+  }
 
   async function handleConfirm() {
     if (hasSaved) {
@@ -99,11 +175,25 @@ export function StepManutentionRx({
       return;
     }
     setError("");
+
+    const validationError = validateBeforeSubmit();
+    if (validationError) {
+      setError(validationError);
+      setShowModal(false);
+      return;
+    }
+
     try {
       setLoading(true);
       // Public → NOUVEAU (en attente de validation) ; logisticien → ATTENTE (validé).
       const status = mode === "logisticien" ? "ATTENTE" : "NOUVEAU";
-      const payload = mapRxPayload(data, lang, { status, split: true });
+      const payload = mapRxPayload(data, lang, {
+      status,
+      split: true,
+      palmBeachAtCantoCodes,
+    });
+      const vehicleCount = stepTwo.categories.reduce((s, c) => s + c.vehicles.length, 0);
+
       const res = await fetch("/api/accreditations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -111,12 +201,14 @@ export function StepManutentionRx({
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        throw new Error(body?.error || "save error");
+        const detailMsg = Array.isArray(body?.details)
+          ? body.details[0]?.message
+          : undefined;
+        throw new Error(detailMsg || body?.error || "save error");
       }
       const created = await res.json().catch(() => null);
       // L'API split renvoie { count, ids } ; fallback au nombre de véhicules.
-      const fallbackCount =
-        stepTwo.categories.reduce((s, c) => s + c.vehicles.length, 0) || 1;
+      const fallbackCount = vehicleCount || 1;
       setCreatedCount(
         typeof created?.count === "number" ? created.count : fallbackCount
       );
@@ -124,12 +216,15 @@ export function StepManutentionRx({
       setScalesAtSubmit(scalesRequired);
       setHasSaved(true);
       setShowModal(false);
-      // Purge le brouillon : un rechargement repartira d'un formulaire vierge
-      // (évite de reporter les véhicules sur la prochaine demande).
       onClearDraft?.();
     } catch (err) {
       console.error(err);
-      setError(t.saveError ?? "Une erreur est survenue lors de l'enregistrement.");
+      setError(
+        err instanceof Error && err.message !== "save error"
+          ? err.message
+          : (t.saveError ?? "Une erreur est survenue lors de l'enregistrement.")
+      );
+      setShowModal(false);
     } finally {
       setLoading(false);
     }
@@ -358,13 +453,23 @@ export function StepManutentionRx({
 
       <button
         type="button"
-        onClick={() => setShowModal(true)}
-        disabled={!isValid || loading}
+        onClick={handleValidateClick}
+        disabled={!isValid || loading || waitingForEvent}
         className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-base shadow transition-all duration-150 bg-primary text-white hover:bg-primary-dark disabled:opacity-50"
       >
-        {loading ? <Loader2 size={18} className="animate-spin" /> : "✅"}
+        {loading || waitingForEvent ? (
+          <Loader2 size={18} className="animate-spin" />
+        ) : (
+          "✅"
+        )}
         {t.rx.manutention.validate}
       </button>
+
+      {waitingForEvent && (
+        <p className="text-gray-400 text-xs text-center">
+          Chargement de l&apos;événement…
+        </p>
+      )}
 
       {!isValid && (
         <p className="text-gray-400 text-xs text-center">

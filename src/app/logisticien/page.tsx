@@ -375,8 +375,8 @@ export default async function LogisticienDashboard(props: {
   const vehicleTypeOptions = [
     { value: "", label: "Tous types" },
     ...(activeVehicleTypes.length > 0
-      ? activeVehicleTypes.map((t) => ({ value: t.code, label: t.label }))
-      : DEFAULT_VEHICLE_TYPES.map((t) => ({ value: t.code, label: t.label }))),
+      ? activeVehicleTypes.map((t) => ({ value: t.code, label: t.gabarit }))
+      : DEFAULT_VEHICLE_TYPES.map((t) => ({ value: t.code, label: t.gabarit }))),
   ];
 
   return (

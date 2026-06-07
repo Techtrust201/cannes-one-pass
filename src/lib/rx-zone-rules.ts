@@ -20,17 +20,15 @@
  * RX uniquement : le flux Palais conserve l'assignation 100 % manuelle.
  */
 
+import { DEFAULT_PALM_BEACH_AT_CANTO_CODES } from "@/lib/vehicle-type-defaults";
+
 export const ZONE_LA_BOCCA = "LA_BOCCA";
 export const ZONE_PALM_BEACH = "PALM_BEACH";
 
 export type RxZoneCode = typeof ZONE_LA_BOCCA | typeof ZONE_PALM_BEACH;
 
-/** Codes de gabarit dirigés vers Palm Beach lorsqu'au Port Canto. */
-const PALM_BEACH_AT_CANTO = new Set([
-  "VL",
-  "PORTEUR_LEGER", // 10 m³
-  "GROS_PORTEUR", // 20 m³
-]);
+/** Fallback si la config BDD n'est pas fournie (tests, rétrocompat). */
+export const DEFAULT_PALM_BEACH_AT_CANTO = DEFAULT_PALM_BEACH_AT_CANTO_CODES;
 
 /** Déduit le port d'accueil à partir du secteur figé de l'exposant. */
 export function portFromSector(sector: string): "CANTO" | "VIEUX_PORT" {
@@ -41,20 +39,20 @@ export function portFromSector(sector: string): "CANTO" | "VIEUX_PORT" {
 /**
  * Suggère la zone de déchargement pour un véhicule RX.
  * Retourne `null` si le gabarit est inconnu (pas de suggestion → choix manuel).
+ *
+ * @param palmBeachAtCantoCodes codes où `rxPalmBeachAtCanto=true` en BDD
  */
 export function suggestZone(
   vehicleTypeCode: string | null | undefined,
-  sector: string
+  sector: string,
+  palmBeachAtCantoCodes: Set<string> = DEFAULT_PALM_BEACH_AT_CANTO
 ): RxZoneCode | null {
   const code = (vehicleTypeCode ?? "").trim().toUpperCase();
   if (!code) return null;
   const port = portFromSector(sector);
 
-  // Au Port Canto, les petits/moyens-cube gabarits vont à Palm Beach.
-  if (port === "CANTO" && PALM_BEACH_AT_CANTO.has(code)) {
+  if (port === "CANTO" && palmBeachAtCantoCodes.has(code)) {
     return ZONE_PALM_BEACH;
   }
-  // Tous les autres cas → La Bocca (Vieux Port systématiquement, + porteurs
-  // lourds / articulés / semi au Canto).
   return ZONE_LA_BOCCA;
 }

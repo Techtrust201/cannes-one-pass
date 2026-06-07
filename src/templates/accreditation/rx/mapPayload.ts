@@ -34,7 +34,11 @@ function resolveRepFields(
 export function mapRxPayload(
   form: RxFormData,
   language: string,
-  options?: { status?: string; split?: boolean }
+  options?: {
+    status?: string;
+    split?: boolean;
+    palmBeachAtCantoCodes?: Set<string>;
+  }
 ): CreateAccreditationPayload {
   const vehicles: CreateAccreditationPayload["vehicles"] = [];
 
@@ -50,11 +54,13 @@ export function mapRxPayload(
         size: "", // taille libre, non utilisée par RX → vide
         phoneCode: form.stepOne.contact.phoneCode,
         phoneNumber: form.stepOne.contact.phoneNumber,
-        date: primaryDate,
-        time: primaryTime,
-        city: "",
+        date: primaryDate ?? "",
+        time: primaryTime ?? "",
+        city: (v.city ?? "").trim(),
+        country: v.country,
+        estimatedKms: v.estimatedKms,
         unloading: ["rear"],
-        vehicleType: v.vehicleType,
+        vehicleType: v.vehicleType ?? "",
         trailerPlate: v.trailerPlate,
         // Contexte de catégorie embarqué par véhicule : indispensable au
         // split (1 accréditation par véhicule) côté API pour reconstituer
@@ -80,7 +86,8 @@ export function mapRxPayload(
   const firstVehicleType = form.stepTwo.categories[0]?.vehicles[0]?.vehicleType;
   const suggestedZone = suggestZone(
     firstVehicleType,
-    form.stepOne.exhibitorSector
+    form.stepOne.exhibitorSector,
+    options?.palmBeachAtCantoCodes
   );
 
   // Libellé prestataire effectif : si « Autre », on prend le texte libre.
@@ -112,7 +119,18 @@ export function mapRxPayload(
       },
       contact: form.stepOne.contact,
       space: form.stepOne.space,
-      categories: form.stepTwo.categories,
+      categories: form.stepTwo.categories.map((cat) => ({
+        ...cat,
+        livDate: cat.livDate ?? "",
+        livTime: cat.livTime ?? "",
+        repDate: cat.repDate ?? "",
+        repTime: cat.repTime ?? "",
+        vehicles: cat.vehicles.map((v) => ({
+          ...v,
+          vehicleType: v.vehicleType ?? "",
+          plate: v.plate ?? null,
+        })),
+      })),
       scalesAssigned,
       manutentionProvider: form.stepThree.manutentionProvider,
       manutentionProviderOther: providerOther || undefined,

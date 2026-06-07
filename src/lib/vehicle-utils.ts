@@ -14,6 +14,7 @@ export interface VehicleTypeData {
   pdfCode: "A" | "B" | "C" | "D";
   color: string;
   showTrailerPlate: boolean;
+  rxPalmBeachAtCanto: boolean;
   sortOrder: number;
   isActive: boolean;
 }
@@ -22,6 +23,7 @@ const DEFAULT_VEHICLE_TYPES_DATA: VehicleTypeData[] = DEFAULT_VEHICLE_TYPES.map(
   (t, index) => ({
     id: index + 1,
     ...t,
+    rxPalmBeachAtCanto: t.rxPalmBeachAtCanto ?? false,
     isActive: true,
   })
 );
@@ -53,6 +55,7 @@ function normalizeVehicleType(raw: unknown): VehicleTypeData {
     pdfCode: (item.pdfCode as VehicleTypeData["pdfCode"]) ?? "C",
     color: String(item.color ?? "gray"),
     showTrailerPlate: Boolean(item.showTrailerPlate),
+    rxPalmBeachAtCanto: Boolean(item.rxPalmBeachAtCanto ?? false),
     sortOrder: Number(item.sortOrder ?? 0),
     isActive: Boolean(item.isActive ?? true),
   };
@@ -131,7 +134,14 @@ export function validateVehicleWeight(currentWeight: number, code: string): bool
 }
 
 export function getVehicleTypeLabel(code: string): string {
-  return getVehicleType(code)?.label ?? code.replace(/_/g, " ");
+  const type = getVehicleType(code);
+  if (!type) return code.replace(/_/g, " ");
+  return type.gabarit.trim() || type.label;
+}
+
+/** Appellation affichée (gabarit prioritaire sur label). */
+export function getVehicleTypeDisplayName(code: string): string {
+  return getVehicleTypeLabel(code);
 }
 
 export function getAverageWeight(code: string): number {
@@ -194,12 +204,12 @@ export function resolveVehicleTypeLabel(
 ): string {
   if (vehicleType) {
     const fromCode = getVehicleType(vehicleType);
-    if (fromCode) return fromCode.label;
+    if (fromCode) return fromCode.gabarit.trim() || fromCode.label;
   }
 
   if (fallbackSize) {
     const fromSize = getVehicleType(fallbackSize);
-    if (fromSize) return fromSize.label;
+    if (fromSize) return fromSize.gabarit.trim() || fromSize.label;
 
     const s = fallbackSize.toUpperCase();
     if (s.includes("SEMI")) return getVehicleTypeLabel("SEMI_REMORQUE");

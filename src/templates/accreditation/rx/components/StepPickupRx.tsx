@@ -19,6 +19,7 @@ import {
 } from "../i18n";
 import type { StepProps } from "../../types";
 import type { RxFormData, RxCategorySelection } from "../types";
+import { RxVehicleCityField } from "./RxVehicleCityField";
 
 type RepVehiclePatch = Partial<{
   repSameAsDelivery: boolean;
@@ -109,7 +110,7 @@ export function StepPickupRx({
               livTime: "",
               repDate: "",
               repTime: "",
-              vehicles: [{ vehicleType: "", plate: null, repSameAsDelivery: true }],
+              vehicles: [{ vehicleType: "", plate: null, repSameAsDelivery: true, city: "" }],
             },
           ],
         },
@@ -123,7 +124,7 @@ export function StepPickupRx({
         ...stepTwo,
         categories: stepTwo.categories.map((c) =>
           c.categoryId === catId
-            ? { ...c, vehicles: [...c.vehicles, { vehicleType: "", plate: null, repSameAsDelivery: true }] }
+            ? { ...c, vehicles: [...c.vehicles, { vehicleType: "", plate: null, repSameAsDelivery: true, city: "" }] }
             : c
         ),
       },
@@ -133,7 +134,14 @@ export function StepPickupRx({
   const updateVehicle = (
     catId: string,
     idx: number,
-    patch: { vehicleType?: string; plate?: string | null; interveningCompany?: string }
+    patch: {
+      vehicleType?: string;
+      plate?: string | null;
+      interveningCompany?: string;
+      city?: string;
+      country?: RxFormData["stepTwo"]["categories"][number]["vehicles"][number]["country"];
+      estimatedKms?: number;
+    }
   ) => {
     update({
       stepTwo: {
@@ -401,7 +409,7 @@ export function StepPickupRx({
                               <option value="">{t.rx.delivery.choose}</option>
                               {vehicleTypes.map((vt) => (
                                 <option key={vt.id} value={vt.code}>
-                                  {vt.label}
+                                  {vt.gabarit}
                                 </option>
                               ))}
                             </select>
@@ -421,6 +429,11 @@ export function StepPickupRx({
                               className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm uppercase"
                             />
                           </div>
+                          <RxVehicleCityField
+                            value={v.city ?? ""}
+                            onChange={(city) => updateVehicle(cat.id, idx, { city })}
+                            onSelect={(patch) => updateVehicle(cat.id, idx, patch)}
+                          />
                           {selected.vehicles.length > 1 ? (
                             <button
                               type="button"
@@ -561,7 +574,7 @@ export function StepPickupRx({
                 {cat.vehicles.map((v, idx) => {
                   const sameVehicle = v.repSameAsDelivery !== false;
                   const deliveryLabel =
-                    v.vehicleType && vehicleTypes.find((vt) => vt.code === v.vehicleType)?.label;
+                    v.vehicleType && vehicleTypes.find((vt) => vt.code === v.vehicleType)?.gabarit;
                   return (
                     <div
                       key={idx}
@@ -606,7 +619,7 @@ export function StepPickupRx({
                               <option value="">{t.rx.pickup.choose}</option>
                               {vehicleTypes.map((vt) => (
                                 <option key={vt.id} value={vt.code}>
-                                  {vt.label}
+                                  {vt.gabarit}
                                 </option>
                               ))}
                             </select>

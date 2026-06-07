@@ -49,4 +49,14 @@ describe("suggestZone — matrice gabarit × port (Mathieu §8.4)", () => {
     expect(suggestZone(null, "VIEUX PORT — QML")).toBeNull();
     expect(suggestZone(undefined, "CANTO — POWER")).toBeNull();
   });
+
+  it("accepte un set Palm Beach custom depuis la BDD", () => {
+    const custom = new Set(["CUSTOM_SMALL"]);
+    expect(suggestZone("CUSTOM_SMALL", "CANTO — POWER", custom)).toBe(
+      ZONE_PALM_BEACH
+    );
+    expect(suggestZone("PORTEUR_LEGER", "CANTO — POWER", custom)).toBe(
+      ZONE_LA_BOCCA
+    );
+  });
 });

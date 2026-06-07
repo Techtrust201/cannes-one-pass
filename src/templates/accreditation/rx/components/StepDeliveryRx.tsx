@@ -95,7 +95,7 @@ export function StepDeliveryRx({
               livTime: "",
               repDate: "",
               repTime: "",
-              vehicles: [{ vehicleType: "", plate: null, repSameAsDelivery: true }],
+              vehicles: [{ vehicleType: "", plate: null, repSameAsDelivery: true, city: "" }],
             },
           ],
         },
@@ -123,7 +123,7 @@ export function StepDeliveryRx({
         ...stepTwo,
         categories: stepTwo.categories.map((c) =>
           c.categoryId === catId
-            ? { ...c, vehicles: [...c.vehicles, { vehicleType: "", plate: null, repSameAsDelivery: true }] }
+            ? { ...c, vehicles: [...c.vehicles, { vehicleType: "", plate: null, repSameAsDelivery: true, city: "" }] }
             : c
         ),
       },
@@ -138,6 +138,9 @@ export function StepDeliveryRx({
       plate?: string | null;
       trailerPlate?: string;
       interveningCompany?: string;
+      city?: string;
+      country?: RxFormData["stepTwo"]["categories"][number]["vehicles"][number]["country"];
+      estimatedKms?: number;
     }
   ) => {
     update({
@@ -407,7 +410,7 @@ export function StepDeliveryRx({
                             <option value="">{t.rx.delivery.choose}</option>
                             {vehicleTypes.map((vt) => (
                               <option key={vt.id} value={vt.code}>
-                                {vt.label}
+                                {vt.gabarit}
                               </option>
                             ))}
                           </select>
@@ -429,6 +432,11 @@ export function StepDeliveryRx({
                             className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm uppercase"
                           />
                         </div>
+                        <RxVehicleCityField
+                          value={v.city ?? ""}
+                          onChange={(city) => updateVehicle(cat.id, idx, { city })}
+                          onSelect={(patch) => updateVehicle(cat.id, idx, patch)}
+                        />
                         {selected.vehicles.length > 1 ? (
                           <button
                             type="button"

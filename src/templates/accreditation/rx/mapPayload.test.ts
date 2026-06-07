@@ -152,6 +152,58 @@ describe("rx template — mapPayload", () => {
     expect(payload.unloading).toBe("Autre : Transports Durand");
     expect(payload.extension!.manutentionProviderOther).toBe("Transports Durand");
   });
+
+  it("payload logisticien ATTENTE + split passe la validation Zod", () => {
+    const payload = mapRxPayload(buildRxForm(), "fr", {
+      status: "ATTENTE",
+      split: true,
+    });
+    expect(payload.status).toBe("ATTENTE");
+    expect(payload.splitPerVehicle).toBe(true);
+    const result = rxPayloadSchema.safeParse(payload);
+    expect(result.success).toBe(true);
+  });
+
+  it("sanitise vehicleType undefined (localStorage corrompu) en chaîne vide", () => {
+    const form = buildRxForm();
+    form.stepTwo.categories[0].vehicles[0].vehicleType = undefined as unknown as string;
+    const payload = mapRxPayload(form, "fr", { split: true });
+    expect(payload.vehicles[0].vehicleType).toBe("");
+    const extCategories = payload.extension?.categories as Array<{
+      vehicles: Array<{ vehicleType: string }>;
+    }>;
+    expect(extCategories[0].vehicles[0].vehicleType).toBe("");
+    const result = rxPayloadSchema.safeParse(payload);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.path.includes("vehicleType"))).toBe(
+        true
+      );
+    }
+  });
+
+  it("propage city / country / estimatedKms quand renseignés", () => {
+    const form = buildRxForm();
+    form.stepTwo.categories[0].vehicles[0].city = "Paris";
+    form.stepTwo.categories[0].vehicles[0].country = "FRANCE";
+    form.stepTwo.categories[0].vehicles[0].estimatedKms = 930;
+    const payload = mapRxPayload(form, "fr", { split: true });
+    expect(payload.vehicles[0].city).toBe("Paris");
+    expect(payload.vehicles[0].country).toBe("FRANCE");
+    expect(payload.vehicles[0].estimatedKms).toBe(930);
+    const extCategories = payload.extension?.categories as Array<{
+      vehicles: Array<{ city?: string; country?: string; estimatedKms?: number }>;
+    }>;
+    expect(extCategories[0].vehicles[0].city).toBe("Paris");
+    expect(extCategories[0].vehicles[0].country).toBe("FRANCE");
+    expect(extCategories[0].vehicles[0].estimatedKms).toBe(930);
+  });
+
+  it("city vide reste accepté (optionnel)", () => {
+    const payload = mapRxPayload(buildRxForm(), "fr");
+    expect(payload.vehicles[0].city).toBe("");
+    expect(rxPayloadSchema.safeParse(payload).success).toBe(true);
+  });
 });
 
 describe("rx template — schema", () => {

@@ -60,7 +60,12 @@ export async function PATCH(
       updates.code = newCode;
     }
     if (body.label !== undefined) updates.label = String(body.label).trim();
-    if (body.gabarit !== undefined) updates.gabarit = String(body.gabarit).trim();
+    if (body.gabarit !== undefined) {
+      updates.gabarit = String(body.gabarit).trim();
+      if (body.label === undefined) {
+        updates.label = updates.gabarit;
+      }
+    }
     if (body.tonnageMini !== undefined) updates.tonnageMini = Number(body.tonnageMini);
     if (body.tonnageMoyen !== undefined) updates.tonnageMoyen = Number(body.tonnageMoyen);
     if (body.tonnageMaxi !== undefined) updates.tonnageMaxi = Number(body.tonnageMaxi);
@@ -68,6 +73,9 @@ export async function PATCH(
     if (body.pdfCode !== undefined) updates.pdfCode = String(body.pdfCode);
     if (body.color !== undefined) updates.color = String(body.color);
     if (body.showTrailerPlate !== undefined) updates.showTrailerPlate = Boolean(body.showTrailerPlate);
+    if (body.rxPalmBeachAtCanto !== undefined) {
+      updates.rxPalmBeachAtCanto = Boolean(body.rxPalmBeachAtCanto);
+    }
     if (body.sortOrder !== undefined) updates.sortOrder = Number(body.sortOrder);
     if (body.isActive !== undefined) updates.isActive = Boolean(body.isActive);
 

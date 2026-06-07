@@ -36,6 +36,7 @@ export function useVehicleTypes(includeInactive = false, espaceSlug?: string | n
             pdfCode: item.pdfCode as VehicleTypeData["pdfCode"],
             color: String(item.color ?? "gray"),
             showTrailerPlate: Boolean(item.showTrailerPlate),
+            rxPalmBeachAtCanto: Boolean(item.rxPalmBeachAtCanto ?? false),
             sortOrder: Number(item.sortOrder ?? 0),
             isActive: Boolean(item.isActive ?? true),
           }));
@@ -64,8 +65,12 @@ export function useVehicleTypes(includeInactive = false, espaceSlug?: string | n
     types,
     loading,
     refresh,
-    getLabel: (code: string) =>
-      types.find((t) => t.code === code)?.label ?? code.replace(/_/g, " "),
+    getLabel: (code: string) => {
+      const t = types.find((x) => x.code === code);
+      return t?.gabarit?.trim() || t?.label || code.replace(/_/g, " ");
+    },
+    getGabarit: (code: string) =>
+      types.find((x) => x.code === code)?.gabarit ?? code.replace(/_/g, " "),
     getColor: (code: string) => types.find((t) => t.code === code)?.color ?? "gray",
   };
 }

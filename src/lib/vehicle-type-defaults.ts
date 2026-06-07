@@ -11,12 +11,14 @@ export interface DefaultVehicleType {
   color: string;
   showTrailerPlate: boolean;
   sortOrder: number;
+  /** RX : suggestion Palm Beach au Port Canto pour ce gabarit. */
+  rxPalmBeachAtCanto?: boolean;
 }
 
 export const DEFAULT_VEHICLE_TYPES: DefaultVehicleType[] = [
   {
     code: "VL",
-    label: "Fourgon / VL",
+    label: "VL",
     gabarit: "VL",
     tonnageMini: 1.8,
     tonnageMoyen: 2.8,
@@ -26,10 +28,11 @@ export const DEFAULT_VEHICLE_TYPES: DefaultVehicleType[] = [
     color: "gray",
     showTrailerPlate: false,
     sortOrder: 1,
+    rxPalmBeachAtCanto: true,
   },
   {
     code: "PORTEUR_LEGER",
-    label: "Porteur léger (10 m³)",
+    label: "10 m³",
     gabarit: "10 m³",
     tonnageMini: 7.5,
     tonnageMoyen: 10,
@@ -39,10 +42,11 @@ export const DEFAULT_VEHICLE_TYPES: DefaultVehicleType[] = [
     color: "green",
     showTrailerPlate: false,
     sortOrder: 2,
+    rxPalmBeachAtCanto: true,
   },
   {
     code: "PORTEUR",
-    label: "Porteur moyen (15 m³)",
+    label: "15 m³",
     gabarit: "15 m³",
     tonnageMini: 12,
     tonnageMoyen: 15,
@@ -52,10 +56,11 @@ export const DEFAULT_VEHICLE_TYPES: DefaultVehicleType[] = [
     color: "blue",
     showTrailerPlate: false,
     sortOrder: 3,
+    rxPalmBeachAtCanto: false,
   },
   {
     code: "GROS_PORTEUR",
-    label: "Gros porteur (20 m³)",
+    label: "20 m³",
     gabarit: "20 m³",
     tonnageMini: 16,
     tonnageMoyen: 19,
@@ -65,10 +70,11 @@ export const DEFAULT_VEHICLE_TYPES: DefaultVehicleType[] = [
     color: "orange",
     showTrailerPlate: false,
     sortOrder: 4,
+    rxPalmBeachAtCanto: true,
   },
   {
     code: "PORTEUR_ARTICULE",
-    label: "Porteur articulé",
+    label: "~100 m³ Porteur articulé",
     gabarit: "~100 m³",
     tonnageMini: 12,
     tonnageMoyen: 19,
@@ -78,10 +84,11 @@ export const DEFAULT_VEHICLE_TYPES: DefaultVehicleType[] = [
     color: "yellow",
     showTrailerPlate: false,
     sortOrder: 5,
+    rxPalmBeachAtCanto: false,
   },
   {
     code: "SEMI_REMORQUE",
-    label: "Semi-remorque",
+    label: "~90 m³ Semi-remorque",
     gabarit: "~90 m³",
     tonnageMini: 15,
     tonnageMoyen: 29.5,
@@ -91,6 +98,7 @@ export const DEFAULT_VEHICLE_TYPES: DefaultVehicleType[] = [
     color: "red",
     showTrailerPlate: true,
     sortOrder: 6,
+    rxPalmBeachAtCanto: false,
   },
 ];
 
@@ -103,3 +111,17 @@ export function generateVehicleTypeCode(label: string): string {
     .replace(/^_+|_+$/g, "")
     .slice(0, 48) || "TYPE_VEHICULE";
 }
+
+/** Construit le set de codes RX dirigés vers Palm Beach au Port Canto. */
+export function buildPalmBeachAtCantoCodes(
+  types: Array<{ code: string; rxPalmBeachAtCanto?: boolean }>
+): Set<string> {
+  return new Set(
+    types.filter((t) => t.rxPalmBeachAtCanto).map((t) => t.code.trim().toUpperCase())
+  );
+}
+
+/** Fallback historique si la config BDD n'est pas disponible. */
+export const DEFAULT_PALM_BEACH_AT_CANTO_CODES = buildPalmBeachAtCantoCodes(
+  DEFAULT_VEHICLE_TYPES
+);

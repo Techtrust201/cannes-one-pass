@@ -573,6 +573,8 @@ model VehicleTypeConfig {
   pdfCode          String   @default("C")
   color            String   @default("gray")
   showTrailerPlate Boolean  @default(false)
+  /// RX : si true, suggestion zone Palm Beach au Port Canto (matrice gabarit × port).
+  rxPalmBeachAtCanto Boolean @default(false)
   sortOrder        Int      @default(0)
   isActive         Boolean  @default(true)
   createdAt        DateTime @default(now())

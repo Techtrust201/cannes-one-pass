@@ -150,31 +150,32 @@ export async function POST(req: NextRequest) {
     // legacy pour ne casser aucune intégration existante.
     const zodResult = template.schema.safeParse({ ...raw, organizationSlug });
     if (!zodResult.success) {
-      // Fallback validation minimale "ancien format" (compat liens diffusés)
-      if (
-        !company ||
-        !stand ||
-        !unloading ||
-        !event ||
-        !Array.isArray(vehicles) ||
-        // Pour le template Palais, on garde l'exigence historique ; pour
-        // les autres templates, la validation Zod ci-dessus a déjà tranché.
-        (organizationSlug === "palais" &&
-          (vehicles.length === 0 ||
-            vehicles.some(
-              (v) =>
-                !v.plate ||
-                !v.size ||
-                !v.phoneCode ||
-                !v.phoneNumber ||
-                !v.date ||
-                !v.city ||
-                !v.unloading
-            )))
-      ) {
+      // Fallback legacy réservé au Palais (anciens liens diffusés sans slug).
+      // RX et tout template moderne : Zod fait foi, pas de contournement.
+      const legacyPalaisOk =
+        organizationSlug === "palais" &&
+        company &&
+        stand &&
+        unloading &&
+        event &&
+        Array.isArray(vehicles) &&
+        vehicles.length > 0 &&
+        !vehicles.some(
+          (v) =>
+            !v.plate ||
+            !v.size ||
+            !v.phoneCode ||
+            !v.phoneNumber ||
+            !v.date ||
+            !v.city ||
+            !v.unloading
+        );
+
+      if (!legacyPalaisOk) {
         return Response.json(
           {
-            error: "Payload invalide",
+            error:
+              zodResult.error.issues[0]?.message ?? "Payload invalide",
             details: zodResult.error.issues,
           },
           { status: 400 }

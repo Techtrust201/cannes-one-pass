@@ -1,4 +1,4 @@
-import type { Vehicle } from "@/types";
+import type { CountryRegion, Vehicle } from "@/types";
 
 /**
  * Shape du form data pour le template RX.
@@ -35,6 +35,10 @@ export interface RxCategorySelection {
     notes?: string;
     /** Société réalisant la prestation avec ce véhicule (transporteur, décorateur, prestataire…). */
     interveningCompany?: string;
+    /** Ville de départ (bilan carbone). */
+    city?: string;
+    country?: CountryRegion;
+    estimatedKms?: number;
     /** Reprise : même véhicule que la livraison (défaut true). */
     repSameAsDelivery?: boolean;
     repVehicleType?: string;

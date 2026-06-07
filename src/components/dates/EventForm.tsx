@@ -319,7 +319,7 @@ export default function EventForm({ event, onSave, onDelete, saving, defaultStar
 
       {/* Activation */}
       <Section title="Activation automatique">
-        <Field label={`Activer J-${form.activationDays} avant le début`}>
+        <Field label={`Activer J-${form.activationDays} avant le montage`}>
           <div className="flex items-center gap-3">
             <input
               type="range"
@@ -335,7 +335,8 @@ export default function EventForm({ event, onSave, onDelete, saving, defaultStar
           </div>
           <p className="text-[10px] text-gray-400 mt-1">
             L&apos;événement apparaîtra dans le formulaire d&apos;accréditation{" "}
-            {form.activationDays} jours avant son début.
+            {form.activationDays} jours avant le début du montage (ou le début de
+            l&apos;événement si montage non renseigné).
           </p>
         </Field>
       </Section>

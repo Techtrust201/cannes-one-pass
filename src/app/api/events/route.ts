@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { prisma, withRetry } from "@/lib/prisma";
 import { requirePermission, getAccessibleEventIdsForEspace } from "@/lib/auth-helpers";
+import { isEventVisibleForAccreditation } from "@/lib/events";
+import type { Event } from "@/types";
 
 function handleAuthError(error: unknown) {
   if (error instanceof Response)
@@ -77,11 +79,9 @@ export async function GET(req: NextRequest) {
     }));
 
     if (activeOnly) {
-      const visible = events.filter((e) => {
-        const activation = new Date(e.startDate);
-        activation.setDate(activation.getDate() - e.activationDays);
-        return now >= activation && now <= (e.teardownEndDate ?? e.endDate);
-      });
+      const visible = events.filter((e) =>
+        isEventVisibleForAccreditation(e as unknown as Event, now)
+      );
       return Response.json(visible);
     }
 

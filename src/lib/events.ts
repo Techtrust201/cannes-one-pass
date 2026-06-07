@@ -1,5 +1,32 @@
 import type { Event, EventStatus } from "@/types";
 
+/** Date de référence pour l'activation accréditation : montage si renseigné, sinon début event. */
+export function getAccreditationReferenceDate(event: Event): Date {
+  return new Date(event.setupStartDate ?? event.startDate);
+}
+
+export function getAccreditationActivationDate(event: Event): Date {
+  const ref = getAccreditationReferenceDate(event);
+  const activation = new Date(ref);
+  activation.setDate(activation.getDate() - event.activationDays);
+  return activation;
+}
+
+export function getAccreditationVisibilityEnd(event: Event): Date {
+  return new Date(event.teardownEndDate ?? event.endDate);
+}
+
+export function isEventVisibleForAccreditation(
+  event: Event,
+  now = new Date()
+): boolean {
+  if (event.isArchived) return false;
+  return (
+    now >= getAccreditationActivationDate(event) &&
+    now <= getAccreditationVisibilityEnd(event)
+  );
+}
+
 export function getEventStatus(event: Event): EventStatus {
   if (event.isArchived) return "archived";
 
@@ -10,8 +37,7 @@ export function getEventStatus(event: Event): EventStatus {
   if (now > end) return "finished";
   if (now >= start && now <= end) return "ongoing";
 
-  const activationDate = new Date(start);
-  activationDate.setDate(activationDate.getDate() - event.activationDays);
+  const activationDate = getAccreditationActivationDate(event);
 
   if (now >= activationDate) return "active";
   return "upcoming";
@@ -19,13 +45,12 @@ export function getEventStatus(event: Event): EventStatus {
 
 export function getDaysUntilStart(event: Event): number {
   const now = new Date();
-  const start = new Date(event.startDate);
-  return Math.ceil((start.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  const ref = getAccreditationReferenceDate(event);
+  return Math.ceil((ref.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 }
 
 export function isEventVisibleInStep1(event: Event): boolean {
-  const status = getEventStatus(event);
-  return status === "active" || status === "ongoing";
+  return isEventVisibleForAccreditation(event);
 }
 
 export const STATUS_CONFIG: Record<

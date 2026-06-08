@@ -52,6 +52,7 @@ export interface RxT {
     email: string;
     emailPlaceholder: string;
     mobilePhone: string;
+    phoneCodePlaceholder: string;
     phonePlaceholder: string;
     required: string;
     invalidEmail: string;
@@ -152,6 +153,11 @@ export interface RxT {
     otherProviderLabel?: string;
     otherProviderPlaceholder?: string;
     otherProviderRequired?: string;
+    validationFallback?: string;
+    missingEvent?: string;
+    missingExhibitor?: string;
+    noVehicles?: string;
+    loadingEvent?: string;
   };
   /**
    * Libellés liés au skip montage/démontage (étapes 3/4) et aux bannières de
@@ -182,6 +188,8 @@ export interface RxT {
   };
   spaces: Record<string, RxSpaceT>;
   categories: Record<string, RxCategoryT>;
+  /** Libellés types de véhicules indexés par code (VL, PORTEUR, …). */
+  vehicleTypes: Record<string, string>;
 }
 
 /** Concepts de catégories distincts pour une langue donnée. */
@@ -282,6 +290,7 @@ const fr: RxT = {
     email: "Adresse e-mail",
     emailPlaceholder: "jean.dupont@entreprise.com",
     mobilePhone: "Téléphone portable",
+    phoneCodePlaceholder: "+33",
     phonePlaceholder: "6 XX XX XX XX",
     required: "Champ obligatoire.",
     invalidEmail: "Adresse e-mail invalide.",
@@ -394,6 +403,14 @@ const fr: RxT = {
     otherProviderLabel: "Nom du prestataire",
     otherProviderPlaceholder: "Précisez le transporteur / prestataire",
     otherProviderRequired: "Veuillez préciser le nom du prestataire.",
+    validationFallback: "Certaines informations sont incomplètes ou invalides.",
+    missingEvent:
+      "Événement manquant. Retournez à l'étape 1 pour le sélectionner.",
+    missingExhibitor:
+      "Exposant manquant. Retournez à l'étape 1 pour le sélectionner.",
+    noVehicles:
+      "Aucun véhicule renseigné. Retournez aux étapes Livraison / Reprise pour compléter le formulaire.",
+    loadingEvent: "Chargement de l'événement…",
   },
   logisticien: {
     pageTitle: "Créer une accréditation",
@@ -459,6 +476,14 @@ const fr: RxT = {
     noteF: "Planning individuel à coordonner avec Scales.",
     noteG: "Manutention via Scales obligatoire pour les bateaux à terre.",
   }),
+  vehicleTypes: {
+    VL: "VL",
+    PORTEUR_LEGER: "10 m³",
+    PORTEUR: "15 m³",
+    GROS_PORTEUR: "20 m³",
+    PORTEUR_ARTICULE: "Porteur articulé (~100 m³)",
+    SEMI_REMORQUE: "Semi-remorque (~90 m³)",
+  },
 };
 
 const en: RxT = {
@@ -493,6 +518,7 @@ const en: RxT = {
     email: "Email address",
     emailPlaceholder: "john.smith@company.com",
     mobilePhone: "Mobile phone",
+    phoneCodePlaceholder: "+33",
     phonePlaceholder: "6 XX XX XX XX",
     required: "Required field.",
     invalidEmail: "Invalid email address.",
@@ -587,10 +613,20 @@ const en: RxT = {
     scalesReminder:
       "Scales reminder: do not forget to book an appointment with Scales for the relevant categories.",
     newRequest: "New request",
+    confirmPublicTitle: "Confirm submission",
+    confirmPublicMsg:
+      "Your request will be registered with status New. It must be validated by the logistics team before it can be used.",
+    confirmPublicCta: "Confirm submission",
     otherProvider: "Other",
     otherProviderLabel: "Provider name",
     otherProviderPlaceholder: "Specify the carrier / provider",
     otherProviderRequired: "Please specify the provider name.",
+    validationFallback: "Some information is incomplete or invalid.",
+    missingEvent: "Event missing. Go back to step 1 to select it.",
+    missingExhibitor: "Exhibitor missing. Go back to step 1 to select it.",
+    noVehicles:
+      "No vehicle entered. Go back to the Delivery / Pickup steps to complete the form.",
+    loadingEvent: "Loading event…",
   },
   skip: {
     montageLabel: "I only need an accreditation for the teardown",
@@ -649,6 +685,14 @@ const en: RxT = {
     noteF: "Individual schedule to be coordinated with Scales.",
     noteG: "Handling via Scales mandatory for boats ashore.",
   }),
+  vehicleTypes: {
+    VL: "Van / LCV",
+    PORTEUR_LEGER: "10 m³",
+    PORTEUR: "15 m³",
+    GROS_PORTEUR: "20 m³",
+    PORTEUR_ARTICULE: "Articulated truck (~100 m³)",
+    SEMI_REMORQUE: "Semi-trailer (~90 m³)",
+  },
 };
 
 const de: RxT = {
@@ -683,6 +727,7 @@ const de: RxT = {
     email: "E-Mail-Adresse",
     emailPlaceholder: "hans.mueller@firma.com",
     mobilePhone: "Mobiltelefon",
+    phoneCodePlaceholder: "+33",
     phonePlaceholder: "6 XX XX XX XX",
     required: "Pflichtfeld.",
     invalidEmail: "Ungültige E-Mail-Adresse.",
@@ -777,6 +822,16 @@ const de: RxT = {
     scalesReminder:
       "Scales-Erinnerung: Vergessen Sie nicht, einen Termin mit Scales für die betroffenen Kategorien zu vereinbaren.",
     newRequest: "Neuer Antrag",
+    confirmPublicTitle: "Übermittlung bestätigen",
+    confirmPublicMsg:
+      "Ihr Antrag wird mit dem Status Neu registriert. Er muss vom Logistikteam validiert werden, bevor er verwendet werden kann.",
+    confirmPublicCta: "Übermittlung bestätigen",
+    validationFallback: "Einige Angaben sind unvollständig oder ungültig.",
+    missingEvent: "Veranstaltung fehlt. Gehen Sie zu Schritt 1 zurück.",
+    missingExhibitor: "Aussteller fehlt. Gehen Sie zu Schritt 1 zurück.",
+    noVehicles:
+      "Kein Fahrzeug angegeben. Gehen Sie zu Lieferung / Rückführung zurück.",
+    loadingEvent: "Veranstaltung wird geladen…",
   },
   spaces: {
     INTERIEUR_PALAIS: { label: "Innen Palais des Festivals" },
@@ -816,6 +871,14 @@ const de: RxT = {
     noteF: "Individueller Plan mit Scales abzustimmen.",
     noteG: "Handling über Scales für Boote an Land verpflichtend.",
   }),
+  vehicleTypes: {
+    VL: "Transporter / PKW",
+    PORTEUR_LEGER: "10 m³",
+    PORTEUR: "15 m³",
+    GROS_PORTEUR: "20 m³",
+    PORTEUR_ARTICULE: "Sattelzug (~100 m³)",
+    SEMI_REMORQUE: "Sattelauflieger (~90 m³)",
+  },
 };
 
 const es: RxT = {
@@ -850,6 +913,7 @@ const es: RxT = {
     email: "Correo electrónico",
     emailPlaceholder: "juan.garcia@empresa.com",
     mobilePhone: "Teléfono móvil",
+    phoneCodePlaceholder: "+33",
     phonePlaceholder: "6 XX XX XX XX",
     required: "Campo obligatorio.",
     invalidEmail: "Correo electrónico no válido.",
@@ -944,6 +1008,16 @@ const es: RxT = {
     scalesReminder:
       "Recordatorio Scales: no olvide concertar una cita con Scales para las categorías afectadas.",
     newRequest: "Nueva solicitud",
+    confirmPublicTitle: "Confirmar el envío de la solicitud",
+    confirmPublicMsg:
+      "Su solicitud se registrará con el estado Nuevo. Deberá ser validada por el equipo logístico antes de poder utilizarse.",
+    confirmPublicCta: "Confirmar el envío",
+    validationFallback: "Algunos datos están incompletos o no son válidos.",
+    missingEvent: "Falta el evento. Vuelva al paso 1 para seleccionarlo.",
+    missingExhibitor: "Falta el expositor. Vuelva al paso 1 para seleccionarlo.",
+    noVehicles:
+      "Ningún vehículo indicado. Vuelva a los pasos Entrega / Recogida.",
+    loadingEvent: "Cargando evento…",
   },
   spaces: {
     INTERIEUR_PALAIS: { label: "Interior Palais des Festivals" },
@@ -983,6 +1057,14 @@ const es: RxT = {
     noteF: "Planning individual a coordinar con Scales.",
     noteG: "Manipulación vía Scales obligatoria para los barcos en tierra.",
   }),
+  vehicleTypes: {
+    VL: "Furgoneta / VL",
+    PORTEUR_LEGER: "10 m³",
+    PORTEUR: "15 m³",
+    GROS_PORTEUR: "20 m³",
+    PORTEUR_ARTICULE: "Camión articulado (~100 m³)",
+    SEMI_REMORQUE: "Semirremolque (~90 m³)",
+  },
 };
 
 const pt: RxT = {
@@ -1017,6 +1099,7 @@ const pt: RxT = {
     email: "Endereço de e-mail",
     emailPlaceholder: "joao.silva@empresa.com",
     mobilePhone: "Telemóvel",
+    phoneCodePlaceholder: "+33",
     phonePlaceholder: "6 XX XX XX XX",
     required: "Campo obrigatório.",
     invalidEmail: "Endereço de e-mail inválido.",
@@ -1111,6 +1194,16 @@ const pt: RxT = {
     scalesReminder:
       "Lembrete Scales: não se esqueça de marcar uma reunião com a Scales para as categorias em causa.",
     newRequest: "Novo pedido",
+    confirmPublicTitle: "Confirmar o envio do pedido",
+    confirmPublicMsg:
+      "O seu pedido será registado com o estado Novo. Terá de ser validado pela equipa logística antes de poder ser utilizado.",
+    confirmPublicCta: "Confirmar o envio",
+    validationFallback: "Algumas informações estão incompletas ou inválidas.",
+    missingEvent: "Evento em falta. Volte ao passo 1 para o selecionar.",
+    missingExhibitor: "Expositor em falta. Volte ao passo 1 para o selecionar.",
+    noVehicles:
+      "Nenhum veículo indicado. Volte aos passos Entrega / Recolha.",
+    loadingEvent: "A carregar evento…",
   },
   spaces: {
     INTERIEUR_PALAIS: { label: "Interior Palais des Festivals" },
@@ -1150,6 +1243,14 @@ const pt: RxT = {
     noteF: "Planeamento individual a coordenar com a Scales.",
     noteG: "Manuseamento via Scales obrigatório para os barcos em terra.",
   }),
+  vehicleTypes: {
+    VL: "Carrinha / VL",
+    PORTEUR_LEGER: "10 m³",
+    PORTEUR: "15 m³",
+    GROS_PORTEUR: "20 m³",
+    PORTEUR_ARTICULE: "Camião articulado (~100 m³)",
+    SEMI_REMORQUE: "Semirreboque (~90 m³)",
+  },
 };
 
 const it: RxT = {
@@ -1184,6 +1285,7 @@ const it: RxT = {
     email: "Indirizzo e-mail",
     emailPlaceholder: "mario.rossi@azienda.com",
     mobilePhone: "Telefono cellulare",
+    phoneCodePlaceholder: "+33",
     phonePlaceholder: "6 XX XX XX XX",
     required: "Campo obbligatorio.",
     invalidEmail: "Indirizzo e-mail non valido.",
@@ -1278,6 +1380,16 @@ const it: RxT = {
     scalesReminder:
       "Promemoria Scales: non dimenticare di prenotare un appuntamento con Scales per le categorie interessate.",
     newRequest: "Nuova richiesta",
+    confirmPublicTitle: "Conferma l'invio della richiesta",
+    confirmPublicMsg:
+      "La sua richiesta sarà registrata con stato Nuovo. Dovrà essere convalidata dal team logistico prima di poter essere utilizzata.",
+    confirmPublicCta: "Conferma l'invio",
+    validationFallback: "Alcune informazioni sono incomplete o non valide.",
+    missingEvent: "Evento mancante. Torna al passo 1 per selezionarlo.",
+    missingExhibitor: "Espositore mancante. Torna al passo 1 per selezionarlo.",
+    noVehicles:
+      "Nessun veicolo indicato. Torna ai passi Consegna / Ritiro.",
+    loadingEvent: "Caricamento evento…",
   },
   spaces: {
     INTERIEUR_PALAIS: { label: "Interno Palais des Festivals" },
@@ -1317,6 +1429,14 @@ const it: RxT = {
     noteF: "Pianificazione individuale da coordinare con Scales.",
     noteG: "Movimentazione tramite Scales obbligatoria per le barche a terra.",
   }),
+  vehicleTypes: {
+    VL: "Furgone / VL",
+    PORTEUR_LEGER: "10 m³",
+    PORTEUR: "15 m³",
+    GROS_PORTEUR: "20 m³",
+    PORTEUR_ARTICULE: "Autotreno (~100 m³)",
+    SEMI_REMORQUE: "Semirimorchio (~90 m³)",
+  },
 };
 
 const pl: RxT = {
@@ -1351,6 +1471,7 @@ const pl: RxT = {
     email: "Adres e-mail",
     emailPlaceholder: "jan.kowalski@firma.com",
     mobilePhone: "Telefon komórkowy",
+    phoneCodePlaceholder: "+33",
     phonePlaceholder: "6 XX XX XX XX",
     required: "Pole obowiązkowe.",
     invalidEmail: "Nieprawidłowy adres e-mail.",
@@ -1445,6 +1566,16 @@ const pl: RxT = {
     scalesReminder:
       "Przypomnienie Scales: nie zapomnij umówić spotkania ze Scales dla odpowiednich kategorii.",
     newRequest: "Nowy wniosek",
+    confirmPublicTitle: "Potwierdź wysłanie wniosku",
+    confirmPublicMsg:
+      "Twój wniosek zostanie zarejestrowany ze statusem Nowy. Musi zostać zatwierdzony przez zespół logistyczny, zanim będzie można go użyć.",
+    confirmPublicCta: "Potwierdź wysłanie",
+    validationFallback: "Niektóre informacje są niekompletne lub nieprawidłowe.",
+    missingEvent: "Brak wydarzenia. Wróć do kroku 1, aby je wybrać.",
+    missingExhibitor: "Brak wystawcy. Wróć do kroku 1, aby go wybrać.",
+    noVehicles:
+      "Brak pojazdu. Wróć do kroków Dostawa / Odbiór.",
+    loadingEvent: "Ładowanie wydarzenia…",
   },
   spaces: {
     INTERIEUR_PALAIS: { label: "Wewnątrz Palais des Festivals" },
@@ -1484,6 +1615,14 @@ const pl: RxT = {
     noteF: "Indywidualny harmonogram do uzgodnienia ze Scales.",
     noteG: "Obsługa przez Scales obowiązkowa dla łodzi na lądzie.",
   }),
+  vehicleTypes: {
+    VL: "Dostawczy / VL",
+    PORTEUR_LEGER: "10 m³",
+    PORTEUR: "15 m³",
+    GROS_PORTEUR: "20 m³",
+    PORTEUR_ARTICULE: "Ciężarówka z przyczepą (~100 m³)",
+    SEMI_REMORQUE: "Naczepa (~90 m³)",
+  },
 };
 
 const cs: RxT = {
@@ -1518,6 +1657,7 @@ const cs: RxT = {
     email: "E-mailová adresa",
     emailPlaceholder: "jan.novak@firma.com",
     mobilePhone: "Mobilní telefon",
+    phoneCodePlaceholder: "+33",
     phonePlaceholder: "6 XX XX XX XX",
     required: "Povinné pole.",
     invalidEmail: "Neplatná e-mailová adresa.",
@@ -1612,6 +1752,16 @@ const cs: RxT = {
     scalesReminder:
       "Připomínka Scales: nezapomeňte si domluvit schůzku se Scales pro dotčené kategorie.",
     newRequest: "Nová žádost",
+    confirmPublicTitle: "Potvrdit odeslání žádosti",
+    confirmPublicMsg:
+      "Vaše žádost bude zaregistrována se stavem Nový. Před použitím musí být schválena logistickým týmem.",
+    confirmPublicCta: "Potvrdit odeslání",
+    validationFallback: "Některé údaje jsou neúplné nebo neplatné.",
+    missingEvent: "Chybí akce. Vraťte se na krok 1 a vyberte ji.",
+    missingExhibitor: "Chybí vystavovatel. Vraťte se na krok 1 a vyberte ho.",
+    noVehicles:
+      "Není uvedeno žádné vozidlo. Vraťte se ke krokům Dodání / Svoz.",
+    loadingEvent: "Načítání akce…",
   },
   spaces: {
     INTERIEUR_PALAIS: { label: "Vnitřní Palais des Festivals" },
@@ -1651,6 +1801,14 @@ const cs: RxT = {
     noteF: "Individuální plán ke koordinaci se Scales.",
     noteG: "Manipulace přes Scales povinná pro lodě na souši.",
   }),
+  vehicleTypes: {
+    VL: "Dodávka / VL",
+    PORTEUR_LEGER: "10 m³",
+    PORTEUR: "15 m³",
+    GROS_PORTEUR: "20 m³",
+    PORTEUR_ARTICULE: "Tahač s návěsem (~100 m³)",
+    SEMI_REMORQUE: "Návěs (~90 m³)",
+  },
 };
 
 const lt: RxT = {
@@ -1685,6 +1843,7 @@ const lt: RxT = {
     email: "El. pašto adresas",
     emailPlaceholder: "jonas.kazlauskas@imone.com",
     mobilePhone: "Mobilusis telefonas",
+    phoneCodePlaceholder: "+33",
     phonePlaceholder: "6 XX XX XX XX",
     required: "Privalomas laukas.",
     invalidEmail: "Neteisingas el. pašto adresas.",
@@ -1779,6 +1938,16 @@ const lt: RxT = {
     scalesReminder:
       "Scales priminimas: nepamirškite rezervuoti susitikimo su Scales atitinkamoms kategorijoms.",
     newRequest: "Naujas prašymas",
+    confirmPublicTitle: "Patvirtinti prašymo pateikimą",
+    confirmPublicMsg:
+      "Jūsų prašymas bus užregistruotas su būsena Naujas. Prieš naudojimą jį turi patvirtinti logistikos komanda.",
+    confirmPublicCta: "Patvirtinti pateikimą",
+    validationFallback: "Kai kuri informacija nebaigta arba neteisinga.",
+    missingEvent: "Trūksta renginio. Grįžkite į 1 žingsnį.",
+    missingExhibitor: "Trūksta eksponento. Grįžkite į 1 žingsnį.",
+    noVehicles:
+      "Nenurodytas transporto priemonės. Grįžkite į Pristatymo / Paėmimo žingsnius.",
+    loadingEvent: "Įkeliamas renginys…",
   },
   spaces: {
     INTERIEUR_PALAIS: { label: "Palais des Festivals vidus" },
@@ -1818,6 +1987,14 @@ const lt: RxT = {
     noteF: "Individualus grafikas derinamas su Scales.",
     noteG: "Tvarkymas per Scales privalomas laivams sausumoje.",
   }),
+  vehicleTypes: {
+    VL: "Furgonas / VL",
+    PORTEUR_LEGER: "10 m³",
+    PORTEUR: "15 m³",
+    GROS_PORTEUR: "20 m³",
+    PORTEUR_ARTICULE: "Vilkikas su priekaba (~100 m³)",
+    SEMI_REMORQUE: "Puspriekabė (~90 m³)",
+  },
 };
 
 const tr: RxT = {
@@ -1852,6 +2029,7 @@ const tr: RxT = {
     email: "E-posta adresi",
     emailPlaceholder: "ahmet.yilmaz@sirket.com",
     mobilePhone: "Cep telefonu",
+    phoneCodePlaceholder: "+33",
     phonePlaceholder: "6 XX XX XX XX",
     required: "Zorunlu alan.",
     invalidEmail: "Geçersiz e-posta adresi.",
@@ -1946,6 +2124,16 @@ const tr: RxT = {
     scalesReminder:
       "Scales hatırlatması: ilgili kategoriler için Scales ile randevu almayı unutmayın.",
     newRequest: "Yeni talep",
+    confirmPublicTitle: "Gönderimi onayla",
+    confirmPublicMsg:
+      "Talebiniz Yeni durumuyla kaydedilecektir. Kullanılabilir hale gelmeden önce lojistik ekibi tarafından onaylanması gerekmektedir.",
+    confirmPublicCta: "Gönderimi onayla",
+    validationFallback: "Bazı bilgiler eksik veya geçersiz.",
+    missingEvent: "Etkinlik eksik. Seçmek için 1. adıma dönün.",
+    missingExhibitor: "Katılımcı eksik. Seçmek için 1. adıma dönün.",
+    noVehicles:
+      "Araç girilmedi. Teslimat / Geri alma adımlarına dönün.",
+    loadingEvent: "Etkinlik yükleniyor…",
   },
   spaces: {
     INTERIEUR_PALAIS: { label: "Palais des Festivals İçi" },
@@ -1985,6 +2173,14 @@ const tr: RxT = {
     noteF: "Scales ile koordine edilecek bireysel plan.",
     noteG: "Karadaki tekneler için Scales aracılığıyla elleçleme zorunludur.",
   }),
+  vehicleTypes: {
+    VL: "Minibüs / VL",
+    PORTEUR_LEGER: "10 m³",
+    PORTEUR: "15 m³",
+    GROS_PORTEUR: "20 m³",
+    PORTEUR_ARTICULE: "Çekici (~100 m³)",
+    SEMI_REMORQUE: "Yarı römork (~90 m³)",
+  },
 };
 
 const ru: RxT = {
@@ -2019,6 +2215,7 @@ const ru: RxT = {
     email: "Адрес электронной почты",
     emailPlaceholder: "ivan.ivanov@company.com",
     mobilePhone: "Мобильный телефон",
+    phoneCodePlaceholder: "+33",
     phonePlaceholder: "6 XX XX XX XX",
     required: "Обязательное поле.",
     invalidEmail: "Неверный адрес электронной почты.",
@@ -2113,6 +2310,16 @@ const ru: RxT = {
     scalesReminder:
       "Напоминание Scales: не забудьте записаться на встречу со Scales для соответствующих категорий.",
     newRequest: "Новая заявка",
+    confirmPublicTitle: "Подтвердить отправку заявки",
+    confirmPublicMsg:
+      "Ваша заявка будет зарегистрирована со статусом Новая. Она должна быть подтверждена логистической командой, прежде чем её можно будет использовать.",
+    confirmPublicCta: "Подтвердить отправку",
+    validationFallback: "Некоторые данные неполные или недействительны.",
+    missingEvent: "Мероприятие не указано. Вернитесь к шагу 1.",
+    missingExhibitor: "Экспонент не указан. Вернитесь к шагу 1.",
+    noVehicles:
+      "Транспортное средство не указано. Вернитесь к шагам Доставка / Возврат.",
+    loadingEvent: "Загрузка мероприятия…",
   },
   spaces: {
     INTERIEUR_PALAIS: { label: "Внутри Palais des Festivals" },
@@ -2152,6 +2359,14 @@ const ru: RxT = {
     noteF: "Индивидуальный график для согласования со Scales.",
     noteG: "Погрузка через Scales обязательна для судов на берегу.",
   }),
+  vehicleTypes: {
+    VL: "Фургон / VL",
+    PORTEUR_LEGER: "10 m³",
+    PORTEUR: "15 m³",
+    GROS_PORTEUR: "20 m³",
+    PORTEUR_ARTICULE: "Седельный тягач (~100 m³)",
+    SEMI_REMORQUE: "Полуприцеп (~90 m³)",
+  },
 };
 
 export const rxTranslations: Record<LangCode, RxT> = {

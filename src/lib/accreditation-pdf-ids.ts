@@ -7,7 +7,14 @@ import {
   resolveVehicleTypeLabelFromList,
 } from "@/lib/vehicle-type-server";
 import type { VehicleTypeData } from "@/lib/vehicle-utils";
-import { formatDateFR, formatSlot } from "@/templates/accreditation/rx/config";
+import { formatPhoneNumber } from "@/lib/contact-utils";
+import {
+  getPdfTranslations,
+  resolvePdfVehicleLabel,
+  type PdfT,
+} from "@/lib/pdf-translations";
+import { isValidLang, type LangCode } from "@/lib/translations";
+import { formatSlot } from "@/templates/accreditation/rx/config";
 import type { RxVehicleContext } from "@/lib/rx-vehicle-context";
 
 interface RxExtension {
@@ -28,11 +35,18 @@ function parseExtension(raw: unknown): RxExtension {
   return raw as RxExtension;
 }
 
-function formatDateTime(iso: string | null | undefined): string {
+function formatDateTime(iso: string | null | undefined, lang: LangCode): string {
   if (!iso) return "—";
-  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return formatDateFR(iso);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    const dt = new Date(`${iso}T12:00:00`);
+    return new Intl.DateTimeFormat(lang, {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }).format(dt);
+  }
   try {
-    return new Date(iso).toLocaleString("fr-FR");
+    return new Date(iso).toLocaleString(lang);
   } catch {
     return iso;
   }
@@ -116,7 +130,9 @@ async function renderAccreditationPage(
   baseUrl: string,
   /** 'official' = accréditation d'accès (QR montage/démontage, validité 24h) ;
    *  'request' = demande non validée (QR de suivi, pas d'accès). */
-  mode: "request" | "official"
+  mode: "request" | "official",
+  pdfT: PdfT,
+  lang: LangCode
 ): Promise<void> {
   const page = pdfDoc.addPage();
   const { width, height, MIN_Y, drawText, drawWrapped, font } = helpers;
@@ -134,7 +150,7 @@ async function renderAccreditationPage(
     page.drawText(text, { x, y: yy, size, font, color: rgb(...color) });
   };
 
-  const todayStr = new Intl.DateTimeFormat("fr-FR", {
+  const todayStr = new Intl.DateTimeFormat(lang, {
     day: "2-digit",
     month: "long",
     year: "numeric",
@@ -143,21 +159,19 @@ async function renderAccreditationPage(
   const isRequest = mode === "request";
   drawText(
     page,
-    isRequest ? "Demande d'accréditation Véhicule" : "Accréditation Véhicule",
+    isRequest ? pdfT.requestTitle : pdfT.officialTitle,
     50,
     height - 50,
     isRequest ? 18 : 22
   );
   drawText(
     page,
-    isRx
-      ? "Cannes Yachting Festival — Logistique"
-      : "Palais des Festivals et des Congrès de Cannes",
+    isRx ? pdfT.rxSubtitle : pdfT.palaisSubtitle,
     50,
     height - 75,
     14
   );
-  drawText(page, `Date d'émission: ${todayStr}`, 50, height - 95, 10);
+  drawText(page, `${pdfT.issuedDate}: ${todayStr}`, 50, height - 95, 10);
 
   page.drawLine({
     start: { x: 50, y: height - 105 },
@@ -180,7 +194,7 @@ async function renderAccreditationPage(
     });
     drawText(
       page,
-      "DEMANDE NON VALIDEE — NE PERMET PAS L'ACCES AU SITE",
+      pdfT.requestBanner,
       60,
       height - 131,
       12,
@@ -206,20 +220,20 @@ async function renderAccreditationPage(
     y = drawWrapped(page, val, VALUE_X, y, VALUE_MAX_WIDTH, 12, { color: [0, 0, 0] });
   };
 
-  drawText(page, "Informations Générales", 50, y, 14);
+  drawText(page, pdfT.generalInfo, 50, y, 14);
   y -= 25;
 
-  addLabelVal("Exposant / Décorateur", acc.company);
-  addLabelVal("Stand", acc.stand);
-  addLabelVal("Événement", acc.eventName);
+  addLabelVal(pdfT.exhibitor, acc.company);
+  addLabelVal(pdfT.stand, acc.stand);
+  addLabelVal(pdfT.event, acc.eventName);
   if (isRequest && acc.publicToken) {
-    addLabelVal("Référence de la demande", acc.publicToken);
+    addLabelVal(pdfT.reference, acc.publicToken);
   }
   if (acc.zone) {
-    addLabelVal("Zone de déchargement", acc.zone.label);
-    if (acc.zone.address) addLabelVal("Adresse", acc.zone.address);
+    addLabelVal(pdfT.unloadingZone, acc.zone.label);
+    if (acc.zone.address) addLabelVal(pdfT.address, acc.zone.address);
     addLabelVal(
-      "Coordonnées GPS",
+      pdfT.gpsCoords,
       `${acc.zone.latitude.toFixed(5)}, ${acc.zone.longitude.toFixed(5)}`
     );
   }
@@ -228,18 +242,18 @@ async function renderAccreditationPage(
     const contactName = [ext.contact.firstName, ext.contact.lastName]
       .filter(Boolean)
       .join(" ");
-    if (contactName) addLabelVal("Contact", contactName);
-    if (ext.contact.email) addLabelVal("E-mail", ext.contact.email);
+    if (contactName) addLabelVal(pdfT.contact, contactName);
+    if (ext.contact.email) addLabelVal(pdfT.email, ext.contact.email);
     if (ext.contact.phoneNumber) {
       addLabelVal(
-        "Téléphone contact",
-        `${ext.contact.phoneCode ?? ""} ${ext.contact.phoneNumber}`.trim()
+        pdfT.phone,
+        formatPhoneNumber(ext.contact.phoneCode ?? "", ext.contact.phoneNumber)
       );
     }
   }
 
   if (acc.unloading) {
-    addLabelVal("Manutention", acc.unloading);
+    addLabelVal(pdfT.handling, acc.unloading);
   }
 
   const statusColor: [number, number, number] =
@@ -248,76 +262,84 @@ async function renderAccreditationPage(
       : acc.status === "SORTIE"
         ? [0.7, 0, 0]
         : [0, 0, 0.6];
+  const statusLabel =
+    pdfT.statusLabels[acc.status] ?? (acc.status || "ATTENTE");
   if (y >= MIN_Y) {
-    drawText(page, "Statut :", LABEL_X, y, 12, { color: [0.15, 0.15, 0.15] });
-    drawText(page, acc.status || "ATTENTE", VALUE_X, y, 12, { color: statusColor });
+    drawText(page, `${pdfT.status} :`, LABEL_X, y, 12, { color: [0.15, 0.15, 0.15] });
+    drawText(page, statusLabel, VALUE_X, y, 12, { color: statusColor });
     y -= LINE_HEIGHT;
   }
 
   if (v) {
     y -= 10;
-    drawText(page, "Véhicule de livraison", 50, y, 14);
+    drawText(page, pdfT.deliveryVehicle, 50, y, 14);
     y -= 25;
 
-    const gabarit = resolveVehicleTypeLabelFromList(
+    const rawGabarit = resolveVehicleTypeLabelFromList(
       vehicleTypes,
       v.vehicleType,
       v.size
     );
-    addLabelVal("Gabarit", gabarit);
-    addLabelVal("Plaque", v.plate || "— (à renseigner à l'arrivée)");
-    if (v.trailerPlate) addLabelVal("Plaque remorque", v.trailerPlate);
+    const gabarit = resolvePdfVehicleLabel(lang, v.vehicleType, rawGabarit);
+    addLabelVal(pdfT.template, gabarit);
+    addLabelVal(pdfT.plate, v.plate || pdfT.platePending);
+    if (v.trailerPlate) addLabelVal(pdfT.trailerPlate, v.trailerPlate);
     addLabelVal(
-      "Téléphone conducteur",
-      `${v.phoneCode} ${v.phoneNumber}`.trim()
+      pdfT.driverPhone,
+      formatPhoneNumber(v.phoneCode, v.phoneNumber)
     );
     const livDate = ctx.livDate ?? v.date;
     const livTime = ctx.livTime ?? v.time;
     addLabelVal(
-      "Créneau livraison",
-      `${formatDateTime(livDate)} — ${formatTimeSlot(livTime)}`
+      pdfT.deliverySlot,
+      `${formatDateTime(livDate, lang)} — ${formatTimeSlot(livTime)}`
     );
     if (ctx.interveningCompany) {
-      addLabelVal("Société intervenante livraison", ctx.interveningCompany);
+      addLabelVal(pdfT.interveningCompanyDelivery, ctx.interveningCompany);
     }
     if (v.city) {
-      addLabelVal("Ville de départ livraison", v.city);
+      addLabelVal(pdfT.departureCityDelivery, v.city);
     }
 
     y -= 10;
-    drawText(page, "Véhicule de reprise", 50, y, 14);
+    drawText(page, pdfT.returnVehicle, 50, y, 14);
     y -= 25;
 
     const repDate = ctx.repDate;
     const repTime = ctx.repTime;
     if (repDate || repTime) {
       addLabelVal(
-        "Créneau reprise",
-        `${formatDateTime(repDate ?? undefined)} — ${formatTimeSlot(repTime ?? undefined)}`
+        pdfT.returnSlot,
+        `${formatDateTime(repDate ?? undefined, lang)} — ${formatTimeSlot(repTime ?? undefined)}`
       );
     }
 
     const sameRep = ctx.repSameAsDelivery !== false;
     if (sameRep) {
-      addLabelVal("Véhicule de reprise", "Identique au véhicule de livraison");
+      addLabelVal(pdfT.returnVehicle, pdfT.sameAsDelivery);
     } else {
-      const repGabarit = resolveVehicleTypeLabelFromList(
+      const repRawGabarit = resolveVehicleTypeLabelFromList(
         vehicleTypes,
         ctx.repVehicleType,
         null
       );
-      addLabelVal("Gabarit reprise", repGabarit);
-      addLabelVal("Plaque reprise", ctx.repPlate || "—");
+      const repGabarit = resolvePdfVehicleLabel(
+        lang,
+        ctx.repVehicleType,
+        repRawGabarit
+      );
+      addLabelVal(pdfT.templateReturn, repGabarit);
+      addLabelVal(pdfT.plateReturn, ctx.repPlate || "—");
       if (ctx.repInterveningCompany) {
-        addLabelVal("Société intervenante reprise", ctx.repInterveningCompany);
+        addLabelVal(pdfT.interveningCompanyReturn, ctx.repInterveningCompany);
       }
       if (ctx.repCity) {
-        addLabelVal("Ville de départ reprise", ctx.repCity);
+        addLabelVal(pdfT.departureCityReturn, ctx.repCity);
       }
       if (ctx.repPhoneNumber) {
         addLabelVal(
-          "Téléphone reprise",
-          `${ctx.repPhoneCode ?? ""} ${ctx.repPhoneNumber}`.trim()
+          pdfT.phoneReturn,
+          formatPhoneNumber(ctx.repPhoneCode ?? "", ctx.repPhoneNumber)
         );
       }
     }
@@ -325,7 +347,7 @@ async function renderAccreditationPage(
 
   if (acc.message) {
     y -= 10;
-    addLabelVal("Message", acc.message);
+    addLabelVal(pdfT.message, acc.message);
   }
 
   y -= 10;
@@ -333,7 +355,7 @@ async function renderAccreditationPage(
   if (y >= MIN_Y) {
     drawText(
       page,
-      `${consentPrefix} Je consens à la politique de confidentialité`,
+      `${consentPrefix} ${pdfT.consent}`,
       LABEL_X,
       y,
       11
@@ -378,35 +400,32 @@ async function renderAccreditationPage(
     const qrImg = await pdfDoc.embedPng(qrBuf);
     const x = width - 50 - QR_SIZE;
     page.drawImage(qrImg, { x, y: QR_Y, width: QR_SIZE, height: QR_SIZE });
-    drawRaw("QR de suivi de demande", x - 18, QR_Y - 14);
+    drawRaw(pdfT.qrTracking, x - 18, QR_Y - 14);
 
-    const noteLines = [
-      "Ce document peut être transmis au transporteur à titre informatif.",
-      "Il ne constitue pas une accréditation d'accès au site.",
-    ];
+    const noteLines = [pdfT.requestNote1, pdfT.requestNote2];
     drawFooterWrapped(noteLines, 52);
     return;
   }
 
   // Mode officiel : QR Montage / Démontage (URL de contrôle d'accès), libellés
   // explicites + créneau, conditionnés par les éventuels skip.
-  const livLabel = ctx.livDate ? ` ${formatDateTime(ctx.livDate)}` : "";
-  const repLabel = ctx.repDate ? ` ${formatDateTime(ctx.repDate)}` : "";
+  const livLabel = ctx.livDate ? ` ${formatDateTime(ctx.livDate, lang)}` : "";
+  const repLabel = ctx.repDate ? ` ${formatDateTime(ctx.repDate, lang)}` : "";
   const qrDefs: { label: string; url: string }[] = [];
   if (!skipMontage) {
     qrDefs.push({
-      label: `QR Montage${livLabel}`,
+      label: `${pdfT.qrSetup}${livLabel}`,
       url: `${baseUrl}/logisticien/${acc.id}?phase=livraison`,
     });
   }
   if (!skipDemontage) {
     qrDefs.push({
-      label: `QR Démontage${repLabel}`,
+      label: `${pdfT.qrTeardown}${repLabel}`,
       url: `${baseUrl}/logisticien/${acc.id}?phase=reprise`,
     });
   }
   if (qrDefs.length === 0) {
-    qrDefs.push({ label: "QR Véhicule", url: `${baseUrl}/logisticien/${acc.id}` });
+    qrDefs.push({ label: pdfT.qrVehicle, url: `${baseUrl}/logisticien/${acc.id}` });
   }
 
   let qrX = width - 50 - QR_SIZE;
@@ -418,10 +437,7 @@ async function renderAccreditationPage(
     qrX -= QR_SIZE + 24;
   }
 
-  const noteLines = [
-    "Cette accréditation est valable pour une durée de 24 heures à compter de l'heure d'entrée validée.",
-    "Veuillez présenter ce document (QR code) à l'entrée du site.",
-  ];
+  const noteLines = [pdfT.officialNote1, pdfT.officialNote2];
   drawFooterWrapped(noteLines, 52);
 }
 
@@ -431,7 +447,7 @@ const OFFICIAL_STATUSES = new Set(["ATTENTE", "ENTREE", "SORTIE"]);
 export async function generatePdfFromIds(
   ids: string[],
   baseUrl: string,
-  opts: { mode?: "request" | "official" } = {}
+  opts: { mode?: "request" | "official"; lang?: LangCode } = {}
 ): Promise<Uint8Array> {
   const uniqueIds = [...new Set(ids.filter(Boolean))];
   if (uniqueIds.length === 0) {
@@ -557,6 +573,12 @@ export async function generatePdfFromIds(
       eventName: acc.eventRef?.name ?? acc.event,
       zone,
     };
+    const rawLang = acc.language ?? "fr";
+    const accLang: LangCode = isValidLang(rawLang) ? rawLang : "fr";
+    const pdfLang: LangCode =
+      opts.lang && isValidLang(opts.lang) ? opts.lang : accLang;
+    const pdfT = getPdfTranslations(pdfLang);
+
     await renderAccreditationPage(
       pdfDoc,
       helpers,
@@ -564,7 +586,9 @@ export async function generatePdfFromIds(
       vehicleTypes,
       isRx,
       baseUrl,
-      mode
+      mode,
+      pdfT,
+      pdfLang
     );
   }
 

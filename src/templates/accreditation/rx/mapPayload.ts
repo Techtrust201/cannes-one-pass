@@ -1,23 +1,31 @@
 import type { CreateAccreditationPayload } from "../types";
 import type { RxFormData } from "./types";
 import { findCategory } from "./config";
+import { sanitizeLocalPhoneNumber } from "@/lib/phone-input-utils";
 import { suggestZone, type RxZoneRouting } from "@/lib/rx-zone-rules";
+
+function normalizeContact(contact: RxFormData["stepOne"]["contact"]) {
+  return {
+    ...contact,
+    phoneNumber: sanitizeLocalPhoneNumber(contact.phoneCode, contact.phoneNumber),
+  };
+}
 
 function resolveRepFields(
   v: RxFormData["stepTwo"]["categories"][number]["vehicles"][number],
   contact: RxFormData["stepOne"]["contact"]
 ) {
   const same = v.repSameAsDelivery !== false;
+  const repCode = same ? contact.phoneCode : (v.repPhoneCode ?? contact.phoneCode);
+  const repNumber = same
+    ? contact.phoneNumber
+    : (v.repPhoneNumber ?? contact.phoneNumber);
   return {
     repSameAsDelivery: same,
     repVehicleType: same ? v.vehicleType : (v.repVehicleType ?? v.vehicleType),
     repPlate: same ? (v.plate ?? null) : (v.repPlate ?? null),
-    repPhoneCode: same
-      ? contact.phoneCode
-      : (v.repPhoneCode ?? contact.phoneCode),
-    repPhoneNumber: same
-      ? contact.phoneNumber
-      : (v.repPhoneNumber ?? contact.phoneNumber),
+    repPhoneCode: repCode,
+    repPhoneNumber: sanitizeLocalPhoneNumber(repCode, repNumber),
     repInterveningCompany: same
       ? v.interveningCompany
       : v.repInterveningCompany,
@@ -47,11 +55,12 @@ export function mapRxPayload(
     zoneRouting?: Map<string, RxZoneRouting>;
   }
 ): CreateAccreditationPayload {
+  const contact = normalizeContact(form.stepOne.contact);
   const vehicles: CreateAccreditationPayload["vehicles"] = [];
 
   for (const cat of form.stepTwo.categories) {
     for (const v of cat.vehicles) {
-      const rep = resolveRepFields(v, form.stepOne.contact);
+      const rep = resolveRepFields(v, contact);
       // Date/heure principale du véhicule : montage si présent, sinon
       // démontage (cas « accréditation uniquement pour le démontage »).
       const primaryDate = cat.livDate || cat.repDate;
@@ -59,8 +68,8 @@ export function mapRxPayload(
       vehicles.push({
         plate: v.plate ?? null,
         size: "", // taille libre, non utilisée par RX → vide
-        phoneCode: form.stepOne.contact.phoneCode,
-        phoneNumber: form.stepOne.contact.phoneNumber,
+        phoneCode: contact.phoneCode,
+        phoneNumber: contact.phoneNumber,
         date: primaryDate ?? "",
         time: primaryTime ?? "",
         city: (v.city ?? "").trim(),
@@ -125,7 +134,7 @@ export function mapRxPayload(
         stand: form.stepOne.exhibitorStand,
         sector: form.stepOne.exhibitorSector,
       },
-      contact: form.stepOne.contact,
+      contact,
       space: form.stepOne.space,
       categories: form.stepTwo.categories.map((cat) => ({
         ...cat,

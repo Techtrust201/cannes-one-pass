@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { sanitizeLocalPhoneNumber } from "@/lib/phone-input-utils";
 import { useTranslation } from "@/components/accreditation/TranslationProvider";
 import type { StepProps } from "../../types";
 import type { RxFormData } from "../types";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const TEL_RE = /^[\d\s+\-()]{8,}$/;
+const TEL_RE = /^[\d\s\-()]{8,}$/;
 
 /**
  * Step 2 RX — Contact.
@@ -121,12 +122,19 @@ export function StepContactRx({ data, update, onValidityChange }: StepProps<RxFo
               value={contact.phoneCode}
               onChange={(e) => setContact({ phoneCode: e.target.value })}
               className="w-20 rounded-md px-3 py-2 border border-gray-300 shadow-sm text-base sm:text-sm"
-              placeholder="+33"
+              placeholder={t.rx.contact.phoneCodePlaceholder}
             />
             <input
               type="tel"
               value={contact.phoneNumber}
-              onChange={(e) => setContact({ phoneNumber: e.target.value })}
+              onChange={(e) =>
+                setContact({
+                  phoneNumber: sanitizeLocalPhoneNumber(
+                    contact.phoneCode,
+                    e.target.value
+                  ),
+                })
+              }
               onBlur={() => markTouched("tel")}
               placeholder={t.rx.contact.phonePlaceholder}
               autoComplete="tel"

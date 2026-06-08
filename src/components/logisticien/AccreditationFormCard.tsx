@@ -50,7 +50,7 @@ export default function AccreditationFormCard({ acc }: Props) {
       const res = await fetch(`/api/accreditation/pdf`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: [acc.id], mode: "official" }),
+        body: JSON.stringify({ ids: [acc.id], mode: "official", lang: "fr" }),
       });
       if (!res.ok) throw new Error("pdf error");
       const blob = await res.blob();

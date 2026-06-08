@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { sanitizeLocalPhoneNumber } from "@/lib/phone-input-utils";
 import { handleSanitizedPlateInput } from "@/lib/plate-utils";
 import { mapCitySelectToVehicleFields } from "@/lib/city-form-utils";
 import CityAutocomplete from "@/components/CityAutocomplete";
@@ -16,6 +17,7 @@ import {
 } from "../config";
 import {
   getLocalizedCategory,
+  getLocalizedVehicleType,
   formatDateLocalized,
   getSkipT,
 } from "../i18n";
@@ -414,7 +416,12 @@ export function StepPickupRx({
                               <option value="">{t.rx.delivery.choose}</option>
                               {vehicleTypes.map((vt) => (
                                 <option key={vt.id} value={vt.code}>
-                                  {vt.gabarit}
+                                  {getLocalizedVehicleType(
+                                    vt.code,
+                                    t,
+                                    vt.gabarit,
+                                    vt.label
+                                  )}
                                 </option>
                               ))}
                             </select>
@@ -632,7 +639,12 @@ export function StepPickupRx({
                               <option value="">{t.rx.pickup.choose}</option>
                               {vehicleTypes.map((vt) => (
                                 <option key={vt.id} value={vt.code}>
-                                  {vt.gabarit}
+                                  {getLocalizedVehicleType(
+                                    vt.code,
+                                    t,
+                                    vt.gabarit,
+                                    vt.label
+                                  )}
                                 </option>
                               ))}
                             </select>
@@ -668,21 +680,26 @@ export function StepPickupRx({
                                   })
                                 }
                                 className="w-20 border border-gray-300 rounded-md px-2 py-1.5 text-sm"
-                                placeholder="+33"
+                                placeholder={t.rx.contact.phoneCodePlaceholder}
                               />
                               <input
                                 type="tel"
                                 value={v.repPhoneNumber ?? stepOne.contact.phoneNumber}
-                                onChange={(e) =>
+                                onChange={(e) => {
+                                  const code =
+                                    v.repPhoneCode ?? stepOne.contact.phoneCode;
                                   patchRepVehicle(cat.categoryId, idx, {
-                                    repPhoneNumber: e.target.value,
-                                  })
-                                }
+                                    repPhoneNumber: sanitizeLocalPhoneNumber(
+                                      code,
+                                      e.target.value
+                                    ),
+                                  });
+                                }}
                                 className={cn(
                                   "flex-1 border rounded-md px-2 py-1.5 text-sm",
                                   !v.repPhoneNumber?.trim() && "border-red-400"
                                 )}
-                                placeholder="6 XX XX XX XX"
+                                placeholder={t.rx.contact.phonePlaceholder}
                               />
                             </div>
                           </div>

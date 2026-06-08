@@ -1,4 +1,5 @@
 import { rxTranslations, type RxT } from "./rx-translations";
+import { supportTranslations, type SupportT } from "./support-translations";
 
 export type LangCode = "fr" | "en" | "pl" | "cs" | "lt" | "de" | "tr" | "es" | "pt" | "it" | "ru";
 
@@ -92,6 +93,9 @@ export interface T {
   // Need help (footer)
   needHelp: string;
 
+  // Page contact / formulaire ticket support
+  support: SupportT;
+
   // RX template (Cannes Yachting Festival) — consommé uniquement par les steps RX.
   rx: RxT;
 }
@@ -156,6 +160,7 @@ const fr: T = {
   saveError: "Impossible d'enregistrer la demande",
   pdfError: "Impossible de télécharger le PDF",
   needHelp: "Besoin d'aide ?",
+  support: supportTranslations.fr,
   rx: rxTranslations.fr,
 };
 
@@ -219,6 +224,7 @@ const en: T = {
   saveError: "Unable to save the request",
   pdfError: "Unable to download the PDF",
   needHelp: "Need help?",
+  support: supportTranslations.en,
   rx: rxTranslations.en,
 };
 
@@ -280,6 +286,7 @@ const de: T = {
   saveError: "Antrag konnte nicht gespeichert werden",
   pdfError: "PDF konnte nicht heruntergeladen werden",
   needHelp: "Brauchen Sie Hilfe?",
+  support: supportTranslations.de,
   rx: rxTranslations.de,
 };
 
@@ -341,6 +348,7 @@ const es: T = {
   saveError: "No se pudo guardar la solicitud",
   pdfError: "No se pudo descargar el PDF",
   needHelp: "¿Necesita ayuda?",
+  support: supportTranslations.es,
   rx: rxTranslations.es,
 };
 
@@ -402,6 +410,7 @@ const pt: T = {
   saveError: "Não foi possível guardar o pedido",
   pdfError: "Não foi possível descarregar o PDF",
   needHelp: "Precisa de ajuda?",
+  support: supportTranslations.pt,
   rx: rxTranslations.pt,
 };
 
@@ -463,6 +472,7 @@ const it: T = {
   saveError: "Impossibile salvare la richiesta",
   pdfError: "Impossibile scaricare il PDF",
   needHelp: "Hai bisogno di aiuto?",
+  support: supportTranslations.it,
   rx: rxTranslations.it,
 };
 
@@ -524,6 +534,7 @@ const pl: T = {
   saveError: "Nie udało się zapisać wniosku",
   pdfError: "Nie udało się pobrać PDF",
   needHelp: "Potrzebujesz pomocy?",
+  support: supportTranslations.pl,
   rx: rxTranslations.pl,
 };
 
@@ -585,6 +596,7 @@ const cs: T = {
   saveError: "Žádost se nepodařilo uložit",
   pdfError: "PDF se nepodařilo stáhnout",
   needHelp: "Potřebujete pomoc?",
+  support: supportTranslations.cs,
   rx: rxTranslations.cs,
 };
 
@@ -646,6 +658,7 @@ const lt: T = {
   saveError: "Nepavyko išsaugoti prašymo",
   pdfError: "Nepavyko atsisiųsti PDF",
   needHelp: "Reikia pagalbos?",
+  support: supportTranslations.lt,
   rx: rxTranslations.lt,
 };
 
@@ -707,6 +720,7 @@ const tr: T = {
   saveError: "Talep kaydedilemedi",
   pdfError: "PDF indirilemedi",
   needHelp: "Yardıma mı ihtiyacınız var?",
+  support: supportTranslations.tr,
   rx: rxTranslations.tr,
 };
 
@@ -768,6 +782,7 @@ const ru: T = {
   saveError: "Не удалось сохранить заявку",
   pdfError: "Не удалось скачать PDF",
   needHelp: "Нужна помощь?",
+  support: supportTranslations.ru,
   rx: rxTranslations.ru,
 };
 

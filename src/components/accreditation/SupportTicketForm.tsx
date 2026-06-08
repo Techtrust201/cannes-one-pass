@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "./TranslationProvider";
 
 interface Props {
   orgSlug: string;
@@ -15,26 +16,19 @@ interface EventOption {
   name: string;
 }
 
-/**
- * Formulaire public d'ouverture de ticket.
- *
- * - Palais (variante par défaut) : Stand, Email, Téléphone (optionnel), Message.
- * - RX (`orgSlug === "rx"`) : Événement (liste), Société, Email, Téléphone,
- *   Objet (type de problème), Identification (plaque / n° demande / stand),
- *   Message — tous obligatoires. Le champ identification permet au logisticien
- *   de retrouver la demande même si l'exposant se trompe d'événement.
- *
- * Le message reste générique (pas focalisé sur un événement précis), car
- * l'URL publique est commune à tous les événements de l'organisation.
- */
-const PROBLEM_TYPES = [
-  { value: "accreditation", label: "Accréditation" },
-  { value: "creneau", label: "Créneau / horaire" },
-  { value: "zone", label: "Zone / accès" },
-  { value: "autre", label: "Autre" },
+const PROBLEM_TYPE_VALUES = [
+  { value: "accreditation", key: "problemAccreditation" as const },
+  { value: "creneau", key: "problemCreneau" as const },
+  { value: "zone", key: "problemZone" as const },
+  { value: "autre", key: "problemAutre" as const },
 ];
 
+/**
+ * Formulaire public d'ouverture de ticket.
+ */
 export function SupportTicketForm({ orgSlug }: Props) {
+  const { t } = useTranslation();
+  const s = t.support;
   const isRx = orgSlug.toLowerCase() === "rx";
 
   const [stand, setStand] = useState("");
@@ -50,7 +44,6 @@ export function SupportTicketForm({ orgSlug }: Props) {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Charge les événements de l'organisation pour le menu déroulant (RX).
   useEffect(() => {
     if (!isRx) return;
     let cancelled = false;
@@ -109,27 +102,28 @@ export function SupportTicketForm({ orgSlug }: Props) {
       });
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
-        setError(data.error ?? "Erreur lors de l'envoi du ticket.");
+        setError(data.error ?? s.submitError);
         return;
       }
       setSubmitted(true);
     } catch (err) {
       console.error(err);
-      setError("Erreur réseau, réessayez.");
+      setError(s.networkError);
     } finally {
       setLoading(false);
     }
   }
 
   if (submitted) {
+    const successParts = s.successMessage.split("{email}");
     return (
       <div className="flex flex-col items-center text-center gap-3 py-8">
         <CheckCircle2 size={48} className="text-green-500" />
-        <h2 className="text-xl font-bold text-gray-800">Demande prise en compte</h2>
+        <h2 className="text-xl font-bold text-gray-800">{s.successTitle}</h2>
         <p className="text-sm text-gray-600 max-w-md">
-          Merci, votre demande a bien été prise en compte. L&apos;équipe logistique
-          reviendra vers vous à l&apos;adresse <strong>{email}</strong> dans les
-          meilleurs délais.
+          {successParts[0]}
+          <strong>{email}</strong>
+          {successParts[1] ?? ""}
         </p>
       </div>
     );
@@ -141,25 +135,24 @@ export function SupportTicketForm({ orgSlug }: Props) {
       ok ? "border-gray-300" : "border-red-300"
     );
 
+  const requiredMark = <span className="text-red-500">*</span>;
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <p className="text-sm text-gray-600">
-        Décrivez votre demande à l&apos;équipe logistique. Une réponse vous sera
-        envoyée par email.
-      </p>
+      <p className="text-sm text-gray-600">{s.intro}</p>
 
       {isRx ? (
         <>
           <div className="space-y-1">
             <label className="text-sm font-semibold text-gray-700">
-              Événement <span className="text-red-500">*</span>
+              {s.event} {requiredMark}
             </label>
             <select
               value={eventSlug}
               onChange={(e) => setEventSlug(e.target.value)}
               className={inputClass(eventSlug.trim().length > 0)}
             >
-              <option value="">— Sélectionnez l&apos;événement —</option>
+              <option value="">{s.selectEvent}</option>
               {events.map((ev) => (
                 <option key={ev.slug} value={ev.slug}>
                   {ev.name}
@@ -170,29 +163,29 @@ export function SupportTicketForm({ orgSlug }: Props) {
 
           <div className="space-y-1">
             <label className="text-sm font-semibold text-gray-700">
-              Société <span className="text-red-500">*</span>
+              {s.company} {requiredMark}
             </label>
             <input
               value={company}
               onChange={(e) => setCompany(e.target.value)}
-              placeholder="Nom de votre société"
+              placeholder={s.companyPlaceholder}
               className={inputClass(company.trim().length > 0)}
             />
           </div>
 
           <div className="space-y-1">
             <label className="text-sm font-semibold text-gray-700">
-              Objet (type de problème) <span className="text-red-500">*</span>
+              {s.problemType} {requiredMark}
             </label>
             <select
               value={problemType}
               onChange={(e) => setProblemType(e.target.value)}
               className={inputClass(problemType.trim().length > 0)}
             >
-              <option value="">— Sélectionnez —</option>
-              {PROBLEM_TYPES.map((p) => (
+              <option value="">{s.selectProblem}</option>
+              {PROBLEM_TYPE_VALUES.map((p) => (
                 <option key={p.value} value={p.value}>
-                  {p.label}
+                  {s[p.key]}
                 </option>
               ))}
             </select>
@@ -200,29 +193,26 @@ export function SupportTicketForm({ orgSlug }: Props) {
 
           <div className="space-y-1">
             <label className="text-sm font-semibold text-gray-700">
-              Identification <span className="text-red-500">*</span>
+              {s.identification} {requiredMark}
             </label>
             <input
               value={identification}
               onChange={(e) => setIdentification(e.target.value)}
-              placeholder="Plaque, n° de demande ou stand"
+              placeholder={s.identificationPlaceholder}
               className={inputClass(identification.trim().length > 0)}
             />
-            <p className="text-[11px] text-gray-400">
-              Aide le support à retrouver votre demande (plaque du véhicule,
-              identifiant de demande, ou numéro de stand).
-            </p>
+            <p className="text-[11px] text-gray-400">{s.identificationHint}</p>
           </div>
         </>
       ) : (
         <div className="space-y-1">
           <label className="text-sm font-semibold text-gray-700">
-            Stand <span className="text-red-500">*</span>
+            {s.stand} {requiredMark}
           </label>
           <input
             value={stand}
             onChange={(e) => setStand(e.target.value)}
-            placeholder="ex: PALAIS 110"
+            placeholder={s.standPlaceholder}
             className={inputClass(stand.trim().length > 0)}
           />
         </div>
@@ -230,43 +220,43 @@ export function SupportTicketForm({ orgSlug }: Props) {
 
       <div className="space-y-1">
         <label className="text-sm font-semibold text-gray-700">
-          Email <span className="text-red-500">*</span>
+          {s.email} {requiredMark}
         </label>
         <input
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="vous@exemple.com"
+          placeholder={s.emailPlaceholder}
           className={inputClass(emailValid)}
         />
       </div>
 
       <div className="space-y-1">
         <label className="text-sm font-semibold text-gray-700">
-          Téléphone{" "}
+          {s.phone}{" "}
           {isRx ? (
-            <span className="text-red-500">*</span>
+            requiredMark
           ) : (
-            <span className="text-gray-400 text-xs font-normal">(optionnel)</span>
+            <span className="text-gray-400 text-xs font-normal">{s.phoneOptional}</span>
           )}
         </label>
         <input
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
-          placeholder="+33 6 12 34 56 78"
+          placeholder={s.phonePlaceholder}
           className={inputClass(!isRx || phone.trim().length > 0)}
         />
       </div>
 
       <div className="space-y-1">
         <label className="text-sm font-semibold text-gray-700">
-          Message <span className="text-red-500">*</span>
+          {s.message} {requiredMark}
         </label>
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           rows={5}
-          placeholder="Décrivez votre demande…"
+          placeholder={s.messagePlaceholder}
           className={inputClass(messageValid)}
         />
       </div>
@@ -283,7 +273,7 @@ export function SupportTicketForm({ orgSlug }: Props) {
         className="w-full inline-flex items-center justify-center gap-2 bg-primary text-white font-semibold py-3 rounded-xl shadow disabled:opacity-60"
       >
         {loading && <Loader2 size={16} className="animate-spin" />}
-        Envoyer la demande
+        {s.submit}
       </button>
     </form>
   );

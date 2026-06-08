@@ -31,6 +31,23 @@ export function getLocalizedCategory(
   };
 }
 
+/** Libellé type de véhicule par code, avec repli gabarit/label BDD. */
+export function getLocalizedVehicleType(
+  code: string,
+  t: T,
+  fallbackGabarit?: string,
+  fallbackLabel?: string
+): string {
+  const key = code.trim().toUpperCase();
+  const tr = t.rx.vehicleTypes[key];
+  if (tr) return tr;
+  const gabarit = fallbackGabarit?.trim();
+  if (gabarit) return gabarit;
+  const label = fallbackLabel?.trim();
+  if (label) return label;
+  return code.replace(/_/g, " ");
+}
+
 /** Repli français pour les libellés skip non encore traduits dans une langue. */
 const SKIP_FR = {
   montageLabel: "Je souhaite une accréditation uniquement pour le démontage",

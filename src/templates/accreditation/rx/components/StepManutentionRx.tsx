@@ -21,11 +21,8 @@ import type { RxFormData } from "../types";
 
 const OTHER_PROVIDER = "Autre" as const;
 
-function formatZodIssues(issues: ZodIssue[]): string {
-  return (
-    issues[0]?.message ??
-    "Certaines informations sont incomplètes ou invalides."
-  );
+function formatZodIssues(issues: ZodIssue[], fallback: string): string {
+  return issues[0]?.message ?? fallback;
 }
 
 /**
@@ -147,16 +144,21 @@ export function StepManutentionRx({
     };
   }, [mode, stepOne.event, orgSlug, update, stepOne]);
 
+  const m = t.rx.manutention;
+
   function validateBeforeSubmit(): string | null {
     if (!stepOne.event?.trim()) {
-      return "Événement manquant. Retournez à l'étape 1 pour le sélectionner.";
+      return m.missingEvent ?? "Événement manquant. Retournez à l'étape 1 pour le sélectionner.";
     }
     if (!stepOne.exhibitorId?.trim()) {
-      return "Exposant manquant. Retournez à l'étape 1 pour le sélectionner.";
+      return m.missingExhibitor ?? "Exposant manquant. Retournez à l'étape 1 pour le sélectionner.";
     }
     const vehicleCount = stepTwo.categories.reduce((s, c) => s + c.vehicles.length, 0);
     if (vehicleCount === 0) {
-      return "Aucun véhicule renseigné. Retournez aux étapes Livraison / Reprise pour compléter le formulaire.";
+      return (
+        m.noVehicles ??
+        "Aucun véhicule renseigné. Retournez aux étapes Livraison / Reprise pour compléter le formulaire."
+      );
     }
     const status = mode === "logisticien" ? "ATTENTE" : "NOUVEAU";
     const payload = mapRxPayload(data, lang, {
@@ -167,7 +169,10 @@ export function StepManutentionRx({
     });
     const parsed = rxPayloadSchema.safeParse(payload);
     if (!parsed.success) {
-      return formatZodIssues(parsed.error.issues);
+      return formatZodIssues(
+        parsed.error.issues,
+        m.validationFallback ?? "Certaines informations sont incomplètes ou invalides."
+      );
     }
     return null;
   }
@@ -236,7 +241,7 @@ export function StepManutentionRx({
       setError(
         err instanceof Error && err.message !== "save error"
           ? err.message
-          : (t.saveError ?? "Une erreur est survenue lors de l'enregistrement.")
+          : t.saveError
       );
       setShowModal(false);
     } finally {
@@ -263,7 +268,7 @@ export function StepManutentionRx({
       URL.revokeObjectURL(url);
     } catch (err) {
       console.error(err);
-      setError(t.pdfError ?? "Impossible de générer le PDF.");
+      setError(t.pdfError);
     } finally {
       setDownloading(false);
     }
@@ -529,7 +534,7 @@ export function StepManutentionRx({
 
       {waitingForEvent && (
         <p className="text-gray-400 text-xs text-center">
-          Chargement de l&apos;événement…
+          {m.loadingEvent ?? "Chargement de l'événement…"}
         </p>
       )}
 
@@ -557,7 +562,7 @@ export function StepManutentionRx({
                   disabled={loading}
                   className="w-full sm:w-auto px-6 py-3 rounded-xl border border-gray-300 bg-gray-100 text-gray-800 font-semibold hover:bg-gray-200 transition"
                 >
-                  {t.cancel ?? "Annuler"}
+                  {t.cancel}
                 </button>
                 <button
                   onClick={handleConfirm}
@@ -565,7 +570,7 @@ export function StepManutentionRx({
                   className="w-full sm:w-auto px-6 py-3 rounded-xl bg-primary text-white font-semibold shadow hover:bg-primary-dark transition disabled:opacity-60"
                 >
                   {loading
-                    ? (t.savingProgress ?? "Envoi…")
+                    ? t.savingProgress
                     : flowT.confirmCta}
                 </button>
               </div>

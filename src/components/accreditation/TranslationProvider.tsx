@@ -25,29 +25,46 @@ function detectLang(urlLang: string | null): LangCode {
 export function TranslationProvider({
   children,
   urlLang,
+  forcedLang,
 }: {
   children: ReactNode;
   urlLang: string | null;
+  /** Si défini, force la langue (ex. back-office logisticien toujours en français). */
+  forcedLang?: LangCode;
 }) {
-  const [lang, setLangState] = useState<LangCode>(() => detectLang(urlLang));
+  const [lang, setLangState] = useState<LangCode>(() =>
+    forcedLang ?? detectLang(urlLang)
+  );
 
   useEffect(() => {
+    if (forcedLang) {
+      if (lang !== forcedLang) setLangState(forcedLang);
+      return;
+    }
     if (urlLang && isValidLang(urlLang) && urlLang !== lang) {
       setLangState(urlLang);
     }
-  }, [urlLang]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [urlLang, forcedLang]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const setLang = useCallback((code: LangCode) => {
-    setLangState(code);
-    localStorage.setItem(LS_KEY, code);
-  }, []);
+  const setLang = useCallback(
+    (code: LangCode) => {
+      if (forcedLang) return;
+      setLangState(code);
+      localStorage.setItem(LS_KEY, code);
+    },
+    [forcedLang]
+  );
 
   useEffect(() => {
-    localStorage.setItem(LS_KEY, lang);
-  }, [lang]);
+    if (!forcedLang) localStorage.setItem(LS_KEY, lang);
+  }, [lang, forcedLang]);
+
+  const effectiveLang = forcedLang ?? lang;
 
   return (
-    <Ctx.Provider value={{ lang, t: getTranslations(lang), setLang }}>
+    <Ctx.Provider
+      value={{ lang: effectiveLang, t: getTranslations(effectiveLang), setLang }}
+    >
       {children}
     </Ctx.Provider>
   );

@@ -17,6 +17,7 @@ import {
 import {
   getLocalizedSpace,
   getLocalizedCategory,
+  getLocalizedVehicleType,
   formatDateLocalized,
   getSkipT,
   getBateauTerreT,
@@ -412,7 +413,12 @@ export function StepDeliveryRx({
                             <option value="">{t.rx.delivery.choose}</option>
                             {vehicleTypes.map((vt) => (
                               <option key={vt.id} value={vt.code}>
-                                {vt.gabarit}
+                                {getLocalizedVehicleType(
+                                  vt.code,
+                                  t,
+                                  vt.gabarit,
+                                  vt.label
+                                )}
                               </option>
                             ))}
                           </select>

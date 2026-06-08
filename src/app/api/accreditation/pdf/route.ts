@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import QRCode from "qrcode";
 import { generatePdfFromIds } from "@/lib/accreditation-pdf-ids";
+import { isValidLang, type LangCode } from "@/lib/translations";
 
 export async function POST(req: NextRequest) {
   try {
@@ -26,7 +27,14 @@ export async function POST(req: NextRequest) {
         body.mode === "official" || body.mode === "request"
           ? (body.mode as "official" | "request")
           : undefined;
-      const pdfBytes = await generatePdfFromIds(ids, baseUrl, mode ? { mode } : {});
+      const lang =
+        typeof body.lang === "string" && isValidLang(body.lang)
+          ? (body.lang as LangCode)
+          : undefined;
+      const pdfBytes = await generatePdfFromIds(ids, baseUrl, {
+        ...(mode ? { mode } : {}),
+        ...(lang ? { lang } : {}),
+      });
       const filename =
         mode === "official" ? "accreditation.pdf" : "demande-accreditation.pdf";
       return new Response(Buffer.from(pdfBytes), {

@@ -35,27 +35,24 @@ export async function PATCH(
     const body = await req.json();
     const updates: Record<string, unknown> = {};
 
+    // Renommage de l'identifiant technique (`code`). On ne bloque plus quand
+    // des véhicules l'utilisent : on renomme en cascade (cf. transaction plus
+    // bas), strictement scopé à l'organisation du gabarit pour ne jamais
+    // toucher un code homonyme d'une autre organisation (ex. `VL` RX vs Palais).
+    let renameFrom: string | null = null;
     if (body.code !== undefined) {
       const newCode = String(body.code).trim();
       if (!newCode) {
         return Response.json({ error: "Le code ne peut pas être vide" }, { status: 400 });
       }
       if (newCode !== existing.code) {
-        const inUse = await prisma.vehicle.count({
-          where: { vehicleType: existing.code },
-        });
-        if (inUse > 0) {
-          return Response.json(
-            { error: "Impossible de renommer : des véhicules utilisent encore ce gabarit" },
-            { status: 409 }
-          );
-        }
         const duplicate = await prisma.vehicleTypeConfig.findFirst({
           where: { code: newCode, organizationId: existing.organizationId ?? null },
         });
         if (duplicate && duplicate.id !== numericId) {
           return Response.json({ error: "Ce code existe déjà" }, { status: 409 });
         }
+        renameFrom = existing.code;
       }
       updates.code = newCode;
     }
@@ -76,8 +73,39 @@ export async function PATCH(
     if (body.rxPalmBeachAtCanto !== undefined) {
       updates.rxPalmBeachAtCanto = Boolean(body.rxPalmBeachAtCanto);
     }
+    if (body.rxZoneCanto !== undefined) {
+      const z = String(body.rxZoneCanto ?? "").trim();
+      updates.rxZoneCanto = z || null;
+    }
+    if (body.rxZoneVieuxPort !== undefined) {
+      const z = String(body.rxZoneVieuxPort ?? "").trim();
+      updates.rxZoneVieuxPort = z || null;
+    }
     if (body.sortOrder !== undefined) updates.sortOrder = Number(body.sortOrder);
     if (body.isActive !== undefined) updates.isActive = Boolean(body.isActive);
+
+    // Renommage : update + cascade atomique sur les véhicules de la MÊME
+    // organisation (Vehicle.vehicleType est une chaîne, pas une FK). Le scope
+    // via `accreditation.organizationId` garantit l'isolation inter-org.
+    if (renameFrom !== null) {
+      const newCode = updates.code as string;
+      const [updated] = await prisma.$transaction([
+        prisma.vehicleTypeConfig.update({
+          where: { id: numericId },
+          data: updates,
+        }),
+        prisma.vehicle.updateMany({
+          where: {
+            vehicleType: renameFrom,
+            ...(existing.organizationId
+              ? { accreditation: { organizationId: existing.organizationId } }
+              : {}),
+          },
+          data: { vehicleType: newCode },
+        }),
+      ]);
+      return Response.json(updated);
+    }
 
     const updated = await prisma.vehicleTypeConfig.update({
       where: { id: numericId },

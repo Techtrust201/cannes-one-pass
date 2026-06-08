@@ -13,6 +13,7 @@ import { withEspaceQuery } from "@/lib/url";
 import { ESPACE_COOKIE } from "@/lib/espace-cookie";
 import EspaceSwitcher from "@/components/logisticien/EspaceSwitcher";
 import EspaceChangeRefresher from "@/components/logisticien/EspaceChangeRefresher";
+import { VehicleTypesProvider } from "@/contexts/VehicleTypesContext";
 
 const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";
 
@@ -663,7 +664,9 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
           <EspaceSwitcher variant="mobile" />
         </div>
         <div className="flex-1 flex flex-col min-h-0">
-          {children}
+          <VehicleTypesProvider>
+            {children}
+          </VehicleTypesProvider>
         </div>
       </main>
       {/* Navbar mobile en bas */}

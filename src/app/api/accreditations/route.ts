@@ -10,6 +10,7 @@ import {
   resolveEspaceOrgId,
 } from "@/lib/auth-helpers";
 import { getTemplate } from "@/templates/accreditation/registry";
+import { suggestZone, buildRxZoneRouting, type RxZoneRouting } from "@/lib/rx-zone-rules";
 
 export async function GET(request: NextRequest) {
   let currentUserId: string | undefined;
@@ -323,6 +324,51 @@ export async function POST(req: NextRequest) {
     const vehiclesArr = vehicles as Array<Record<string, unknown>>;
     const splitPerVehicle = raw.splitPerVehicle === true && vehiclesArr.length > 0;
 
+    // RX uniquement : la zone de déchargement suggérée dépend du gabarit de
+    // CHAQUE véhicule (matrice gabarit × port). En mode split, on ne peut pas
+    // réutiliser la `suggestedZone` globale du payload (calculée sur le 1er
+    // véhicule). On charge donc les codes « Palm Beach au Port Canto » de
+    // l'organisation pour recalculer la zone par véhicule.
+    const exhibitorSector =
+      extensionPayload && typeof extensionPayload.exhibitor === "object"
+        ? String(
+            (extensionPayload.exhibitor as Record<string, unknown>).sector ?? ""
+          )
+        : "";
+    let rxPalmBeachCodes: Set<string> | null = null;
+    let rxZoneRouting: Map<string, RxZoneRouting> | undefined;
+    if (splitPerVehicle && organizationSlug === "rx" && exhibitorSector) {
+      const vtConfigs = await prisma.vehicleTypeConfig.findMany({
+        where: {
+          organizationId: organizationId ?? undefined,
+          isActive: true,
+        },
+        select: {
+          code: true,
+          rxPalmBeachAtCanto: true,
+          rxZoneCanto: true,
+          rxZoneVieuxPort: true,
+        },
+      });
+      rxPalmBeachCodes = new Set(
+        vtConfigs
+          .filter((c) => c.rxPalmBeachAtCanto)
+          .map((c) => c.code.toUpperCase())
+      );
+      rxZoneRouting = buildRxZoneRouting(vtConfigs);
+    }
+    const resolveVehicleZone = (v: Record<string, unknown>): string | null => {
+      if (!rxPalmBeachCodes) {
+        return (extensionPayload?.suggestedZone as string | undefined) ?? null;
+      }
+      return suggestZone(
+        (v.vehicleType as string) ?? "",
+        exhibitorSector,
+        rxPalmBeachCodes,
+        rxZoneRouting
+      );
+    };
+
     // Jeton public non devinable (QR de suivi du PDF « demande »), distinct de
     // l'id d'accès. Généré pour chaque accréditation créée.
     const { randomBytes } = await import("crypto");
@@ -345,6 +391,9 @@ export async function POST(req: NextRequest) {
               // Extension partagée + contexte de la catégorie de CE véhicule.
               extension: {
                 ...(extensionPayload ?? {}),
+                // Zone suggérée recalculée pour le gabarit de CE véhicule
+                // (RX) ; repli sur la valeur globale du payload sinon.
+                suggestedZone: resolveVehicleZone(v),
                 vehicleContext: {
                   categoryId: (v.categoryId as string) ?? null,
                   livDate: (v.date as string) ?? null,

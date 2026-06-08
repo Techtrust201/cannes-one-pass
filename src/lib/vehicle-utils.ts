@@ -15,6 +15,10 @@ export interface VehicleTypeData {
   color: string;
   showTrailerPlate: boolean;
   rxPalmBeachAtCanto: boolean;
+  /** RX : code ZoneConfig cible au Port Canto (table de routage). */
+  rxZoneCanto: string | null;
+  /** RX : code ZoneConfig cible au Vieux Port (table de routage). */
+  rxZoneVieuxPort: string | null;
   sortOrder: number;
   isActive: boolean;
 }
@@ -24,6 +28,8 @@ const DEFAULT_VEHICLE_TYPES_DATA: VehicleTypeData[] = DEFAULT_VEHICLE_TYPES.map(
     id: index + 1,
     ...t,
     rxPalmBeachAtCanto: t.rxPalmBeachAtCanto ?? false,
+    rxZoneCanto: t.rxZoneCanto ?? null,
+    rxZoneVieuxPort: t.rxZoneVieuxPort ?? null,
     isActive: true,
   })
 );
@@ -56,6 +62,8 @@ function normalizeVehicleType(raw: unknown): VehicleTypeData {
     color: String(item.color ?? "gray"),
     showTrailerPlate: Boolean(item.showTrailerPlate),
     rxPalmBeachAtCanto: Boolean(item.rxPalmBeachAtCanto ?? false),
+    rxZoneCanto: (item.rxZoneCanto as string | null) ?? null,
+    rxZoneVieuxPort: (item.rxZoneVieuxPort as string | null) ?? null,
     sortOrder: Number(item.sortOrder ?? 0),
     isActive: Boolean(item.isActive ?? true),
   };
@@ -205,6 +213,9 @@ export function resolveVehicleTypeLabel(
   if (vehicleType) {
     const fromCode = getVehicleType(vehicleType);
     if (fromCode) return fromCode.gabarit.trim() || fromCode.label;
+    // Code présent mais introuvable dans le cache → humaniser plutôt que tomber
+    // silencieusement sur PORTEUR (le cache client peut être vide à ce stade).
+    return vehicleType.replace(/_/g, " ");
   }
 
   if (fallbackSize) {

@@ -11,8 +11,12 @@ export interface DefaultVehicleType {
   color: string;
   showTrailerPlate: boolean;
   sortOrder: number;
-  /** RX : suggestion Palm Beach au Port Canto pour ce gabarit. */
+  /** RX : suggestion Palm Beach au Port Canto pour ce gabarit (legacy/repli). */
   rxPalmBeachAtCanto?: boolean;
+  /** RX : code ZoneConfig cible au Port Canto (table de routage configurable). */
+  rxZoneCanto?: string | null;
+  /** RX : code ZoneConfig cible au Vieux Port (table de routage configurable). */
+  rxZoneVieuxPort?: string | null;
 }
 
 export const DEFAULT_VEHICLE_TYPES: DefaultVehicleType[] = [

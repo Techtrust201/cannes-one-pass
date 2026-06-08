@@ -3,6 +3,12 @@ import { DEFAULT_VEHICLE_TYPES } from "@/lib/vehicle-type-defaults";
 import { getColorHex } from "@/lib/color-palette";
 import type { VehicleTypeConfig } from "@prisma/client";
 
+export {
+  resolveVehicleTypeLabelFromList,
+  resolveVehicleTypeShortLabelFromList,
+  resolveVehicleTypeCodeFromList,
+} from "@/lib/vehicle-type-resolve";
+
 export function mapDbVehicleType(type: VehicleTypeConfig): VehicleTypeData {
   return {
     id: type.id,
@@ -17,6 +23,8 @@ export function mapDbVehicleType(type: VehicleTypeConfig): VehicleTypeData {
     color: type.color,
     showTrailerPlate: type.showTrailerPlate,
     rxPalmBeachAtCanto: type.rxPalmBeachAtCanto,
+    rxZoneCanto: (type as unknown as { rxZoneCanto?: string | null }).rxZoneCanto ?? null,
+    rxZoneVieuxPort: (type as unknown as { rxZoneVieuxPort?: string | null }).rxZoneVieuxPort ?? null,
     sortOrder: type.sortOrder,
     isActive: type.isActive,
   };
@@ -27,81 +35,10 @@ export function mapDefaultVehicleTypes(): VehicleTypeData[] {
     id: index + 1,
     ...t,
     rxPalmBeachAtCanto: t.rxPalmBeachAtCanto ?? false,
+    rxZoneCanto: t.rxZoneCanto ?? null,
+    rxZoneVieuxPort: t.rxZoneVieuxPort ?? null,
     isActive: true,
   }));
-}
-
-export function resolveVehicleTypeLabelFromList(
-  types: VehicleTypeData[],
-  vehicleType: string | null | undefined,
-  fallbackSize?: string | null
-): string {
-  const byCode = (code: string) =>
-    types.find((t) => t.code === code || t.code === code.toUpperCase());
-
-  if (vehicleType) {
-    const match = byCode(vehicleType);
-    if (match) return match.gabarit.trim() || match.label;
-  }
-
-  if (fallbackSize) {
-    const match = byCode(fallbackSize);
-    if (match) return match.gabarit.trim() || match.label;
-
-    const s = fallbackSize.toUpperCase();
-    if (s.includes("SEMI")) return byCode("SEMI_REMORQUE")?.gabarit ?? "~90 m³";
-    if (s.includes("ARTICUL")) return byCode("PORTEUR_ARTICULE")?.gabarit ?? "~100 m³";
-    if (s.includes("GROS") || s.includes("20")) return byCode("GROS_PORTEUR")?.gabarit ?? "20 m³";
-    if (s.includes("LEGER") || s.includes("10")) return byCode("PORTEUR_LEGER")?.gabarit ?? "10 m³";
-    if (s.includes("VL") || s.includes("FOURGON")) return byCode("VL")?.gabarit ?? "VL";
-    if (s.includes("PORTEUR")) return byCode("PORTEUR")?.gabarit ?? "15 m³";
-  }
-
-  return byCode("PORTEUR")?.gabarit ?? "15 m³";
-}
-
-export function resolveVehicleTypeShortLabelFromList(
-  types: VehicleTypeData[],
-  vehicleType: string | null | undefined,
-  fallbackSize?: string | null
-): string {
-  const byCode = (code: string) =>
-    types.find((t) => t.code === code || t.code === code.toUpperCase());
-  const type =
-    (vehicleType ? byCode(vehicleType) : undefined) ??
-    (fallbackSize ? byCode(fallbackSize) : undefined);
-  if (type) {
-    const gabarit = (type.gabarit ?? "").trim();
-    if (gabarit === "VL") return "VL";
-    if (/^\d+\s*m³$/.test(gabarit)) return gabarit;
-    const label = (type.label ?? "").trim();
-    return label.replace(/\s*\([^)]*\)\s*$/, "").trim() || label || gabarit;
-  }
-  return resolveVehicleTypeLabelFromList(types, vehicleType, fallbackSize);
-}
-
-export function resolveVehicleTypeCodeFromList(
-  types: VehicleTypeData[],
-  vehicleType: string | null | undefined,
-  fallbackSize?: string | null
-): string {
-  const byCode = (code: string) =>
-    types.find((t) => t.code === code || t.code === code.toUpperCase());
-
-  if (vehicleType && byCode(vehicleType)) return vehicleType;
-  if (fallbackSize && byCode(fallbackSize)) return fallbackSize;
-
-  if (fallbackSize) {
-    const s = fallbackSize.toUpperCase();
-    if (s.includes("SEMI")) return "SEMI_REMORQUE";
-    if (s.includes("ARTICUL")) return "PORTEUR_ARTICULE";
-    if (s.includes("GROS") || s.includes("20")) return "GROS_PORTEUR";
-    if (s.includes("LEGER") || s.includes("10")) return "PORTEUR_LEGER";
-    if (s.includes("VL") || s.includes("FOURGON")) return "VL";
-    if (s.includes("PORTEUR")) return "PORTEUR";
-  }
-
-  return "PORTEUR";
 }
 
 export function buildEmptyTypeBreakdownFromList(

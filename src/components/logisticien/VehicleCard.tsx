@@ -3,7 +3,7 @@
 import type { Vehicle } from "@/types";
 import { Pencil, Trash2, Phone, MessageCircle, MapPin, Calendar, Clock, Truck } from "lucide-react";
 import { getTelLink, getWhatsAppLink } from "@/lib/contact-utils";
-import { resolveVehicleTypeLabel, needsTrailerPlate } from "@/lib/vehicle-utils";
+import { useVehicleTypesContext } from "@/contexts/VehicleTypesContext";
 import { formatVehicleDate } from "@/lib/date-utils";
 
 function getUnloadingLabel(unloading: ("lat" | "rear")[]): string {
@@ -24,9 +24,10 @@ interface VehicleCardProps {
 }
 
 export default function VehicleCard({ vehicle, index, onEdit, onDelete }: VehicleCardProps) {
+  const { getLabel, needsTrailer } = useVehicleTypesContext();
   const typeCode = vehicle.vehicleType || vehicle.size || "";
   const typeLabel = typeCode
-    ? resolveVehicleTypeLabel(vehicle.vehicleType, vehicle.size)
+    ? getLabel(vehicle.vehicleType, vehicle.size)
     : vehicle.size || "Non défini";
 
   return (
@@ -41,7 +42,7 @@ export default function VehicleCard({ vehicle, index, onEdit, onDelete }: Vehicl
             <Truck size={12} className="shrink-0" />
             <span className="truncate">{typeLabel}</span>
           </span>
-          {needsTrailerPlate(typeCode) && (
+          {needsTrailer(typeCode) && (
             <span className="text-xs text-gray-500 shrink-0">
               Rem. <span className="font-mono font-medium">{vehicle.trailerPlate || "—"}</span>
             </span>

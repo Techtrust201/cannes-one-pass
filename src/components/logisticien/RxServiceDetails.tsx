@@ -3,6 +3,7 @@
 import { CalendarClock, Truck, Wrench, Building2 } from "lucide-react";
 import { findCategory, formatDateFR, formatSlot } from "@/templates/accreditation/rx/config";
 import type { RxVehicleContext } from "@/lib/rx-vehicle-context";
+import { useVehicleTypesContext } from "@/contexts/VehicleTypesContext";
 
 interface RxExtensionShape {
   space?: string;
@@ -27,6 +28,7 @@ export default function RxServiceDetails({
 }: {
   extension?: Record<string, unknown> | null;
 }) {
+  const { getLabel } = useVehicleTypesContext();
   if (!extension || typeof extension !== "object") return null;
   const ext = extension as RxExtensionShape;
   const ctx = ext.vehicleContext;
@@ -96,7 +98,7 @@ export default function RxServiceDetails({
                 <div className="space-y-0.5">
                   {ctx.repVehicleType && (
                     <div className="text-gray-800">
-                      Gabarit : {ctx.repVehicleType}
+                      Gabarit : {getLabel(ctx.repVehicleType)}
                     </div>
                   )}
                   <div className="text-gray-800">

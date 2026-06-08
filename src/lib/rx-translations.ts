@@ -119,6 +119,7 @@ export interface RxT {
     recapCategories: string;
     recapVehicles: string;
     recapContact: string;
+    recapZones: string;
     validate: string;
     validateHint: string;
     validateHintScales: string;
@@ -357,6 +358,7 @@ const fr: RxT = {
     recapCategories: "Catégories :",
     recapVehicles: "Véhicules :",
     recapContact: "Contact :",
+    recapZones: "Zones estimées :",
     validate: "Valider l'accréditation",
     validateHint: "Confirmez le consentement",
     validateHintScales: " et l'acquittement Scales",
@@ -567,6 +569,7 @@ const en: RxT = {
     recapCategories: "Categories:",
     recapVehicles: "Vehicles:",
     recapContact: "Contact:",
+    recapZones: "Estimated zones:",
     validate: "Validate the accreditation",
     validateHint: "Confirm consent",
     validateHintScales: " and the Scales acknowledgement",
@@ -756,6 +759,7 @@ const de: RxT = {
     recapCategories: "Kategorien:",
     recapVehicles: "Fahrzeuge:",
     recapContact: "Kontakt:",
+    recapZones: "Geschätzte Zonen:",
     validate: "Akkreditierung bestätigen",
     validateHint: "Bestätigen Sie die Einwilligung",
     validateHintScales: " und die Scales-Bestätigung",
@@ -922,6 +926,7 @@ const es: RxT = {
     recapCategories: "Categorías:",
     recapVehicles: "Vehículos:",
     recapContact: "Contacto:",
+    recapZones: "Zonas estimadas:",
     validate: "Validar la acreditación",
     validateHint: "Confirme el consentimiento",
     validateHintScales: " y la confirmación de Scales",
@@ -1088,6 +1093,7 @@ const pt: RxT = {
     recapCategories: "Categorias:",
     recapVehicles: "Veículos:",
     recapContact: "Contacto:",
+    recapZones: "Zonas estimadas:",
     validate: "Validar a acreditação",
     validateHint: "Confirme o consentimento",
     validateHintScales: " e a confirmação Scales",
@@ -1254,6 +1260,7 @@ const it: RxT = {
     recapCategories: "Categorie:",
     recapVehicles: "Veicoli:",
     recapContact: "Contatto:",
+    recapZones: "Zone stimate:",
     validate: "Convalida l'accreditamento",
     validateHint: "Conferma il consenso",
     validateHintScales: " e la conferma Scales",
@@ -1420,6 +1427,7 @@ const pl: RxT = {
     recapCategories: "Kategorie:",
     recapVehicles: "Pojazdy:",
     recapContact: "Kontakt:",
+    recapZones: "Szacowane strefy:",
     validate: "Zatwierdź akredytację",
     validateHint: "Potwierdź zgodę",
     validateHintScales: " i potwierdzenie Scales",
@@ -1586,6 +1594,7 @@ const cs: RxT = {
     recapCategories: "Kategorie:",
     recapVehicles: "Vozidla:",
     recapContact: "Kontakt:",
+    recapZones: "Odhadované zóny:",
     validate: "Potvrdit akreditaci",
     validateHint: "Potvrďte souhlas",
     validateHintScales: " a potvrzení Scales",
@@ -1752,6 +1761,7 @@ const lt: RxT = {
     recapCategories: "Kategorijos:",
     recapVehicles: "Transporto priemonės:",
     recapContact: "Kontaktas:",
+    recapZones: "Numatomos zonos:",
     validate: "Patvirtinti akreditaciją",
     validateHint: "Patvirtinkite sutikimą",
     validateHintScales: " ir Scales patvirtinimą",
@@ -1918,6 +1928,7 @@ const tr: RxT = {
     recapCategories: "Kategoriler:",
     recapVehicles: "Araçlar:",
     recapContact: "İletişim:",
+    recapZones: "Tahmini bölgeler:",
     validate: "Akreditasyonu doğrula",
     validateHint: "Onayı onaylayın",
     validateHintScales: " ve Scales onayını",
@@ -2084,6 +2095,7 @@ const ru: RxT = {
     recapCategories: "Категории:",
     recapVehicles: "Транспортные средства:",
     recapContact: "Контакт:",
+    recapZones: "Расчётные зоны:",
     validate: "Подтвердить аккредитацию",
     validateHint: "Подтвердите согласие",
     validateHintScales: " и подтверждение Scales",

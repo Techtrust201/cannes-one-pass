@@ -8,6 +8,8 @@ import { PortalOverlay } from "@/components/ui/PortalOverlay";
 import { useUnloadingProviders } from "@/hooks/useUnloadingProviders";
 import { useVehicleTypes } from "@/hooks/useVehicleTypes";
 import { buildPalmBeachAtCantoCodes } from "@/lib/vehicle-type-defaults";
+import { suggestZone, buildRxZoneRouting } from "@/lib/rx-zone-rules";
+import { useZones } from "@/hooks/useZones";
 import { mapRxPayload } from "../mapPayload";
 import { rxPayloadSchema } from "../schema";
 import { countRxLogicalVehicles } from "../count-vehicles";
@@ -51,11 +53,20 @@ export function StepManutentionRx({
   // courante (scoping multi-tenant). On conserve l'option sentinelle "Aucun"
   // et, en cas de liste vide (BDD indisponible), un repli sur la liste codée.
   const { providers: dbProviders } = useUnloadingProviders(orgSlug);
-  const { types: vehicleTypes } = useVehicleTypes(false, orgSlug);
+  const { types: vehicleTypes, getLabel: getVehicleLabel } = useVehicleTypes(
+    false,
+    orgSlug
+  );
   const palmBeachAtCantoCodes = useMemo(
     () => buildPalmBeachAtCantoCodes(vehicleTypes),
     [vehicleTypes]
   );
+  // Table de routage configurable (gabarit × port → zone) issue de l'admin.
+  const zoneRouting = useMemo(
+    () => buildRxZoneRouting(vehicleTypes),
+    [vehicleTypes]
+  );
+  const { getLabel: getZoneLabel } = useZones();
   const skipT = getSkipT(t);
   const otherT = getOtherProviderT(t);
   const flowMode = mode === "logisticien" ? "logisticien" : "public";
@@ -152,6 +163,7 @@ export function StepManutentionRx({
       status,
       split: true,
       palmBeachAtCantoCodes,
+      zoneRouting,
     });
     const parsed = rxPayloadSchema.safeParse(payload);
     if (!parsed.success) {
@@ -192,6 +204,7 @@ export function StepManutentionRx({
       status,
       split: true,
       palmBeachAtCantoCodes,
+      zoneRouting,
     });
       const vehicleCount = stepTwo.categories.reduce((s, c) => s + c.vehicles.length, 0);
 
@@ -260,6 +273,40 @@ export function StepManutentionRx({
     stepTwo.categories,
     stepTwo.skipDemontage
   );
+
+  // Pré-visualisation des aires de rétention : on regroupe les véhicules par
+  // zone estimée (gabarit × port de l'exposant). Purement informatif côté
+  // formulaire ; la zone réelle est figée à la validation back-office.
+  const vehiclesByZone = useMemo(() => {
+    // Regroupe les gabarits par code de zone résolu (supporte une matrice
+    // configurable à N zones, pas seulement Palm Beach / La Bocca).
+    const groups = new Map<string, string[]>();
+    for (const cat of stepTwo.categories) {
+      for (const v of cat.vehicles) {
+        if (!v.vehicleType) continue;
+        const zone = suggestZone(
+          v.vehicleType,
+          stepOne.exhibitorSector,
+          palmBeachAtCantoCodes,
+          zoneRouting
+        );
+        if (!zone) continue;
+        const arr = groups.get(zone) ?? [];
+        arr.push(getVehicleLabel(v.vehicleType));
+        groups.set(zone, arr);
+      }
+    }
+    return Array.from(groups.entries()).map(([zone, labels]) => ({
+      zone,
+      labels,
+    }));
+  }, [
+    stepTwo.categories,
+    stepOne.exhibitorSector,
+    palmBeachAtCantoCodes,
+    zoneRouting,
+    getVehicleLabel,
+  ]);
 
   // Écran de succès — wording et PDF distincts : public (demande) vs logisticien (officiel).
   if (hasSaved) {
@@ -446,6 +493,17 @@ export function StepManutentionRx({
           <span className="font-semibold">{t.rx.manutention.recapContact}</span> {stepOne.contact.firstName}{" "}
           {stepOne.contact.lastName} · {stepOne.contact.email}
         </div>
+        {vehiclesByZone.length > 0 && (
+          <div className="pt-1 mt-1 border-t border-gray-200 space-y-0.5">
+            <span className="font-semibold">{t.rx.manutention.recapZones}</span>
+            {vehiclesByZone.map(({ zone, labels }) => (
+              <div key={zone} className="text-gray-600">
+                {labels.length} → {getZoneLabel(zone)}
+                <span className="text-gray-400"> · {labels.join(", ")}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {error && (

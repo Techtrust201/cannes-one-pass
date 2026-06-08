@@ -37,6 +37,8 @@ export function useVehicleTypes(includeInactive = false, espaceSlug?: string | n
             color: String(item.color ?? "gray"),
             showTrailerPlate: Boolean(item.showTrailerPlate),
             rxPalmBeachAtCanto: Boolean(item.rxPalmBeachAtCanto ?? false),
+            rxZoneCanto: (item.rxZoneCanto as string | null) ?? null,
+            rxZoneVieuxPort: (item.rxZoneVieuxPort as string | null) ?? null,
             sortOrder: Number(item.sortOrder ?? 0),
             isActive: Boolean(item.isActive ?? true),
           }));

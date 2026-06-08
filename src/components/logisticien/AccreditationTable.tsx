@@ -7,7 +7,8 @@ import { useRouter } from "next/navigation";
 import StatusPill from "./StatusPill";
 import MobileAccreditationList from "./MobileAccreditationList";
 import { formatVehicleDate } from "@/lib/date-utils";
-import { needsTrailerPlate, resolveVehicleTypeShortLabel } from "@/lib/vehicle-utils";
+import { needsTrailerPlate } from "@/lib/vehicle-utils";
+import { useVehicleTypesContext } from "@/contexts/VehicleTypesContext";
 import {
   Pagination,
   PaginationContent,
@@ -149,6 +150,7 @@ export default function AccreditationTable({
   const eventLogoMap = useEventLogoMap();
   const { allZoneKeys, isFinalDestination } = useZones();
   const { hasPermission } = usePermissions();
+  const { getShortLabel } = useVehicleTypesContext();
 
   // Clé de groupe (statut|zone) de la sélection actuelle
   const selectionGroupKey = useMemo(() => {
@@ -434,7 +436,7 @@ export default function AccreditationTable({
                           {(() => {
                             const vt = acc.vehicles[0].vehicleType || acc.vehicles[0].size;
                             const label = vt
-                              ? resolveVehicleTypeShortLabel(vt, acc.vehicles[0].size)
+                              ? getShortLabel(acc.vehicles[0].vehicleType, acc.vehicles[0].size)
                               : null;
                             return label ? (
                               <span className="block text-[9px] text-[#4F587E] mt-0.5 font-medium truncate max-w-[110px]">

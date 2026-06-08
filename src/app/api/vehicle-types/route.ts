@@ -126,6 +126,8 @@ export async function POST(req: NextRequest) {
       showTrailerPlate,
       sortOrder,
       rxPalmBeachAtCanto,
+      rxZoneCanto,
+      rxZoneVieuxPort,
     } = body as Record<string, unknown>;
 
     if (!label || !gabarit) {
@@ -163,6 +165,14 @@ export async function POST(req: NextRequest) {
         color: typeof color === "string" ? color : "gray",
         showTrailerPlate: Boolean(showTrailerPlate),
         rxPalmBeachAtCanto: Boolean(rxPalmBeachAtCanto ?? false),
+        rxZoneCanto:
+          typeof rxZoneCanto === "string" && rxZoneCanto.trim()
+            ? rxZoneCanto.trim()
+            : null,
+        rxZoneVieuxPort:
+          typeof rxZoneVieuxPort === "string" && rxZoneVieuxPort.trim()
+            ? rxZoneVieuxPort.trim()
+            : null,
         sortOrder: Number(sortOrder ?? 0),
         organizationId: orgId,
       },

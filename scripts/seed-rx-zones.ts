@@ -3,8 +3,9 @@
  *
  * Crée / met à jour, **scopées à l'organisation RX** (jamais en global, pour
  * ne pas polluer les filtres du Palais) :
- *   - LA_BOCCA  (zone de stockage La Bocca)
- *   - PALM_BEACH (Pointe Croisette / Palm Beach)
+ *   - LA_BOCCA   (aire de rétention La Bocca)
+ *   - PALM_BEACH (aire de rétention Pointe Croisette / Palm Beach)
+ *   - PORT_CANTO (destination finale RX, analogue au Palais des Festivals)
  *
  * Ces zones alimentent la pré-assignation automatique (cf. rx-zone-rules.ts)
  * et l'affichage adresse + GPS sur le PDF d'accréditation.
@@ -40,6 +41,15 @@ const RX_ZONES = [
     longitude: 7.0295,
     color: "blue",
     isFinalDestination: false,
+  },
+  {
+    zone: "PORT_CANTO",
+    label: "Port Canto",
+    address: "Port Pierre Canto, Boulevard de la Croisette, 06400 Cannes",
+    latitude: 43.543,
+    longitude: 7.027,
+    color: "green",
+    isFinalDestination: true,
   },
 ];
 

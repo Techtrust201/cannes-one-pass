@@ -9,7 +9,11 @@ import { Accreditation } from "@/types";
 import StatusPill from "@/components/logisticien/StatusPill";
 import ActionButtons from "@/components/logisticien/ActionButtons";
 import AccreditationQrBadge from "@/components/logisticien/AccreditationQrBadge";
-import { resolveVehicleTypeLabel } from "@/lib/vehicle-utils";
+import {
+  mapDbVehicleType,
+  mapDefaultVehicleTypes,
+} from "@/lib/vehicle-type-server";
+import { resolveVehicleTypeShortLabelFromList } from "@/lib/vehicle-type-resolve";
 
 /**
  * Page de vérification "guérite" — cible du scan QR.
@@ -29,10 +33,20 @@ export default async function VerifyPage({
   const acc = await withRetry(() =>
     prisma.accreditation.findUnique({
       where: { id },
-      include: { vehicles: true },
+      include: { vehicles: true, organization: { select: { id: true } } },
     })
   );
   if (!acc) return notFound();
+
+  const orgId = acc.organization?.id ?? null;
+  const dbTypes = orgId
+    ? await prisma.vehicleTypeConfig.findMany({
+        where: { organizationId: orgId, isActive: true },
+        orderBy: { sortOrder: "asc" },
+      })
+    : [];
+  const vehicleTypes =
+    dbTypes.length > 0 ? dbTypes.map(mapDbVehicleType) : mapDefaultVehicleTypes();
 
   const safeAcc = {
     ...acc,
@@ -115,7 +129,7 @@ export default async function VerifyPage({
                   </span>
                   <span className="inline-flex items-center gap-1 text-xs text-[#4F587E] font-medium">
                     <Truck size={12} />
-                    {resolveVehicleTypeLabel(v.vehicleType, v.size)}
+                    {resolveVehicleTypeShortLabelFromList(vehicleTypes, v.vehicleType, v.size)}
                   </span>
                   {v.trailerPlate && (
                     <span className="text-xs text-gray-500">

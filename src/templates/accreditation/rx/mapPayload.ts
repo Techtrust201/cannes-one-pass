@@ -1,7 +1,7 @@
 import type { CreateAccreditationPayload } from "../types";
 import type { RxFormData } from "./types";
 import { findCategory } from "./config";
-import { suggestZone } from "@/lib/rx-zone-rules";
+import { suggestZone, type RxZoneRouting } from "@/lib/rx-zone-rules";
 
 function resolveRepFields(
   v: RxFormData["stepTwo"]["categories"][number]["vehicles"][number],
@@ -44,6 +44,7 @@ export function mapRxPayload(
     status?: string;
     split?: boolean;
     palmBeachAtCantoCodes?: Set<string>;
+    zoneRouting?: Map<string, RxZoneRouting>;
   }
 ): CreateAccreditationPayload {
   const vehicles: CreateAccreditationPayload["vehicles"] = [];
@@ -93,7 +94,8 @@ export function mapRxPayload(
   const suggestedZone = suggestZone(
     firstVehicleType,
     form.stepOne.exhibitorSector,
-    options?.palmBeachAtCantoCodes
+    options?.palmBeachAtCantoCodes,
+    options?.zoneRouting
   );
 
   // Libellé prestataire effectif : si « Autre », on prend le texte libre.

@@ -9,9 +9,11 @@ import {
   Power,
   PowerOff,
   RotateCcw,
+  MapPin,
 } from "lucide-react";
 import { useVehicleTypes } from "@/hooks/useVehicleTypes";
 import { useEspaceSlug } from "@/hooks/useEspaceSlug";
+import { useZones } from "@/hooks/useZones";
 import { COLOR_OPTIONS, getColorClasses } from "@/lib/color-palette";
 import { invalidateVehicleTypeCache } from "@/lib/vehicle-utils";
 import type { VehicleTypeData } from "@/lib/vehicle-utils";
@@ -33,12 +35,15 @@ const EMPTY_FORM = {
   color: "gray",
   showTrailerPlate: false,
   rxPalmBeachAtCanto: false,
+  rxZoneCanto: "",
+  rxZoneVieuxPort: "",
   sortOrder: "0",
 };
 
 export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionProps) {
   const espace = useEspaceSlug();
   const { types, loading, refresh } = useVehicleTypes(true, espace);
+  const { zones } = useZones();
   const activeTypes = types.filter((t) => t.isActive);
   const inactiveTypes = types.filter((t) => !t.isActive);
 
@@ -85,6 +90,8 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
           color: createForm.color,
           showTrailerPlate: createForm.showTrailerPlate,
           rxPalmBeachAtCanto: createForm.rxPalmBeachAtCanto,
+          rxZoneCanto: createForm.rxZoneCanto || null,
+          rxZoneVieuxPort: createForm.rxZoneVieuxPort || null,
           sortOrder: Number(createForm.sortOrder || 0),
         }),
       });
@@ -118,6 +125,8 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
       color: type.color,
       showTrailerPlate: type.showTrailerPlate,
       rxPalmBeachAtCanto: type.rxPalmBeachAtCanto,
+      rxZoneCanto: type.rxZoneCanto ?? "",
+      rxZoneVieuxPort: type.rxZoneVieuxPort ?? "",
       sortOrder: String(type.sortOrder),
     });
     setEditError("");
@@ -149,6 +158,10 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
           color: String(editForm.color),
           showTrailerPlate: Boolean(editForm.showTrailerPlate),
           rxPalmBeachAtCanto: Boolean(editForm.rxPalmBeachAtCanto),
+          rxZoneCanto: editForm.rxZoneCanto ? String(editForm.rxZoneCanto) : null,
+          rxZoneVieuxPort: editForm.rxZoneVieuxPort
+            ? String(editForm.rxZoneVieuxPort)
+            : null,
           sortOrder: Number(editForm.sortOrder),
         }),
       });
@@ -321,20 +334,55 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
           Plaque de remorque requise
         </label>
       </div>
-      <div className="sm:col-span-2">
-        <label className="inline-flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={Boolean(form.rxPalmBeachAtCanto)}
-            onChange={(e) => setForm({ rxPalmBeachAtCanto: e.target.checked })}
-          />
-          Palm Beach au Port Canto (RX)
-        </label>
-        <p className="text-[10px] text-gray-400 mt-1">
-          Pré-assignation zone Palm Beach pour ce gabarit lorsque l&apos;exposant est au
-          Port Canto. Sans impact sur le flux Palais.
-        </p>
-      </div>
+      {espace === "rx" && (
+        <div className="sm:col-span-2 grid gap-3 sm:grid-cols-2 rounded-lg border border-blue-100 bg-blue-50/40 p-3">
+          <div className="sm:col-span-2 flex items-center gap-1.5 text-xs font-semibold text-blue-900">
+            <MapPin size={14} className="shrink-0" />
+            Aire de rétention par port (RX)
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase">
+              Exposant au Port Canto →
+            </label>
+            <select
+              value={String(form.rxZoneCanto ?? "")}
+              onChange={(e) => setForm({ rxZoneCanto: e.target.value })}
+              className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+            >
+              <option value="">Repli automatique</option>
+              {zones.map((z) => (
+                <option key={z.zone} value={z.zone}>
+                  {z.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase">
+              Exposant au Vieux Port →
+            </label>
+            <select
+              value={String(form.rxZoneVieuxPort ?? "")}
+              onChange={(e) => setForm({ rxZoneVieuxPort: e.target.value })}
+              className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+            >
+              <option value="">Repli automatique</option>
+              {zones.map((z) => (
+                <option key={z.zone} value={z.zone}>
+                  {z.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <p className="sm:col-span-2 text-[10px] text-gray-400">
+            Zone de déchargement vers laquelle ce gabarit est dirigé selon le
+            port de l&apos;exposant. « Repli automatique » conserve l&apos;ancienne
+            règle (case Palm Beach au Port Canto). Pour ajouter une aire de
+            rétention, créez-la d&apos;abord dans <strong>Zones</strong> : elle
+            apparaîtra ici. Sans impact sur le flux Palais.
+          </p>
+        </div>
+      )}
     </div>
   );
 
@@ -382,6 +430,37 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
           </div>
         )}
       </div>
+
+      {espace === "rx" && (
+        <div className="mb-6 rounded-xl border border-blue-200 bg-blue-50/60 p-4 text-sm text-blue-900">
+          <div className="flex items-center gap-2 font-semibold">
+            <MapPin size={16} className="shrink-0" />
+            Affectation automatique des aires de rétention
+          </div>
+          <p className="mt-2 text-blue-800/90 leading-relaxed">
+            À la demande d&apos;accréditation, chaque véhicule se voit suggérer
+            une aire de rétention selon son <strong>gabarit</strong> et le
+            <strong> port de l&apos;exposant</strong> (Port Canto ou Vieux Port,
+            déduit automatiquement du secteur). Vous définissez vous-même cette
+            table de routage, gabarit par gabarit.
+          </p>
+          <p className="mt-2 text-blue-800/90 leading-relaxed">
+            <strong>Pour configurer :</strong> via « Nouveau type » ou
+            l&apos;édition d&apos;un type, renseignez les deux menus
+            <em> « Exposant au Port Canto → »</em> et
+            <em> « Exposant au Vieux Port → »</em> avec la zone de déchargement
+            cible. Exemple : un VL au Port Canto → <strong>Palm Beach</strong> ;
+            un semi-remorque → <strong>La Bocca</strong>. « Repli automatique »
+            conserve l&apos;ancienne règle.
+          </p>
+          <p className="mt-2 text-blue-800/90 leading-relaxed">
+            <strong>Ajouter une aire de rétention :</strong> créez-la dans la page
+            <strong> Zones</strong> (ex. « Port Canto » comme destination finale).
+            Elle apparaîtra aussitôt dans les menus ci-dessus. La suggestion reste
+            modifiable manuellement à la validation back-office.
+          </p>
+        </div>
+      )}
 
       {showCreateForm && canWrite && (
         <div className="mb-6 bg-white rounded-2xl border-2 border-dashed border-orange-300/40 p-5 shadow-sm">

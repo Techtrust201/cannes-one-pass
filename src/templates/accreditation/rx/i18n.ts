@@ -31,20 +31,28 @@ export function getLocalizedCategory(
   };
 }
 
-/** Libellé type de véhicule par code, avec repli gabarit/label BDD. */
+/**
+ * Libellé type de véhicule.
+ *
+ * L'appellation configurée en base (gabarit puis label) est la source de
+ * vérité et prime sur tout : c'est l'admin qui pilote le libellé. La table
+ * i18n figée `t.rx.vehicleTypes[code]` ne sert que de repli lorsque la base ne
+ * fournit ni gabarit ni label (ex. cache vide), afin de garder une UI cohérente
+ * avec le récap et le back-office (qui lisent déjà le gabarit BDD).
+ */
 export function getLocalizedVehicleType(
   code: string,
   t: T,
   fallbackGabarit?: string,
   fallbackLabel?: string
 ): string {
-  const key = code.trim().toUpperCase();
-  const tr = t.rx.vehicleTypes[key];
-  if (tr) return tr;
   const gabarit = fallbackGabarit?.trim();
   if (gabarit) return gabarit;
   const label = fallbackLabel?.trim();
   if (label) return label;
+  const key = code.trim().toUpperCase();
+  const tr = t.rx.vehicleTypes[key];
+  if (tr) return tr;
   return code.replace(/_/g, " ");
 }
 

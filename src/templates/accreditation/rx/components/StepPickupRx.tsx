@@ -3,6 +3,8 @@
 import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { handleSanitizedPlateInput } from "@/lib/plate-utils";
+import { mapCitySelectToVehicleFields } from "@/lib/city-form-utils";
+import CityAutocomplete from "@/components/CityAutocomplete";
 import { useVehicleTypes } from "@/hooks/useVehicleTypes";
 import { useTranslation } from "@/components/accreditation/TranslationProvider";
 import {
@@ -19,7 +21,6 @@ import {
 } from "../i18n";
 import type { StepProps } from "../../types";
 import type { RxFormData, RxCategorySelection } from "../types";
-import { RxVehicleCityField } from "./RxVehicleCityField";
 
 type RepVehiclePatch = Partial<{
   repSameAsDelivery: boolean;
@@ -27,6 +28,10 @@ type RepVehiclePatch = Partial<{
   repPlate: string | null;
   repPhoneCode: string;
   repPhoneNumber: string;
+  repInterveningCompany: string;
+  repCity: string;
+  repCountry: RxFormData["stepTwo"]["categories"][number]["vehicles"][number]["repCountry"];
+  repEstimatedKms: number;
 }>;
 
 /**
@@ -429,11 +434,19 @@ export function StepPickupRx({
                               className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm uppercase"
                             />
                           </div>
-                          <RxVehicleCityField
-                            value={v.city ?? ""}
-                            onChange={(city) => updateVehicle(cat.id, idx, { city })}
-                            onSelect={(patch) => updateVehicle(cat.id, idx, patch)}
-                          />
+                          <div className="sm:col-span-3">
+                            <label className="text-xs text-gray-600 block mb-0.5">
+                              {t.departureCity}
+                            </label>
+                            <CityAutocomplete
+                              value={v.city ?? ""}
+                              onChange={(city) => updateVehicle(cat.id, idx, { city })}
+                              onCitySelect={(city) =>
+                                updateVehicle(cat.id, idx, mapCitySelectToVehicleFields(city))
+                              }
+                              className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm shadow-sm focus:ring-primary focus:border-primary"
+                            />
+                          </div>
                           {selected.vehicles.length > 1 ? (
                             <button
                               type="button"
@@ -672,6 +685,41 @@ export function StepPickupRx({
                                 placeholder="6 XX XX XX XX"
                               />
                             </div>
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className="text-xs text-gray-600 block mb-0.5">
+                              {t.rx.delivery.interveningCompany}
+                            </label>
+                            <input
+                              value={v.repInterveningCompany ?? ""}
+                              onChange={(e) =>
+                                patchRepVehicle(cat.categoryId, idx, {
+                                  repInterveningCompany: e.target.value,
+                                })
+                              }
+                              placeholder={t.rx.delivery.interveningPlaceholder}
+                              className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm"
+                            />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className="text-xs text-gray-600 block mb-0.5">
+                              {t.departureCity}
+                            </label>
+                            <CityAutocomplete
+                              value={v.repCity ?? ""}
+                              onChange={(city) =>
+                                patchRepVehicle(cat.categoryId, idx, { repCity: city })
+                              }
+                              onCitySelect={(city) => {
+                                const fields = mapCitySelectToVehicleFields(city);
+                                patchRepVehicle(cat.categoryId, idx, {
+                                  repCity: fields.city,
+                                  repCountry: fields.country,
+                                  repEstimatedKms: fields.estimatedKms,
+                                });
+                              }}
+                              className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm shadow-sm focus:ring-primary focus:border-primary"
+                            />
                           </div>
                         </div>
                       )}

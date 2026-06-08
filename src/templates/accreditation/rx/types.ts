@@ -45,6 +45,12 @@ export interface RxCategorySelection {
     repPlate?: string | null;
     repPhoneCode?: string;
     repPhoneNumber?: string;
+    /** Reprise différente : société intervenante du véhicule de reprise. */
+    repInterveningCompany?: string;
+    /** Reprise différente : ville de départ (bilan carbone). */
+    repCity?: string;
+    repCountry?: CountryRegion;
+    repEstimatedKms?: number;
   }>;
 }
 

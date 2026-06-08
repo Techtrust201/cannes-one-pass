@@ -8,19 +8,7 @@ import {
 } from "@/lib/vehicle-type-server";
 import type { VehicleTypeData } from "@/lib/vehicle-utils";
 import { formatDateFR, formatSlot } from "@/templates/accreditation/rx/config";
-
-interface VehicleContext {
-  categoryId?: string | null;
-  livDate?: string | null;
-  livTime?: string | null;
-  repDate?: string | null;
-  repTime?: string | null;
-  repSameAsDelivery?: boolean;
-  repPlate?: string | null;
-  repVehicleType?: string | null;
-  repPhoneCode?: string | null;
-  repPhoneNumber?: string | null;
-}
+import type { RxVehicleContext } from "@/lib/rx-vehicle-context";
 
 interface RxExtension {
   exhibitor?: { name?: string; stand?: string };
@@ -31,7 +19,7 @@ interface RxExtension {
     phoneCode?: string;
     phoneNumber?: string;
   };
-  vehicleContext?: VehicleContext;
+  vehicleContext?: RxVehicleContext;
   manutentionProvider?: string;
 }
 
@@ -118,6 +106,7 @@ async function renderAccreditationPage(
       phoneNumber: string;
       date: string;
       time: string;
+      city: string;
       vehicleType: string | null;
       trailerPlate: string | null;
     }>;
@@ -288,6 +277,12 @@ async function renderAccreditationPage(
       "Créneau livraison",
       `${formatDateTime(livDate)} — ${formatTimeSlot(livTime)}`
     );
+    if (ctx.interveningCompany) {
+      addLabelVal("Société intervenante livraison", ctx.interveningCompany);
+    }
+    if (v.city) {
+      addLabelVal("Ville de départ livraison", v.city);
+    }
 
     y -= 10;
     drawText(page, "Véhicule de reprise", 50, y, 14);
@@ -313,6 +308,12 @@ async function renderAccreditationPage(
       );
       addLabelVal("Gabarit reprise", repGabarit);
       addLabelVal("Plaque reprise", ctx.repPlate || "—");
+      if (ctx.repInterveningCompany) {
+        addLabelVal("Société intervenante reprise", ctx.repInterveningCompany);
+      }
+      if (ctx.repCity) {
+        addLabelVal("Ville de départ reprise", ctx.repCity);
+      }
       if (ctx.repPhoneNumber) {
         addLabelVal(
           "Téléphone reprise",

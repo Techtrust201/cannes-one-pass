@@ -10,6 +10,7 @@ import { useVehicleTypes } from "@/hooks/useVehicleTypes";
 import { buildPalmBeachAtCantoCodes } from "@/lib/vehicle-type-defaults";
 import { mapRxPayload } from "../mapPayload";
 import { rxPayloadSchema } from "../schema";
+import { countRxLogicalVehicles } from "../count-vehicles";
 import { RX_MANUTENTION_PROVIDERS, findCategory } from "../config";
 import { getSkipT, getOtherProviderT, getRxFlowT } from "../i18n";
 import type { ZodIssue } from "zod";
@@ -255,7 +256,10 @@ export function StepManutentionRx({
     }
   }
 
-  const totalVehicles = stepTwo.categories.reduce((s, c) => s + c.vehicles.length, 0);
+  const totalVehicles = countRxLogicalVehicles(
+    stepTwo.categories,
+    stepTwo.skipDemontage
+  );
 
   // Écran de succès — wording et PDF distincts : public (demande) vs logisticien (officiel).
   if (hasSaved) {

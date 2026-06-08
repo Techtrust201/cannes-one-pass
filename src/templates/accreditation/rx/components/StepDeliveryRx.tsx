@@ -3,6 +3,8 @@
 import { useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { handleSanitizedPlateInput } from "@/lib/plate-utils";
+import { mapCitySelectToVehicleFields } from "@/lib/city-form-utils";
+import CityAutocomplete from "@/components/CityAutocomplete";
 import { useVehicleTypes } from "@/hooks/useVehicleTypes";
 import { useTranslation } from "@/components/accreditation/TranslationProvider";
 import {
@@ -21,7 +23,6 @@ import {
 } from "../i18n";
 import type { StepProps } from "../../types";
 import type { RxFormData } from "../types";
-import { RxVehicleCityField } from "./RxVehicleCityField";
 
 /**
  * Step 3 RX — Gestion des livraisons (montage).
@@ -433,11 +434,19 @@ export function StepDeliveryRx({
                             className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm uppercase"
                           />
                         </div>
-                        <RxVehicleCityField
-                          value={v.city ?? ""}
-                          onChange={(city) => updateVehicle(cat.id, idx, { city })}
-                          onSelect={(patch) => updateVehicle(cat.id, idx, patch)}
-                        />
+                        <div className="sm:col-span-3">
+                          <label className="text-xs text-gray-600 block mb-0.5">
+                            {t.departureCity}
+                          </label>
+                          <CityAutocomplete
+                            value={v.city ?? ""}
+                            onChange={(city) => updateVehicle(cat.id, idx, { city })}
+                            onCitySelect={(city) =>
+                              updateVehicle(cat.id, idx, mapCitySelectToVehicleFields(city))
+                            }
+                            className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm shadow-sm focus:ring-primary focus:border-primary"
+                          />
+                        </div>
                         {selected.vehicles.length > 1 ? (
                           <button
                             type="button"

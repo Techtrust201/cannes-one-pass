@@ -2,26 +2,13 @@
 
 import { CalendarClock, Truck, Wrench, Building2 } from "lucide-react";
 import { findCategory, formatDateFR, formatSlot } from "@/templates/accreditation/rx/config";
-
-interface VehicleContext {
-  categoryId?: string | null;
-  livDate?: string | null;
-  livTime?: string | null;
-  repDate?: string | null;
-  repTime?: string | null;
-  repSameAsDelivery?: boolean;
-  repPlate?: string | null;
-  repVehicleType?: string | null;
-  repPhoneCode?: string | null;
-  repPhoneNumber?: string | null;
-  interveningCompany?: string | null;
-}
+import type { RxVehicleContext } from "@/lib/rx-vehicle-context";
 
 interface RxExtensionShape {
   space?: string;
   manutentionProvider?: string;
   scalesAssigned?: boolean;
-  vehicleContext?: VehicleContext;
+  vehicleContext?: RxVehicleContext;
 }
 
 function fmtDate(iso: string | null | undefined): string {
@@ -106,12 +93,29 @@ export default function RxServiceDetails({
                   identique au véhicule de livraison
                 </span>
               ) : (
-                <span className="text-gray-800">
-                  {ctx.repPlate || "plaque non renseignée"}
-                  {ctx.repPhoneNumber
-                    ? ` · ${ctx.repPhoneCode ?? ""} ${ctx.repPhoneNumber}`.trim()
-                    : ""}
-                </span>
+                <div className="space-y-0.5">
+                  {ctx.repVehicleType && (
+                    <div className="text-gray-800">
+                      Gabarit : {ctx.repVehicleType}
+                    </div>
+                  )}
+                  <div className="text-gray-800">
+                    {ctx.repPlate || "plaque non renseignée"}
+                    {ctx.repPhoneNumber
+                      ? ` · ${ctx.repPhoneCode ?? ""} ${ctx.repPhoneNumber}`.trim()
+                      : ""}
+                  </div>
+                  {ctx.repInterveningCompany && (
+                    <div className="text-gray-600 text-xs">
+                      Société : {ctx.repInterveningCompany}
+                    </div>
+                  )}
+                  {ctx.repCity && (
+                    <div className="text-gray-600 text-xs">
+                      Ville de départ : {ctx.repCity}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>

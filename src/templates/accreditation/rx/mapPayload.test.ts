@@ -118,6 +118,42 @@ describe("rx template — mapPayload", () => {
     expect(payload.vehicles[0].repVehicleType).toBe("PORTEUR");
   });
 
+  it("propage repInterveningCompany / repCity quand reprise différente", () => {
+    const form = buildRxForm();
+    form.stepTwo.categories[0].vehicles[0].repSameAsDelivery = false;
+    form.stepTwo.categories[0].vehicles[0].repVehicleType = "VL";
+    form.stepTwo.categories[0].vehicles[0].repInterveningCompany = "Transports Durand";
+    form.stepTwo.categories[0].vehicles[0].repCity = "Lyon";
+    form.stepTwo.categories[0].vehicles[0].repCountry = "FRANCE";
+    form.stepTwo.categories[0].vehicles[0].repEstimatedKms = 450;
+
+    const payload = mapRxPayload(form, "fr", { split: true });
+    expect(payload.vehicles[0].repInterveningCompany).toBe("Transports Durand");
+    expect(payload.vehicles[0].repCity).toBe("Lyon");
+    expect(payload.vehicles[0].repCountry).toBe("FRANCE");
+    expect(payload.vehicles[0].repEstimatedKms).toBe(450);
+    const extCategories = payload.extension?.categories as Array<{
+      vehicles: Array<{ repCity?: string; repInterveningCompany?: string }>;
+    }>;
+    expect(extCategories[0].vehicles[0].repCity).toBe("Lyon");
+    expect(extCategories[0].vehicles[0].repInterveningCompany).toBe("Transports Durand");
+  });
+
+  it("repCity héritée de la livraison quand reprise identique", () => {
+    const form = buildRxForm();
+    form.stepTwo.categories[0].vehicles[0].city = "Paris";
+    form.stepTwo.categories[0].vehicles[0].country = "FRANCE";
+    form.stepTwo.categories[0].vehicles[0].estimatedKms = 930;
+    form.stepTwo.categories[0].vehicles[0].interveningCompany = "Logistique A";
+
+    const payload = mapRxPayload(form, "fr");
+    expect(payload.vehicles[0].repSameAsDelivery).toBe(true);
+    expect(payload.vehicles[0].repCity).toBe("Paris");
+    expect(payload.vehicles[0].repCountry).toBe("FRANCE");
+    expect(payload.vehicles[0].repEstimatedKms).toBe(930);
+    expect(payload.vehicles[0].repInterveningCompany).toBe("Logistique A");
+  });
+
   it("accepte un formulaire vide (état initial) sans crasher", () => {
     const empty = getDefaultRxFormData();
     const payload = mapRxPayload(empty, "fr");

@@ -99,6 +99,10 @@ export interface CreateAccreditationPayload {
     repPhoneCode?: string;
     repPhoneNumber?: string;
     interveningCompany?: string;
+    repInterveningCompany?: string;
+    repCity?: string;
+    repCountry?: string;
+    repEstimatedKms?: number;
   }>;
   message?: string;
   consent: boolean;

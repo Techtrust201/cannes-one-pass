@@ -4,6 +4,7 @@ import {
   requirePermission,
   getAccessibleOrganizationIds,
 } from "@/lib/auth-helpers";
+import { parseRxVehicleContext } from "@/lib/rx-vehicle-context";
 
 function escapeCsv(val: unknown): string {
   const s = String(val ?? "");
@@ -73,6 +74,7 @@ export async function GET(req: NextRequest) {
     "Entreprise", "Stand", "Événement", "Statut", "Zone",
     "Transporteur", "Catégorie", "Créneau montage", "Créneau démontage",
     "Plaque", "Remorque", "Type véhicule",
+    "Ville livraison", "Ville reprise",
     "Créé le", "Archivé",
   ];
   // Données 2D (pour CSV ou XLSX selon ?format).
@@ -89,6 +91,7 @@ export async function GET(req: NextRequest) {
       };
     };
     const ctx = ext.vehicleContext ?? {};
+    const rxCtx = parseRxVehicleContext(acc.extension);
     const montage = [ctx.livDate, ctx.livTime].filter(Boolean).join(" ");
     const demontage = [ctx.repDate, ctx.repTime].filter(Boolean).join(" ");
     const base = [
@@ -103,7 +106,16 @@ export async function GET(req: NextRequest) {
       demontage,
     ];
     if (acc.vehicles.length === 0) {
-      data.push([...base, "", "", "", new Date(acc.createdAt).toLocaleDateString("fr-FR"), acc.isArchived ? "Oui" : "Non"]);
+      data.push([
+        ...base,
+        "",
+        "",
+        "",
+        "",
+        "",
+        new Date(acc.createdAt).toLocaleDateString("fr-FR"),
+        acc.isArchived ? "Oui" : "Non",
+      ]);
     } else {
       for (const v of acc.vehicles) {
         data.push([
@@ -111,6 +123,8 @@ export async function GET(req: NextRequest) {
           v.plate ?? "",
           v.trailerPlate ?? "",
           v.vehicleType ?? "",
+          v.city ?? "",
+          rxCtx?.repCity ?? "",
           new Date(acc.createdAt).toLocaleDateString("fr-FR"),
           acc.isArchived ? "Oui" : "Non",
         ]);

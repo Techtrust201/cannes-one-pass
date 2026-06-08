@@ -18,6 +18,12 @@ function resolveRepFields(
     repPhoneNumber: same
       ? contact.phoneNumber
       : (v.repPhoneNumber ?? contact.phoneNumber),
+    repInterveningCompany: same
+      ? v.interveningCompany
+      : v.repInterveningCompany,
+    repCity: same ? (v.city ?? "").trim() : (v.repCity ?? "").trim(),
+    repCountry: same ? v.country : v.repCountry,
+    repEstimatedKms: same ? v.estimatedKms : v.repEstimatedKms,
   };
 }
 

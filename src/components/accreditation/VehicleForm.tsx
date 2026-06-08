@@ -6,16 +6,10 @@ import Image from "next/image";
 import { Checkbox } from "@/components/ui/checkbox";
 import PhoneInput from "@/components/ui/PhoneInput";
 import { getAverageWeight } from "@/lib/vehicle-utils";
-import type { CountryRegion } from "@/types";
 import { useTranslation } from "@/components/accreditation/TranslationProvider";
 import { useVehicleTypes } from "@/hooks/useVehicleTypes";
 import { handleSanitizedPlateInput } from "@/lib/plate-utils";
-
-const COUNTRY_NAME_TO_ENUM: Record<string, CountryRegion> = {
-  "France": "FRANCE", "Espagne": "ESPAGNE", "Italie": "ITALIE",
-  "Allemagne": "ALLEMAGNE", "Belgique": "BELGIQUE", "Suisse": "SUISSE",
-  "Royaume-Uni": "ROYAUME_UNI", "Pays-Bas": "PAYS_BAS", "Portugal": "PORTUGAL",
-};
+import { mapCitySelectToVehicleFields } from "@/lib/city-form-utils";
 
 interface Props {
   data: Vehicle;
@@ -316,11 +310,7 @@ export default function VehicleForm({ data, update, onValidityChange, orgSlug }:
             value={data.city ?? ""}
             onChange={(v) => update({ city: v })}
             onCitySelect={(city) => {
-              update({
-                city: city.name,
-                country: COUNTRY_NAME_TO_ENUM[city.country] ?? "AUTRE",
-                estimatedKms: city.distance > 0 ? city.distance : undefined,
-              });
+              update(mapCitySelectToVehicleFields(city));
             }}
             className={`w-full rounded-md px-3 py-1.5 text-sm shadow-sm focus:ring-primary focus:border-primary ${
               !data.city ? "border-red-500" : "border-gray-300"

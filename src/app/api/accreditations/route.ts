@@ -357,6 +357,11 @@ export async function POST(req: NextRequest) {
                   repPhoneCode: (v.repPhoneCode as string) ?? null,
                   repPhoneNumber: (v.repPhoneNumber as string) ?? null,
                   interveningCompany: (v.interveningCompany as string) ?? null,
+                  repInterveningCompany: (v.repInterveningCompany as string) ?? null,
+                  repCity: (v.repCity as string) ?? null,
+                  repCountry: (v.repCountry as string) ?? null,
+                  repEstimatedKms:
+                    v.repEstimatedKms != null ? Number(v.repEstimatedKms) : null,
                 },
               },
               message: message ?? "",

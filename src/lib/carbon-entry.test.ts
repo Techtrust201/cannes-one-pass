@@ -9,6 +9,59 @@ import { mapDefaultVehicleTypes } from "@/lib/vehicle-type-server";
 const vehicleTypes = mapDefaultVehicleTypes();
 const zoneCoords = {};
 
+describe("résolution scopée par organisation", () => {
+  // Simule deux catalogues divergents pour un MÊME code : la résolution carbone
+  // doit utiliser strictement la liste fournie (celle de l'org de l'accréditation)
+  // et ne jamais piocher dans le catalogue d'une autre organisation.
+  const makeVL = (suffix: string, coeff: number) => [
+    {
+      id: 1,
+      code: "VL",
+      label: `VL-${suffix}`,
+      gabarit: `VL-${suffix}`,
+      tonnageMini: 1.8,
+      tonnageMoyen: 2.8,
+      tonnageMaxi: 3.5,
+      co2Coefficient: coeff,
+      pdfCode: "A" as const,
+      color: "gray",
+      showTrailerPlate: false,
+      rxPalmBeachAtCanto: false,
+      rxZoneCanto: null,
+      rxZoneVieuxPort: null,
+      sortOrder: 1,
+      isActive: true,
+    },
+  ];
+
+  it("résout libellé et coefficient CO2 depuis la liste de l'org fournie", () => {
+    const cityCache = mockCache({
+      Paris: { cityName: "Paris", countryName: "France", distance: 930 },
+    });
+
+    const orgA = buildCarbonEntriesForVehicle({
+      acc: { ...baseAcc, extension: null },
+      vehicle: baseVehicle,
+      vehicleTypes: makeVL("A", 0.1),
+      zoneCoords,
+      cityCache,
+    });
+    const orgB = buildCarbonEntriesForVehicle({
+      acc: { ...baseAcc, extension: null },
+      vehicle: baseVehicle,
+      vehicleTypes: makeVL("B", 0.5),
+      zoneCoords,
+      cityCache,
+    });
+
+    // km A/R = 930 × 2 = 1860 ; émissions = 1860 × coeff de SA liste.
+    expect(orgA[0].type).toBe("VL-A");
+    expect(orgA[0].kgCO2eq).toBe(186);
+    expect(orgB[0].type).toBe("VL-B");
+    expect(orgB[0].kgCO2eq).toBe(930);
+  });
+});
+
 function mockCache(entries: Record<string, ResolvedCity>): Map<string, ResolvedCity> {
   return new Map(Object.entries(entries));
 }

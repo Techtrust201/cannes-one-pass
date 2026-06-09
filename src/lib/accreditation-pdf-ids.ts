@@ -57,7 +57,10 @@ function formatTimeSlot(time: string | null | undefined): string {
   return formatSlot(time);
 }
 
-async function loadVehicleTypes(orgId: string | null): Promise<VehicleTypeData[]> {
+async function loadVehicleTypes(
+  orgId: string | null,
+  orgSlug?: string | null
+): Promise<VehicleTypeData[]> {
   if (orgId) {
     const types = await prisma.vehicleTypeConfig.findMany({
       where: { organizationId: orgId, isActive: true },
@@ -65,7 +68,7 @@ async function loadVehicleTypes(orgId: string | null): Promise<VehicleTypeData[]
     });
     if (types.length > 0) return types.map(mapDbVehicleType);
   }
-  return mapDefaultVehicleTypes();
+  return mapDefaultVehicleTypes(orgSlug);
 }
 
 type DrawHelpers = {
@@ -473,7 +476,8 @@ export async function generatePdfFromIds(
   }
 
   const orgId = ordered[0].organization?.id ?? null;
-  const vehicleTypes = await loadVehicleTypes(orgId);
+  const orgSlug = ordered[0].organization?.slug ?? null;
+  const vehicleTypes = await loadVehicleTypes(orgId, orgSlug);
 
   // Zones de l'organisation (label + adresse + GPS) pour l'affichage PDF.
   const zoneRows = orgId

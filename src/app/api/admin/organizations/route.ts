@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
     // Auto-seed des gabarits + zones par défaut pour la nouvelle organisation,
     // afin qu'elle démarre opérationnelle (non bloquant si le seed échoue).
     try {
-      await seedVehicleTypes(created.id);
+      await seedVehicleTypes(created.id, created.slug);
       await seedZones(created.id);
     } catch (seedError) {
       console.error(

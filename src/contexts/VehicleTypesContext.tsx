@@ -7,7 +7,6 @@ import {
   resolveVehicleTypeLabelFromList,
   resolveVehicleTypeShortLabelFromList,
 } from "@/lib/vehicle-type-resolve";
-import { needsTrailerPlate } from "@/lib/vehicle-utils";
 import type { VehicleTypeData } from "@/lib/vehicle-utils";
 
 interface VehicleTypesContextValue {
@@ -34,8 +33,13 @@ export function VehicleTypesProvider({ children }: { children: ReactNode }) {
     fallbackSize?: string | null
   ) => resolveVehicleTypeShortLabelFromList(types, vehicleType, fallbackSize);
 
-  const needsTrailer = (vehicleType?: string | null) =>
-    needsTrailerPlate(vehicleType ?? "");
+  const needsTrailer = (vehicleType?: string | null) => {
+    if (!vehicleType) return false;
+    const t = types.find(
+      (x) => x.code === vehicleType || x.code === vehicleType.toUpperCase()
+    );
+    return t?.showTrailerPlate ?? false;
+  };
 
   return (
     <VehicleTypesContext.Provider

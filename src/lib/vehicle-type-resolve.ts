@@ -78,3 +78,19 @@ export function resolveVehicleTypeCodeFromList(
 
   return "PORTEUR";
 }
+
+/**
+ * Poids moyen indicatif (tonnes) d'un gabarit, calculé sur une liste scopée.
+ * Repli à 15 t si le code est introuvable dans la liste fournie.
+ */
+export function getAverageWeightFromList(
+  types: VehicleTypeData[],
+  code: string | null | undefined
+): number {
+  if (!code) return 15;
+  const type = types.find(
+    (t) => t.code === code || t.code === code.toUpperCase()
+  );
+  if (!type) return 15;
+  return Math.round((type.tonnageMini + type.tonnageMaxi) / 2);
+}

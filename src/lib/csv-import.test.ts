@@ -160,3 +160,31 @@ describe("validateCsvRecords — header manquant", () => {
     );
   });
 });
+
+describe("validateCsvRecords — gabarits scopés par event", () => {
+  it("valide chaque ligne contre le catalogue de l'org de SON event", () => {
+    const sizesByEvent = (slug: string) =>
+      slug === "yachting-2026"
+        ? new Set(["SEMI_REMORQUE"]) // org RX : autorise le semi
+        : new Set(["VL"]); // autre org : ne l'autorise pas
+
+    const r = validateCsvRecords(
+      [VALID_ROW, { ...VALID_ROW, eventSlug: "waicf-2026", stand: "Z9" }],
+      accessibleSlugs,
+      sizesByEvent
+    );
+
+    // 1re ligne (yachting-2026) : SEMI_REMORQUE accepté.
+    expect(
+      r.rows.some(
+        (row) => row.eventSlug === "yachting-2026" && row.vehicleSize === "SEMI_REMORQUE"
+      )
+    ).toBe(true);
+    // 2e ligne (waicf-2026) : SEMI_REMORQUE rejeté car hors catalogue de son org.
+    expect(
+      r.errors.some(
+        (e) => e.column === "vehicleSize" && e.line === 3
+      )
+    ).toBe(true);
+  });
+});

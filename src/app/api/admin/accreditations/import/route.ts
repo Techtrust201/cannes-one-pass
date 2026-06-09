@@ -5,7 +5,7 @@ import { requirePermission, getAccessibleEventIds } from "@/lib/auth-helpers";
 import { validateCsvRecords, type CsvRowError, type CsvValidRow } from "@/lib/csv-import";
 import { writeHistoryDirect } from "@/lib/history-server";
 import { CSV_TO_ENUM, deriveCategory } from "@/lib/category-rules";
-import { DEFAULT_VEHICLE_TYPES } from "@/lib/vehicle-type-defaults";
+import { getDefaultVehicleTypesForScope } from "@/lib/vehicle-type-defaults";
 
 function handleAuthError(error: unknown) {
   if (error instanceof Response)
@@ -78,29 +78,73 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Slugs d'events accessibles
+  // Slugs d'events accessibles (avec organisation pour le cloisonnement des
+  // gabarits : chaque event valide ses tailles contre le catalogue de SON org).
   const accessibleIds = await getAccessibleEventIds(currentUserId!);
+  const eventSelect = {
+    slug: true,
+    id: true,
+    organizationId: true,
+    organization: { select: { slug: true } },
+  } as const;
   const accessibleEvents =
     accessibleIds === "ALL"
-      ? await prisma.event.findMany({ select: { slug: true, id: true } })
+      ? await prisma.event.findMany({ select: eventSelect })
       : await prisma.event.findMany({
           where: { id: { in: accessibleIds } },
-          select: { slug: true, id: true },
+          select: eventSelect,
         });
   const slugToId = new Map(accessibleEvents.map((e) => [e.slug, e.id]));
   const accessibleSlugs = new Set(slugToId.keys());
 
-  const activeVehicleTypes = await prisma.vehicleTypeConfig.findMany({
-    where: { isActive: true },
-    select: { code: true },
-  });
-  const validVehicleSizes = new Set(
-    activeVehicleTypes.length > 0
-      ? activeVehicleTypes.map((t) => t.code)
-      : DEFAULT_VEHICLE_TYPES.map((t) => t.code)
+  // Codes de gabarits valides par organisation présente dans les events.
+  const orgIds = Array.from(
+    new Set(
+      accessibleEvents
+        .map((e) => e.organizationId)
+        .filter((id): id is string => !!id)
+    )
+  );
+  const activeVehicleTypes = orgIds.length
+    ? await prisma.vehicleTypeConfig.findMany({
+        where: { isActive: true, organizationId: { in: orgIds } },
+        select: { code: true, organizationId: true },
+      })
+    : [];
+  const codesByOrg = new Map<string, Set<string>>();
+  for (const t of activeVehicleTypes) {
+    if (!t.organizationId) continue;
+    const set = codesByOrg.get(t.organizationId) ?? new Set<string>();
+    set.add(t.code);
+    codesByOrg.set(t.organizationId, set);
+  }
+
+  // Codes valides par slug d'event ; repli sur le catalogue par défaut de l'org
+  // si aucun gabarit n'est encore configuré côté BDD.
+  const sizesByEventSlug = new Map<string, Set<string>>();
+  for (const e of accessibleEvents) {
+    const fromDb = e.organizationId
+      ? codesByOrg.get(e.organizationId)
+      : undefined;
+    const sizes =
+      fromDb && fromDb.size > 0
+        ? fromDb
+        : new Set(
+            getDefaultVehicleTypesForScope(e.organization?.slug).map(
+              (t) => t.code
+            )
+          );
+    sizesByEventSlug.set(e.slug, sizes);
+  }
+  const fallbackSizes = new Set(
+    getDefaultVehicleTypesForScope(null).map((t) => t.code)
   );
 
-  const report = validateCsvRecords(records, accessibleSlugs, validVehicleSizes);
+  const report = validateCsvRecords(
+    records,
+    accessibleSlugs,
+    (eventSlug) => sizesByEventSlug.get(eventSlug) ?? fallbackSizes
+  );
 
   if (report.errors.length > 0) {
     return Response.json(

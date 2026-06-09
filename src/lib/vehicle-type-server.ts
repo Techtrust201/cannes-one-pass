@@ -1,5 +1,5 @@
 import type { VehicleTypeData } from "@/lib/vehicle-utils";
-import { DEFAULT_VEHICLE_TYPES } from "@/lib/vehicle-type-defaults";
+import { getDefaultVehicleTypesForScope } from "@/lib/vehicle-type-defaults";
 import { getColorHex } from "@/lib/color-palette";
 import type { VehicleTypeConfig } from "@prisma/client";
 
@@ -30,8 +30,8 @@ export function mapDbVehicleType(type: VehicleTypeConfig): VehicleTypeData {
   };
 }
 
-export function mapDefaultVehicleTypes(): VehicleTypeData[] {
-  return DEFAULT_VEHICLE_TYPES.map((t, index) => ({
+export function mapDefaultVehicleTypes(orgSlug?: string | null): VehicleTypeData[] {
+  return getDefaultVehicleTypesForScope(orgSlug).map((t, index) => ({
     id: index + 1,
     ...t,
     rxPalmBeachAtCanto: t.rxPalmBeachAtCanto ?? false,

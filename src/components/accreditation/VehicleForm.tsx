@@ -5,7 +5,7 @@ import CityAutocomplete from "@/components/CityAutocomplete";
 import Image from "next/image";
 import { Checkbox } from "@/components/ui/checkbox";
 import PhoneInput from "@/components/ui/PhoneInput";
-import { getAverageWeight } from "@/lib/vehicle-utils";
+import { getAverageWeightFromList } from "@/lib/vehicle-type-resolve";
 import { useTranslation } from "@/components/accreditation/TranslationProvider";
 import { useVehicleTypes } from "@/hooks/useVehicleTypes";
 import { handleSanitizedPlateInput } from "@/lib/plate-utils";
@@ -52,7 +52,7 @@ export default function VehicleForm({ data, update, onValidityChange, orgSlug }:
   const handleVehicleTypeChange = (vt: string) => {
     const typeDef = types.find((t) => t.code === vt);
     if (typeDef) {
-      const avgWeight = getAverageWeight(vt);
+      const avgWeight = getAverageWeightFromList(types, vt);
       update({
         size: vt,
         vehicleType: vt,

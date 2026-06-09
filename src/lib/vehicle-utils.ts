@@ -1,4 +1,4 @@
-import { DEFAULT_VEHICLE_TYPES } from "@/lib/vehicle-type-defaults";
+import { getDefaultVehicleTypesForScope } from "@/lib/vehicle-type-defaults";
 import { getColorHex } from "@/lib/color-palette";
 import { withEspaceQuery } from "@/lib/url";
 
@@ -23,16 +23,17 @@ export interface VehicleTypeData {
   isActive: boolean;
 }
 
-const DEFAULT_VEHICLE_TYPES_DATA: VehicleTypeData[] = DEFAULT_VEHICLE_TYPES.map(
-  (t, index) => ({
+function defaultTypesDataForScope(scope: string): VehicleTypeData[] {
+  const slug = scope === GLOBAL_SCOPE ? null : scope;
+  return getDefaultVehicleTypesForScope(slug).map((t, index) => ({
     id: index + 1,
     ...t,
     rxPalmBeachAtCanto: t.rxPalmBeachAtCanto ?? false,
     rxZoneCanto: t.rxZoneCanto ?? null,
     rxZoneVieuxPort: t.rxZoneVieuxPort ?? null,
     isActive: true,
-  })
-);
+  }));
+}
 
 // ────────────────────────────────────────────────────────────────
 // Cache local par Espace (chargé via loadVehicleTypes)
@@ -46,6 +47,20 @@ const GLOBAL_SCOPE = "__global__";
 const _typesByScope = new Map<string, VehicleTypeData[]>();
 const _loadingByScope = new Map<string, Promise<VehicleTypeData[]>>();
 let _currentScope = GLOBAL_SCOPE;
+
+/**
+ * Enregistre dans le cache synchrone la liste de gabarits déjà résolue pour un
+ * Espace (typiquement depuis `useVehicleTypes` après un fetch API réussi), afin
+ * que les helpers synchrones scopés restent cohérents avec l'espace actif.
+ */
+export function setVehicleTypesForScope(
+  orgSlug: string | null | undefined,
+  types: VehicleTypeData[]
+): void {
+  const scope = orgSlug?.trim() || GLOBAL_SCOPE;
+  _currentScope = scope;
+  _typesByScope.set(scope, types);
+}
 
 function normalizeVehicleType(raw: unknown): VehicleTypeData {
   const item = raw as Record<string, unknown>;
@@ -96,8 +111,10 @@ export async function loadVehicleTypes(
     } catch (error) {
       console.error("Erreur chargement gabarits véhicules:", error);
     }
-    // Fallback aux gabarits par défaut si rien n'est chargé pour ce scope.
-    const fallback = _typesByScope.get(scope) ?? DEFAULT_VEHICLE_TYPES_DATA;
+    // Fallback aux gabarits par défaut DU SCOPE si rien n'est chargé (RX vs
+    // Palais), pour ne jamais retomber sur les flags RX côté Palais.
+    const fallback =
+      _typesByScope.get(scope) ?? defaultTypesDataForScope(scope);
     _typesByScope.set(scope, fallback);
     return fallback;
   })();
@@ -112,7 +129,7 @@ export function getVehicleTypesSync(): VehicleTypeData[] {
   return (
     _typesByScope.get(_currentScope) ??
     _typesByScope.get(GLOBAL_SCOPE) ??
-    DEFAULT_VEHICLE_TYPES_DATA
+    defaultTypesDataForScope(_currentScope)
   );
 }
 
@@ -121,6 +138,11 @@ export function invalidateVehicleTypeCache(): void {
   _loadingByScope.clear();
 }
 
+/**
+ * @deprecated Repose sur le cache synchrone global (dernier scope chargé) et
+ * peut renvoyer le gabarit d'une autre organisation. Préférez une résolution
+ * sur une liste scopée (`useVehicleTypesContext`, `resolveVehicleType*FromList`).
+ */
 export function getVehicleType(code: string): VehicleTypeData | undefined {
   return getVehicleTypesSync().find(
     (t) => t.code === code || t.code === code.toUpperCase()
@@ -152,6 +174,10 @@ export function getVehicleTypeDisplayName(code: string): string {
   return getVehicleTypeLabel(code);
 }
 
+/**
+ * @deprecated Repose sur le cache synchrone global. Préférez le calcul sur une
+ * liste scopée (ex. `getAverageWeightFromList`).
+ */
 export function getAverageWeight(code: string): number {
   const type = getVehicleType(code);
   if (!type) return 15;
@@ -167,6 +193,11 @@ export function getAllVehicleTypes(): string[] {
   return getAllVehicleTypeCodes();
 }
 
+/**
+ * @deprecated Repose sur le cache synchrone global et peut consulter le
+ * catalogue d'une autre organisation. Préférez `useVehicleTypesContext().needsTrailer`
+ * ou une recherche directe sur la liste scopée (`types.find(...).showTrailerPlate`).
+ */
 export function needsTrailerPlate(code: string): boolean {
   return getVehicleType(code)?.showTrailerPlate ?? false;
 }

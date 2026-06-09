@@ -130,14 +130,27 @@ export function buildCsvTemplate(validVehicleSizes?: Set<string>): string {
 }
 
 /**
+ * Source des codes de gabarits valides. Un `Set` s'applique à tous les events ;
+ * une fonction permet de scoper les codes par organisation de l'event (chaque
+ * org a son propre catalogue `VehicleTypeConfig`).
+ */
+export type ValidVehicleSizes =
+  | Set<string>
+  | ((eventSlug: string) => Set<string>);
+
+/**
  * Valide une liste de records CSV (déjà parsés) et produit un rapport strict.
  * Un seul enregistrement en erreur → rapport.errors.length > 0 → import bloqué.
  */
 export function validateCsvRecords(
   records: Record<string, string>[],
   eventSlugs: Set<string>,
-  validVehicleSizes: Set<string> = DEFAULT_VALID_VEHICLE_SIZES
+  validVehicleSizes: ValidVehicleSizes = DEFAULT_VALID_VEHICLE_SIZES
 ): ValidationReport {
+  const sizesForEvent =
+    typeof validVehicleSizes === "function"
+      ? validVehicleSizes
+      : () => validVehicleSizes;
   const errors: CsvRowError[] = [];
   const validRows: CsvValidRow[] = [];
 
@@ -217,12 +230,13 @@ export function validateCsvRecords(
       rowErrors.push({ line, column: "date", value: date, reason: "Date invalide (format attendu : YYYY-MM-DD)" });
     }
 
-    if (vehicleSize && !validVehicleSizes.has(vehicleSize)) {
+    const validSizes = sizesForEvent(eventSlug);
+    if (vehicleSize && !validSizes.has(vehicleSize)) {
       rowErrors.push({
         line,
         column: "vehicleSize",
         value: vehicleSize,
-        reason: `Valeur non reconnue (attendu strictement : ${[...validVehicleSizes].join(", ")})`,
+        reason: `Valeur non reconnue (attendu strictement : ${[...validSizes].join(", ")})`,
       });
     }
 

@@ -112,6 +112,16 @@ export async function POST(req: NextRequest) {
     const espace = req.nextUrl.searchParams.get("espace")?.trim() || null;
     const orgId = await resolveEspaceOrgId(espace);
 
+    // Cloisonnement strict : un gabarit DOIT appartenir à une organisation.
+    // On refuse la création « globale » (organizationId null) qui mélangeait
+    // les catalogues entre organisations.
+    if (!orgId) {
+      return Response.json(
+        { error: "Espace (organisation) requis pour créer un gabarit" },
+        { status: 400 }
+      );
+    }
+
     const body = await req.json();
     const {
       code,
@@ -133,6 +143,24 @@ export async function POST(req: NextRequest) {
     if (!label || !gabarit) {
       return Response.json(
         { error: "Les champs label et gabarit sont requis" },
+        { status: 400 }
+      );
+    }
+
+    // Les champs de routage RX ne s'appliquent qu'à l'organisation RX. On ne
+    // refuse que la pose d'une valeur RX « réelle » (truthy) hors RX ; les
+    // valeurs par défaut (false / null) du formulaire générique sont tolérées.
+    const isRxOrg = espace === "rx";
+    const setsRealRxValue =
+      rxPalmBeachAtCanto === true ||
+      (typeof rxZoneCanto === "string" && rxZoneCanto.trim() !== "") ||
+      (typeof rxZoneVieuxPort === "string" && rxZoneVieuxPort.trim() !== "");
+    if (setsRealRxValue && !isRxOrg) {
+      return Response.json(
+        {
+          error:
+            "Les champs de routage RX (Palm Beach / zones) ne s'appliquent qu'à l'organisation RX.",
+        },
         { status: 400 }
       );
     }
@@ -164,13 +192,13 @@ export async function POST(req: NextRequest) {
         pdfCode: typeof pdfCode === "string" ? pdfCode : "C",
         color: typeof color === "string" ? color : "gray",
         showTrailerPlate: Boolean(showTrailerPlate),
-        rxPalmBeachAtCanto: Boolean(rxPalmBeachAtCanto ?? false),
+        rxPalmBeachAtCanto: isRxOrg ? Boolean(rxPalmBeachAtCanto ?? false) : false,
         rxZoneCanto:
-          typeof rxZoneCanto === "string" && rxZoneCanto.trim()
+          isRxOrg && typeof rxZoneCanto === "string" && rxZoneCanto.trim()
             ? rxZoneCanto.trim()
             : null,
         rxZoneVieuxPort:
-          typeof rxZoneVieuxPort === "string" && rxZoneVieuxPort.trim()
+          isRxOrg && typeof rxZoneVieuxPort === "string" && rxZoneVieuxPort.trim()
             ? rxZoneVieuxPort.trim()
             : null,
         sortOrder: Number(sortOrder ?? 0),

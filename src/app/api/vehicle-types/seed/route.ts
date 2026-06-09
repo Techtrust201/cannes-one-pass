@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
   try {
     const espace = req.nextUrl.searchParams.get("espace")?.trim() || null;
     const orgId = await resolveEspaceOrgId(espace);
-    const types = await seedVehicleTypes(orgId);
+    const types = await seedVehicleTypes(orgId, espace);
     return Response.json({ success: true, types });
   } catch (error) {
     console.error("POST /api/vehicle-types/seed error:", error);

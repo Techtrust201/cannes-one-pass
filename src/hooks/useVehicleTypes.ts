@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   loadVehicleTypes,
   invalidateVehicleTypeCache,
+  setVehicleTypesForScope,
   type VehicleTypeData,
 } from "@/lib/vehicle-utils";
 import { withEspaceQuery } from "@/lib/url";
@@ -45,6 +46,9 @@ export function useVehicleTypes(includeInactive = false, espaceSlug?: string | n
           const active = includeInactive ? normalized : normalized.filter((t) => t.isActive);
           if (active.length > 0) {
             setTypes(active);
+            // Synchronise le cache synchrone scopé pour que les helpers basés
+            // sur le scope (tables, PDF…) restent cohérents avec cet Espace.
+            setVehicleTypesForScope(espaceSlug, active);
             return;
           }
         }

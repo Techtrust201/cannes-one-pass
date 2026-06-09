@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import StatusPill from "./StatusPill";
 import MobileAccreditationList from "./MobileAccreditationList";
 import { formatVehicleDate } from "@/lib/date-utils";
-import { needsTrailerPlate } from "@/lib/vehicle-utils";
 import { useVehicleTypesContext } from "@/contexts/VehicleTypesContext";
 import {
   Pagination,
@@ -150,7 +149,7 @@ export default function AccreditationTable({
   const eventLogoMap = useEventLogoMap();
   const { allZoneKeys, isFinalDestination } = useZones();
   const { hasPermission } = usePermissions();
-  const { getShortLabel } = useVehicleTypesContext();
+  const { getShortLabel, needsTrailer } = useVehicleTypesContext();
 
   // Clé de groupe (statut|zone) de la sélection actuelle
   const selectionGroupKey = useMemo(() => {
@@ -444,7 +443,7 @@ export default function AccreditationTable({
                               </span>
                             ) : null;
                           })()}
-                          {needsTrailerPlate(acc.vehicles[0].vehicleType || acc.vehicles[0].size || "") && (
+                          {needsTrailer(acc.vehicles[0].vehicleType || acc.vehicles[0].size) && (
                             <span className="block text-[9px] text-gray-400 mt-0.5 font-mono">
                               R: {acc.vehicles[0].trailerPlate || "—"}
                             </span>

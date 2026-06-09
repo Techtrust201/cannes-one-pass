@@ -129,16 +129,59 @@ export async function GET(req: NextRequest) {
     // Charger les coordonnées des zones pour les calculs inter-zones
     const zoneCoords = await getZoneCoords();
 
-    const dbVehicleTypes = await prisma.vehicleTypeConfig.findMany({
-      where: { isActive: true },
-      orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
-    });
-    const vehicleTypes: VehicleTypeData[] =
-      dbVehicleTypes.length > 0
-        ? dbVehicleTypes.map(mapDbVehicleType)
-        : mapDefaultVehicleTypes();
-    const typeColors = getVehicleTypeColorsFromList(vehicleTypes);
-    const typeLabels = vehicleTypes.map((t) => t.label);
+    // Cloisonnement multi-tenant : charger les gabarits PAR organisation. Le
+    // même code (ex. « VL ») peut exister chez RX et au Palais avec des
+    // libellés et coefficients CO2 différents — on ne doit jamais résoudre une
+    // accréditation contre le catalogue d'une autre organisation.
+    const orgIds = Array.from(
+      new Set(
+        accreditations
+          .map((a) => a.organizationId)
+          .filter((id): id is string => !!id)
+      )
+    );
+
+    const orgs = orgIds.length
+      ? await prisma.organization.findMany({
+          where: { id: { in: orgIds } },
+          select: { id: true, slug: true },
+        })
+      : [];
+    const slugByOrg = new Map(orgs.map((o) => [o.id, o.slug]));
+
+    const dbVehicleTypes = orgIds.length
+      ? await prisma.vehicleTypeConfig.findMany({
+          where: { isActive: true, organizationId: { in: orgIds } },
+          orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
+        })
+      : [];
+
+    const typesByOrg = new Map<string, VehicleTypeData[]>();
+    for (const t of dbVehicleTypes) {
+      if (!t.organizationId) continue;
+      const arr = typesByOrg.get(t.organizationId) ?? [];
+      arr.push(mapDbVehicleType(t));
+      typesByOrg.set(t.organizationId, arr);
+    }
+
+    const typesForOrg = (orgId: string | null): VehicleTypeData[] => {
+      if (orgId && typesByOrg.has(orgId)) return typesByOrg.get(orgId)!;
+      return mapDefaultVehicleTypes(orgId ? slugByOrg.get(orgId) : null);
+    };
+
+    // Union des libellés/couleurs des organisations visibles, pour les axes
+    // d'agrégation. Dé-dupliquée par libellé.
+    const allTypes: VehicleTypeData[] = [];
+    const seenLabel = new Set<string>();
+    for (const orgId of orgIds.length ? orgIds : [null]) {
+      for (const t of typesForOrg(orgId)) {
+        if (seenLabel.has(t.label)) continue;
+        seenLabel.add(t.label);
+        allTypes.push(t);
+      }
+    }
+    const typeColors = getVehicleTypeColorsFromList(allTypes);
+    const typeLabels = allTypes.map((t) => t.label);
 
     // Cache de résolution ville (normalisation + distance + pays)
     const cityCache = buildCityResolveCache(accreditations);
@@ -168,7 +211,7 @@ export async function GET(req: NextRequest) {
             arrivalDate: vehicle.arrivalDate,
             timeSlots: vehicle.timeSlots,
           },
-          vehicleTypes,
+          vehicleTypes: typesForOrg(acc.organizationId),
           zoneCoords,
           cityCache,
         });
@@ -188,7 +231,7 @@ export async function GET(req: NextRequest) {
     };
 
     // Données mensuelles (entre start et end)
-    const monthly = monthlyData(filteredData, startDate, endDate, vehicleTypes);
+    const monthly = monthlyData(filteredData, startDate, endDate, allTypes);
 
     return Response.json({
       success: true,

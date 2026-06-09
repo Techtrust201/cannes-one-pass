@@ -33,7 +33,10 @@ export default async function VerifyPage({
   const acc = await withRetry(() =>
     prisma.accreditation.findUnique({
       where: { id },
-      include: { vehicles: true, organization: { select: { id: true } } },
+      include: {
+        vehicles: true,
+        organization: { select: { id: true, slug: true } },
+      },
     })
   );
   if (!acc) return notFound();
@@ -46,7 +49,9 @@ export default async function VerifyPage({
       })
     : [];
   const vehicleTypes =
-    dbTypes.length > 0 ? dbTypes.map(mapDbVehicleType) : mapDefaultVehicleTypes();
+    dbTypes.length > 0
+      ? dbTypes.map(mapDbVehicleType)
+      : mapDefaultVehicleTypes(acc.organization?.slug);
 
   const safeAcc = {
     ...acc,

@@ -19,7 +19,8 @@ import StandAccreditationsList, {
 import QrCodeBlock from "@/components/logisticien/QrCodeBlock";
 
 async function loadVehicleTypesForOrg(
-  orgId: string | null
+  orgId: string | null,
+  orgSlug?: string | null
 ): Promise<VehicleTypeData[]> {
   if (orgId) {
     const types = await prisma.vehicleTypeConfig.findMany({
@@ -28,7 +29,7 @@ async function loadVehicleTypesForOrg(
     });
     if (types.length > 0) return types.map(mapDbVehicleType);
   }
-  return mapDefaultVehicleTypes();
+  return mapDefaultVehicleTypes(orgSlug);
 }
 
 export default async function StandDetailPage(props: {
@@ -53,7 +54,7 @@ export default async function StandDetailPage(props: {
   );
   if (!stand) return notFound();
 
-  const vehicleTypes = await loadVehicleTypesForOrg(stand.organizationId);
+  const vehicleTypes = await loadVehicleTypesForOrg(stand.organizationId, espace);
 
   const rows: StandAccreditationRow[] = stand.accreditations.map((a) => {
     const safeAcc = {

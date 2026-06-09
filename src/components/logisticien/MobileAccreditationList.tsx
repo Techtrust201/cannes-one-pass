@@ -5,7 +5,6 @@ import type { Accreditation } from "@/types";
 import { getZoneLabel, getZoneColorClasses } from "@/lib/zone-utils";
 import { buildLink } from "@/lib/url";
 import { formatVehicleDate } from "@/lib/date-utils";
-import { needsTrailerPlate } from "@/lib/vehicle-utils";
 import { useVehicleTypesContext } from "@/contexts/VehicleTypesContext";
 import type { EventLogoMap } from "./AccreditationTable";
 
@@ -40,7 +39,7 @@ export default function MobileAccreditationList({
   searchParams,
   eventLogoMap = {},
 }: MobileAccreditationListProps) {
-  const { getShortLabel } = useVehicleTypesContext();
+  const { getShortLabel, needsTrailer } = useVehicleTypesContext();
   return (
     <div className="block md:hidden w-full space-y-3 overflow-x-hidden">
       {/* Compteur de résultats */}
@@ -117,7 +116,7 @@ export default function MobileAccreditationList({
                       {gabaritLabel}
                     </span>
                   )}
-                  {needsTrailerPlate(acc.vehicles?.[0]?.vehicleType || acc.vehicles?.[0]?.size || "") && (
+                  {needsTrailer(acc.vehicles?.[0]?.vehicleType || acc.vehicles?.[0]?.size) && (
                     <span className="text-[9px] text-gray-400 font-mono">
                       Rem. {acc.vehicles[0].trailerPlate || "—"}
                     </span>

@@ -335,12 +335,12 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
             collapsed ? (
               <div className="space-y-1">
                 {hasPermission("PLAQUE", "read") && (
-                  <Link href={withEspace("/logisticien/scanner/plaque")} className="flex items-center justify-center p-2.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors" title="Plaque" onClick={() => setSidebarOpen(false)}>
+                  <Link href={withEspace("/logisticien/scanner?tab=plaque")} className="flex items-center justify-center p-2.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors" title="Plaque" onClick={() => setSidebarOpen(false)}>
                     <Image src="/logisticien/Group%201%20(1).svg" width={22} height={16} alt="Plaque" />
                   </Link>
                 )}
                 {hasPermission("QR_CODE", "read") && (
-                  <Link href={withEspace("/logisticien/scanner/qr")} className="flex items-center justify-center p-2.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors" title="QR code" onClick={() => setSidebarOpen(false)}>
+                  <Link href={withEspace("/logisticien/scanner?tab=qr")} className="flex items-center justify-center p-2.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors" title="QR code" onClick={() => setSidebarOpen(false)}>
                     <Image src="/logisticien/Vector%20(20).svg" width={16} height={16} alt="QR code" />
                   </Link>
                 )}
@@ -369,7 +369,7 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
                 {hasPermission("PLAQUE", "read") && (
                   <li>
                     <Link
-                      href={withEspace("/logisticien/scanner/plaque")}
+                      href={withEspace("/logisticien/scanner?tab=plaque")}
                       className="flex items-center gap-2.5 px-3 py-2.5 sm:py-2 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
                       onClick={() => setSidebarOpen(false)}
                     >
@@ -386,7 +386,7 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
                 {hasPermission("QR_CODE", "read") && (
                   <li>
                     <Link
-                      href={withEspace("/logisticien/scanner/qr")}
+                      href={withEspace("/logisticien/scanner?tab=qr")}
                       className="flex items-center gap-2.5 px-3 py-2.5 sm:py-2 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
                       onClick={() => setSidebarOpen(false)}
                     >

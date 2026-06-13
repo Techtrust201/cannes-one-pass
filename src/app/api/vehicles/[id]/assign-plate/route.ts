@@ -4,6 +4,7 @@ import { requirePermission } from "@/lib/auth-helpers";
 import { assertVehicleAccess } from "@/lib/rbac";
 import { writeHistoryDirect } from "@/lib/history-server";
 import { createVehicleRemovedEntry } from "@/lib/history";
+import { normalizePlate } from "@/lib/plate-utils";
 
 /**
  * `POST /api/vehicles/[id]/assign-plate` — Affecte (ou ré-affecte) la
@@ -64,11 +65,15 @@ export async function POST(
     return Response.json({ error: "Véhicule introuvable" }, { status: 404 });
   }
 
+  const trailerPlate = body.trailerPlate?.trim() || undefined;
   const updated = await prisma.vehicle.update({
     where: { id: vehicleId },
     data: {
       plate,
-      trailerPlate: body.trailerPlate?.trim() || undefined,
+      trailerPlate,
+      plateNormalized: normalizePlate(plate),
+      trailerPlateNormalized:
+        trailerPlate !== undefined ? normalizePlate(trailerPlate) : undefined,
       assignedAt: new Date(),
     },
   });

@@ -11,6 +11,7 @@ import {
 } from "@/lib/auth-helpers";
 import { getTemplate } from "@/templates/accreditation/registry";
 import { suggestZone, buildRxZoneRouting, type RxZoneRouting } from "@/lib/rx-zone-rules";
+import { normalizePlate } from "@/lib/plate-utils";
 
 export async function GET(request: NextRequest) {
   let currentUserId: string | undefined;
@@ -273,6 +274,10 @@ export async function POST(req: NextRequest) {
       country: (v.country as "FRANCE" | "ESPAGNE" | "ITALIE" | "ALLEMAGNE" | "BELGIQUE" | "SUISSE" | "ROYAUME_UNI" | "PAYS_BAS" | "PORTUGAL" | "AUTRE") ?? null,
       estimatedKms: v.estimatedKms != null ? Number(v.estimatedKms) : 0,
       trailerPlate: (v.trailerPlate as string) ?? null,
+      plateNormalized: normalizePlate(v.plate as string | null | undefined),
+      trailerPlateNormalized: normalizePlate(
+        v.trailerPlate as string | null | undefined
+      ),
       emptyWeight: v.emptyWeight != null ? Number(v.emptyWeight) : null,
       maxWeight: v.maxWeight != null ? Number(v.maxWeight) : null,
       currentWeight: v.currentWeight != null ? Number(v.currentWeight) : null,

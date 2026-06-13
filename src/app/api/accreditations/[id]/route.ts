@@ -9,6 +9,7 @@ import { writeHistoryDirect } from "@/lib/history-server";
 import { requirePermission } from "@/lib/auth-helpers";
 import { assertAccreditationAccess } from "@/lib/rbac";
 import { inferActorSource } from "@/lib/accreditation-audit";
+import { normalizePlate } from "@/lib/plate-utils";
 
 /* ----------------------- GET ----------------------- */
 export async function GET(
@@ -330,6 +331,10 @@ export async function PATCH(
               arrivalDate: v.arrivalDate ? new Date(v.arrivalDate) : null,
               departureDate: v.departureDate ? new Date(v.departureDate) : null,
               trailerPlate: (v.trailerPlate as string) ?? null,
+              plateNormalized: normalizePlate(v.plate as string | null | undefined),
+              trailerPlateNormalized: normalizePlate(
+                v.trailerPlate as string | null | undefined
+              ),
               emptyWeight: v.emptyWeight != null ? Number(v.emptyWeight) : null,
               maxWeight: v.maxWeight != null ? Number(v.maxWeight) : null,
               currentWeight: v.currentWeight != null ? Number(v.currentWeight) : null,

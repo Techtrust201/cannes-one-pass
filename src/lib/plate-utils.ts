@@ -8,6 +8,20 @@ export function sanitizePlate(raw: string): string {
 }
 
 /**
+ * Variante tolérante pour la recherche du module de scan : accepte null/undefined
+ * et renvoie `null` si la valeur normalisée est vide. Doit rester identique au
+ * backfill SQL de la migration `scan_module_lot1` (uppercase + suppression des
+ * caractères non alphanumériques).
+ */
+export function normalizePlate(
+  plate: string | null | undefined
+): string | null {
+  if (!plate) return null;
+  const normalized = sanitizePlate(plate);
+  return normalized.length > 0 ? normalized : null;
+}
+
+/**
  * Calcule la position du curseur après sanitisation (caractères spéciaux retirés).
  */
 export function plateCursorAfterSanitize(rawValue: string, cursorPos: number): number {

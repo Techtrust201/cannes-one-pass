@@ -1,10 +1,34 @@
-export default function PlaqueScannerPage() {
+"use client";
+
+import { Suspense, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { withEspaceQuery } from "@/lib/url";
+
+/**
+ * Ancienne page scanner plaque (placeholder) — désormais fusionnée dans le
+ * module de scan unifié (`/logisticien/scanner`). Redirection vers l'onglet
+ * Plaque en conservant l'espace.
+ */
+function RedirectInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const espace = searchParams?.get("espace") ?? null;
+
+  useEffect(() => {
+    router.replace(withEspaceQuery("/logisticien/scanner?tab=plaque", espace));
+  }, [router, espace]);
+
   return (
-    <div className="flex items-center justify-center h-full">
-      <div className="text-center p-8">
-        <h1 className="text-2xl font-bold text-gray-800 mb-2">Scanner de plaques</h1>
-        <p className="text-gray-500">Le scanner de plaques sera disponible prochainement.</p>
-      </div>
+    <div className="flex items-center justify-center h-full p-8 text-gray-400">
+      Redirection vers le scan…
     </div>
+  );
+}
+
+export default function PlaqueScannerRedirect() {
+  return (
+    <Suspense fallback={null}>
+      <RedirectInner />
+    </Suspense>
   );
 }

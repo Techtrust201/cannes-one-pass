@@ -16,6 +16,8 @@ export interface PalaisFormData {
   stepThree: {
     message: string;
     consent: boolean;
+    /** E-mail facultatif du demandeur (Lot 2 : envoi récap + QR à la création). */
+    email: string;
   };
 }
 
@@ -33,6 +35,6 @@ export function getDefaultPalaisFormData(): PalaisFormData {
       city: "",
       unloading: [],
     },
-    stepThree: { message: "", consent: false },
+    stepThree: { message: "", consent: false, email: "" },
   };
 }

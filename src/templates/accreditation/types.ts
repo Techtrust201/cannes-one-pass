@@ -106,6 +106,8 @@ export interface CreateAccreditationPayload {
   }>;
   message?: string;
   consent: boolean;
+  /** E-mail facultatif du demandeur (Lot 2 : récap + QR envoyés à la création). */
+  email?: string;
   language?: string;
   status?: string;
   currentZone?: string | null;

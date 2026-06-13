@@ -36,6 +36,8 @@ export const palaisPayloadSchema = z.object({
     .min(1, "Au moins un véhicule requis"),
   message: z.string().optional(),
   consent: z.boolean(),
+  // E-mail facultatif (Lot 2). Accepte vide ou un e-mail valide.
+  email: z.string().email().optional().or(z.literal("")),
   language: z.string().optional(),
   status: z.string().optional(),
   currentZone: z.string().nullable().optional(),

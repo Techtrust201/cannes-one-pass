@@ -66,6 +66,12 @@ export interface T {
   yourMessage: string;
   writeHere: string;
   consent: string;
+  /** Libellé du champ e-mail (optionnel ; repli "E-mail"). */
+  emailLabel?: string;
+  /** Aide sous le champ e-mail (optionnel ; repli FR). */
+  emailHint?: string;
+  /** Placeholder du champ e-mail (optionnel ; repli "vous@exemple.com"). */
+  emailPlaceholder?: string;
 
   // Step 4 — Confirmation
   requestSaved: string;
@@ -138,6 +144,9 @@ const fr: T = {
   yourMessage: "Votre message",
   writeHere: "Écrivez ici...",
   consent: "Je consens à la politique de confidentialité",
+  emailLabel: "E-mail",
+  emailHint: "Pour recevoir votre récapitulatif et votre QR code par e-mail",
+  emailPlaceholder: "vous@exemple.com",
   requestSaved: "Demande enregistrée",
   requestCreated: "Demande créée",
   savedMessage: "Votre demande a bien été enregistrée.",
@@ -202,6 +211,9 @@ const en: T = {
   yourMessage: "Your message",
   writeHere: "Write here...",
   consent: "I consent to the privacy policy",
+  emailLabel: "Email",
+  emailHint: "To receive your summary and QR code by email",
+  emailPlaceholder: "you@example.com",
   requestSaved: "Request saved",
   requestCreated: "Request created",
   savedMessage: "Your request has been saved.",

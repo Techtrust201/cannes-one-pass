@@ -38,6 +38,7 @@ export function mapPalaisPayload(
     ],
     message: form.stepThree.message,
     consent: form.stepThree.consent,
+    email: form.stepThree.email?.trim() || undefined,
     language,
     status: "NOUVEAU",
   };

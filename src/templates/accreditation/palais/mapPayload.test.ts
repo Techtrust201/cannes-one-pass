@@ -32,7 +32,7 @@ describe("palais template — mapPayload", () => {
       unloading: ["rear"],
       vehicleType: "PORTEUR",
     };
-    form.stepThree = { message: "Note libre", consent: true };
+    form.stepThree = { message: "Note libre", consent: true, email: "" };
 
     const payload = mapPalaisPayload(form, "fr");
 
@@ -77,7 +77,7 @@ describe("palais template — mapPayload", () => {
       maxWeight: 40,
       currentWeight: 19,
     };
-    form.stepThree = { message: "", consent: true };
+    form.stepThree = { message: "", consent: true, email: "" };
 
     const payload = mapPalaisPayload(form, "en");
 

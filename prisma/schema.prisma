@@ -235,6 +235,14 @@ model Organization {
   accreditationCodePrefix  String? // ex: "YC2026" pour produire YC2026-00001
   supportEmail             String? // Adresse "from" pour les emails sortants des tickets
 
+  // Expéditeur des e-mails automatiques par organisation (Lot 2 — réglage).
+  // emailFromAddress doit appartenir à un domaine autorisé/vérifié (allowlist
+  // côté serveur). À défaut, fallback sur le FROM_EMAIL global.
+  emailFromName       String? // Nom affiché (ex: "Palais des Festivals")
+  emailFromAddress    String? // Adresse d'envoi (ex: "palais@notifications.techtrust.fr")
+  replyToEmail        String? // Adresse de réponse propre à l'organisation
+  emailSendingEnabled Boolean @default(true) // Envoi automatique activé pour l'org
+
   events             Event[]
   members            UserOrganization[]
   accreditations     Accreditation[]

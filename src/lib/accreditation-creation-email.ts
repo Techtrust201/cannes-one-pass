@@ -15,8 +15,13 @@ import { Resend } from "resend";
 import QRCode from "qrcode";
 import { writeHistoryDirect } from "@/lib/history-server";
 import { createEmailSentEntry } from "@/lib/history";
+import { resolveAccreditationSender } from "@/lib/email-sender";
 
-export type CreationEmailOutcome = "sent" | "skipped_no_recipient" | "failed";
+export type CreationEmailOutcome =
+  | "sent"
+  | "skipped_no_recipient"
+  | "skipped_disabled"
+  | "failed";
 
 /** Échappe le HTML pour éviter toute injection depuis les champs utilisateur. */
 function escapeHtml(value: string | null | undefined): string {
@@ -129,8 +134,8 @@ export async function sendAccreditationCreationEmail(params: {
     return "skipped_no_recipient";
   }
 
-  // 2) Config Resend manquante → échec tracé, sans exception ni blocage.
-  if (!process.env.RESEND_API_KEY || !process.env.FROM_EMAIL) {
+  // 2) Clé Resend manquante → échec tracé, sans exception ni blocage.
+  if (!process.env.RESEND_API_KEY) {
     await traceInfo(
       accreditationId,
       "E-mail de création non envoyé : configuration e-mail (Resend) manquante."
@@ -141,12 +146,42 @@ export async function sendAccreditationCreationEmail(params: {
   try {
     const acc = await prisma.accreditation.findUnique({
       where: { id: accreditationId },
-      include: { vehicles: true },
+      include: {
+        vehicles: true,
+        organization: {
+          select: {
+            name: true,
+            emailFromName: true,
+            emailFromAddress: true,
+            replyToEmail: true,
+            emailSendingEnabled: true,
+          },
+        },
+      },
     });
     if (!acc) {
       await traceInfo(
         accreditationId,
         "E-mail de création non envoyé : accréditation introuvable."
+      );
+      return "failed";
+    }
+
+    // Résolution de l'expéditeur : config org si valide, sinon FROM_EMAIL global.
+    const sender = resolveAccreditationSender(acc.organization);
+
+    if (sender.disabled) {
+      await traceInfo(
+        accreditationId,
+        "E-mail de création non envoyé : envoi automatique désactivé pour l'organisation."
+      );
+      return "skipped_disabled";
+    }
+
+    if (!sender.from) {
+      await traceInfo(
+        accreditationId,
+        "E-mail de création non envoyé : aucun expéditeur configuré (FROM_EMAIL global manquant)."
       );
       return "failed";
     }
@@ -171,10 +206,16 @@ export async function sendAccreditationCreationEmail(params: {
     const subject = `Demande d'accréditation reçue — ${vehicleIdentity} (${acc.company})`;
     const html = buildHtml(acc, vehicle, vehicleIdentity);
 
+    // Trace le fallback forcé (config org refusée) sans bloquer l'envoi.
+    if (sender.usedFallback && sender.note) {
+      await traceInfo(accreditationId, sender.note);
+    }
+
     const resend = new Resend(process.env.RESEND_API_KEY);
     const { error } = await resend.emails.send({
-      from: process.env.FROM_EMAIL,
+      from: sender.from,
       to: recipient,
+      ...(sender.replyTo ? { replyTo: sender.replyTo } : {}),
       subject,
       html,
       attachments: [

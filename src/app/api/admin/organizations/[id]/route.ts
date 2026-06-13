@@ -4,6 +4,11 @@ import {
   requireEspaceManagement,
   requireOrganizationMembership,
 } from "@/lib/auth-helpers";
+import {
+  isValidEmail,
+  isAllowedSenderAddress,
+  getAllowedSenderDomains,
+} from "@/lib/email-sender";
 
 function handleAuthError(error: unknown) {
   if (error instanceof Response)
@@ -63,7 +68,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     if (!org) {
       return Response.json({ error: "Espace introuvable" }, { status: 404 });
     }
-    return Response.json(org);
+    return Response.json({ ...org, allowedEmailDomains: getAllowedSenderDomains() });
   } catch (error) {
     console.error("GET /api/admin/organizations/[id] error:", error);
     return Response.json({ error: "Erreur serveur" }, { status: 500 });
@@ -113,6 +118,68 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
         );
       }
       data.slug = normalized;
+    }
+
+    // --- Configuration expéditeur e-mail automatique ---
+    if (body.emailFromName !== undefined) {
+      const v = body.emailFromName ? String(body.emailFromName).trim() : "";
+      data.emailFromName = v || null;
+    }
+
+    if (body.emailSendingEnabled !== undefined) {
+      data.emailSendingEnabled = Boolean(body.emailSendingEnabled);
+    }
+
+    if (body.emailFromAddress !== undefined) {
+      const raw = body.emailFromAddress ? String(body.emailFromAddress).trim() : "";
+      if (!raw) {
+        data.emailFromAddress = null;
+      } else if (!isValidEmail(raw)) {
+        return Response.json(
+          { error: "Adresse d'expédition invalide." },
+          { status: 400 }
+        );
+      } else if (!isAllowedSenderAddress(raw)) {
+        return Response.json(
+          {
+            error:
+              "Domaine d'expédition non autorisé. Domaines autorisés : " +
+              getAllowedSenderDomains().join(", ") +
+              ".",
+          },
+          { status: 400 }
+        );
+      } else {
+        // Empêche une organisation d'usurper l'adresse d'une autre.
+        const conflict = await prisma.organization.findFirst({
+          where: {
+            emailFromAddress: { equals: raw, mode: "insensitive" },
+            NOT: { id },
+          },
+          select: { id: true },
+        });
+        if (conflict) {
+          return Response.json(
+            { error: "Cette adresse d'expédition est déjà utilisée par un autre Espace." },
+            { status: 409 }
+          );
+        }
+        data.emailFromAddress = raw;
+      }
+    }
+
+    if (body.replyToEmail !== undefined) {
+      const raw = body.replyToEmail ? String(body.replyToEmail).trim() : "";
+      if (!raw) {
+        data.replyToEmail = null;
+      } else if (!isValidEmail(raw)) {
+        return Response.json(
+          { error: "Adresse de réponse invalide." },
+          { status: 400 }
+        );
+      } else {
+        data.replyToEmail = raw;
+      }
     }
 
     const updated = await prisma.organization.update({

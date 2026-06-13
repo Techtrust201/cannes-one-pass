@@ -13,6 +13,7 @@ import {
   Save,
   Trash2,
   AlertTriangle,
+  Mail,
 } from "lucide-react";
 import MultiSelectDialog from "@/components/admin/MultiSelectDialog";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -43,6 +44,11 @@ interface OrganizationDetail {
   color: string;
   description: string | null;
   isActive: boolean;
+  emailFromName: string | null;
+  emailFromAddress: string | null;
+  replyToEmail: string | null;
+  emailSendingEnabled: boolean;
+  allowedEmailDomains?: string[];
   events: EventInOrg[];
   members: { user: UserInOrg; createdAt: string }[];
 }
@@ -189,9 +195,17 @@ function InfosTab({
   const [color, setColor] = useState(org.color);
   const [description, setDescription] = useState(org.description ?? "");
   const [isActive, setIsActive] = useState(org.isActive);
+  const [emailFromName, setEmailFromName] = useState(org.emailFromName ?? "");
+  const [emailFromAddress, setEmailFromAddress] = useState(org.emailFromAddress ?? "");
+  const [replyToEmail, setReplyToEmail] = useState(org.replyToEmail ?? "");
+  const [emailSendingEnabled, setEmailSendingEnabled] = useState(
+    org.emailSendingEnabled ?? true
+  );
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const allowedDomains = org.allowedEmailDomains ?? [];
 
   async function save() {
     setSaving(true);
@@ -206,6 +220,10 @@ function InfosTab({
           color,
           description: description || null,
           isActive,
+          emailFromName: emailFromName.trim() || null,
+          emailFromAddress: emailFromAddress.trim() || null,
+          replyToEmail: replyToEmail.trim() || null,
+          emailSendingEnabled,
         }),
       });
       if (!res.ok) {
@@ -293,6 +311,78 @@ function InfosTab({
         />
         <span className="text-sm font-medium text-gray-800">Espace actif</span>
       </label>
+
+      {/* --- E-mails automatiques --- */}
+      <div className="border-t border-gray-200 pt-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <Mail size={16} className="text-[#4F587E]" />
+          <h2 className="text-sm font-bold text-gray-900">E-mails automatiques</h2>
+        </div>
+        <p className="text-xs text-gray-500 -mt-2">
+          Expéditeur utilisé pour les e-mails envoyés automatiquement (ex :
+          confirmation d&apos;accréditation). En l&apos;absence de configuration, le
+          fallback global de la plateforme est utilisé.
+        </p>
+
+        <label className="flex items-center gap-3 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={emailSendingEnabled}
+            onChange={(e) => setEmailSendingEnabled(e.target.checked)}
+            className="w-5 h-5 rounded border-gray-300 text-[#4F587E] focus:ring-[#4F587E]"
+          />
+          <span className="text-sm font-medium text-gray-800">
+            Envoi automatique des e-mails activé
+          </span>
+        </label>
+
+        <div>
+          <label className="block text-sm font-semibold text-gray-800 mb-1.5">
+            Nom de l&apos;expéditeur
+          </label>
+          <input
+            type="text"
+            value={emailFromName}
+            onChange={(e) => setEmailFromName(e.target.value)}
+            placeholder="Palais des Festivals"
+            className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-[#4F587E] focus:border-[#4F587E] outline-none text-sm"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-gray-800 mb-1.5">
+            Adresse d&apos;expédition
+          </label>
+          <input
+            type="email"
+            value={emailFromAddress}
+            onChange={(e) => setEmailFromAddress(e.target.value)}
+            placeholder="palais@notifications.techtrust.fr"
+            className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-[#4F587E] focus:border-[#4F587E] outline-none text-sm font-mono"
+          />
+          {allowedDomains.length > 0 && (
+            <p className="text-xs text-gray-500 mt-1.5">
+              Domaines autorisés : {allowedDomains.join(", ")}
+            </p>
+          )}
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-gray-800 mb-1.5">
+            Adresse de réponse (Reply-To)
+          </label>
+          <input
+            type="email"
+            value={replyToEmail}
+            onChange={(e) => setReplyToEmail(e.target.value)}
+            placeholder="logistique@palaisdesfestivals.com"
+            className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-[#4F587E] focus:border-[#4F587E] outline-none text-sm font-mono"
+          />
+          <p className="text-xs text-gray-500 mt-1.5">
+            Les réponses des destinataires arriveront à cette adresse.
+          </p>
+        </div>
+      </div>
 
       {error && (
         <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-700">

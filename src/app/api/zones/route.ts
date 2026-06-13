@@ -5,6 +5,7 @@ import {
   resolveEspaceOrgId,
   getAccessibleOrganizationIds,
 } from "@/lib/auth-helpers";
+import { isSafeHttpUrl } from "@/lib/url-safety";
 
 type ZoneRow = { zone: string };
 
@@ -90,10 +91,22 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const { zone, label, address, latitude, longitude, isFinalDestination, color } = body;
+    const { readerName, readerUrl, readerActive } = body;
 
     if (!zone || !label || !address || latitude == null || longitude == null) {
       return Response.json(
         { error: "Tous les champs sont requis : zone, label, address, latitude, longitude" },
+        { status: 400 }
+      );
+    }
+
+    // Lecteur de plaque (Lot 3) : URL optionnelle mais, si fournie, doit être
+    // une URL http/https valide (refus de javascript:/data:/file: …).
+    const trimmedReaderUrl =
+      typeof readerUrl === "string" ? readerUrl.trim() : "";
+    if (trimmedReaderUrl && !isSafeHttpUrl(trimmedReaderUrl)) {
+      return Response.json(
+        { error: "URL du lecteur invalide (http/https uniquement)." },
         { status: 400 }
       );
     }
@@ -116,6 +129,12 @@ export async function POST(req: NextRequest) {
         longitude: parseFloat(longitude),
         isFinalDestination: isFinalDestination ?? false,
         color: color ?? "gray",
+        readerName:
+          typeof readerName === "string" && readerName.trim()
+            ? readerName.trim()
+            : null,
+        readerUrl: trimmedReaderUrl || null,
+        readerActive: Boolean(readerActive),
         organizationId: orgId,
       },
     });

@@ -20,11 +20,13 @@ import {
   Info,
   Loader2,
   Search,
+  ExternalLink,
 } from "lucide-react";
 import { useZones } from "@/hooks/useZones";
 import { useEspaceSlug } from "@/hooks/useEspaceSlug";
 import { usePermissions } from "@/hooks/usePermissions";
 import { normalizePlate } from "@/lib/plate-utils";
+import { isSafeHttpUrl } from "@/lib/url-safety";
 import AccreditationScanModal, {
   type ScanActionResult,
 } from "@/components/logisticien/AccreditationScanModal";
@@ -420,6 +422,15 @@ function ScannerInner() {
   /* ---------- rendu ---------- */
   const noZone = zoneLoaded && !zone;
 
+  // Lot 3 — Lecteur de plaque de la zone de poste (lien optionnel, sécurisé).
+  const selectedZoneConfig = zones.find((z) => z.zone === zone);
+  const readerLink =
+    selectedZoneConfig?.readerActive &&
+    selectedZoneConfig.readerUrl &&
+    isSafeHttpUrl(selectedZoneConfig.readerUrl)
+      ? selectedZoneConfig.readerUrl
+      : null;
+
   return (
     <div className="max-w-md mx-auto p-4 sm:p-6 space-y-4">
       <ToastStack toasts={toasts} />
@@ -459,6 +470,17 @@ function ScannerInner() {
           <p className="text-[11px] text-red-500 mt-1.5 font-medium">
             Zone obligatoire pour scanner et valider une action.
           </p>
+        )}
+        {readerLink && (
+          <a
+            href={readerLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#4F587E]/10 text-[#4F587E] hover:bg-[#4F587E]/20 transition"
+          >
+            <ExternalLink size={15} />
+            Ouvrir le lecteur{selectedZoneConfig?.readerName ? ` · ${selectedZoneConfig.readerName}` : ""}
+          </a>
         )}
       </div>
 

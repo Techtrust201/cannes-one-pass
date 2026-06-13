@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/auth-helpers";
+import { isSafeHttpUrl } from "@/lib/url-safety";
 
 /**
  * GET /api/zones/[id] — Récupérer une zone par ID
@@ -53,6 +54,7 @@ export async function PATCH(
   const { id } = await params;
   const body = await req.json();
   const { label, address, latitude, longitude, isActive } = body;
+  const { readerName, readerUrl, readerActive } = body;
 
   try {
     const existing = await prisma.zoneConfig.findUnique({
@@ -68,6 +70,26 @@ export async function PATCH(
     if (latitude !== undefined) updates.latitude = parseFloat(latitude);
     if (longitude !== undefined) updates.longitude = parseFloat(longitude);
     if (isActive !== undefined) updates.isActive = Boolean(isActive);
+
+    // Lecteur de plaque (Lot 3).
+    if (readerName !== undefined) {
+      updates.readerName =
+        typeof readerName === "string" && readerName.trim()
+          ? readerName.trim()
+          : null;
+    }
+    if (readerUrl !== undefined) {
+      const trimmedReaderUrl =
+        typeof readerUrl === "string" ? readerUrl.trim() : "";
+      if (trimmedReaderUrl && !isSafeHttpUrl(trimmedReaderUrl)) {
+        return Response.json(
+          { error: "URL du lecteur invalide (http/https uniquement)." },
+          { status: 400 }
+        );
+      }
+      updates.readerUrl = trimmedReaderUrl || null;
+    }
+    if (readerActive !== undefined) updates.readerActive = Boolean(readerActive);
 
     const updated = await prisma.zoneConfig.update({
       where: { id: Number(id) },

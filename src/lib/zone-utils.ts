@@ -16,6 +16,10 @@ export interface ZoneConfigData {
   isFinalDestination: boolean;
   color: string;
   isActive: boolean;
+  // Lot 3 — Lecteur de plaque par zone (optionnel).
+  readerName?: string | null;
+  readerUrl?: string | null;
+  readerActive?: boolean;
 }
 
 // ────────────────────────────────────────────────────────────────

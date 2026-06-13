@@ -625,6 +625,12 @@ model ZoneConfig {
   isFinalDestination Boolean  @default(false) // Destination finale (Palais)
   color              String   @default("gray") // Couleur associée (ex: "orange", "green", "blue", "purple")
   isActive           Boolean  @default(true)
+
+  // Lot 3 — Lecteur de plaque par zone (version simple, sans intégration ANPR).
+  readerName   String? // Nom du lecteur (ex: "Lecteur entrée La Bocca")
+  readerUrl    String? // Lien/URL du lecteur (http/https uniquement, validé côté serveur)
+  readerActive Boolean @default(false) // Lecteur actif/affiché dans le scanner
+
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 

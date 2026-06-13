@@ -12,8 +12,11 @@ import {
   Loader2,
   PlusCircle,
   Trash2,
+  ScanLine,
+  ExternalLink,
 } from "lucide-react";
 import { invalidateZoneCache } from "@/lib/zone-utils";
+import { isSafeHttpUrl } from "@/lib/url-safety";
 import { useEspaceSlug } from "@/hooks/useEspaceSlug";
 import { withEspaceQuery } from "@/lib/url";
 
@@ -27,6 +30,9 @@ interface ZoneData {
   isFinalDestination: boolean;
   color: string;
   isActive: boolean;
+  readerName?: string | null;
+  readerUrl?: string | null;
+  readerActive?: boolean;
 }
 
 // Coordonnées du Palais des Festivals (référence)
@@ -84,6 +90,9 @@ export default function ZonesPage() {
     longitude: "",
     isFinalDestination: false,
     color: "gray",
+    readerName: "",
+    readerUrl: "",
+    readerActive: false,
   });
   const [creating, setCreating] = useState(false);
   const [geocoding, setGeocoding] = useState<"create" | "edit" | null>(null);
@@ -168,6 +177,9 @@ export default function ZonesPage() {
       address: zone.address,
       latitude: zone.latitude,
       longitude: zone.longitude,
+      readerName: zone.readerName ?? "",
+      readerUrl: zone.readerUrl ?? "",
+      readerActive: zone.readerActive ?? false,
     });
   };
 
@@ -178,6 +190,11 @@ export default function ZonesPage() {
 
   const saveEdit = async () => {
     if (!editingId) return;
+    const editReaderUrl = (editForm.readerUrl ?? "").trim();
+    if (editReaderUrl && !isSafeHttpUrl(editReaderUrl)) {
+      alert("URL du lecteur invalide (http/https uniquement).");
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch(`/api/zones/${editingId}`, {
@@ -205,6 +222,11 @@ export default function ZonesPage() {
       alert("Tous les champs sont requis");
       return;
     }
+    const createReaderUrl = createForm.readerUrl.trim();
+    if (createReaderUrl && !isSafeHttpUrl(createReaderUrl)) {
+      alert("URL du lecteur invalide (http/https uniquement).");
+      return;
+    }
     setCreating(true);
     try {
       const res = await fetch(withEspaceQuery("/api/zones", espace), {
@@ -218,11 +240,14 @@ export default function ZonesPage() {
           longitude: parseFloat(createForm.longitude),
           isFinalDestination: createForm.isFinalDestination,
           color: createForm.color,
+          readerName: createForm.readerName,
+          readerUrl: createReaderUrl,
+          readerActive: createForm.readerActive,
         }),
       });
       if (res.ok) {
         setShowCreateForm(false);
-        setCreateForm({ label: "", address: "", latitude: "", longitude: "", isFinalDestination: false, color: "gray" });
+        setCreateForm({ label: "", address: "", latitude: "", longitude: "", isFinalDestination: false, color: "gray", readerName: "", readerUrl: "", readerActive: false });
         invalidateZoneCache();
         fetchZones();
       } else {
@@ -389,6 +414,48 @@ export default function ZonesPage() {
                   Destination finale
                 </label>
               </div>
+
+              {/* Lecteur de plaque (Lot 3) */}
+              <div className="md:col-span-2 border-t border-gray-100 pt-4 mt-1">
+                <div className="flex items-center gap-2 mb-3">
+                  <ScanLine size={16} className="text-[#4F587E]" />
+                  <span className="text-sm font-semibold text-gray-700">Lecteur de plaque (optionnel)</span>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Nom du lecteur</label>
+                    <input
+                      type="text"
+                      value={createForm.readerName}
+                      onChange={(e) => setCreateForm({ ...createForm, readerName: e.target.value })}
+                      placeholder="ex: Lecteur entrée La Bocca"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#4F587E] focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">URL du lecteur (http/https)</label>
+                    <input
+                      type="url"
+                      value={createForm.readerUrl}
+                      onChange={(e) => setCreateForm({ ...createForm, readerUrl: e.target.value })}
+                      placeholder="https://lecteur.exemple.com"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#4F587E] focus:border-transparent"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="readerActiveCreate"
+                      checked={createForm.readerActive}
+                      onChange={(e) => setCreateForm({ ...createForm, readerActive: e.target.checked })}
+                      className="w-4 h-4 rounded border-gray-300 text-[#4F587E] focus:ring-[#4F587E]"
+                    />
+                    <label htmlFor="readerActiveCreate" className="text-sm font-medium text-gray-700">
+                      Lecteur actif (affiché dans le scanner)
+                    </label>
+                  </div>
+                </div>
+              </div>
             </div>
             <div className="flex gap-3 mt-6">
               <button
@@ -519,6 +586,43 @@ export default function ZonesPage() {
                       {geocoding === "edit" ? <Loader2 size={12} className="animate-spin" /> : <Globe size={12} />}
                       Trouver l&apos;adresse depuis les coordonnées
                     </button>
+
+                    {/* Lecteur de plaque (Lot 3) */}
+                    <div className="border-t border-gray-200 pt-3 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <ScanLine size={14} className="text-[#4F587E]" />
+                        <span className="text-xs font-semibold text-gray-700">Lecteur de plaque (optionnel)</span>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">Nom du lecteur</label>
+                        <input
+                          type="text"
+                          value={editForm.readerName ?? ""}
+                          onChange={(e) => setEditForm({ ...editForm, readerName: e.target.value })}
+                          placeholder="ex: Lecteur entrée La Bocca"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#4F587E] focus:border-transparent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1">URL du lecteur (http/https)</label>
+                        <input
+                          type="url"
+                          value={editForm.readerUrl ?? ""}
+                          onChange={(e) => setEditForm({ ...editForm, readerUrl: e.target.value })}
+                          placeholder="https://lecteur.exemple.com"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#4F587E] focus:border-transparent"
+                        />
+                      </div>
+                      <label className="inline-flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={editForm.readerActive ?? false}
+                          onChange={(e) => setEditForm({ ...editForm, readerActive: e.target.checked })}
+                          className="w-4 h-4 rounded border-gray-300 text-[#4F587E] focus:ring-[#4F587E]"
+                        />
+                        <span className="text-sm font-medium text-gray-700">Lecteur actif (affiché dans le scanner)</span>
+                      </label>
+                    </div>
                     <div className="flex gap-2 pt-2">
                       <button
                         onClick={saveEdit}
@@ -561,6 +665,28 @@ export default function ZonesPage() {
                         <span className="text-xs text-gray-600">
                           <span className="font-semibold">{dist}</span> du Palais des Festivals
                         </span>
+                      </div>
+                    )}
+
+                    {/* Lecteur de plaque (Lot 3) */}
+                    {(zone.readerName || zone.readerUrl) && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <ScanLine size={14} className="text-gray-400 shrink-0" />
+                        <span className="text-xs text-gray-600">
+                          {zone.readerName || "Lecteur"}
+                          {zone.readerActive ? "" : " (inactif)"}
+                        </span>
+                        {zone.readerActive && isSafeHttpUrl(zone.readerUrl) && (
+                          <a
+                            href={zone.readerUrl as string}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#4F587E]/10 text-[#4F587E] text-[11px] font-semibold hover:bg-[#4F587E]/20 transition"
+                          >
+                            <ExternalLink size={11} />
+                            Ouvrir
+                          </a>
+                        )}
                       </div>
                     )}
 

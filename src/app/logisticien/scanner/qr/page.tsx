@@ -44,6 +44,38 @@ function resolveTarget(decoded: string): string | null {
   return null;
 }
 
+/**
+ * Arrêt totalement tolérant du scanner html5-qrcode.
+ *
+ * `stop()` lève une exception SYNCHRONE ("Cannot stop, scanner is not running
+ * or paused") quand le scanner n'est plus en cours — un `.catch()` (rejets de
+ * promesse) ne l'intercepte pas. On ne stoppe donc que si l'état est SCANNING
+ * ou PAUSED, et on enveloppe tout (sync + async) dans un try/catch. Jamais
+ * d'exception remontée : un arrêt en double, déjà arrêté ou jamais démarré
+ * devient un no-op silencieux.
+ */
+async function safeStopScanner(scanner: unknown): Promise<void> {
+  if (!scanner || typeof scanner !== "object") return;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const s = scanner as any;
+  try {
+    const state = typeof s.getState === "function" ? s.getState() : undefined;
+    // Html5QrcodeScannerState : SCANNING = 2, PAUSED = 3. On ne stoppe que dans
+    // ces états ; sinon `stop()` jetterait. Si getState est indisponible, on
+    // tente quand même (le try/catch absorbe une éventuelle exception).
+    if (state === undefined || state === 2 || state === 3) {
+      await s.stop();
+    }
+  } catch {
+    /* déjà arrêté / non démarré / en pause : ignoré */
+  }
+  try {
+    if (typeof s.clear === "function") s.clear();
+  } catch {
+    /* libération DOM best-effort */
+  }
+}
+
 function QRScannerInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -55,10 +87,13 @@ function QRScannerInner() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const scannerRef = useRef<any>(null);
   const handledRef = useRef(false);
+  // Garantit un unique arrêt du scanner (onSuccess vs cleanup au démontage).
+  const stoppedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
     handledRef.current = false;
+    stoppedRef.current = false;
 
     (async () => {
       try {
@@ -82,10 +117,10 @@ function QRScannerInner() {
           if (espace && !/[?&]espace=/.test(dest)) {
             dest += (dest.includes("?") ? "&" : "?") + `espace=${encodeURIComponent(espace)}`;
           }
-          scanner
-            .stop()
-            .catch(() => {})
-            .finally(() => router.push(dest));
+          // Arrêt unique et sûr, puis navigation. Le démontage déclenché par
+          // `router.push` n'arrêtera pas une 2e fois (guard `stoppedRef`).
+          stoppedRef.current = true;
+          void safeStopScanner(scanner).finally(() => router.push(dest));
         };
 
         await scanner.start(
@@ -110,9 +145,12 @@ function QRScannerInner() {
     return () => {
       cancelled = true;
       const s = scannerRef.current;
-      if (s) {
-        s.stop().catch(() => {});
-        scannerRef.current = null;
+      scannerRef.current = null;
+      // Ne pas re-stopper si onSuccess l'a déjà fait ; safeStopScanner reste
+      // de toute façon sans effet si le scanner n'est plus en cours.
+      if (s && !stoppedRef.current) {
+        stoppedRef.current = true;
+        void safeStopScanner(s);
       }
     };
   }, [router, espace, restartKey]);

@@ -93,6 +93,17 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
     };
   }, [espace, pathname, router, searchParams]);
 
+  // Redirection vers /login UNIQUEMENT via effet (jamais pendant le render) :
+  // naviguer pendant le render leve "Cannot update a component while rendering"
+  // -> exception client au 1er chargement (cf. bug scan). On attend que l'état
+  // session soit confirmé (`!loading`) avant de conclure à une déconnexion.
+  useEffect(() => {
+    if (loading || user) return;
+    router.replace(
+      `/login?callbackUrl=${encodeURIComponent(pathname || "/logisticien")}`
+    );
+  }, [loading, user, pathname, router]);
+
   const toggleCollapsed = () => {
     setCollapsed((prev) => {
       const next = !prev;
@@ -101,17 +112,14 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
     });
   };
 
-  if (loading) {
+  // Spinner neutre pendant le chargement de session ET pendant la redirection
+  // login (user absent) : aucun rendu de l'app ni navigation pendant le render.
+  if (loading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="animate-spin h-8 w-8 border-4 border-[#3F4660] border-t-transparent rounded-full" />
       </div>
     );
-  }
-
-  if (!user) {
-    router.replace(`/login?callbackUrl=${encodeURIComponent(pathname || "/logisticien")}`);
-    return null;
   }
 
   return (

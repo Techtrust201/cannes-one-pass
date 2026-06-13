@@ -24,27 +24,53 @@ export function usePermissions() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchPermissions = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await fetch("/api/auth/me");
+    // Au premier chargement mobile (ex. ouverture depuis un scan), la session
+    // better-auth n'est pas toujours « chaude » : `/api/auth/me` peut répondre
+    // 401 ou échouer de façon transitoire alors que le cookie est valide (le
+    // middleware a déjà laissé passer). On retente brièvement avant de conclure
+    // à une déconnexion, pour ne pas rediriger à tort vers /login. Une session
+    // réellement expirée finit `user = null` après les tentatives -> login.
+    const MAX_ATTEMPTS = 3;
+    const RETRY_DELAY_MS = 400;
+    const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-      if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
-          setUser(null);
+    setLoading(true);
+    setError(null);
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const isLastAttempt = attempt === MAX_ATTEMPTS;
+      try {
+        const response = await fetch("/api/auth/me");
+
+        if (response.ok) {
+          setUser(await response.json());
+          setError(null);
+          setLoading(false);
           return;
         }
-        throw new Error("Erreur de chargement des permissions");
-      }
 
-      const data = await response.json();
-      setUser(data);
-    } catch (err) {
-      setUser(null);
-      setError(
-        err instanceof Error ? err.message : "Erreur inconnue"
-      );
-    } finally {
-      setLoading(false);
+        // 401/403 : non authentifié. Possible état transitoire au 1er paint :
+        // on retente, et on ne tranche (user=null) qu'à la dernière tentative.
+        if (response.status === 401 || response.status === 403) {
+          if (isLastAttempt) {
+            setUser(null);
+            setLoading(false);
+            return;
+          }
+          await wait(RETRY_DELAY_MS);
+          continue;
+        }
+
+        throw new Error("Erreur de chargement des permissions");
+      } catch (err) {
+        if (isLastAttempt) {
+          setUser(null);
+          setError(err instanceof Error ? err.message : "Erreur inconnue");
+          setLoading(false);
+          return;
+        }
+        await wait(RETRY_DELAY_MS);
+      }
     }
   }, []);
 

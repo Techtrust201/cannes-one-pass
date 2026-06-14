@@ -235,21 +235,38 @@ export async function POST(req: NextRequest) {
         ? [0, 0.55, 0.2]
         : status === "SORTIE"
           ? [0.7, 0, 0]
-          : [0, 0, 0.6];
-    drawText(page, status || "ATTENTE", VALUE_X, y, 12, { color: statusColor });
+          : status === "NOUVEAU"
+            ? [0.7, 0.45, 0]
+            : [0, 0, 0.6];
+    // Libellé lisible : ATTENTE = validée administrativement (jamais « en attente
+    // de validation »). NOUVEAU = demande publique à valider.
+    const statusLabelsFr: Record<string, string> = {
+      NOUVEAU: "Nouveau (à valider)",
+      ATTENTE: "Validée",
+      ENTREE: "Entrée",
+      SORTIE: "Sortie",
+      REFUS: "Refusée",
+      ABSENT: "Absente",
+    };
+    const isNewStatus = status === "NOUVEAU";
+    drawText(page, statusLabelsFr[status as string] || "Validée", VALUE_X, y, 12, {
+      color: statusColor,
+    });
     y -= LINE_HEIGHT;
 
     addLabelVal(
       "Heure d'entrée",
       entryAt
         ? new Date(entryAt).toLocaleString("fr-FR")
-        : "L'accréditation doit être validée par un logisticien pour vous attribuer un horaire d'arrivée."
+        : isNewStatus
+          ? "L'accréditation devra être validée par un agent à votre arrivée."
+          : "Horaire d'entrée renseigné lors du passage en zone."
     );
     addLabelVal(
       "Heure de sortie",
       exitAt
         ? new Date(exitAt).toLocaleString("fr-FR")
-        : "Votre présence est tracée, un logisticien renseignera l'heure de votre départ."
+        : "Votre présence est tracée, l'heure de départ sera renseignée à la sortie."
     );
 
     // séparation 2

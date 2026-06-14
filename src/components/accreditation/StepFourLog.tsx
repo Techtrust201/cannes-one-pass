@@ -458,8 +458,8 @@ export default function StepFourLog({
                 Confirmer l&apos;enregistrement
               </h2>
               <p className="mb-4 md:mb-6 text-gray-700 leading-relaxed text-center text-sm md:text-base">
-                Cette accréditation sera automatiquement approuvée et mise en
-                statut <b>Attente</b>.<br />
+                Cette accréditation sera automatiquement approuvée et créée au
+                statut <b>Validée</b> (attendue sur site).<br />
                 <span className="font-semibold text-green-600">
                   Aucune validation manuelle requise.
                 </span>

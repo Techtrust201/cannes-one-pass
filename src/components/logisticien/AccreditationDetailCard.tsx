@@ -45,7 +45,7 @@ export default function AccreditationDetailCard({ acc }: Props) {
           onChange={(e) => setStatus(e.target.value as AccreditationStatus)}
         >
           <option value="NOUVEAU">Nouveau</option>
-          <option value="ATTENTE">Attente</option>
+          <option value="ATTENTE">Validée</option>
           <option value="ENTREE">Entrée</option>
           <option value="SORTIE">Sortie</option>
           <option value="REFUS">Refus</option>

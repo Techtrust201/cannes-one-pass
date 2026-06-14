@@ -116,7 +116,7 @@ const FLOW_FR = {
   confirmPublicCta: "Confirmer l'envoi",
   confirmLogisticienTitle: "Confirmer la création",
   confirmLogisticienMsg:
-    "L'accréditation sera créée directement au statut Attente (validée). Elle sera immédiatement visible et opérationnelle dans la liste.",
+    "L'accréditation sera créée directement validée. Elle sera immédiatement visible et opérationnelle dans la liste.",
   confirmLogisticienCta: "Créer l'accréditation",
   successTitleOne: "Demande enregistrée !",
   successTitleMany: "demandes enregistrées !",

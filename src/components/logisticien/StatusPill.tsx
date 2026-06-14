@@ -12,7 +12,7 @@ const STATUS_CFG: Record<
   ATTENTE: {
     bg: "bg-yellow-100",
     text: "text-yellow-700",
-    label: "Attente",
+    label: "Validée",
   },
   ENTREE: {
     bg: "bg-green-100",

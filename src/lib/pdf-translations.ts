@@ -104,7 +104,7 @@ const fr: PdfT = {
     "Veuillez présenter ce document (QR code) à l'entrée du site.",
   statusLabels: {
     NOUVEAU: "NOUVEAU",
-    ATTENTE: "ATTENTE",
+    ATTENTE: "VALIDÉE",
     ENTREE: "ENTREE",
     SORTIE: "SORTIE",
   },
@@ -160,7 +160,7 @@ const en: PdfT = {
   officialNote2: "Please present this document (QR code) at the site entrance.",
   statusLabels: {
     NOUVEAU: "NEW",
-    ATTENTE: "PENDING",
+    ATTENTE: "VALIDATED",
     ENTREE: "ENTRY",
     SORTIE: "EXIT",
   },
@@ -214,7 +214,7 @@ const de: PdfT = {
   officialNote1:
     "Diese Akkreditierung ist 24 Stunden ab der validierten Einfahrtszeit gültig.",
   officialNote2: "Bitte legen Sie dieses Dokument (QR-Code) am Eingang vor.",
-  statusLabels: { NOUVEAU: "NEU", ATTENTE: "WARTEND", ENTREE: "EINGANG", SORTIE: "AUSGANG" },
+  statusLabels: { NOUVEAU: "NEU", ATTENTE: "VALIDIERT", ENTREE: "EINGANG", SORTIE: "AUSGANG" },
 };
 
 const es: PdfT = {
@@ -264,7 +264,7 @@ const es: PdfT = {
   officialNote1:
     "Esta acreditación es válida durante 24 horas a partir de la hora de entrada validada.",
   officialNote2: "Presente este documento (código QR) en la entrada del recinto.",
-  statusLabels: { NOUVEAU: "NUEVO", ATTENTE: "PENDIENTE", ENTREE: "ENTRADA", SORTIE: "SALIDA" },
+  statusLabels: { NOUVEAU: "NUEVO", ATTENTE: "VALIDADA", ENTREE: "ENTRADA", SORTIE: "SALIDA" },
 };
 
 const pt: PdfT = { ...es, requestTitle: "Pedido de acreditação de veículo", officialTitle: "Acreditação de veículo", rxSubtitle: "Cannes Yachting Festival — Logística", issuedDate: "Data de emissão", requestBanner: "PEDIDO NÃO VALIDADO — NÃO PERMITE ACESSO AO LOCAL", generalInfo: "Informações gerais", exhibitor: "Expositor / Decorador", event: "Evento", reference: "Referência do pedido", unloadingZone: "Zona de descarga", address: "Morada", gpsCoords: "Coordenadas GPS", contact: "Contacto", email: "E-mail", phone: "Telefone de contacto", handling: "Manuseamento", status: "Estado", deliveryVehicle: "Veículo de entrega", template: "Tipo de veículo", plate: "Matrícula", platePending: "— (a preencher à chegada)", trailerPlate: "Matrícula do reboque", driverPhone: "Telefone do condutor", deliverySlot: "Faixa de entrega", interveningCompanyDelivery: "Empresa transportadora (entrega)", departureCityDelivery: "Cidade de partida (entrega)", returnVehicle: "Veículo de recolha", returnSlot: "Faixa de recolha", sameAsDelivery: "Igual ao veículo de entrega", templateReturn: "Tipo de veículo de recolha", plateReturn: "Matrícula de recolha", interveningCompanyReturn: "Empresa transportadora (recolha)", departureCityReturn: "Cidade de partida (recolha)", phoneReturn: "Telefone de recolha", message: "Mensagem", consent: "Consinto a política de privacidade", qrTracking: "QR de acompanhamento do pedido", qrSetup: "QR Montagem", qrTeardown: "QR Desmontagem", qrVehicle: "QR Veículo", requestNote1: "Este documento pode ser transmitido ao transportador a título informativo.", requestNote2: "Não constitui uma acreditação de acesso ao local.", officialNote1: "Esta acreditação é válida por 24 horas a partir da hora de entrada validada.", officialNote2: "Apresente este documento (código QR) na entrada do local.", statusLabels: { NOUVEAU: "NOVO", ATTENTE: "PENDENTE", ENTREE: "ENTRADA", SORTIE: "SAÍDA" } };

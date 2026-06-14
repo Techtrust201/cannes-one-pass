@@ -348,7 +348,7 @@ export default async function LogisticienDashboard(props: {
   const statusOptions = [
     { value: "", label: "Tous statuts" },
     { value: "NOUVEAU", label: "Nouveau" },
-    { value: "ATTENTE", label: "Attente" },
+    { value: "ATTENTE", label: "Validée" },
     { value: "ENTREE", label: "Entrée" },
     { value: "SORTIE", label: "Sortie" },
     { value: "REFUS", label: "Refusé" },

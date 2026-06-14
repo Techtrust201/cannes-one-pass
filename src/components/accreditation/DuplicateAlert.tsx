@@ -31,7 +31,7 @@ interface DuplicateAlertProps {
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  ATTENTE: "En attente",
+  ATTENTE: "Validée",
   ENTREE: "Entrée",
   SORTIE: "Sortie",
   NOUVEAU: "Nouveau",

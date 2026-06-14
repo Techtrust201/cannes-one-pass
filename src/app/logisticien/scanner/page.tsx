@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   Suspense,
+  type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -26,6 +27,7 @@ import { useZones } from "@/hooks/useZones";
 import { useEspaceSlug } from "@/hooks/useEspaceSlug";
 import { usePermissions } from "@/hooks/usePermissions";
 import { normalizePlate } from "@/lib/plate-utils";
+import { getZoneLabel } from "@/lib/zone-utils";
 import { isSafeHttpUrl } from "@/lib/url-safety";
 import { recognizePlateClient } from "@/lib/plate-recognition/client-tesseract";
 import type {
@@ -55,6 +57,59 @@ function resolveAccreditationId(decoded: string): string | null {
   const m = text.match(/\/logisticien\/([^/?#]+)/);
   if (m && m[1] && m[1] !== "scanner") return m[1];
   return null;
+}
+
+/** Statut administratif court (séparé de l'état de présence). */
+function adminStatusLabel(status: AccreditationScanSummary["status"]): string {
+  switch (status) {
+    case "NOUVEAU":
+      return "À valider";
+    case "REFUS":
+      return "Refusée";
+    case "ABSENT":
+      return "Absente";
+    default:
+      // ATTENTE / ENTREE / SORTIE = validée administrativement.
+      return "Validée";
+  }
+}
+
+/** État de présence court pour la liste de suggestions. */
+function presenceShort(s: AccreditationScanSummary): string {
+  const zoneLabel = s.currentZone ? getZoneLabel(s.currentZone) : null;
+  switch (s.status) {
+    case "ENTREE":
+      return zoneLabel ? `Dans ${zoneLabel}` : "Dans une zone";
+    case "SORTIE":
+      return zoneLabel ? `Hors zone (${zoneLabel})` : "Hors zone";
+    case "ATTENTE":
+      return zoneLabel ? `Attendu · ${zoneLabel}` : "Attendu";
+    case "NOUVEAU":
+      return "Pas encore sur site";
+    default:
+      return "—";
+  }
+}
+
+/**
+ * Détermine quelle plaque (principale ou remorque) correspond au fragment
+ * normalisé saisi, pour afficher la bonne plaque + le badge « Remorque ».
+ */
+function matchedPlate(
+  s: AccreditationScanSummary,
+  nq: string
+): { plate: string; trailer: boolean } {
+  if (nq) {
+    for (const v of s.vehicles) {
+      const np = normalizePlate(v.plate);
+      if (np && np.includes(nq)) return { plate: v.plate ?? "—", trailer: false };
+      const nt = normalizePlate(v.trailerPlate);
+      if (nt && nt.includes(nq))
+        return { plate: v.trailerPlate ?? "—", trailer: true };
+    }
+  }
+  const first = s.vehicles[0];
+  return { plate: first?.plate ?? first?.trailerPlate ?? "—", trailer: false };
 }
 
 /**
@@ -314,6 +369,17 @@ function ScannerInner() {
   const [plateInput, setPlateInput] = useState("");
   const [camState, setCamState] = useState<CamState>("idle");
   const [camError, setCamError] = useState("");
+
+  /* ---------- Recherche plaque dynamique (autocomplete) ---------- */
+  const [suggestions, setSuggestions] = useState<
+    AccreditationScanSummary[] | null
+  >(null);
+  const [searching, setSearching] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const searchAbortRef = useRef<AbortController | null>(null);
+  // Séquence anti résultats obsolètes (réponses hors ordre).
+  const searchSeqRef = useRef(0);
+  const plateInputRef = useRef<HTMLInputElement>(null);
   // Déclencheur explicite : une ref (streamRef) ne re-déclenche pas un effet.
   // On incrémente cette clé après avoir rempli streamRef pour forcer le rejeu
   // de l'effet d'attachement, quel que soit l'ordre (stream avant/après <video>).
@@ -559,6 +625,105 @@ function ScannerInner() {
     void runLookup({ plate: normalized }, "plate", normalized);
   }
 
+  /* ---------- Recherche plaque dynamique ---------- */
+  const closeSuggestions = useCallback(() => {
+    searchAbortRef.current?.abort();
+    setSuggestions(null);
+    setSearching(false);
+    setActiveIndex(-1);
+  }, []);
+
+  const doSearch = useCallback(
+    async (nq: string) => {
+      const seq = ++searchSeqRef.current;
+      // Annule la requête précédente (l'agent continue à taper).
+      searchAbortRef.current?.abort();
+      const controller = new AbortController();
+      searchAbortRef.current = controller;
+      setSearching(true);
+      try {
+        const qs = new URLSearchParams();
+        qs.set("q", nq);
+        if (espace) qs.set("espace", espace);
+        const res = await fetch(
+          `/api/accreditations/plate-search?${qs.toString()}`,
+          { signal: controller.signal }
+        );
+        // Réponse obsolète (une frappe plus récente a pris le relais) → ignorée.
+        if (seq !== searchSeqRef.current) return;
+        if (!res.ok) {
+          setSuggestions([]);
+          setActiveIndex(-1);
+          return;
+        }
+        const data = (await res.json()) as {
+          matches: AccreditationScanSummary[];
+        };
+        if (seq !== searchSeqRef.current) return;
+        const found = data.matches ?? [];
+        setSuggestions(found);
+        setActiveIndex(found.length > 0 ? 0 : -1);
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        if (seq === searchSeqRef.current) {
+          setSuggestions([]);
+          setActiveIndex(-1);
+        }
+      } finally {
+        if (seq === searchSeqRef.current) setSearching(false);
+      }
+    },
+    [espace]
+  );
+
+  // Débounce : recherche automatique dès 2 caractères normalisés, sans clic.
+  useEffect(() => {
+    if (tab !== "plaque" || modalOpen || multiOpen) return;
+    const nq = normalizePlate(plateInput);
+    if (!nq || nq.length < 2) {
+      closeSuggestions();
+      return;
+    }
+    const handle = setTimeout(() => void doSearch(nq), 200);
+    return () => clearTimeout(handle);
+  }, [plateInput, tab, modalOpen, multiOpen, doSearch, closeSuggestions]);
+
+  // Sélection d'une suggestion → même popup que le scan, zone conservée.
+  const selectSummary = useCallback(
+    (s: AccreditationScanSummary) => {
+      if (!zone) {
+        pushToast("error", "Sélectionnez d'abord votre zone de poste.");
+        return;
+      }
+      const nq = normalizePlate(plateInput) ?? "";
+      const mp = matchedPlate(s, nq);
+      setScanContext({
+        scanType: "plate",
+        scannedValue: mp.plate || plateInput,
+      });
+      closeSuggestions();
+      setSummary(s);
+    },
+    [zone, plateInput, pushToast, closeSuggestions]
+  );
+
+  function onPlateKeyDown(e: ReactKeyboardEvent<HTMLInputElement>) {
+    const list = suggestions ?? [];
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (list.length) setActiveIndex((i) => Math.min(i + 1, list.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (list.length) setActiveIndex((i) => Math.max(i - 1, 0));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (list.length) selectSummary(list[activeIndex >= 0 ? activeIndex : 0]);
+      else searchPlate(); // fallback recherche exacte
+    } else if (e.key === "Escape") {
+      closeSuggestions();
+    }
+  }
+
   /* ---------- résultat d'action depuis la popup ---------- */
   function handleResult(result: ScanActionResult) {
     pushToast(result.type, result.message);
@@ -566,6 +731,7 @@ function ScannerInner() {
     setMatches(null);
     setScanContext(null);
     setPlateInput("");
+    closeSuggestions();
     // Relance le scan pour le véhicule suivant (sans changer de page).
     setRestartKey((k) => k + 1);
   }
@@ -574,6 +740,7 @@ function ScannerInner() {
     setSummary(null);
     setMatches(null);
     setScanContext(null);
+    closeSuggestions();
     setRestartKey((k) => k + 1);
   }
 
@@ -793,33 +960,112 @@ function ScannerInner() {
               </>
             )}
 
-            {/* Fallback manuel permanent */}
+            {/* Recherche dynamique par plaque (autocomplete temps réel) */}
             <div className="pt-1">
               <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">
-                Ou saisie manuelle
+                Recherche par plaque
               </label>
-              <div className="flex gap-2">
-                <input
-                  value={plateInput}
-                  onChange={(e) => setPlateInput(e.target.value.toUpperCase())}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") searchPlate();
-                  }}
-                  placeholder="AB-123-CD"
-                  className="flex-1 h-11 rounded-xl border border-gray-200 px-3 text-sm font-mono font-semibold tracking-wider uppercase focus:ring-2 focus:ring-[#4F587E]/30"
-                />
-                <button
-                  onClick={searchPlate}
-                  disabled={!zone || !plateInput.trim()}
-                  className="px-4 rounded-xl bg-[#4F587E] text-white text-sm font-semibold hover:bg-[#3B4252] transition disabled:opacity-50 inline-flex items-center gap-1.5"
-                >
-                  <Search size={15} />
-                  Rechercher
-                </button>
+              <div className="relative">
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      ref={plateInputRef}
+                      value={plateInput}
+                      onChange={(e) =>
+                        setPlateInput(e.target.value.toUpperCase())
+                      }
+                      onKeyDown={onPlateKeyDown}
+                      placeholder="Tapez une plaque, ex. GG ou 542…"
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="characters"
+                      spellCheck={false}
+                      role="combobox"
+                      aria-expanded={!!suggestions && suggestions.length > 0}
+                      aria-controls="plate-suggestions"
+                      aria-autocomplete="list"
+                      className="w-full h-12 rounded-xl border border-gray-200 pl-3 pr-9 text-base font-mono font-semibold tracking-wider uppercase focus:ring-2 focus:ring-[#4F587E]/30"
+                    />
+                    {searching && (
+                      <Loader2
+                        size={16}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-gray-400"
+                      />
+                    )}
+                  </div>
+                  <button
+                    onClick={searchPlate}
+                    disabled={!zone || !plateInput.trim()}
+                    className="px-4 rounded-xl bg-[#4F587E] text-white text-sm font-semibold hover:bg-[#3B4252] transition disabled:opacity-50 inline-flex items-center gap-1.5 shrink-0"
+                  >
+                    <Search size={15} />
+                    <span className="hidden sm:inline">Rechercher</span>
+                  </button>
+                </div>
+
+                {/* Suggestions */}
+                {suggestions && suggestions.length > 0 && (
+                  <ul
+                    id="plate-suggestions"
+                    role="listbox"
+                    className="mt-2 max-h-[44vh] overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-sm divide-y divide-gray-100"
+                  >
+                    {suggestions.map((s, idx) => {
+                      const nq = normalizePlate(plateInput) ?? "";
+                      const mp = matchedPlate(s, nq);
+                      return (
+                        <li key={s.id} role="option" aria-selected={idx === activeIndex}>
+                          <button
+                            type="button"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => selectSummary(s)}
+                            onMouseEnter={() => setActiveIndex(idx)}
+                            className={`w-full text-left px-3 py-2.5 transition ${
+                              idx === activeIndex
+                                ? "bg-[#4F587E]/10"
+                                : "hover:bg-gray-50"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-mono font-bold text-sm text-gray-900 bg-gray-100 px-2 py-0.5 rounded">
+                                {mp.plate}
+                              </span>
+                              {mp.trailer && (
+                                <span className="text-[10px] font-bold uppercase tracking-wide text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
+                                  Remorque
+                                </span>
+                              )}
+                              <span className="text-[11px] font-semibold text-[#4F587E]">
+                                {adminStatusLabel(s.status)}
+                              </span>
+                            </div>
+                            <div className="mt-0.5 text-xs text-gray-600 truncate">
+                              {s.company || "—"}
+                              {s.stand ? ` · Stand ${s.stand}` : ""}
+                            </div>
+                            <div className="text-[11px] text-gray-400 truncate">
+                              {presenceShort(s)}
+                            </div>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+
+                {/* Aucun résultat (seulement après ≥ 2 caractères, hors frappe). */}
+                {!searching &&
+                  suggestions !== null &&
+                  suggestions.length === 0 &&
+                  (normalizePlate(plateInput)?.length ?? 0) >= 2 && (
+                    <p className="mt-2 text-sm text-gray-400 px-1">
+                      Aucune plaque trouvée
+                    </p>
+                  )}
               </div>
               <p className="text-[11px] text-gray-400 mt-1.5">
-                La caméra propose une plaque ; vérifiez-la toujours avant de
-                rechercher.
+                La recherche démarre dès 2 caractères. La caméra propose une
+                plaque ; vérifiez-la toujours.
               </p>
             </div>
           </>

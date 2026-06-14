@@ -302,10 +302,17 @@ function ScannerInner() {
   }, [tab, zone, modalOpen, multiOpen, permsLoading, canQr, restartKey, runLookup]);
 
   /* ---------- Plaque : caméra OCR (à la demande) + saisie manuelle ---------- */
+  type CamState = "idle" | "starting" | "active" | "error";
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const facingRef = useRef<"environment" | "user">("environment");
   const [plateInput, setPlateInput] = useState("");
-  const [ocrCameraOn, setOcrCameraOn] = useState(false);
+  const [camState, setCamState] = useState<CamState>("idle");
+  const [camError, setCamError] = useState("");
+  // Déclencheur explicite : une ref (streamRef) ne re-déclenche pas un effet.
+  // On incrémente cette clé après avoir rempli streamRef pour forcer le rejeu
+  // de l'effet d'attachement, quel que soit l'ordre (stream avant/après <video>).
+  const [streamReadyKey, setStreamReadyKey] = useState(0);
   const [ocrBusy, setOcrBusy] = useState(false);
 
   const stopPlateCamera = useCallback(() => {
@@ -314,7 +321,8 @@ function ScannerInner() {
       streamRef.current = null;
     }
     if (videoRef.current) videoRef.current.srcObject = null;
-    setOcrCameraOn(false);
+    setCamState("idle");
+    setCamError("");
   }, []);
 
   // Arrête la caméra OCR si on quitte l'onglet plaque ou si une popup s'ouvre.
@@ -325,29 +333,98 @@ function ScannerInner() {
   // Nettoyage au démontage.
   useEffect(() => () => stopPlateCamera(), [stopPlateCamera]);
 
-  async function startPlateCamera() {
+  /**
+   * Attachement robuste du flux au <video>. Dépend de camState ET de
+   * streamReadyKey pour couvrir les deux ordres possibles :
+   *  - stream prêt avant le montage du <video> (l'effet rejoue au montage) ;
+   *  - <video> monté avant le stream (l'effet rejoue via streamReadyKey).
+   */
+  useEffect(() => {
+    if (camState === "idle" || camState === "error") return;
+    const video = videoRef.current;
+    const stream = streamRef.current;
+    if (!video || !stream) return;
+
+    video.srcObject = stream;
+
+    const markActiveOrFail = () => {
+      void video.play().catch(() => {});
+      if (video.videoWidth > 0 && video.videoHeight > 0) {
+        setCamState("active");
+      } else {
+        setCamState("error");
+        setCamError(
+          "Aucune image détectée. Essayez une autre caméra ou la saisie manuelle."
+        );
+      }
+    };
+
+    // Si les métadonnées sont déjà disponibles (caméra rapide / re-render),
+    // on évalue immédiatement, sinon on attend loadedmetadata.
+    if (video.readyState >= 1 && video.videoWidth > 0) {
+      markActiveOrFail();
+      return;
+    }
+    video.addEventListener("loadedmetadata", markActiveOrFail);
+    return () => video.removeEventListener("loadedmetadata", markActiveOrFail);
+  }, [camState, streamReadyKey]);
+
+  /** Acquisition du flux avec fallback : facingMode souhaité puis video:true. */
+  async function acquireStream(
+    facing: "environment" | "user"
+  ): Promise<MediaStream> {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
+      return await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: facing } },
         audio: false,
       });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play().catch(() => {});
-      }
-      setOcrCameraOn(true);
     } catch {
-      pushToast(
-        "error",
-        "Caméra indisponible. Saisissez la plaque manuellement."
+      // Fallback générique (ex: pas de caméra correspondant au facingMode).
+      return await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: false,
+      });
+    }
+  }
+
+  async function startPlateCamera() {
+    setCamError("");
+    setCamState("starting"); // monte le <video> dans le DOM
+    try {
+      const stream = await acquireStream(facingRef.current);
+      streamRef.current = stream;
+      // Force le rejeu de l'effet d'attachement une fois la ref remplie.
+      setStreamReadyKey((k) => k + 1);
+    } catch {
+      setCamState("error");
+      setCamError(
+        "Impossible d'accéder à la caméra. Vérifiez les autorisations (HTTPS requis) ou utilisez la saisie manuelle."
       );
     }
   }
 
+  function switchCamera() {
+    facingRef.current =
+      facingRef.current === "environment" ? "user" : "environment";
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) videoRef.current.srcObject = null;
+    void startPlateCamera();
+  }
+
   async function captureAndRecognize() {
     const video = videoRef.current;
-    if (!video || !streamRef.current) return;
+    if (
+      !video ||
+      !streamRef.current ||
+      video.videoWidth === 0 ||
+      video.videoHeight === 0
+    ) {
+      pushToast("error", "Image caméra pas encore prête. Patientez un instant.");
+      return;
+    }
     setOcrBusy(true);
     try {
       const canvas = document.createElement("canvas");
@@ -563,18 +640,33 @@ function ScannerInner() {
         {/* --- Onglet Plaque (scan-first + fallback manuel) --- */}
         {tab === "plaque" && canPlaque && (
           <>
-            {ocrCameraOn ? (
+            {camState !== "idle" && camState !== "error" ? (
               <div className="space-y-2">
-                <video
-                  ref={videoRef}
-                  playsInline
-                  muted
-                  className="w-full rounded-xl border border-gray-200 bg-black min-h-[200px] object-cover"
-                />
+                <div className="relative w-full rounded-xl overflow-hidden border border-gray-200 bg-black min-h-[200px]">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full min-h-[200px] object-cover"
+                  />
+                  {camState === "starting" && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white/90 bg-black/40">
+                      <Loader2 size={22} className="animate-spin" />
+                      <span className="text-xs font-medium">Démarrage caméra…</span>
+                    </div>
+                  )}
+                  {camState === "active" && (
+                    <div className="absolute top-2 left-2 inline-flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                      Caméra active
+                    </div>
+                  )}
+                </div>
                 <div className="flex gap-2">
                   <button
                     onClick={captureAndRecognize}
-                    disabled={ocrBusy}
+                    disabled={ocrBusy || camState !== "active"}
                     className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#4F587E] text-white hover:bg-[#3B4252] transition disabled:opacity-50"
                   >
                     {ocrBusy ? (
@@ -583,6 +675,14 @@ function ScannerInner() {
                       <ScanText size={16} />
                     )}
                     {ocrBusy ? "Lecture…" : "Capturer & lire"}
+                  </button>
+                  <button
+                    onClick={switchCamera}
+                    disabled={ocrBusy || camState === "starting"}
+                    title="Changer de caméra"
+                    className="px-3 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50 transition disabled:opacity-50"
+                  >
+                    <RefreshCw size={16} />
                   </button>
                   <button
                     onClick={stopPlateCamera}
@@ -594,14 +694,22 @@ function ScannerInner() {
                 </div>
               </div>
             ) : (
-              <button
-                onClick={startPlateCamera}
-                disabled={!zone}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold bg-[#4F587E] text-white hover:bg-[#3B4252] shadow-sm transition disabled:opacity-50"
-              >
-                <Camera size={18} />
-                Scanner une plaque avec la caméra
-              </button>
+              <>
+                <button
+                  onClick={startPlateCamera}
+                  disabled={!zone}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold bg-[#4F587E] text-white hover:bg-[#3B4252] shadow-sm transition disabled:opacity-50"
+                >
+                  <Camera size={18} />
+                  Scanner une plaque avec la caméra
+                </button>
+                {camState === "error" && camError && (
+                  <div className="flex items-start gap-2 bg-red-50 border-l-4 border-red-400 text-red-700 px-3 py-2 rounded text-sm">
+                    <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+                    <span>{camError}</span>
+                  </div>
+                )}
+              </>
             )}
 
             {/* Fallback manuel permanent */}

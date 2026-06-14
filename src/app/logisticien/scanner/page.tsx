@@ -27,6 +27,11 @@ import { useEspaceSlug } from "@/hooks/useEspaceSlug";
 import { usePermissions } from "@/hooks/usePermissions";
 import { normalizePlate } from "@/lib/plate-utils";
 import { isSafeHttpUrl } from "@/lib/url-safety";
+import { recognizePlateClient } from "@/lib/plate-recognition/client-tesseract";
+import type {
+  PlateProvider,
+  PlateRecognitionResult,
+} from "@/lib/plate-recognition/types";
 import AccreditationScanModal, {
   type ScanActionResult,
 } from "@/components/logisticien/AccreditationScanModal";
@@ -414,6 +419,71 @@ function ScannerInner() {
     void startPlateCamera();
   }
 
+  // Config provider de reconnaissance (résolue côté serveur, mise en cache).
+  // Non secrète : seulement le nom du provider + seuil de confiance.
+  const plateConfigRef = useRef<{
+    provider: PlateProvider;
+    minConfidence: number;
+  } | null>(null);
+
+  const getPlateConfig = useCallback(async () => {
+    if (plateConfigRef.current) return plateConfigRef.current;
+    try {
+      const res = await fetch("/api/plate-recognition");
+      if (res.ok) {
+        const cfg = (await res.json()) as {
+          provider: PlateProvider;
+          minConfidence: number;
+        };
+        plateConfigRef.current = cfg;
+        return cfg;
+      }
+    } catch {
+      /* réseau indisponible */
+    }
+    // Défaut résilient : Tesseract local gratuit (le scan reste possible).
+    plateConfigRef.current = { provider: "tesseract", minConfidence: 0.75 };
+    return plateConfigRef.current;
+  }, []);
+
+  /** Envoie le crop au backend (provider serveur self-hosted type CodeProject.AI). */
+  async function recognizeViaBackend(
+    canvas: HTMLCanvasElement
+  ): Promise<PlateRecognitionResult> {
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob((b) => resolve(b), "image/jpeg", 0.7)
+    );
+    if (!blob) {
+      return {
+        success: false,
+        plate: null,
+        normalizedPlate: null,
+        confidence: null,
+        provider: "codeproject_ai",
+        message: "Capture impossible.",
+      };
+    }
+    const form = new FormData();
+    form.append("image", blob, "plate.jpg");
+    if (espace) form.append("espace", espace);
+    if (zone) form.append("zone", zone);
+    const res = await fetch("/api/plate-recognition", {
+      method: "POST",
+      body: form,
+    });
+    if (!res.ok) {
+      return {
+        success: false,
+        plate: null,
+        normalizedPlate: null,
+        confidence: null,
+        provider: "codeproject_ai",
+        message: "Service de reconnaissance indisponible.",
+      };
+    }
+    return (await res.json()) as PlateRecognitionResult;
+  }
+
   async function captureAndRecognize() {
     const video = videoRef.current;
     if (
@@ -439,31 +509,42 @@ function ScannerInner() {
       if (!ctx) throw new Error("no-canvas");
       ctx.drawImage(video, 0, cropY, w, cropH, 0, 0, w, cropH);
 
-      // Tesseract.js chargé UNIQUEMENT ici (lazy/dynamic import), à l'action agent.
-      const { createWorker } = await import("tesseract.js");
-      const worker = await createWorker("eng");
-      await worker.setParameters({
-        tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
-      });
-      const {
-        data: { text },
-      } = await worker.recognize(canvas);
-      await worker.terminate();
+      const cfg = await getPlateConfig();
 
-      const guess = normalizePlate(text);
+      // Provider désactivé : on bascule directement sur la saisie manuelle.
+      if (cfg.provider === "disabled") {
+        stopPlateCamera();
+        pushToast("info", "Reconnaissance auto désactivée. Saisissez la plaque.");
+        return;
+      }
+
+      // Routage : Tesseract en local (gratuit, privé), sinon backend self-hosted.
+      const result =
+        cfg.provider === "codeproject_ai"
+          ? await recognizeViaBackend(canvas)
+          : await recognizePlateClient(canvas, cfg.minConfidence);
+
       stopPlateCamera();
-      if (guess) {
-        setPlateInput(guess);
-        pushToast("info", "Plaque détectée — vérifiez puis recherchez.");
+      if (result.normalizedPlate) {
+        setPlateInput(result.normalizedPlate);
+        pushToast(
+          "info",
+          result.success
+            ? "Plaque détectée — vérifiez puis recherchez."
+            : "Lecture incertaine — corrigez si besoin."
+        );
       } else {
         pushToast(
           "info",
-          "Lecture incertaine. Corrigez ou saisissez la plaque."
+          result.message || "Lecture incertaine. Saisissez la plaque."
         );
       }
     } catch {
       stopPlateCamera();
-      pushToast("error", "OCR indisponible. Saisissez la plaque manuellement.");
+      pushToast(
+        "error",
+        "Reconnaissance indisponible. Saisissez la plaque manuellement."
+      );
     } finally {
       setOcrBusy(false);
     }

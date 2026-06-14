@@ -139,15 +139,18 @@ export default function StepFourLog({
   async function sendAccreditation() {
     try {
       setLoading(true);
-      // Création en statut NOUVEAU : l'e-mail récap + QR part automatiquement
-      // côté serveur (Lot 2) vers l'adresse de l'étape 3. Plus d'appel /send.
+      // Création par un agent habilité (espace logisticien) => accréditation
+      // déjà validée administrativement : statut ATTENTE (validée, en attente
+      // d'arrivée), jamais NOUVEAU. Aucun mouvement d'entrée n'est créé : l'entrée
+      // en zone reste déclenchée par un scan terrain. L'e-mail récap + QR part
+      // automatiquement côté serveur (Lot 2) vers l'adresse de l'étape 3.
       const saveRes = await fetch("/api/accreditations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...data,
-          status: "NOUVEAU",
-          currentZone: null, // Le chauffeur n'a pas de zone — l'agent la choisira
+          status: "ATTENTE",
+          currentZone: null, // Pas de zone à l'envoi — l'agent la choisira au scan
         }),
       });
       if (!saveRes.ok) throw new Error(await readError(saveRes));
@@ -284,50 +287,59 @@ export default function StepFourLog({
         >
           {!hasSaved ? (
             <>
-              Vérifiez les informations puis créez l&apos;accréditation. Un
-              e-mail contenant le récapitulatif et le QR code sera envoyé
-              automatiquement au destinataire.
+              Vérifiez les informations puis créez l&apos;accréditation.
+              L&apos;accréditation sera envoyée par e-mail au destinataire
+              indiqué.
             </>
           ) : lastAction === "save" ? (
             emailSent ? (
               <>
-                L&apos;accréditation a été enregistrée et approuvée. Un e-mail
-                contenant le récapitulatif et le QR code a été envoyé au
-                destinataire.
+                L&apos;accréditation a été enregistrée et approuvée. L&apos;e-mail
+                a été transmis au service d&apos;envoi.
               </>
             ) : (
               <>
                 L&apos;accréditation a été enregistrée et approuvée, mais
-                l&apos;e-mail n&apos;a pas pu être envoyé. Vous pouvez réessayer
-                ou vérifier l&apos;historique.
+                l&apos;e-mail n&apos;a pas pu être transmis au service
+                d&apos;envoi. Vous pouvez réessayer ou vérifier
+                l&apos;historique.
               </>
             )
           ) : emailSent ? (
             <>
-              L&apos;accréditation a été créée. Un e-mail contenant le
-              récapitulatif et le QR code a été envoyé au destinataire.
+              L&apos;accréditation a été créée. L&apos;e-mail a été transmis au
+              service d&apos;envoi.
             </>
           ) : (
             <>
               L&apos;accréditation a été créée, mais l&apos;e-mail n&apos;a pas
-              pu être envoyé. Vous pouvez réessayer ou vérifier
-              l&apos;historique.
+              pu être transmis au service d&apos;envoi. Vous pouvez réessayer ou
+              vérifier l&apos;historique.
             </>
           )}
         </div>
 
-        {/* Résumé e-mail en lecture seule */}
+        {/* Destinataire en lecture seule (jamais de champ éditable ici). */}
         <div className="flex items-start gap-2 rounded-lg bg-gray-50 border border-gray-200 px-4 py-3">
           <Mail size={18} className="shrink-0 mt-0.5 text-gray-500" />
           <div className="text-sm">
-            <span className="text-gray-500">
-              {hasSaved && emailSent ? "E-mail envoyé à : " : "Destinataire : "}
-            </span>
+            <span className="text-gray-500">Destinataire de l&apos;e-mail : </span>
             <span className="font-semibold text-gray-900 break-all">
               {summaryEmail || "—"}
             </span>
           </div>
         </div>
+
+        {/* Avertissement spam visible (après création/envoi). */}
+        {hasSaved && (
+          <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg text-sm font-medium">
+            <AlertTriangle size={18} className="shrink-0 mt-0.5 text-blue-500" />
+            <span>
+              Si le destinataire ne reçoit pas l&apos;e-mail dans les prochaines
+              minutes, pensez à vérifier le dossier spam / courrier indésirable.
+            </span>
+          </div>
+        )}
 
         {/* Message d'alerte/info */}
         {infoMsg && (
@@ -452,10 +464,13 @@ export default function StepFourLog({
                   Aucune validation manuelle requise.
                 </span>
                 <br />
-                Un e-mail contenant le récapitulatif et le QR code sera envoyé à{" "}
-                <b className="break-all">{email}</b>.
+                L&apos;accréditation sera envoyée par e-mail au destinataire
+                indiqué.
                 <br />
-                Confirmez-vous l&apos;enregistrement ?
+                <span className="font-semibold text-gray-900">
+                  Confirmer l&apos;envoi de l&apos;accréditation à :{" "}
+                  <span className="break-all">{email}</span>
+                </span>
               </p>
               <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-6 mt-4 md:mt-8">
                 <button
@@ -490,17 +505,20 @@ export default function StepFourLog({
                 Confirmer l&apos;envoi
               </h2>
               <p className="mb-4 md:mb-6 text-gray-700 leading-relaxed text-center text-sm md:text-base">
-                Cette accréditation sera créée avec le statut <b>Nouveau</b> et
-                nécessitera une validation manuelle par un agent.
+                Cette accréditation sera créée et <b>validée</b> (créée par un
+                agent habilité).
                 <br />
-                <span className="font-semibold text-orange-600">
-                  Validation manuelle requise par un logisticien.
+                <span className="font-semibold text-green-600">
+                  Aucune validation manuelle requise.
                 </span>
                 <br />
-                Un e-mail contenant le récapitulatif et le QR code sera envoyé
-                automatiquement à <b className="break-all">{email}</b>.
+                L&apos;accréditation sera envoyée par e-mail au destinataire
+                indiqué.
                 <br />
-                Confirmez-vous l&apos;envoi ?
+                <span className="font-semibold text-gray-900">
+                  Confirmer l&apos;envoi de l&apos;accréditation à :{" "}
+                  <span className="break-all">{email}</span>
+                </span>
               </p>
               <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-6 mt-4 md:mt-8">
                 <button

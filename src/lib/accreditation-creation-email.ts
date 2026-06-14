@@ -1,10 +1,11 @@
 /**
  * Lot 2 — E-mail automatique à la création d'une accréditation.
  *
- * Envoie un récapitulatif + QR code + infos chauffeur, avec une mention claire
- * que l'accréditation n'est PAS encore valide. Conçu pour être **non bloquant** :
- * cette fonction ne lève jamais d'exception et n'altère jamais le statut de
- * l'accréditation (elle reste NOUVEAU). Le résultat est tracé dans l'historique
+ * Envoie un récapitulatif + QR code + infos chauffeur. Le message s'adapte au
+ * statut : « pas encore valide » pour une demande publique (NOUVEAU), « validée »
+ * pour une accréditation créée par un agent (espace logisticien). Conçu pour être
+ * **non bloquant** : cette fonction ne lève jamais d'exception et n'altère jamais
+ * le statut de l'accréditation. Le résultat est tracé dans l'historique
  * en distinguant 3 cas : envoyé / ignoré (pas de destinataire) / échec (config
  * Resend manquante ou erreur d'envoi).
  *
@@ -64,10 +65,19 @@ interface MinimalVehicle {
 function buildHtml(
   acc: { company: string; stand: string; event: string },
   vehicle: MinimalVehicle | undefined,
-  vehicleIdentity: string
+  vehicleIdentity: string,
+  /**
+   * `true` = accréditation déjà validée administrativement (créée depuis
+   * l'espace logisticien) -> message « validée ». `false` = demande publique
+   * encore à valider par un agent (statut NOUVEAU).
+   */
+  validated: boolean
 ): string {
   const phone = vehicle
     ? `${vehicle.phoneCode ?? ""} ${vehicle.phoneNumber ?? ""}`.trim()
+    : "";
+  const gabarit = vehicle
+    ? vehicle.vehicleType?.trim() || vehicle.size?.trim() || ""
     : "";
   const row = (label: string, value: string) =>
     value
@@ -78,26 +88,43 @@ function buildHtml(
         )}</td></tr>`
       : "";
 
-  return `
-  <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#111827;">
-    <h2 style="color:#4F587E;margin:0 0 4px;">Demande d'accréditation reçue</h2>
-    <p style="font-size:14px;color:#374151;margin:0 0 16px;">
-      Bonjour,<br/>Votre demande d'accréditation véhicule a bien été enregistrée.
-      Voici votre récapitulatif et votre QR code.
-    </p>
-
+  const banner = validated
+    ? `
+    <div style="background:#DCFCE7;border-left:4px solid #16A34A;padding:12px 16px;border-radius:8px;margin-bottom:20px;">
+      <strong style="color:#166534;">Votre accréditation a été validée.</strong>
+      <div style="font-size:13px;color:#166534;margin-top:4px;">
+        Présentez ce QR code à votre arrivée sur site.
+      </div>
+    </div>`
+    : `
     <div style="background:#FEF3C7;border-left:4px solid #F59E0B;padding:12px 16px;border-radius:8px;margin-bottom:20px;">
       <strong style="color:#92400E;">Accréditation pas encore valide.</strong>
       <div style="font-size:13px;color:#92400E;margin-top:4px;">
         Elle devra être validée par un agent à votre arrivée sur site. Présentez ce QR code à l'agent.
       </div>
-    </div>
+    </div>`;
+
+  return `
+  <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#111827;">
+    <h2 style="color:#4F587E;margin:0 0 4px;">${
+      validated ? "Votre accréditation" : "Demande d'accréditation reçue"
+    }</h2>
+    <p style="font-size:14px;color:#374151;margin:0 0 16px;">
+      Bonjour,<br/>${
+        validated
+          ? "Votre accréditation véhicule a été créée et validée. Voici votre récapitulatif et votre QR code."
+          : "Votre demande d'accréditation véhicule a bien été enregistrée. Voici votre récapitulatif et votre QR code."
+      }
+    </p>
+
+    ${banner}
 
     <table style="width:100%;border-collapse:collapse;background:#F9FAFB;border-radius:8px;overflow:hidden;margin-bottom:20px;">
       ${row("Société", acc.company)}
       ${row("Stand", acc.stand)}
       ${row("Événement", acc.event)}
       ${row("Véhicule", vehicleIdentity)}
+      ${gabarit ? row("Gabarit du véhicule", gabarit) : ""}
       ${vehicle?.trailerPlate ? row("Remorque", vehicle.trailerPlate) : ""}
       ${vehicle?.date ? row("Date prévue", `${vehicle.date}${vehicle.time ? " " + vehicle.time : ""}`) : ""}
       ${vehicle?.city ? row("Ville de départ", vehicle.city) : ""}
@@ -107,6 +134,15 @@ function buildHtml(
     <div style="text-align:center;margin-bottom:8px;">
       <img src="cid:qraccreditation" alt="QR code de l'accréditation" width="220" height="220" style="border:1px solid #E5E7EB;border-radius:12px;background:#fff;" />
       <div style="font-size:12px;color:#6b7280;margin-top:6px;">QR de l'accréditation — à présenter à l'agent</div>
+    </div>
+
+    <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;padding:12px 16px;margin-top:20px;">
+      <div style="font-size:13px;color:#1E3A8A;font-weight:600;">
+        Vous ne trouvez pas cet e-mail ?
+      </div>
+      <div style="font-size:13px;color:#1E40AF;margin-top:4px;">
+        Si vous ne recevez pas l'e-mail dans les prochaines minutes, pensez à vérifier votre dossier spam / courrier indésirable.
+      </div>
     </div>
 
     <p style="font-size:12px;color:#9ca3af;margin-top:24px;">
@@ -203,8 +239,15 @@ export async function sendAccreditationCreationEmail(params: {
       type: "png",
     });
 
-    const subject = `Demande d'accréditation reçue — ${vehicleIdentity} (${acc.company})`;
-    const html = buildHtml(acc, vehicle, vehicleIdentity);
+    // « validée » = accréditation créée par un agent habilité (espace
+    // logisticien) -> tout statut autre que NOUVEAU. NOUVEAU = demande publique
+    // encore à valider à l'arrivée. Dérivé du statut réel : fonctionne aussi
+    // pour le renvoi d'e-mail (resend-creation-email).
+    const validated = acc.status !== "NOUVEAU";
+    const subject = validated
+      ? `Votre accréditation validée — ${vehicleIdentity} (${acc.company})`
+      : `Demande d'accréditation reçue — ${vehicleIdentity} (${acc.company})`;
+    const html = buildHtml(acc, vehicle, vehicleIdentity, validated);
 
     // Trace le fallback forcé (config org refusée) sans bloquer l'envoi.
     if (sender.usedFallback && sender.note) {

@@ -23,6 +23,8 @@ type FormData = {
   stepThree: { message: string; consent: boolean; email: string };
 };
 
+const STORAGE_KEY = "log_formData";
+
 function getDefaultFormData(): FormData {
   return {
     stepOne: { company: "", stand: "", unloading: "", event: "" },
@@ -41,6 +43,44 @@ function getDefaultFormData(): FormData {
   };
 }
 
+/**
+ * Champs JAMAIS persistés ni restaurés depuis le brouillon localStorage :
+ * - l'e-mail destinataire (priorité absolue : éviter qu'un ancien brouillon
+ *   réinjecte silencieusement une mauvaise adresse d'envoi) ;
+ * - le téléphone du chauffeur (donnée personnelle sensible).
+ * On force ces champs à leur valeur par défaut (vide) à l'écriture ET à la
+ * restauration, ce qui neutralise aussi les anciens brouillons existants.
+ */
+function sanitizeFormData(fd: FormData): FormData {
+  return {
+    stepOne: { ...fd.stepOne },
+    vehicle: { ...fd.vehicle, phoneNumber: "" },
+    stepThree: { ...fd.stepThree, email: "" },
+  };
+}
+
+/**
+ * Un brouillon ne vaut la peine d'être proposé que s'il contient des données
+ * réellement saisies par l'utilisateur. On ignore volontairement `event` :
+ * `StepOne` sélectionne un événement par défaut au montage, ce qui ne doit pas,
+ * à lui seul, faire considérer un formulaire vierge comme un brouillon (sinon
+ * la modale réapparaîtrait après « Ignorer et recommencer »).
+ */
+function isDraftMeaningful(fd: FormData): boolean {
+  const { company, stand, unloading } = fd.stepOne;
+  const { plate, size, city, date } = fd.vehicle;
+  return Boolean(
+    company ||
+      stand ||
+      unloading ||
+      plate ||
+      size ||
+      city ||
+      date ||
+      fd.stepThree.message
+  );
+}
+
 function LogisticienNewContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -51,6 +91,16 @@ function LogisticienNewContent() {
   const [hasSaved, setHasSaved] = useState(false);
 
   const [formData, setFormData] = useState<FormData>(getDefaultFormData());
+  // Brouillon détecté au montage, en attente de décision utilisateur
+  // (Restaurer / Ignorer). Tant qu'il est non null, on ne persiste pas pour
+  // ne pas écraser le brouillon, et on affiche le choix explicite.
+  const [pendingDraft, setPendingDraft] = useState<FormData | null>(null);
+  // Devient true une fois la décision de brouillon prise (ou aucun brouillon /
+  // préremplissage par URL). Conditionne la reprise de la persistance.
+  const [draftHandled, setDraftHandled] = useState(false);
+  // Garantit que l'initialisation (URL vs brouillon) ne s'exécute qu'une fois,
+  // jamais à chaque changement de step (`?step=`).
+  const initRef = useRef(false);
 
   const updateForm = (
     section: keyof FormData,
@@ -62,7 +112,12 @@ function LogisticienNewContent() {
     }));
   };
 
+  // Initialisation unique : préremplissage par URL OU détection d'un brouillon
+  // (jamais de restauration automatique silencieuse).
   useEffect(() => {
+    if (initRef.current) return;
+    initRef.current = true;
+
     const company = searchParams.get("company") || "";
     const stand = searchParams.get("stand") || "";
     const unloading = searchParams.get("unloading") || "";
@@ -79,21 +134,68 @@ function LogisticienNewContent() {
         vehicle: { ...getDefaultFormData().vehicle, city },
         stepThree: { message, consent: false, email },
       });
+      setDraftHandled(true);
+      return;
+    }
+
+    let saved: FormData | null = null;
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) saved = JSON.parse(raw) as FormData;
+    } catch {
+      saved = null;
+    }
+
+    if (saved && isDraftMeaningful(saved)) {
+      // On NE restaure PAS : on propose un choix explicite à l'utilisateur.
+      setPendingDraft(saved);
     } else {
-      const saved = localStorage.getItem("log_formData");
-      if (saved) {
-        try {
-          setFormData(JSON.parse(saved));
-        } catch {
-          // Ignore invalid data
-        }
-      }
+      // Brouillon vide/invalide : on nettoie et on démarre directement.
+      if (saved) localStorage.removeItem(STORAGE_KEY);
+      setDraftHandled(true);
     }
   }, [searchParams]);
 
+  // Persistance : seulement après décision de brouillon et tant que rien n'a
+  // été créé. On retire systématiquement l'e-mail et le téléphone, et on ne
+  // stocke que les brouillons non vides.
   useEffect(() => {
-    localStorage.setItem("log_formData", JSON.stringify(formData));
-  }, [formData]);
+    if (!draftHandled || hasSaved) return;
+    const safe = sanitizeFormData(formData);
+    if (isDraftMeaningful(safe)) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(safe));
+    } else {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  }, [formData, draftHandled, hasSaved]);
+
+  // Après création réussie : purge immédiate du brouillon (un refresh ne doit
+  // jamais réafficher l'ancien destinataire ou les anciennes données).
+  useEffect(() => {
+    if (hasSaved) localStorage.removeItem(STORAGE_KEY);
+  }, [hasSaved]);
+
+  function restoreDraft() {
+    if (pendingDraft) {
+      const base = getDefaultFormData();
+      // Restauration des champs non sensibles ; e-mail et téléphone toujours
+      // remis à vide, même si le brouillon en contenait (anciens brouillons).
+      setFormData({
+        stepOne: { ...base.stepOne, ...pendingDraft.stepOne },
+        vehicle: { ...base.vehicle, ...pendingDraft.vehicle, phoneNumber: "" },
+        stepThree: { ...base.stepThree, ...pendingDraft.stepThree, email: "" },
+      });
+    }
+    setPendingDraft(null);
+    setDraftHandled(true);
+  }
+
+  function discardDraft() {
+    localStorage.removeItem(STORAGE_KEY);
+    setFormData(getDefaultFormData());
+    setPendingDraft(null);
+    setDraftHandled(true);
+  }
 
   useEffect(() => {
     setStepValid(false);
@@ -113,7 +215,7 @@ function LogisticienNewContent() {
       // catégorie…) qui n'auraient plus de sens pour la nouvelle org.
       setFormData(getDefaultFormData());
       setHasSaved(false);
-      localStorage.removeItem("log_formData");
+      localStorage.removeItem(STORAGE_KEY);
       const qs = new URLSearchParams({ step: "1" });
       if (espace) qs.set("espace", espace);
       router.replace(`/logisticien/nouveau?${qs.toString()}`);
@@ -128,7 +230,7 @@ function LogisticienNewContent() {
 
   function clearForm() {
     setFormData(getDefaultFormData());
-    localStorage.removeItem("log_formData");
+    localStorage.removeItem(STORAGE_KEY);
     setHasSaved(false);
   }
 
@@ -142,6 +244,43 @@ function LogisticienNewContent() {
       className="min-h-screen flex flex-col text-gray-900"
       style={{ background: "linear-gradient(#353c52 0 50%, #ffffff 0 100%)" }}
     >
+      {/* Choix explicite face à un brouillon non terminé (pas de restauration
+          automatique). L'e-mail destinataire et le téléphone ne sont jamais
+          restaurés. */}
+      {pendingDraft && !draftHandled && (
+        <div className="fixed inset-0 z-[80] bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-center border border-gray-200">
+            <h2 className="text-lg font-bold text-gray-900 mb-2">
+              Brouillon non terminé
+            </h2>
+            <p className="text-sm text-gray-600 mb-5">
+              Un brouillon non terminé existe. Vous pouvez le restaurer ou
+              recommencer avec un formulaire vide.
+              <br />
+              <span className="text-gray-500">
+                Pour des raisons de sécurité, l&apos;e-mail du destinataire et le
+                téléphone du chauffeur ne sont jamais restaurés et devront être
+                ressaisis.
+              </span>
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                onClick={discardDraft}
+                className="w-full sm:w-auto px-5 py-3 rounded-xl border border-gray-300 bg-gray-100 text-gray-800 font-semibold hover:bg-gray-200 transition"
+              >
+                Ignorer et recommencer
+              </button>
+              <button
+                onClick={restoreDraft}
+                className="w-full sm:w-auto px-5 py-3 rounded-xl bg-[#353c52] text-white font-semibold shadow hover:bg-[#2a3045] transition"
+              >
+                Restaurer le brouillon
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <header className="py-4 sm:py-6 px-4 flex flex-col items-center text-white gap-1">
         <h1 className="text-xl sm:text-2xl font-bold">Nouvelle accréditation</h1>
         <p className="text-xs sm:text-sm opacity-80">Espace logisticien</p>

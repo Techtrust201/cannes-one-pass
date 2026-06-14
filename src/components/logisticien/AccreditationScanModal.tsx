@@ -83,6 +83,16 @@ export default function AccreditationScanModal({
     summary.status === "SORTIE";
   const isBlocked = summary.status === "REFUS" || summary.status === "ABSENT";
 
+  // Action proposée = état réel du véhicule vs zone de poste de l'agent.
+  // - ENTRÉ dans LA zone du poste -> seule la SORTIE a du sens.
+  // - sinon (attendu, sorti/hors zone, ou entré dans une AUTRE zone) -> ENTRÉE.
+  //   (Pour « entré ailleurs », l'ENTRÉE déclenche côté backend la sortie auto
+  //    de l'ancienne zone puis l'entrée dans la zone du poste.)
+  const enteredInAgentZone =
+    summary.status === "ENTREE" &&
+    !!summary.currentZone &&
+    summary.currentZone === zone;
+
   // currentZone en SORTIE = dernière zone connue (pas zone actuelle).
   const zoneFieldLabel =
     summary.status === "SORTIE" ? "Dernière zone connue" : "Zone actuelle";
@@ -285,24 +295,13 @@ export default function AccreditationScanModal({
               </div>
             )}
 
-            {isValidated && (
-              <div className="flex gap-2">
-                <button
-                  onClick={() => runAction("ENTRY")}
-                  disabled={loading !== null}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold bg-green-600 hover:bg-green-700 text-white shadow-sm transition disabled:opacity-50"
-                >
-                  {loading === "ENTRY" ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <LogIn size={16} />
-                  )}
-                  Entrée {zoneLabel}
-                </button>
+            {isValidated &&
+              (enteredInAgentZone ? (
+                // Déjà entré dans la zone du poste : seule la sortie est cohérente.
                 <button
                   onClick={() => runAction("EXIT")}
                   disabled={loading !== null}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold bg-orange-500 hover:bg-orange-600 text-white shadow-sm transition disabled:opacity-50"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold bg-orange-500 hover:bg-orange-600 text-white shadow-sm transition disabled:opacity-50"
                 >
                   {loading === "EXIT" ? (
                     <Loader2 size={16} className="animate-spin" />
@@ -311,8 +310,22 @@ export default function AccreditationScanModal({
                   )}
                   Sortie {zoneLabel}
                 </button>
-              </div>
-            )}
+              ) : (
+                // Attendu, sorti/hors zone, ou entré dans une autre zone :
+                // l'entrée dans la zone du poste est la seule action cohérente.
+                <button
+                  onClick={() => runAction("ENTRY")}
+                  disabled={loading !== null}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold bg-green-600 hover:bg-green-700 text-white shadow-sm transition disabled:opacity-50"
+                >
+                  {loading === "ENTRY" ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <LogIn size={16} />
+                  )}
+                  Entrée {zoneLabel}
+                </button>
+              ))}
 
             <button
               onClick={onClose}

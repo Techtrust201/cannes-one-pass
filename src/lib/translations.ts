@@ -85,6 +85,10 @@ export interface T {
   savedMessage: string;
   savedMessage2: string;
   smsNotice: string;
+  /** Message avant enregistrement (espace public, repli FR). */
+  beforeSaveNotice?: string;
+  /** Avertissement spam/courrier indésirable (repli FR). */
+  spamNotice?: string;
   alreadySaved: string;
   saveRequest: string;
   downloadPdf: string;
@@ -160,8 +164,12 @@ const fr: T = {
   requestSaved: "Demande enregistrée",
   requestCreated: "Demande créée",
   savedMessage: "Votre demande a bien été enregistrée.",
-  savedMessage2: "Elle doit être validée par un agent avant d'être utilisable.",
+  savedMessage2: "L'accréditation devra être validée par un agent à votre arrivée.",
   smsNotice: "Vous recevrez un SMS lorsqu'un logisticien aura validé l'accréditation.",
+  beforeSaveNotice:
+    "Enregistrez votre demande pour recevoir le récapitulatif par e-mail. L'accréditation devra être validée par un agent à votre arrivée.",
+  spamNotice:
+    "Si vous ne recevez pas l'e-mail dans les prochaines minutes, pensez à vérifier votre dossier spam / courrier indésirable.",
   alreadySaved: "Déjà enregistrée",
   saveRequest: "Enregistrer la demande",
   downloadPdf: "Télécharger l'accréditation",
@@ -231,8 +239,12 @@ const en: T = {
   requestSaved: "Request saved",
   requestCreated: "Request created",
   savedMessage: "Your request has been saved.",
-  savedMessage2: "It must be validated by an agent before it can be used.",
+  savedMessage2: "The accreditation must be validated by an agent on your arrival.",
   smsNotice: "You will receive an SMS when a logistician has validated the accreditation.",
+  beforeSaveNotice:
+    "Save your request to receive the summary by email. The accreditation must be validated by an agent on your arrival.",
+  spamNotice:
+    "If you do not receive the email within the next few minutes, please check your spam / junk folder.",
   alreadySaved: "Already saved",
   saveRequest: "Save the request",
   downloadPdf: "Download the accreditation",

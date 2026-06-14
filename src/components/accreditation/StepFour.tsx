@@ -38,6 +38,10 @@ export default function StepFour({
   const [success, setSuccess] = useState(false);
   const [hasSaved, setHasSaved] = useState(false);
   const [infoMsg, setInfoMsg] = useState("");
+  // Snapshot des données figé à l'enregistrement : le formulaire est vidé peu
+  // après (onClearForm) alors que le téléchargement reste disponible. On génère
+  // donc le PDF à partir de ce snapshot pour éviter un PDF vide.
+  const [savedData, setSavedData] = useState<Props["data"] | null>(null);
 
   async function handleSave() {
     if (hasSaved) {
@@ -53,6 +57,7 @@ export default function StepFour({
         body: JSON.stringify({ ...data, language: lang, status: "NOUVEAU" }),
       });
       if (!saveRes.ok) throw new Error("save error");
+      setSavedData(data);
       setSuccess(true);
       setHasSaved(true);
       onHasSavedChange(true);
@@ -74,12 +79,15 @@ export default function StepFour({
   async function downloadPdf() {
     try {
       setLoading(true);
+      // Demande publique : reste NOUVEAU (à valider par un agent à l'arrivée).
+      // Utilise le snapshot figé à l'enregistrement si le formulaire a été vidé.
+      const pdfData = savedData ?? data;
       const res = await fetch("/api/accreditation/pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...data,
-          status: "NOUVEAU", // ou "ATTENTE" selon le besoin métier
+          ...pdfData,
+          status: "NOUVEAU",
         }),
       });
       if (!res.ok) throw new Error("pdf error");
@@ -173,9 +181,23 @@ export default function StepFour({
               {t.savedMessage2}
             </>
           ) : (
-            <>{t.smsNotice}</>
+            <>
+              {t.beforeSaveNotice ??
+                "Enregistrez votre demande pour recevoir le récapitulatif par e-mail. L'accréditation devra être validée par un agent à votre arrivée."}
+            </>
           )}
         </div>
+
+        {/* Avertissement spam visible (après enregistrement) */}
+        {hasSaved && (
+          <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg text-sm font-medium">
+            <AlertTriangle size={18} className="shrink-0 mt-0.5 text-blue-500" />
+            <span>
+              {t.spamNotice ??
+                "Si vous ne recevez pas l'e-mail dans les prochaines minutes, pensez à vérifier votre dossier spam / courrier indésirable."}
+            </span>
+          </div>
+        )}
 
         {/* Message d'alerte/info */}
         {infoMsg && (
@@ -187,29 +209,29 @@ export default function StepFour({
 
         {/* Boutons */}
         <div className="flex flex-col gap-3 mt-4">
-          <button
-            onClick={handleSaveClick}
-            disabled={loading || hasSaved}
-            className={`flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-base shadow transition-all duration-150
-              ${hasSaved ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-primary text-white hover:bg-primary-dark"}
-              disabled:opacity-60`}
-            aria-disabled={hasSaved}
-          >
-            <PlusCircle size={20} />
-            {hasSaved
-              ? t.alreadySaved
-              : loading
-                ? "…"
-                : t.saveRequest}
-          </button>
-          <button
-            onClick={downloadPdf}
-            disabled={loading}
-            className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-base bg-[#3daaa4] text-white shadow hover:bg-[#319b92] transition-all duration-150 disabled:opacity-60"
-          >
-            <Download size={20} />
-            {loading ? t.generatingPdf : t.downloadPdf}
-          </button>
+          {/* Avant enregistrement : seul « Enregistrer la demande » est proposé.
+              Le téléchargement n'apparaît qu'une fois la demande créée. */}
+          {!hasSaved && (
+            <button
+              onClick={handleSaveClick}
+              disabled={loading}
+              className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-base shadow transition-all duration-150 bg-primary text-white hover:bg-primary-dark disabled:opacity-60"
+            >
+              <PlusCircle size={20} />
+              {loading ? "…" : t.saveRequest}
+            </button>
+          )}
+          {/* Après enregistrement : téléchargement disponible. */}
+          {hasSaved && (
+            <button
+              onClick={downloadPdf}
+              disabled={loading}
+              className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-base bg-[#3daaa4] text-white shadow hover:bg-[#319b92] transition-all duration-150 disabled:opacity-60"
+            >
+              <Download size={20} />
+              {loading ? t.generatingPdf : t.downloadPdf}
+            </button>
+          )}
           {/* Nouveau bouton après enregistrement */}
           {hasSaved && (
             <button

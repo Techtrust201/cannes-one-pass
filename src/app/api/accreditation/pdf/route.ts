@@ -323,14 +323,23 @@ export async function POST(req: NextRequest) {
       if (v.trailerPlate) {
         addLabelValBox("Plaque de la remorque", v.trailerPlate);
       }
-      addLabelValBox("Taille du véhicule", v.size);
+      // Gabarit du véhicule : type de véhicule si renseigné, sinon taille
+      // (les accréditations Palais saisissent le gabarit via la taille).
+      const gabarit =
+        (v.vehicleType && String(v.vehicleType).trim()) ||
+        (v.size && String(v.size).trim()) ||
+        "Non renseigné";
+      addLabelValBox("Gabarit du véhicule", gabarit);
       addLabelValBox(
         "Téléphone du conducteur",
-        `${v.phoneCode} ${v.phoneNumber}`
+        `${v.phoneCode ?? ""} ${v.phoneNumber ?? ""}`.trim() || "Non renseigné"
       );
-      addLabelValBox("Date d'arrivée prévue", v.date);
+      addLabelValBox(
+        "Date d'arrivée prévue",
+        v.date ? String(v.date) : "Non renseigné"
+      );
       addLabelValBox("Heure d'arrivée prévue", v.time || "--:--");
-      addLabelValBox("Ville de départ", v.city);
+      addLabelValBox("Ville de départ", v.city || "Non renseigné");
       // Désérialisation unloading véhicule
       let vUnloadingArr: string[] = [];
       if (Array.isArray(v.unloading)) {

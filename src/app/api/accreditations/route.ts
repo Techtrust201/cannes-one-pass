@@ -285,7 +285,7 @@ export async function POST(req: NextRequest) {
     }
     // Laissé en type souple (issu du JSON) pour rester compatible avec l'enum
     // Prisma `AccreditationStatus` sans cast explicite (comportement d'origine).
-    const status = raw.status ?? "ATTENTE";
+    let status = raw.status ?? "ATTENTE";
 
     // Mapping d'un véhicule du payload → objet `create` Prisma (factorisé pour
     // être réutilisé par le chemin unique ET le split RX).
@@ -355,6 +355,21 @@ export async function POST(req: NextRequest) {
 
     const { inferActorSource } = await import("@/lib/accreditation-audit");
     const actorSource = inferActorSource(currentUserId, currentUserRole);
+
+    // Statut administratif selon l'origine de la création :
+    //  - création PUBLIQUE (formulaire non authentifié) -> reste NOUVEAU :
+    //    doit être validée par un agent à l'arrivée ;
+    //  - création INTERNE (logisticien / super-admin authentifié) -> jamais
+    //    NOUVEAU : créée par un agent habilité, donc validée administrativement
+    //    (ATTENTE = validée, en attente d'arrivée). Garde-fou serveur pour ne
+    //    pas dépendre uniquement du payload front.
+    // NB : « validée administrativement » ne crée AUCUN mouvement d'entrée ;
+    // l'entrée en zone reste déclenchée par un scan terrain.
+    const isInternalCreation =
+      actorSource === "LOGISTICIEN" || actorSource === "SUPER_ADMIN";
+    if (isInternalCreation && status === "NOUVEAU") {
+      status = "ATTENTE";
+    }
 
     const vehiclesArr = vehicles as Array<Record<string, unknown>>;
     const splitPerVehicle = raw.splitPerVehicle === true && vehiclesArr.length > 0;

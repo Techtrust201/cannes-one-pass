@@ -227,6 +227,7 @@ function LogisticienNewContent() {
                   data={formData.stepThree}
                   update={(patch) => updateForm("stepThree", patch)}
                   onValidityChange={setStepValid}
+                  mode="logisticien"
                 />
               )}
               {step === 4 && (

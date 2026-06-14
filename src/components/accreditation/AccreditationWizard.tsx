@@ -417,7 +417,7 @@ function buildPalaisStepFourCtx(
   const f = formData as {
     stepOne: { company: string; stand: string; unloading: string; event: string };
     vehicle: Vehicle;
-    stepThree: { message: string; consent: boolean };
+    stepThree: { message: string; consent: boolean; email?: string };
   };
   return {
     data: {
@@ -428,6 +428,7 @@ function buildPalaisStepFourCtx(
       vehicles: [f.vehicle],
       message: f.stepThree.message,
       consent: f.stepThree.consent,
+      email: f.stepThree.email ?? "",
     },
     onReset,
     onClearForm,

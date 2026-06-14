@@ -114,9 +114,59 @@ describe("palais template — schema", () => {
       ],
       consent: true,
       language: "fr",
+      email: "destinataire@example.com",
     };
     const result = palaisPayloadSchema.safeParse(valid);
     expect(result.success).toBe(true);
+  });
+
+  it("rejette un payload Palais sans e-mail (e-mail destinataire obligatoire)", () => {
+    const invalid = {
+      organizationSlug: "palais",
+      company: "X",
+      stand: "1",
+      unloading: "Mathez",
+      event: "ev",
+      vehicles: [
+        {
+          plate: "AB-001-CD",
+          size: "L",
+          phoneCode: "+33",
+          phoneNumber: "1",
+          date: "2026-01-01",
+          city: "Lyon",
+          unloading: ["rear"],
+        },
+      ],
+      consent: true,
+    };
+    const result = palaisPayloadSchema.safeParse(invalid);
+    expect(result.success).toBe(false);
+  });
+
+  it("rejette un payload Palais avec e-mail invalide", () => {
+    const invalid = {
+      organizationSlug: "palais",
+      company: "X",
+      stand: "1",
+      unloading: "Mathez",
+      event: "ev",
+      vehicles: [
+        {
+          plate: "AB-001-CD",
+          size: "L",
+          phoneCode: "+33",
+          phoneNumber: "1",
+          date: "2026-01-01",
+          city: "Lyon",
+          unloading: ["rear"],
+        },
+      ],
+      consent: true,
+      email: "pas-un-email",
+    };
+    const result = palaisPayloadSchema.safeParse(invalid);
+    expect(result.success).toBe(false);
   });
 
   it("rejette un payload Palais sans plaque (plate obligatoire côté template)", () => {

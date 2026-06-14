@@ -1,5 +1,5 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useTranslation } from "@/components/accreditation/TranslationProvider";
 
@@ -13,6 +13,12 @@ interface Props {
   data: Data;
   update: (patch: Partial<Data>) => void;
   onValidityChange: (v: boolean) => void;
+  /**
+   * Contexte d'usage. En logisticien, l'e-mail sert à *envoyer* l'accréditation
+   * au destinataire ; en public, à la *recevoir*. Le champ est obligatoire dans
+   * les deux cas (source unique de vérité de l'e-mail du flow).
+   */
+  mode?: "public" | "logisticien";
 }
 
 /** Validation e-mail simple : format raisonnable, sans être trop stricte. */
@@ -20,15 +26,34 @@ function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
-export default function StepThree({ data, update, onValidityChange }: Props) {
+export default function StepThree({
+  data,
+  update,
+  onValidityChange,
+  mode = "public",
+}: Props) {
   const { message, consent } = data;
   const email = data.email ?? "";
   const { t } = useTranslation();
+  const [emailTouched, setEmailTouched] = useState(false);
 
-  // L'e-mail est facultatif : on ne bloque que s'il est rempli et invalide.
-  const emailValid = email.trim() === "" || isValidEmail(email.trim());
+  // L'e-mail est désormais OBLIGATOIRE : indispensable pour l'envoi automatique
+  // du récapitulatif + QR code (Resend). On bloque le passage à l'étape suivante
+  // tant qu'il est vide ou invalide.
+  const emailValid = isValidEmail(email.trim());
   const valid = consent && emailValid;
   useEffect(() => onValidityChange(valid), [valid, onValidityChange]);
+
+  const emailLabel =
+    mode === "logisticien"
+      ? "E-mail du destinataire"
+      : (t.emailRequiredLabel ?? t.emailLabel ?? "E-mail");
+  const emailHint =
+    mode === "logisticien"
+      ? "Obligatoire pour envoyer automatiquement l'accréditation et le QR code par e-mail."
+      : (t.emailRequiredHint ??
+        "Obligatoire pour recevoir le récapitulatif et le QR code par e-mail.");
+  const showEmailError = emailTouched && !emailValid;
 
   return (
     <div className="flex flex-col w-full">
@@ -58,22 +83,28 @@ export default function StepThree({ data, update, onValidityChange }: Props) {
         />
 
         <label htmlFor="email" className="text-sm font-medium block mb-1">
-          {t.emailLabel ?? "E-mail"}{" "}
-          <span className="text-gray-500 font-normal">&bull; {t.optional}</span>
+          {emailLabel} <span className="text-red-500">*</span>
         </label>
         <input
           id="email"
           type="email"
+          required
           value={email}
           onChange={(e) => update({ email: e.target.value })}
+          onBlur={() => setEmailTouched(true)}
           placeholder={t.emailPlaceholder ?? "vous@exemple.com"}
+          aria-invalid={showEmailError}
           className={`w-full border rounded-md px-3 py-2 focus:ring-primary focus:border-primary ${
-            emailValid ? "border-[#C6C6C6]" : "border-red-400"
+            showEmailError ? "border-red-400" : "border-[#C6C6C6]"
           }`}
         />
-        <p className="text-xs text-gray-500 mt-1 mb-4">
-          {t.emailHint ?? "Pour recevoir votre récapitulatif et votre QR code par e-mail"}
-        </p>
+        {showEmailError ? (
+          <p className="text-xs text-red-500 mt-1 mb-4">
+            {t.emailRequiredError ?? "Veuillez saisir un e-mail valide."}
+          </p>
+        ) : (
+          <p className="text-xs text-gray-500 mt-1 mb-4">{emailHint}</p>
+        )}
 
         <label className="inline-flex items-center gap-2 text-sm">
           <input

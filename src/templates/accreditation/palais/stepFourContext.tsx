@@ -20,6 +20,8 @@ export interface PalaisStepFourCtx {
     vehicles: Vehicle[];
     message: string;
     consent: boolean;
+    /** E-mail du destinataire (obligatoire) — transmis au payload de création. */
+    email: string;
   };
   onReset: () => void;
   onClearForm: () => void;

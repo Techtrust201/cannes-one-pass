@@ -72,6 +72,12 @@ export interface T {
   emailHint?: string;
   /** Placeholder du champ e-mail (optionnel ; repli "vous@exemple.com"). */
   emailPlaceholder?: string;
+  /** Libellé du champ e-mail quand il est obligatoire (repli FR). */
+  emailRequiredLabel?: string;
+  /** Aide sous le champ e-mail obligatoire (repli FR). */
+  emailRequiredHint?: string;
+  /** Message d'erreur si l'e-mail est vide ou invalide (repli FR). */
+  emailRequiredError?: string;
 
   // Step 4 — Confirmation
   requestSaved: string;
@@ -147,6 +153,10 @@ const fr: T = {
   emailLabel: "E-mail",
   emailHint: "Pour recevoir votre récapitulatif et votre QR code par e-mail",
   emailPlaceholder: "vous@exemple.com",
+  emailRequiredLabel: "E-mail du destinataire",
+  emailRequiredHint:
+    "Obligatoire pour recevoir le récapitulatif et le QR code par e-mail.",
+  emailRequiredError: "Veuillez saisir un e-mail valide.",
   requestSaved: "Demande enregistrée",
   requestCreated: "Demande créée",
   savedMessage: "Votre demande a bien été enregistrée.",
@@ -214,6 +224,10 @@ const en: T = {
   emailLabel: "Email",
   emailHint: "To receive your summary and QR code by email",
   emailPlaceholder: "you@example.com",
+  emailRequiredLabel: "Recipient email",
+  emailRequiredHint:
+    "Required to receive the summary and QR code by email.",
+  emailRequiredError: "Please enter a valid email address.",
   requestSaved: "Request saved",
   requestCreated: "Request created",
   savedMessage: "Your request has been saved.",

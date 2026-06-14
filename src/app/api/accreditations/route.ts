@@ -12,6 +12,7 @@ import {
 import { getTemplate } from "@/templates/accreditation/registry";
 import { suggestZone, buildRxZoneRouting, type RxZoneRouting } from "@/lib/rx-zone-rules";
 import { normalizePlate } from "@/lib/plate-utils";
+import { isValidEmail } from "@/lib/email-sender";
 
 export async function GET(request: NextRequest) {
   let currentUserId: string | undefined;
@@ -268,6 +269,20 @@ export async function POST(req: NextRequest) {
             (contactObj.email as string).trim()
           ? (contactObj.email as string).trim()
           : null;
+
+    // Garde-fou : l'e-mail destinataire est OBLIGATOIRE avant création — il
+    // conditionne l'envoi automatique (récap + QR). On bloque *avant* toute
+    // création pour ne jamais produire une accréditation non « envoyable ».
+    // (L'échec d'envoi Resend lui-même reste non bloquant, voir Lot 2.)
+    if (!isValidEmail(recipientEmail)) {
+      return Response.json(
+        {
+          error:
+            "E-mail du destinataire requis et valide pour créer l'accréditation (envoi du récapitulatif et du QR code).",
+        },
+        { status: 400 }
+      );
+    }
     // Laissé en type souple (issu du JSON) pour rester compatible avec l'enum
     // Prisma `AccreditationStatus` sans cast explicite (comportement d'origine).
     const status = raw.status ?? "ATTENTE";
@@ -453,21 +468,32 @@ export async function POST(req: NextRequest) {
       }
       // Lot 2 : un e-mail par accréditation/véhicule (chaque véhicule a son QR).
       // Non bloquant : n'altère jamais le statut et ne fait jamais échouer la création.
+      const emailOutcomes: string[] = [];
       try {
         const { sendAccreditationCreationEmail } = await import(
           "@/lib/accreditation-creation-email"
         );
         for (const c of createdList) {
-          await sendAccreditationCreationEmail({
-            accreditationId: c.id,
-            recipient: recipientEmail,
-          });
+          emailOutcomes.push(
+            await sendAccreditationCreationEmail({
+              accreditationId: c.id,
+              recipient: recipientEmail,
+            })
+          );
         }
       } catch (e) {
         console.error("Creation email (split) failed:", e);
       }
+      // Issue agrégée : "sent" si au moins un e-mail est parti, sinon la 1re issue.
+      const emailOutcome = emailOutcomes.includes("sent")
+        ? "sent"
+        : (emailOutcomes[0] ?? "failed");
       return Response.json(
-        { count: createdList.length, ids: createdList.map((c) => c.id) },
+        {
+          count: createdList.length,
+          ids: createdList.map((c) => c.id),
+          emailOutcome,
+        },
         { status: 201 }
       );
     }
@@ -503,20 +529,23 @@ export async function POST(req: NextRequest) {
     // Lot 2 : e-mail récap + QR à la création. Non bloquant (try/catch),
     // statut inchangé (reste NOUVEAU). Si pas d'email ou config manquante,
     // l'issue est tracée dans l'historique sans faire échouer la création.
+    let creationEmailOutcome: string | undefined;
     try {
       const { sendAccreditationCreationEmail } = await import(
         "@/lib/accreditation-creation-email"
       );
-      await sendAccreditationCreationEmail({
+      creationEmailOutcome = await sendAccreditationCreationEmail({
         accreditationId: created.id,
         recipient: recipientEmail,
       });
     } catch (e) {
       console.error("Creation email failed:", e);
+      creationEmailOutcome = "failed";
     }
     // Désérialisation unloading pour la réponse
     const safeCreated = {
       ...created,
+      emailOutcome: creationEmailOutcome,
       vehicles: created.vehicles.map((v) => ({
         ...v,
         unloading: Array.isArray(v.unloading)

@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   requireAuth,
@@ -7,6 +8,7 @@ import {
   getAccessibleOrganizationIds,
 } from "@/lib/auth-helpers";
 import { generateVehicleTypeCode } from "@/lib/vehicle-type-defaults";
+import { parseLocalizedNumber } from "@/lib/parse-localized-number";
 
 type VehicleTypeRow = { code: string };
 
@@ -165,6 +167,34 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Validation numérique explicite (décimales FR/EN). Un champ invalide
+    // renvoie un 400 clair plutôt qu'une erreur générique masquée.
+    const numMini = parseLocalizedNumber(tonnageMini);
+    if (numMini === null)
+      return Response.json({ error: "Le tonnage mini doit être un nombre" }, { status: 400 });
+    const numMoyen = parseLocalizedNumber(tonnageMoyen);
+    if (numMoyen === null)
+      return Response.json({ error: "Le tonnage moyen doit être un nombre" }, { status: 400 });
+    const numMaxi = parseLocalizedNumber(tonnageMaxi);
+    if (numMaxi === null)
+      return Response.json({ error: "Le tonnage maxi doit être un nombre" }, { status: 400 });
+    const numCo2 = parseLocalizedNumber(co2Coefficient);
+    if (numCo2 === null)
+      return Response.json({ error: "Le CO₂ doit être un nombre" }, { status: 400 });
+    const numSort = parseLocalizedNumber(sortOrder);
+    if (numSort === null)
+      return Response.json({ error: "L'ordre doit être un nombre" }, { status: 400 });
+    if (numMini > numMoyen)
+      return Response.json(
+        { error: "Le tonnage mini doit être inférieur ou égal au tonnage moyen" },
+        { status: 400 }
+      );
+    if (numMoyen > numMaxi)
+      return Response.json(
+        { error: "Le tonnage moyen doit être inférieur ou égal au tonnage maxi" },
+        { status: 400 }
+      );
+
     const finalCode =
       (typeof code === "string" && code.trim()) ||
       generateVehicleTypeCode(String(label));
@@ -173,40 +203,61 @@ export async function POST(req: NextRequest) {
       where: { code: finalCode, organizationId: orgId },
     });
     if (existing) {
-      return Response.json({ error: "Ce code gabarit existe déjà" }, { status: 409 });
+      return Response.json(
+        {
+          error: `Une appellation équivalente existe déjà (code « ${finalCode} »). Choisissez une appellation différente.`,
+        },
+        { status: 409 }
+      );
     }
 
     const trimmedGabarit = String(gabarit).trim();
     const trimmedLabel =
       (typeof label === "string" && label.trim()) || trimmedGabarit;
 
-    const created = await prisma.vehicleTypeConfig.create({
-      data: {
-        code: finalCode,
-        label: trimmedLabel,
-        gabarit: trimmedGabarit,
-        tonnageMini: Number(tonnageMini ?? 0),
-        tonnageMoyen: Number(tonnageMoyen ?? 0),
-        tonnageMaxi: Number(tonnageMaxi ?? 0),
-        co2Coefficient: Number(co2Coefficient ?? 0.22),
-        pdfCode: typeof pdfCode === "string" ? pdfCode : "C",
-        color: typeof color === "string" ? color : "gray",
-        showTrailerPlate: Boolean(showTrailerPlate),
-        rxPalmBeachAtCanto: isRxOrg ? Boolean(rxPalmBeachAtCanto ?? false) : false,
-        rxZoneCanto:
-          isRxOrg && typeof rxZoneCanto === "string" && rxZoneCanto.trim()
-            ? rxZoneCanto.trim()
-            : null,
-        rxZoneVieuxPort:
-          isRxOrg && typeof rxZoneVieuxPort === "string" && rxZoneVieuxPort.trim()
-            ? rxZoneVieuxPort.trim()
-            : null,
-        sortOrder: Number(sortOrder ?? 0),
-        organizationId: orgId,
-      },
-    });
-
-    return Response.json(created, { status: 201 });
+    try {
+      const created = await prisma.vehicleTypeConfig.create({
+        data: {
+          code: finalCode,
+          label: trimmedLabel,
+          gabarit: trimmedGabarit,
+          tonnageMini: numMini,
+          tonnageMoyen: numMoyen,
+          tonnageMaxi: numMaxi,
+          co2Coefficient: numCo2,
+          pdfCode: typeof pdfCode === "string" ? pdfCode : "C",
+          color: typeof color === "string" ? color : "gray",
+          showTrailerPlate: Boolean(showTrailerPlate),
+          rxPalmBeachAtCanto: isRxOrg ? Boolean(rxPalmBeachAtCanto ?? false) : false,
+          rxZoneCanto:
+            isRxOrg && typeof rxZoneCanto === "string" && rxZoneCanto.trim()
+              ? rxZoneCanto.trim()
+              : null,
+          rxZoneVieuxPort:
+            isRxOrg && typeof rxZoneVieuxPort === "string" && rxZoneVieuxPort.trim()
+              ? rxZoneVieuxPort.trim()
+              : null,
+          sortOrder: Math.round(numSort),
+          organizationId: orgId,
+        },
+      });
+      return Response.json(created, { status: 201 });
+    } catch (error) {
+      // Course possible entre le check ci-dessus et la création : la contrainte
+      // d'unicité (code, organizationId) renvoie alors un message clair.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        return Response.json(
+          {
+            error: `Une appellation équivalente existe déjà (code « ${finalCode} »). Choisissez une appellation différente.`,
+          },
+          { status: 409 }
+        );
+      }
+      throw error;
+    }
   } catch (error) {
     console.error("POST /api/vehicle-types error:", error);
     return Response.json({ error: "Erreur serveur" }, { status: 500 });

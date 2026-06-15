@@ -4,6 +4,7 @@ import {
   requirePermission,
   getAccessibleOrganizationIds,
 } from "@/lib/auth-helpers";
+import { parseLocalizedNumber } from "@/lib/parse-localized-number";
 
 /**
  * Vérifie que l'utilisateur peut administrer un gabarit appartenant à
@@ -90,10 +91,40 @@ export async function PATCH(
         updates.label = updates.gabarit;
       }
     }
-    if (body.tonnageMini !== undefined) updates.tonnageMini = Number(body.tonnageMini);
-    if (body.tonnageMoyen !== undefined) updates.tonnageMoyen = Number(body.tonnageMoyen);
-    if (body.tonnageMaxi !== undefined) updates.tonnageMaxi = Number(body.tonnageMaxi);
-    if (body.co2Coefficient !== undefined) updates.co2Coefficient = Number(body.co2Coefficient);
+    // Validation numérique (décimales FR/EN). Un champ fourni mais invalide
+    // renvoie un 400 clair au lieu d'écrire un NaN en base.
+    const numericPatch: Array<[string, unknown, string]> = [
+      ["tonnageMini", body.tonnageMini, "Le tonnage mini doit être un nombre"],
+      ["tonnageMoyen", body.tonnageMoyen, "Le tonnage moyen doit être un nombre"],
+      ["tonnageMaxi", body.tonnageMaxi, "Le tonnage maxi doit être un nombre"],
+      ["co2Coefficient", body.co2Coefficient, "Le CO₂ doit être un nombre"],
+    ];
+    for (const [field, raw, message] of numericPatch) {
+      if (raw === undefined) continue;
+      const parsed = parseLocalizedNumber(raw);
+      if (parsed === null) return Response.json({ error: message }, { status: 400 });
+      updates[field] = parsed;
+    }
+    if (
+      updates.tonnageMini !== undefined &&
+      updates.tonnageMoyen !== undefined &&
+      (updates.tonnageMini as number) > (updates.tonnageMoyen as number)
+    ) {
+      return Response.json(
+        { error: "Le tonnage mini doit être inférieur ou égal au tonnage moyen" },
+        { status: 400 }
+      );
+    }
+    if (
+      updates.tonnageMoyen !== undefined &&
+      updates.tonnageMaxi !== undefined &&
+      (updates.tonnageMoyen as number) > (updates.tonnageMaxi as number)
+    ) {
+      return Response.json(
+        { error: "Le tonnage moyen doit être inférieur ou égal au tonnage maxi" },
+        { status: 400 }
+      );
+    }
     if (body.pdfCode !== undefined) updates.pdfCode = String(body.pdfCode);
     if (body.color !== undefined) updates.color = String(body.color);
     if (body.showTrailerPlate !== undefined) updates.showTrailerPlate = Boolean(body.showTrailerPlate);
@@ -130,7 +161,12 @@ export async function PATCH(
         updates.rxZoneVieuxPort = z || null;
       }
     }
-    if (body.sortOrder !== undefined) updates.sortOrder = Number(body.sortOrder);
+    if (body.sortOrder !== undefined) {
+      const parsedOrder = parseLocalizedNumber(body.sortOrder);
+      if (parsedOrder === null)
+        return Response.json({ error: "L'ordre doit être un nombre" }, { status: 400 });
+      updates.sortOrder = Math.round(parsedOrder);
+    }
     if (body.isActive !== undefined) updates.isActive = Boolean(body.isActive);
 
     // Renommage : update + cascade atomique sur les véhicules de la MÊME

@@ -18,9 +18,64 @@ import { COLOR_OPTIONS, getColorClasses } from "@/lib/color-palette";
 import { invalidateVehicleTypeCache } from "@/lib/vehicle-utils";
 import type { VehicleTypeData } from "@/lib/vehicle-utils";
 import { withEspaceQuery } from "@/lib/url";
+import { parseLocalizedNumber } from "@/lib/parse-localized-number";
 
 interface VehicleTypesSectionProps {
   canWrite: boolean;
+}
+
+type NumericFields = {
+  tonnageMini: number;
+  tonnageMoyen: number;
+  tonnageMaxi: number;
+  co2Coefficient: number;
+  sortOrder: number;
+};
+
+/**
+ * Valide et normalise les champs numériques d'un gabarit (décimales FR ou EN).
+ * Retourne soit les valeurs converties, soit un message d'erreur clair par champ.
+ */
+function validateNumericFields(
+  form: Record<string, string | boolean>
+): { ok: true; values: NumericFields } | { ok: false; error: string } {
+  const tonnageMini = parseLocalizedNumber(form.tonnageMini);
+  if (tonnageMini === null)
+    return { ok: false, error: "Le tonnage mini doit être un nombre" };
+  const tonnageMoyen = parseLocalizedNumber(form.tonnageMoyen);
+  if (tonnageMoyen === null)
+    return { ok: false, error: "Le tonnage moyen doit être un nombre" };
+  const tonnageMaxi = parseLocalizedNumber(form.tonnageMaxi);
+  if (tonnageMaxi === null)
+    return { ok: false, error: "Le tonnage maxi doit être un nombre" };
+  const co2Coefficient = parseLocalizedNumber(form.co2Coefficient);
+  if (co2Coefficient === null)
+    return { ok: false, error: "Le CO₂ doit être un nombre" };
+  const sortOrderParsed = parseLocalizedNumber(form.sortOrder);
+  if (sortOrderParsed === null)
+    return { ok: false, error: "L'ordre doit être un nombre" };
+
+  if (tonnageMini > tonnageMoyen)
+    return {
+      ok: false,
+      error: "Le tonnage mini doit être inférieur ou égal au tonnage moyen",
+    };
+  if (tonnageMoyen > tonnageMaxi)
+    return {
+      ok: false,
+      error: "Le tonnage moyen doit être inférieur ou égal au tonnage maxi",
+    };
+
+  return {
+    ok: true,
+    values: {
+      tonnageMini,
+      tonnageMoyen,
+      tonnageMaxi,
+      co2Coefficient,
+      sortOrder: Math.round(sortOrderParsed),
+    },
+  };
 }
 
 const EMPTY_FORM = {
@@ -72,7 +127,19 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
   };
 
   const handleCreate = async () => {
-    if (!createForm.label.trim() || !createForm.gabarit.trim()) return;
+    // `label` est dérivé de `gabarit` (pas de champ dédié en création) : on ne
+    // valide donc QUE l'appellation, sinon le bouton « Créer » resterait inerte.
+    const gabarit = createForm.gabarit.trim();
+    if (!gabarit) {
+      setCreateError("L'appellation (gabarit) est requise");
+      return;
+    }
+    const nums = validateNumericFields(createForm);
+    if (!nums.ok) {
+      setCreateError(nums.error);
+      return;
+    }
+
     setCreating(true);
     setCreateError("");
     try {
@@ -80,19 +147,19 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          gabarit: createForm.gabarit.trim(),
-          label: createForm.gabarit.trim(),
-          tonnageMini: Number(createForm.tonnageMini || 0),
-          tonnageMoyen: Number(createForm.tonnageMoyen || 0),
-          tonnageMaxi: Number(createForm.tonnageMaxi || 0),
-          co2Coefficient: Number(createForm.co2Coefficient || 0.22),
+          gabarit,
+          label: gabarit,
+          tonnageMini: nums.values.tonnageMini,
+          tonnageMoyen: nums.values.tonnageMoyen,
+          tonnageMaxi: nums.values.tonnageMaxi,
+          co2Coefficient: nums.values.co2Coefficient,
           pdfCode: createForm.pdfCode,
           color: createForm.color,
           showTrailerPlate: createForm.showTrailerPlate,
           rxPalmBeachAtCanto: createForm.rxPalmBeachAtCanto,
           rxZoneCanto: createForm.rxZoneCanto || null,
           rxZoneVieuxPort: createForm.rxZoneVieuxPort || null,
-          sortOrder: Number(createForm.sortOrder || 0),
+          sortOrder: nums.values.sortOrder,
         }),
       });
       if (res.ok) {
@@ -101,11 +168,14 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
         invalidateVehicleTypeCache();
         await refresh();
       } else {
-        const err = await res.json();
-        setCreateError(err.error || "Erreur lors de la création");
+        // Conserve le formulaire et affiche le vrai message renvoyé par l'API.
+        const err = await res.json().catch(() => ({}));
+        setCreateError(
+          err.error || `Erreur lors de la création (code ${res.status})`
+        );
       }
     } catch {
-      setCreateError("Erreur réseau");
+      setCreateError("Erreur réseau : la requête n'a pas pu aboutir");
     } finally {
       setCreating(false);
     }
@@ -140,6 +210,17 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
 
   const saveEdit = async () => {
     if (!editingId) return;
+    const gabarit = String(editForm.gabarit ?? "").trim();
+    if (!gabarit) {
+      setEditError("L'appellation (gabarit) est requise");
+      return;
+    }
+    const nums = validateNumericFields(editForm);
+    if (!nums.ok) {
+      setEditError(nums.error);
+      return;
+    }
+
     setSaving(true);
     setEditError("");
     try {
@@ -147,13 +228,13 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          gabarit: String(editForm.gabarit).trim(),
-          label: String(editForm.gabarit).trim(),
+          gabarit,
+          label: gabarit,
           code: String(editForm.code).trim(),
-          tonnageMini: Number(editForm.tonnageMini),
-          tonnageMoyen: Number(editForm.tonnageMoyen),
-          tonnageMaxi: Number(editForm.tonnageMaxi),
-          co2Coefficient: Number(editForm.co2Coefficient),
+          tonnageMini: nums.values.tonnageMini,
+          tonnageMoyen: nums.values.tonnageMoyen,
+          tonnageMaxi: nums.values.tonnageMaxi,
+          co2Coefficient: nums.values.co2Coefficient,
           pdfCode: String(editForm.pdfCode),
           color: String(editForm.color),
           showTrailerPlate: Boolean(editForm.showTrailerPlate),
@@ -162,7 +243,7 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
           rxZoneVieuxPort: editForm.rxZoneVieuxPort
             ? String(editForm.rxZoneVieuxPort)
             : null,
-          sortOrder: Number(editForm.sortOrder),
+          sortOrder: nums.values.sortOrder,
         }),
       });
       if (res.ok) {
@@ -170,11 +251,13 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
         invalidateVehicleTypeCache();
         await refresh();
       } else {
-        const err = await res.json();
-        setEditError(err.error || "Erreur lors de la sauvegarde");
+        const err = await res.json().catch(() => ({}));
+        setEditError(
+          err.error || `Erreur lors de la sauvegarde (code ${res.status})`
+        );
       }
     } catch {
-      setEditError("Erreur réseau");
+      setEditError("Erreur réseau : la requête n'a pas pu aboutir");
     } finally {
       setSaving(false);
     }
@@ -249,8 +332,8 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
       <div>
         <label className="text-xs font-semibold text-gray-500 uppercase">Tonnage mini (T)</label>
         <input
-          type="number"
-          step="0.1"
+          type="text"
+          inputMode="decimal"
           value={String(form.tonnageMini ?? "")}
           onChange={(e) => setForm({ tonnageMini: e.target.value })}
           className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
@@ -259,8 +342,8 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
       <div>
         <label className="text-xs font-semibold text-gray-500 uppercase">Tonnage moyen (T)</label>
         <input
-          type="number"
-          step="0.1"
+          type="text"
+          inputMode="decimal"
           value={String(form.tonnageMoyen ?? "")}
           onChange={(e) => setForm({ tonnageMoyen: e.target.value })}
           className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
@@ -269,8 +352,8 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
       <div>
         <label className="text-xs font-semibold text-gray-500 uppercase">Tonnage maxi (T)</label>
         <input
-          type="number"
-          step="0.1"
+          type="text"
+          inputMode="decimal"
           value={String(form.tonnageMaxi ?? "")}
           onChange={(e) => setForm({ tonnageMaxi: e.target.value })}
           className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
@@ -279,8 +362,8 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
       <div>
         <label className="text-xs font-semibold text-gray-500 uppercase">CO₂ (kg/km)</label>
         <input
-          type="number"
-          step="0.001"
+          type="text"
+          inputMode="decimal"
           value={String(form.co2Coefficient ?? "")}
           onChange={(e) => setForm({ co2Coefficient: e.target.value })}
           className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
@@ -301,7 +384,8 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
       <div>
         <label className="text-xs font-semibold text-gray-500 uppercase">Ordre</label>
         <input
-          type="number"
+          type="text"
+          inputMode="numeric"
           value={String(form.sortOrder ?? "0")}
           onChange={(e) => setForm({ sortOrder: e.target.value })}
           className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"

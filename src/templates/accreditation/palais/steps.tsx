@@ -71,6 +71,7 @@ function PalaisStepFour(_props: StepProps<PalaisFormData>) {
       onReset={ctx.onReset}
       onClearForm={ctx.onClearForm}
       onHasSavedChange={ctx.onHasSavedChange}
+      onEditStep={ctx.onEditStep}
     />
   );
 }

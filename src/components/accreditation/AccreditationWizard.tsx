@@ -267,7 +267,7 @@ function WizardContent({
   // historique du StepFour aplati de `src/app/accreditation/page.tsx`).
   const palaisStepFourValue =
     template.slug === "palais"
-      ? buildPalaisStepFourCtx(formData, resetAll, clearForm, setHasSaved)
+      ? buildPalaisStepFourCtx(formData, resetAll, clearForm, setHasSaved, gotoStep)
       : null;
 
   // Libellés de la progress bar (aria-label). Pour RX, on traduit via le
@@ -433,7 +433,8 @@ function buildPalaisStepFourCtx(
   formData: unknown,
   onReset: () => void,
   onClearForm: () => void,
-  onHasSavedChange: (b: boolean) => void
+  onHasSavedChange: (b: boolean) => void,
+  onEditStep: (step: number) => void
 ) {
   // On accepte un cast contrôlé : ce helper n'est appelé que lorsque le
   // template Palais est actif (voir condition ci-dessus).
@@ -456,6 +457,7 @@ function buildPalaisStepFourCtx(
     onReset,
     onClearForm,
     onHasSavedChange,
+    onEditStep,
   };
 }
 

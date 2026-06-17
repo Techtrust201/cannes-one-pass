@@ -26,6 +26,8 @@ export interface PalaisStepFourCtx {
   onReset: () => void;
   onClearForm: () => void;
   onHasSavedChange: (hasSaved: boolean) => void;
+  /** Navigue vers une étape (1-indexée) pour permettre la modification depuis le récap. */
+  onEditStep?: (step: number) => void;
 }
 
 const Ctx = createContext<PalaisStepFourCtx | null>(null);

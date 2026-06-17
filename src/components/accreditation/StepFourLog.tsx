@@ -16,6 +16,7 @@ import { getZoneLabel } from "@/lib/zone-utils";
 import { useZones } from "@/hooks/useZones";
 import DuplicateAlert from "@/components/accreditation/DuplicateAlert";
 import { PortalOverlay } from "@/components/ui/PortalOverlay";
+import AccreditationRecap from "@/components/accreditation/AccreditationRecap";
 
 interface Props {
   data: {
@@ -36,6 +37,10 @@ interface Props {
   onReset: () => void;
   onClearForm: () => void;
   onHasSavedChange: (hasSaved: boolean) => void;
+  /** Scope des types de véhicule (résolution du libellé gabarit dans le récap). */
+  orgSlug?: string;
+  /** Navigation vers une étape pour modification depuis le récap. */
+  onEditStep?: (step: number) => void;
 }
 
 type EmailOutcome =
@@ -48,6 +53,8 @@ export default function StepFourLog({
   data,
   onReset,
   onHasSavedChange,
+  orgSlug,
+  onEditStep,
 }: Props) {
   const { allZoneKeys, isFinalDestination } = useZones();
   const [loading, setLoading] = useState(false);
@@ -318,6 +325,16 @@ export default function StepFourLog({
             </>
           )}
         </div>
+
+        {/* Récapitulatif complet avant création (espace logisticien, FR). */}
+        {!hasSaved && (
+          <AccreditationRecap
+            data={data}
+            orgSlug={orgSlug}
+            onEditStep={onEditStep}
+            statusNotice="Accréditation validée (attendue sur site) — aucune validation manuelle requise."
+          />
+        )}
 
         {/* Destinataire en lecture seule (jamais de champ éditable ici). */}
         <div className="flex items-start gap-2 rounded-lg bg-gray-50 border border-gray-200 px-4 py-3">

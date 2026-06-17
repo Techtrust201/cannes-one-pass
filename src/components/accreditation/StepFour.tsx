@@ -7,6 +7,7 @@ import type { Vehicle } from "@/types";
 import DuplicateAlert from "@/components/accreditation/DuplicateAlert";
 import { useTranslation } from "@/components/accreditation/TranslationProvider";
 import { PortalOverlay } from "@/components/ui/PortalOverlay";
+import AccreditationRecap from "@/components/accreditation/AccreditationRecap";
 
 interface Props {
   data: {
@@ -23,6 +24,8 @@ interface Props {
   onReset: () => void;
   onClearForm: () => void;
   onHasSavedChange: (hasSaved: boolean) => void;
+  /** Navigation vers une étape pour modification depuis le récap. */
+  onEditStep?: (step: number) => void;
 }
 
 export default function StepFour({
@@ -30,6 +33,7 @@ export default function StepFour({
   onReset,
   onClearForm,
   onHasSavedChange,
+  onEditStep,
 }: Props) {
   const { t, lang } = useTranslation();
   const [loading, setLoading] = useState(false);
@@ -166,7 +170,7 @@ export default function StepFour({
             />
           )}
           <h2 className="text-xl font-bold text-gray-800">
-            {hasSaved ? t.requestSaved : t.requestCreated}
+            {hasSaved ? t.requestSaved : t.recapTitle ?? t.requestCreated}
           </h2>
         </div>
 
@@ -197,6 +201,18 @@ export default function StepFour({
                 "Si vous ne recevez pas l'e-mail dans les prochaines minutes, pensez à vérifier votre dossier spam / courrier indésirable."}
             </span>
           </div>
+        )}
+
+        {/* Récapitulatif complet avant validation (avant enregistrement). */}
+        {!hasSaved && (
+          <AccreditationRecap
+            data={data}
+            onEditStep={onEditStep}
+            statusNotice={
+              t.recapStatusPublic ??
+              "Demande à valider — elle sera vérifiée par un agent à votre arrivée."
+            }
+          />
         )}
 
         {/* Message d'alerte/info */}

@@ -117,6 +117,22 @@ export interface T {
   /** Erreur du consentement obligatoire. */
   consentRequired?: string;
 
+  // Récapitulatif avant validation (Lot 3)
+  /** Titre de la carte récapitulative. */
+  recapTitle?: string;
+  /** Libellé du bouton/lien « Modifier ». */
+  recapEdit?: string;
+  /** En-tête de section véhicule. */
+  recapVehicle?: string;
+  /** En-tête de section contact. */
+  recapContact?: string;
+  /** Libellé « Statut après envoi ». */
+  recapStatusLabel?: string;
+  /** Explication du statut attendu côté public. */
+  recapStatusPublic?: string;
+  /** Valeur affichée quand un champ optionnel est vide. */
+  recapNotProvided?: string;
+
   // Page contact / formulaire ticket support
   support: SupportT;
 
@@ -198,6 +214,13 @@ const fr: T = {
   requiredField: "Ce champ est obligatoire.",
   requiredFieldsSummary: "Veuillez renseigner les champs obligatoires suivants :",
   consentRequired: "Veuillez accepter la politique de confidentialité.",
+  recapTitle: "Vérifiez votre demande avant de l'envoyer",
+  recapEdit: "Modifier",
+  recapVehicle: "Véhicule",
+  recapContact: "Contact",
+  recapStatusLabel: "Statut après envoi",
+  recapStatusPublic: "Demande à valider — elle sera vérifiée par un agent à votre arrivée.",
+  recapNotProvided: "Non renseigné",
   support: supportTranslations.fr,
   rx: rxTranslations.fr,
 };
@@ -276,6 +299,13 @@ const en: T = {
   requiredField: "This field is required.",
   requiredFieldsSummary: "Please fill in the following required fields:",
   consentRequired: "Please accept the privacy policy.",
+  recapTitle: "Review your request before sending",
+  recapEdit: "Edit",
+  recapVehicle: "Vehicle",
+  recapContact: "Contact",
+  recapStatusLabel: "Status after submission",
+  recapStatusPublic: "Request to be approved — it will be checked by an agent on arrival.",
+  recapNotProvided: "Not provided",
   support: supportTranslations.en,
   rx: rxTranslations.en,
 };
@@ -341,6 +371,13 @@ const de: T = {
   requiredField: "Dieses Feld ist erforderlich.",
   requiredFieldsSummary: "Bitte füllen Sie die folgenden Pflichtfelder aus:",
   consentRequired: "Bitte akzeptieren Sie die Datenschutzrichtlinie.",
+  recapTitle: "Überprüfen Sie Ihre Anfrage vor dem Senden",
+  recapEdit: "Bearbeiten",
+  recapVehicle: "Fahrzeug",
+  recapContact: "Kontakt",
+  recapStatusLabel: "Status nach dem Senden",
+  recapStatusPublic: "Zu genehmigender Antrag — wird bei Ihrer Ankunft von einem Mitarbeiter geprüft.",
+  recapNotProvided: "Nicht angegeben",
   support: supportTranslations.de,
   rx: rxTranslations.de,
 };
@@ -406,6 +443,13 @@ const es: T = {
   requiredField: "Este campo es obligatorio.",
   requiredFieldsSummary: "Por favor, complete los siguientes campos obligatorios:",
   consentRequired: "Por favor, acepte la política de privacidad.",
+  recapTitle: "Revise su solicitud antes de enviarla",
+  recapEdit: "Editar",
+  recapVehicle: "Vehículo",
+  recapContact: "Contacto",
+  recapStatusLabel: "Estado tras el envío",
+  recapStatusPublic: "Solicitud por validar — será verificada por un agente a su llegada.",
+  recapNotProvided: "No indicado",
   support: supportTranslations.es,
   rx: rxTranslations.es,
 };
@@ -471,6 +515,13 @@ const pt: T = {
   requiredField: "Este campo é obrigatório.",
   requiredFieldsSummary: "Por favor, preencha os seguintes campos obrigatórios:",
   consentRequired: "Por favor, aceite a política de privacidade.",
+  recapTitle: "Reveja o seu pedido antes de enviar",
+  recapEdit: "Editar",
+  recapVehicle: "Veículo",
+  recapContact: "Contacto",
+  recapStatusLabel: "Estado após o envio",
+  recapStatusPublic: "Pedido a validar — será verificado por um agente à sua chegada.",
+  recapNotProvided: "Não indicado",
   support: supportTranslations.pt,
   rx: rxTranslations.pt,
 };
@@ -536,6 +587,13 @@ const it: T = {
   requiredField: "Questo campo è obbligatorio.",
   requiredFieldsSummary: "Si prega di compilare i seguenti campi obbligatori:",
   consentRequired: "Si prega di accettare l'informativa sulla privacy.",
+  recapTitle: "Controlla la tua richiesta prima di inviarla",
+  recapEdit: "Modifica",
+  recapVehicle: "Veicolo",
+  recapContact: "Contatto",
+  recapStatusLabel: "Stato dopo l'invio",
+  recapStatusPublic: "Richiesta da validare — verrà verificata da un agente al tuo arrivo.",
+  recapNotProvided: "Non indicato",
   support: supportTranslations.it,
   rx: rxTranslations.it,
 };
@@ -601,6 +659,13 @@ const pl: T = {
   requiredField: "To pole jest wymagane.",
   requiredFieldsSummary: "Proszę wypełnić następujące wymagane pola:",
   consentRequired: "Proszę zaakceptować politykę prywatności.",
+  recapTitle: "Sprawdź swoje zgłoszenie przed wysłaniem",
+  recapEdit: "Edytuj",
+  recapVehicle: "Pojazd",
+  recapContact: "Kontakt",
+  recapStatusLabel: "Status po wysłaniu",
+  recapStatusPublic: "Zgłoszenie do zatwierdzenia — zostanie sprawdzone przez pracownika po przybyciu.",
+  recapNotProvided: "Nie podano",
   support: supportTranslations.pl,
   rx: rxTranslations.pl,
 };
@@ -666,6 +731,13 @@ const cs: T = {
   requiredField: "Toto pole je povinné.",
   requiredFieldsSummary: "Vyplňte prosím následující povinná pole:",
   consentRequired: "Souhlaste prosím se zásadami ochrany osobních údajů.",
+  recapTitle: "Před odesláním zkontrolujte svou žádost",
+  recapEdit: "Upravit",
+  recapVehicle: "Vozidlo",
+  recapContact: "Kontakt",
+  recapStatusLabel: "Stav po odeslání",
+  recapStatusPublic: "Žádost ke schválení — bude zkontrolována pracovníkem při příjezdu.",
+  recapNotProvided: "Neuvedeno",
   support: supportTranslations.cs,
   rx: rxTranslations.cs,
 };
@@ -731,6 +803,13 @@ const lt: T = {
   requiredField: "Šis laukas yra privalomas.",
   requiredFieldsSummary: "Prašome užpildyti šiuos privalomus laukus:",
   consentRequired: "Prašome sutikti su privatumo politika.",
+  recapTitle: "Patikrinkite savo užklausą prieš siųsdami",
+  recapEdit: "Redaguoti",
+  recapVehicle: "Transporto priemonė",
+  recapContact: "Kontaktai",
+  recapStatusLabel: "Būsena po pateikimo",
+  recapStatusPublic: "Užklausa, kurią reikia patvirtinti — ją patikrins darbuotojas atvykus.",
+  recapNotProvided: "Nenurodyta",
   support: supportTranslations.lt,
   rx: rxTranslations.lt,
 };
@@ -796,6 +875,13 @@ const tr: T = {
   requiredField: "Bu alan zorunludur.",
   requiredFieldsSummary: "Lütfen aşağıdaki zorunlu alanları doldurun:",
   consentRequired: "Lütfen gizlilik politikasını kabul edin.",
+  recapTitle: "Göndermeden önce talebinizi kontrol edin",
+  recapEdit: "Düzenle",
+  recapVehicle: "Araç",
+  recapContact: "İletişim",
+  recapStatusLabel: "Gönderim sonrası durum",
+  recapStatusPublic: "Onaylanacak talep — varışınızda bir görevli tarafından kontrol edilecek.",
+  recapNotProvided: "Belirtilmedi",
   support: supportTranslations.tr,
   rx: rxTranslations.tr,
 };
@@ -861,6 +947,13 @@ const ru: T = {
   requiredField: "Это поле обязательно для заполнения.",
   requiredFieldsSummary: "Пожалуйста, заполните следующие обязательные поля:",
   consentRequired: "Пожалуйста, примите политику конфиденциальности.",
+  recapTitle: "Проверьте свою заявку перед отправкой",
+  recapEdit: "Изменить",
+  recapVehicle: "Транспорт",
+  recapContact: "Контакт",
+  recapStatusLabel: "Статус после отправки",
+  recapStatusPublic: "Заявка на согласование — будет проверена сотрудником по прибытии.",
+  recapNotProvided: "Не указано",
   support: supportTranslations.ru,
   rx: rxTranslations.ru,
 };

@@ -393,6 +393,8 @@ function LogisticienNewContent() {
                   onReset={resetAll}
                   onClearForm={clearForm}
                   onHasSavedChange={setHasSaved}
+                  orgSlug={espace ?? "palais-des-festivals"}
+                  onEditStep={gotoStep}
                 />
               )}
             </div>

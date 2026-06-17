@@ -119,13 +119,16 @@ export default function StepFourLog({
   async function downloadPdf() {
     try {
       setLoading(true);
+      // Source unique : une fois l'accréditation créée, on télécharge le PDF
+      // structuré par ID (identique à la pièce jointe de l'e-mail). Avant
+      // création, repli sur le rendu basé sur les données du formulaire.
+      const pdfBody = createdId
+        ? { ids: [createdId], mode: "official" }
+        : { ...data, status: "ATTENTE" };
       const res = await fetch("/api/accreditation/pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...data,
-          status: "ATTENTE", // ou "NOUVEAU" selon le besoin métier
-        }),
+        body: JSON.stringify(pdfBody),
       });
       if (!res.ok) throw new Error("Erreur génération PDF");
       const blob = await res.blob();

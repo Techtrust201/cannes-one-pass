@@ -17,6 +17,9 @@ import QRCode from "qrcode";
 import { writeHistoryDirect } from "@/lib/history-server";
 import { createEmailSentEntry } from "@/lib/history";
 import { resolveAccreditationSender } from "@/lib/email-sender";
+import { generatePdfFromIds } from "@/lib/accreditation-pdf-ids";
+import { getBaseUrl } from "@/lib/base-url";
+import { isValidLang, type LangCode } from "@/lib/translations";
 
 export type CreationEmailOutcome =
   | "sent"
@@ -249,6 +252,31 @@ export async function sendAccreditationCreationEmail(params: {
       : `Demande d'accréditation reçue — ${vehicleIdentity} (${acc.company})`;
     const html = buildHtml(acc, vehicle, vehicleIdentity, validated);
 
+    // Source unique de vérité du document : on attache à l'e-mail le MÊME PDF
+    // propre que celui téléchargé depuis l'interface (générateur structuré
+    // multilingue), au lieu d'un simple rendu HTML. Non bloquant : si la
+    // génération échoue, l'e-mail part quand même (avec le QR inline).
+    let pdfAttachment: { filename: string; content: Buffer } | null = null;
+    try {
+      const lang: LangCode | undefined = isValidLang(acc.language ?? "")
+        ? (acc.language as LangCode)
+        : undefined;
+      const pdfBytes = await generatePdfFromIds([acc.id], getBaseUrl(), {
+        mode: validated ? "official" : "request",
+        ...(lang ? { lang } : {}),
+      });
+      pdfAttachment = {
+        filename: validated ? "accreditation.pdf" : "demande-accreditation.pdf",
+        content: Buffer.from(pdfBytes),
+      };
+    } catch (e) {
+      console.error("Creation email PDF attachment failed:", e);
+      await traceInfo(
+        accreditationId,
+        "PDF non joint à l'e-mail (génération échouée) ; e-mail envoyé avec le QR seul."
+      );
+    }
+
     // Trace le fallback forcé (config org refusée) sans bloquer l'envoi.
     if (sender.usedFallback && sender.note) {
       await traceInfo(accreditationId, sender.note);
@@ -267,6 +295,9 @@ export async function sendAccreditationCreationEmail(params: {
           content: qrPng,
           inlineContentId: "qraccreditation",
         },
+        ...(pdfAttachment
+          ? [{ filename: pdfAttachment.filename, content: pdfAttachment.content }]
+          : []),
       ],
     });
 

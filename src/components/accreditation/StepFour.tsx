@@ -46,6 +46,10 @@ export default function StepFour({
   // après (onClearForm) alors que le téléchargement reste disponible. On génère
   // donc le PDF à partir de ce snapshot pour éviter un PDF vide.
   const [savedData, setSavedData] = useState<Props["data"] | null>(null);
+  // ID de l'accréditation créée : permet de télécharger EXACTEMENT le même PDF
+  // structuré (source unique) que celui joint à l'e-mail, au lieu du rendu
+  // legacy basé sur les données du formulaire.
+  const [savedId, setSavedId] = useState<string | null>(null);
 
   async function handleSave() {
     if (hasSaved) {
@@ -61,6 +65,8 @@ export default function StepFour({
         body: JSON.stringify({ ...data, language: lang, status: "NOUVEAU" }),
       });
       if (!saveRes.ok) throw new Error("save error");
+      const created = await saveRes.json().catch(() => null);
+      if (created?.id) setSavedId(String(created.id));
       setSavedData(data);
       setSuccess(true);
       setHasSaved(true);
@@ -83,16 +89,16 @@ export default function StepFour({
   async function downloadPdf() {
     try {
       setLoading(true);
-      // Demande publique : reste NOUVEAU (à valider par un agent à l'arrivée).
-      // Utilise le snapshot figé à l'enregistrement si le formulaire a été vidé.
-      const pdfData = savedData ?? data;
+      // Source unique : si l'accréditation est créée, on télécharge le PDF
+      // structuré par ID (identique à la pièce jointe de l'e-mail). Sinon, repli
+      // sur le rendu basé sur le snapshot du formulaire.
+      const pdfBody = savedId
+        ? { ids: [savedId], mode: "request", lang }
+        : { ...(savedData ?? data), status: "NOUVEAU" };
       const res = await fetch("/api/accreditation/pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...pdfData,
-          status: "NOUVEAU",
-        }),
+        body: JSON.stringify(pdfBody),
       });
       if (!res.ok) throw new Error("pdf error");
       const blob = await res.blob();

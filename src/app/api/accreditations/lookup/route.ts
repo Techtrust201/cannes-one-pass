@@ -36,11 +36,12 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const espace = searchParams.get("espace");
   const idParam = searchParams.get("id")?.trim();
+  const tokenParam = searchParams.get("token")?.trim();
   const plateParam = searchParams.get("plate");
 
-  if (!idParam && !plateParam) {
+  if (!idParam && !tokenParam && !plateParam) {
     return Response.json(
-      { error: "Paramètre requis : id (QR) ou plate (plaque)." },
+      { error: "Paramètre requis : id / token (QR) ou plate (plaque)." },
       { status: 400 }
     );
   }
@@ -61,9 +62,16 @@ export async function GET(req: NextRequest) {
   try {
     let accreditations: AccreditationWithScanRelations[];
 
-    if (idParam) {
+    if (idParam || tokenParam) {
+      // QR : résolution par id d'accréditation (QR officiel / e-mail) OU par
+      // jeton public (QR de demande publique non validée, URL /suivi/{token}).
+      // Le jeton ne confère aucun accès : il permet seulement de retrouver la
+      // demande pour ouvrir le workflow agent (validation/refus).
       const acc = await prisma.accreditation.findFirst({
-        where: { id: idParam, ...eventScope },
+        where: {
+          ...(idParam ? { id: idParam } : { publicToken: tokenParam }),
+          ...eventScope,
+        },
         include: SCAN_SUMMARY_INCLUDE,
       });
       accreditations = acc ? [acc] : [];

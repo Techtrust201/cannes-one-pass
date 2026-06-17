@@ -38,26 +38,13 @@ import AccreditationScanModal, {
   type ScanActionResult,
 } from "@/components/logisticien/AccreditationScanModal";
 import type { AccreditationScanSummary, ScanType } from "@/lib/scan-types";
+import { parseQrPayload } from "@/lib/qr-scan-parse";
 
 const READER_ID = "qr-reader";
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                           */
 /* ------------------------------------------------------------------ */
-
-/** Extrait l'id d'accréditation depuis un QR (JSON {id}, URL ou chemin). */
-function resolveAccreditationId(decoded: string): string | null {
-  const text = decoded.trim();
-  try {
-    const obj = JSON.parse(text);
-    if (obj && typeof obj.id === "string") return obj.id;
-  } catch {
-    /* ignore */
-  }
-  const m = text.match(/\/logisticien\/([^/?#]+)/);
-  if (m && m[1] && m[1] !== "scanner") return m[1];
-  return null;
-}
 
 /** Statut administratif court (séparé de l'état de présence). */
 function adminStatusLabel(status: AccreditationScanSummary["status"]): string {
@@ -248,7 +235,11 @@ function ScannerInner() {
 
   /* ---------- résolution / lookup ---------- */
   const runLookup = useCallback(
-    async (params: { id?: string; plate?: string }, scanType: ScanType, scannedValue: string) => {
+    async (
+      params: { id?: string; token?: string; plate?: string },
+      scanType: ScanType,
+      scannedValue: string
+    ) => {
       if (!zone) {
         pushToast("error", "Sélectionnez d'abord votre zone de poste.");
         return;
@@ -257,6 +248,7 @@ function ScannerInner() {
       try {
         const qs = new URLSearchParams();
         if (params.id) qs.set("id", params.id);
+        if (params.token) qs.set("token", params.token);
         if (params.plate) qs.set("plate", params.plate);
         if (espace) qs.set("espace", espace);
         const res = await fetch(`/api/accreditations/lookup?${qs.toString()}`);
@@ -318,15 +310,18 @@ function ScannerInner() {
 
         const onSuccess = (decodedText: string) => {
           if (handledRef.current) return;
-          const id = resolveAccreditationId(decodedText);
-          if (!id) {
+          // Parser tolérant : QR officiel (id / URL /logisticien) ET QR de
+          // demande publique non validée (token / URL /suivi). Le QR ne donne
+          // aucun accès : il sert uniquement à retrouver la demande.
+          const ref = parseQrPayload(decodedText);
+          if (!ref) {
             setQrError("QR code non reconnu. Présentez un QR d'accréditation.");
             return;
           }
           handledRef.current = true;
           stoppedRef.current = true;
           void safeStopScanner(scanner).finally(() => {
-            void runLookup({ id }, "qr", id);
+            void runLookup(ref, "qr", decodedText);
           });
         };
 

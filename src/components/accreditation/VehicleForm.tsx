@@ -130,6 +130,14 @@ export default function VehicleForm({ data, update, onValidityChange, orgSlug, s
             {t.vehicleType}
             <RequiredMark />
           </label>
+          {/*
+            i18n des gabarits : les libellés (`o.label`) sont des données
+            configurées en base par organisation (multi-tenant). On les affiche
+            tels quels — décision assumée d'« affichage mixte » : ne pas traduire
+            la donnée métier pour ne pas la casser. Les unités (m³, t) sont
+            neutres ; les rares libellés français (Porteur, Semi remorque)
+            restent lisibles dans toutes les langues.
+          */}
           <select
             value={data.size ?? ""}
             onChange={(e) => handleVehicleTypeChange(e.target.value)}

@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { AlertTriangle, X, Eye, ChevronDown, ChevronUp } from "lucide-react";
 import { PortalOverlay } from "@/components/ui/PortalOverlay";
+import { useTranslation } from "@/components/accreditation/TranslationProvider";
+import { duplicateTranslations } from "@/lib/duplicate-translations";
 
 interface DuplicateInfo {
   id: string;
@@ -30,15 +32,6 @@ interface DuplicateAlertProps {
   onCancel: () => void;
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  ATTENTE: "Validée",
-  ENTREE: "Entrée",
-  SORTIE: "Sortie",
-  NOUVEAU: "Nouveau",
-  REFUS: "Refusé",
-  ABSENT: "Absent",
-};
-
 export default function DuplicateAlert({
   company,
   plate,
@@ -47,6 +40,10 @@ export default function DuplicateAlert({
   onConfirm,
   onCancel,
 }: DuplicateAlertProps) {
+  const { lang } = useTranslation();
+  const dt = duplicateTranslations[lang] ?? duplicateTranslations.fr;
+  const STATUS_LABELS = dt.status as Record<string, string>;
+  const localeTag = lang === "en" ? "en-GB" : lang;
   const [duplicates, setDuplicates] = useState<DuplicateInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -94,12 +91,9 @@ export default function DuplicateAlert({
           <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={24} />
           <div className="flex-1">
             <h2 className="text-lg font-bold text-amber-900">
-              Doublon détecté
+              {dt.title}
             </h2>
-            <p className="text-sm text-amber-700 mt-1">
-              Une accréditation avec les mêmes informations existe déjà.
-              Voulez-vous quand même créer cette accréditation ?
-            </p>
+            <p className="text-sm text-amber-700 mt-1">{dt.subtitle}</p>
           </div>
           <button onClick={onCancel} className="text-gray-400 hover:text-gray-600">
             <X size={20} />
@@ -109,7 +103,7 @@ export default function DuplicateAlert({
         {/* Duplicates list */}
         <div className="px-6 py-4 space-y-3">
           <p className="text-xs font-semibold text-gray-500 uppercase">
-            Accréditation{duplicates.length > 1 ? "s" : ""} existante{duplicates.length > 1 ? "s" : ""}
+            {duplicates.length > 1 ? dt.existingMany : dt.existingOne}
           </p>
 
           {duplicates.map((dup) => (
@@ -136,7 +130,7 @@ export default function DuplicateAlert({
                   <div>
                     <p className="text-sm font-semibold text-gray-800">{dup.company}</p>
                     <p className="text-xs text-gray-500">
-                      {dup.event} • {new Date(dup.createdAt).toLocaleDateString("fr-FR")}
+                      {dup.event} • {new Date(dup.createdAt).toLocaleDateString(localeTag)}
                     </p>
                   </div>
                 </div>
@@ -151,15 +145,15 @@ export default function DuplicateAlert({
                 <div className="px-4 pb-3 border-t border-gray-100 bg-gray-50/50">
                   <div className="grid grid-cols-2 gap-3 py-3 text-xs">
                     <div>
-                      <span className="text-gray-500">Stand</span>
+                      <span className="text-gray-500">{dt.stand}</span>
                       <p className="font-semibold text-gray-800">{dup.stand}</p>
                     </div>
                     <div>
-                      <span className="text-gray-500">Zone</span>
+                      <span className="text-gray-500">{dt.zone}</span>
                       <p className="font-semibold text-gray-800">{dup.currentZone || "N/A"}</p>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-500 mb-2">Véhicules :</p>
+                  <p className="text-xs text-gray-500 mb-2">{dt.vehicles}</p>
                   {dup.vehicles.map((v, i) => (
                     <div
                       key={i}
@@ -171,7 +165,7 @@ export default function DuplicateAlert({
                       {v.trailerPlate && (
                         <>
                           <span className="text-gray-400">•</span>
-                          <span className="text-gray-600">Remorque: {v.trailerPlate}</span>
+                          <span className="text-gray-600">{dt.trailer}: {v.trailerPlate}</span>
                         </>
                       )}
                       <span className="text-gray-400">•</span>
@@ -185,7 +179,7 @@ export default function DuplicateAlert({
                     className="inline-flex items-center gap-1 mt-2 text-xs text-[#4F587E] font-semibold hover:underline"
                   >
                     <Eye size={12} />
-                    Voir cette accréditation
+                    {dt.view}
                   </a>
                 </div>
               )}
@@ -199,13 +193,13 @@ export default function DuplicateAlert({
             onClick={onCancel}
             className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-200 transition"
           >
-            Annuler
+            {dt.cancel}
           </button>
           <button
             onClick={onConfirm}
             className="flex-1 px-4 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-semibold hover:bg-amber-600 transition"
           >
-            Créer quand même
+            {dt.createAnyway}
           </button>
         </div>
       </div>

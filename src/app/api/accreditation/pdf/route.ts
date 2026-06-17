@@ -1,12 +1,13 @@
 import { NextRequest } from "next/server";
-import { generatePdfFromIds } from "@/lib/accreditation-pdf-ids";
+import { generateAccreditationPdfBuffer } from "@/lib/accreditation-pdf-ids";
 import { isValidLang, type LangCode } from "@/lib/translations";
 
 /**
  * Source UNIQUE de vérité PDF (cf. Lot 5).
  *
  * Cette route ne sait générer qu'à partir d'identifiants d'accréditation, via
- * `generatePdfFromIds`. L'ancien générateur « legacy » basé sur les données du
+ * la source unique `generateAccreditationPdfBuffer`. L'ancien générateur
+ * « legacy » basé sur les données du
  * formulaire (company/vehicles inline) a été supprimé : il produisait une
  * structure divergente de celle jointe à l'e-mail. Tous les boutons visibles
  * (espace public, logisticien, fiche, renvoi e-mail) créent l'accréditation
@@ -33,13 +34,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { getBaseUrl } = await import("@/lib/base-url");
-    const host = req.headers.get("host") ?? "";
-    const proto = host.includes("localhost")
-      ? "http"
-      : (req.headers.get("x-forwarded-proto") ?? "https");
-    const baseUrl = host ? `${proto}://${host}` : getBaseUrl();
-
     const mode =
       body.mode === "official" || body.mode === "request"
         ? (body.mode as "official" | "request")
@@ -49,14 +43,19 @@ export async function POST(req: NextRequest) {
         ? (body.lang as LangCode)
         : undefined;
 
-    const pdfBytes = await generatePdfFromIds(ids, baseUrl, {
+    // Source unique : baseUrl déterministe (getBaseUrl) côté générateur, afin
+    // que le PDF téléchargé soit BYTE-IDENTIQUE au PDF joint à l'e-mail (même
+    // QR/payload) pour un même id + mode + lang. On n'utilise plus le header
+    // `host`, qui faisait diverger l'hôte encodé dans le QR.
+    const pdfBytes = await generateAccreditationPdfBuffer({
+      ids,
       ...(mode ? { mode } : {}),
       ...(lang ? { lang } : {}),
     });
 
     const filename =
       mode === "official" ? "accreditation.pdf" : "demande-accreditation.pdf";
-    return new Response(Buffer.from(pdfBytes), {
+    return new Response(new Uint8Array(pdfBytes), {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename=${filename}`,

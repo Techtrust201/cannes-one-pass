@@ -132,6 +132,10 @@ export interface T {
   recapStatusPublic?: string;
   /** Valeur affichée quand un champ optionnel est vide. */
   recapNotProvided?: string;
+  /** Libellé court de l'étape récapitulatif (barre de progression). */
+  stepRecap?: string;
+  /** Texte alternatif de l'illustration latérale du wizard. */
+  sideImageAlt?: string;
 
   // Page contact / formulaire ticket support
   support: SupportT;
@@ -221,6 +225,8 @@ const fr: T = {
   recapStatusLabel: "Statut après envoi",
   recapStatusPublic: "Demande à valider — elle sera vérifiée par un agent à votre arrivée.",
   recapNotProvided: "Non renseigné",
+  stepRecap: "Récapitulatif",
+  sideImageAlt: "Illustration",
   support: supportTranslations.fr,
   rx: rxTranslations.fr,
 };
@@ -306,12 +312,16 @@ const en: T = {
   recapStatusLabel: "Status after submission",
   recapStatusPublic: "Request to be approved — it will be checked by an agent on arrival.",
   recapNotProvided: "Not provided",
+  stepRecap: "Summary",
+  sideImageAlt: "Illustration",
   support: supportTranslations.en,
   rx: rxTranslations.en,
 };
 
 const de: T = {
   chooseLang: "Wählen Sie Ihre Sprache",
+  chooseLangSub: "Wählen Sie Ihre Sprache",
+  unknownStep: "Unbekannter Schritt.",
   pageTitle: "Akkreditierungsantrag",
   pageSubtitle: "Folgen Sie den Schritten, um Ihren Antrag zu stellen",
   back: "Zurück",
@@ -346,6 +356,13 @@ const de: T = {
   yourMessage: "Ihre Nachricht",
   writeHere: "Schreiben Sie hier...",
   consent: "Ich stimme der Datenschutzrichtlinie zu",
+  emailLabel: "E-Mail",
+  emailHint: "Um Ihre Zusammenfassung und den QR-Code per E-Mail zu erhalten",
+  emailPlaceholder: "sie@beispiel.de",
+  emailRequiredLabel: "E-Mail des Empfängers",
+  emailRequiredHint:
+    "Erforderlich, um die Zusammenfassung und den QR-Code per E-Mail zu erhalten.",
+  emailRequiredError: "Bitte geben Sie eine gültige E-Mail-Adresse ein.",
   requestSaved: "Antrag gespeichert",
   requestCreated: "Antrag erstellt",
   savedMessage: "Ihr Antrag wurde gespeichert.",
@@ -378,6 +395,8 @@ const de: T = {
   recapStatusLabel: "Status nach dem Senden",
   recapStatusPublic: "Zu genehmigender Antrag — wird bei Ihrer Ankunft von einem Mitarbeiter geprüft.",
   recapNotProvided: "Nicht angegeben",
+  stepRecap: "Zusammenfassung",
+  sideImageAlt: "Illustration",
   beforeSaveNotice:
     "Speichern Sie Ihre Anfrage, um die Zusammenfassung per E-Mail zu erhalten. Die Akkreditierung muss bei Ihrer Ankunft von einem Mitarbeiter bestätigt werden.",
   spamNotice:
@@ -388,6 +407,8 @@ const de: T = {
 
 const es: T = {
   chooseLang: "Elija su idioma",
+  chooseLangSub: "Elija su idioma",
+  unknownStep: "Paso desconocido.",
   pageTitle: "Solicitud de acreditación",
   pageSubtitle: "Siga los pasos para completar su solicitud",
   back: "Volver",
@@ -422,6 +443,13 @@ const es: T = {
   yourMessage: "Su mensaje",
   writeHere: "Escriba aquí...",
   consent: "Acepto la política de privacidad",
+  emailLabel: "Correo electrónico",
+  emailHint: "Para recibir su resumen y el código QR por correo electrónico",
+  emailPlaceholder: "usted@ejemplo.com",
+  emailRequiredLabel: "Correo electrónico del destinatario",
+  emailRequiredHint:
+    "Obligatorio para recibir el resumen y el código QR por correo electrónico.",
+  emailRequiredError: "Introduzca una dirección de correo electrónico válida.",
   requestSaved: "Solicitud guardada",
   requestCreated: "Solicitud creada",
   savedMessage: "Su solicitud ha sido guardada.",
@@ -454,6 +482,8 @@ const es: T = {
   recapStatusLabel: "Estado tras el envío",
   recapStatusPublic: "Solicitud por validar — será verificada por un agente a su llegada.",
   recapNotProvided: "No indicado",
+  stepRecap: "Resumen",
+  sideImageAlt: "Ilustración",
   beforeSaveNotice:
     "Guarde su solicitud para recibir el resumen por correo electrónico. La acreditación deberá ser validada por un agente a su llegada.",
   spamNotice:
@@ -464,6 +494,8 @@ const es: T = {
 
 const pt: T = {
   chooseLang: "Escolha o seu idioma",
+  chooseLangSub: "Escolha o seu idioma",
+  unknownStep: "Passo desconhecido.",
   pageTitle: "Pedido de acreditação",
   pageSubtitle: "Siga os passos para completar o seu pedido",
   back: "Voltar",
@@ -498,6 +530,13 @@ const pt: T = {
   yourMessage: "A sua mensagem",
   writeHere: "Escreva aqui...",
   consent: "Aceito a política de privacidade",
+  emailLabel: "E-mail",
+  emailHint: "Para receber o resumo e o código QR por e-mail",
+  emailPlaceholder: "voce@exemplo.com",
+  emailRequiredLabel: "E-mail do destinatário",
+  emailRequiredHint:
+    "Obrigatório para receber o resumo e o código QR por e-mail.",
+  emailRequiredError: "Introduza um endereço de e-mail válido.",
   requestSaved: "Pedido guardado",
   requestCreated: "Pedido criado",
   savedMessage: "O seu pedido foi guardado.",
@@ -530,6 +569,8 @@ const pt: T = {
   recapStatusLabel: "Estado após o envio",
   recapStatusPublic: "Pedido a validar — será verificado por um agente à sua chegada.",
   recapNotProvided: "Não indicado",
+  stepRecap: "Resumo",
+  sideImageAlt: "Ilustração",
   beforeSaveNotice:
     "Guarde o seu pedido para receber o resumo por e-mail. A acreditação terá de ser validada por um agente à sua chegada.",
   spamNotice:
@@ -540,6 +581,8 @@ const pt: T = {
 
 const it: T = {
   chooseLang: "Scegli la tua lingua",
+  chooseLangSub: "Scegli la tua lingua",
+  unknownStep: "Passo sconosciuto.",
   pageTitle: "Richiesta di accreditamento",
   pageSubtitle: "Segui i passaggi per completare la tua richiesta",
   back: "Indietro",
@@ -574,6 +617,13 @@ const it: T = {
   yourMessage: "Il tuo messaggio",
   writeHere: "Scrivi qui...",
   consent: "Acconsento alla politica sulla privacy",
+  emailLabel: "E-mail",
+  emailHint: "Per ricevere il riepilogo e il codice QR via e-mail",
+  emailPlaceholder: "tu@esempio.com",
+  emailRequiredLabel: "E-mail del destinatario",
+  emailRequiredHint:
+    "Obbligatorio per ricevere il riepilogo e il codice QR via e-mail.",
+  emailRequiredError: "Inserisci un indirizzo e-mail valido.",
   requestSaved: "Richiesta salvata",
   requestCreated: "Richiesta creata",
   savedMessage: "La tua richiesta è stata salvata.",
@@ -606,6 +656,8 @@ const it: T = {
   recapStatusLabel: "Stato dopo l'invio",
   recapStatusPublic: "Richiesta da validare — verrà verificata da un agente al tuo arrivo.",
   recapNotProvided: "Non indicato",
+  stepRecap: "Riepilogo",
+  sideImageAlt: "Illustrazione",
   beforeSaveNotice:
     "Salva la tua richiesta per ricevere il riepilogo via e-mail. L'accredito dovrà essere convalidato da un agente al tuo arrivo.",
   spamNotice:
@@ -616,6 +668,8 @@ const it: T = {
 
 const pl: T = {
   chooseLang: "Wybierz język",
+  chooseLangSub: "Wybierz język",
+  unknownStep: "Nieznany krok.",
   pageTitle: "Wniosek o akredytację",
   pageSubtitle: "Postępuj zgodnie z krokami, aby złożyć wniosek",
   back: "Wstecz",
@@ -650,6 +704,13 @@ const pl: T = {
   yourMessage: "Twoja wiadomość",
   writeHere: "Napisz tutaj...",
   consent: "Wyrażam zgodę na politykę prywatności",
+  emailLabel: "E-mail",
+  emailHint: "Aby otrzymać podsumowanie i kod QR e-mailem",
+  emailPlaceholder: "ty@przyklad.pl",
+  emailRequiredLabel: "E-mail odbiorcy",
+  emailRequiredHint:
+    "Wymagane, aby otrzymać podsumowanie i kod QR e-mailem.",
+  emailRequiredError: "Wprowadź prawidłowy adres e-mail.",
   requestSaved: "Wniosek zapisany",
   requestCreated: "Wniosek utworzony",
   savedMessage: "Twój wniosek został zapisany.",
@@ -682,6 +743,8 @@ const pl: T = {
   recapStatusLabel: "Status po wysłaniu",
   recapStatusPublic: "Zgłoszenie do zatwierdzenia — zostanie sprawdzone przez pracownika po przybyciu.",
   recapNotProvided: "Nie podano",
+  stepRecap: "Podsumowanie",
+  sideImageAlt: "Ilustracja",
   beforeSaveNotice:
     "Zapisz swoje zgłoszenie, aby otrzymać podsumowanie e-mailem. Akredytacja będzie musiała zostać zatwierdzona przez pracownika po przybyciu.",
   spamNotice:
@@ -692,6 +755,8 @@ const pl: T = {
 
 const cs: T = {
   chooseLang: "Vyberte svůj jazyk",
+  chooseLangSub: "Vyberte svůj jazyk",
+  unknownStep: "Neznámý krok.",
   pageTitle: "Žádost o akreditaci",
   pageSubtitle: "Postupujte podle kroků pro podání žádosti",
   back: "Zpět",
@@ -726,6 +791,13 @@ const cs: T = {
   yourMessage: "Vaše zpráva",
   writeHere: "Pište zde...",
   consent: "Souhlasím se zásadami ochrany osobních údajů",
+  emailLabel: "E-mail",
+  emailHint: "Pro obdržení souhrnu a QR kódu e-mailem",
+  emailPlaceholder: "vy@priklad.cz",
+  emailRequiredLabel: "E-mail příjemce",
+  emailRequiredHint:
+    "Povinné pro obdržení souhrnu a QR kódu e-mailem.",
+  emailRequiredError: "Zadejte platnou e-mailovou adresu.",
   requestSaved: "Žádost uložena",
   requestCreated: "Žádost vytvořena",
   savedMessage: "Vaše žádost byla uložena.",
@@ -758,6 +830,8 @@ const cs: T = {
   recapStatusLabel: "Stav po odeslání",
   recapStatusPublic: "Žádost ke schválení — bude zkontrolována pracovníkem při příjezdu.",
   recapNotProvided: "Neuvedeno",
+  stepRecap: "Shrnutí",
+  sideImageAlt: "Ilustrace",
   beforeSaveNotice:
     "Uložte svou žádost, abyste obdrželi souhrn e-mailem. Akreditace bude muset být ověřena pracovníkem při vašem příjezdu.",
   spamNotice:
@@ -768,6 +842,8 @@ const cs: T = {
 
 const lt: T = {
   chooseLang: "Pasirinkite kalbą",
+  chooseLangSub: "Pasirinkite kalbą",
+  unknownStep: "Nežinomas žingsnis.",
   pageTitle: "Akreditacijos prašymas",
   pageSubtitle: "Sekite žingsnius, kad pateiktumėte prašymą",
   back: "Atgal",
@@ -802,6 +878,13 @@ const lt: T = {
   yourMessage: "Jūsų žinutė",
   writeHere: "Rašykite čia...",
   consent: "Sutinku su privatumo politika",
+  emailLabel: "El. paštas",
+  emailHint: "Norėdami gauti santrauką ir QR kodą el. paštu",
+  emailPlaceholder: "jus@pavyzdys.lt",
+  emailRequiredLabel: "Gavėjo el. paštas",
+  emailRequiredHint:
+    "Privaloma, norint gauti santrauką ir QR kodą el. paštu.",
+  emailRequiredError: "Įveskite galiojantį el. pašto adresą.",
   requestSaved: "Prašymas išsaugotas",
   requestCreated: "Prašymas sukurtas",
   savedMessage: "Jūsų prašymas buvo išsaugotas.",
@@ -834,6 +917,8 @@ const lt: T = {
   recapStatusLabel: "Būsena po pateikimo",
   recapStatusPublic: "Užklausa, kurią reikia patvirtinti — ją patikrins darbuotojas atvykus.",
   recapNotProvided: "Nenurodyta",
+  stepRecap: "Santrauka",
+  sideImageAlt: "Iliustracija",
   beforeSaveNotice:
     "Išsaugokite užklausą, kad gautumėte santrauką el. paštu. Akreditaciją turės patvirtinti darbuotojas jums atvykus.",
   spamNotice:
@@ -844,6 +929,8 @@ const lt: T = {
 
 const tr: T = {
   chooseLang: "Dilinizi seçin",
+  chooseLangSub: "Dilinizi seçin",
+  unknownStep: "Bilinmeyen adım.",
   pageTitle: "Akreditasyon talebi",
   pageSubtitle: "Talebinizi tamamlamak için adımları izleyin",
   back: "Geri",
@@ -878,6 +965,13 @@ const tr: T = {
   yourMessage: "Mesajınız",
   writeHere: "Buraya yazın...",
   consent: "Gizlilik politikasını kabul ediyorum",
+  emailLabel: "E-posta",
+  emailHint: "Özet ve QR kodunu e-posta ile almak için",
+  emailPlaceholder: "siz@ornek.com",
+  emailRequiredLabel: "Alıcı e-postası",
+  emailRequiredHint:
+    "Özet ve QR kodunu e-posta ile almak için zorunludur.",
+  emailRequiredError: "Lütfen geçerli bir e-posta adresi girin.",
   requestSaved: "Talep kaydedildi",
   requestCreated: "Talep oluşturuldu",
   savedMessage: "Talebiniz kaydedildi.",
@@ -910,6 +1004,8 @@ const tr: T = {
   recapStatusLabel: "Gönderim sonrası durum",
   recapStatusPublic: "Onaylanacak talep — varışınızda bir görevli tarafından kontrol edilecek.",
   recapNotProvided: "Belirtilmedi",
+  stepRecap: "Özet",
+  sideImageAlt: "İllüstrasyon",
   beforeSaveNotice:
     "Özeti e-posta ile almak için talebinizi kaydedin. Akreditasyonun varışınızda bir görevli tarafından onaylanması gerekir.",
   spamNotice:
@@ -920,6 +1016,8 @@ const tr: T = {
 
 const ru: T = {
   chooseLang: "Выберите язык",
+  chooseLangSub: "Выберите язык",
+  unknownStep: "Неизвестный шаг.",
   pageTitle: "Заявка на аккредитацию",
   pageSubtitle: "Следуйте шагам для подачи заявки",
   back: "Назад",
@@ -954,6 +1052,13 @@ const ru: T = {
   yourMessage: "Ваше сообщение",
   writeHere: "Пишите здесь...",
   consent: "Я согласен с политикой конфиденциальности",
+  emailLabel: "Электронная почта",
+  emailHint: "Чтобы получить сводку и QR-код по электронной почте",
+  emailPlaceholder: "vy@primer.ru",
+  emailRequiredLabel: "E-mail получателя",
+  emailRequiredHint:
+    "Обязательно для получения сводки и QR-кода по электронной почте.",
+  emailRequiredError: "Введите действительный адрес электронной почты.",
   requestSaved: "Заявка сохранена",
   requestCreated: "Заявка создана",
   savedMessage: "Ваша заявка была сохранена.",
@@ -986,6 +1091,8 @@ const ru: T = {
   recapStatusLabel: "Статус после отправки",
   recapStatusPublic: "Заявка на согласование — будет проверена сотрудником по прибытии.",
   recapNotProvided: "Не указано",
+  stepRecap: "Итог",
+  sideImageAlt: "Иллюстрация",
   beforeSaveNotice:
     "Сохраните заявку, чтобы получить сводку по электронной почте. Аккредитация должна быть подтверждена сотрудником по прибытии.",
   spamNotice:

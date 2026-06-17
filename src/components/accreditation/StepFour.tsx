@@ -9,6 +9,8 @@ import { useTranslation } from "@/components/accreditation/TranslationProvider";
 import { PortalOverlay } from "@/components/ui/PortalOverlay";
 import AccreditationRecap from "@/components/accreditation/AccreditationRecap";
 
+type InfoKey = "alreadySaved" | "pdfError";
+
 interface Props {
   data: {
     company: string;
@@ -41,14 +43,15 @@ export default function StepFour({
   const [showDuplicateCheck, setShowDuplicateCheck] = useState(false);
   const [success, setSuccess] = useState(false);
   const [hasSaved, setHasSaved] = useState(false);
-  const [infoMsg, setInfoMsg] = useState("");
+  /** Clé i18n (pas de texte figé) : le message suit la langue courante. */
+  const [infoKey, setInfoKey] = useState<InfoKey | null>(null);
   // ID de l'accréditation créée : permet de télécharger EXACTEMENT le même PDF
   // structuré (source unique) que celui joint à l'e-mail.
   const [savedId, setSavedId] = useState<string | null>(null);
 
   async function handleSave() {
     if (hasSaved) {
-      setInfoMsg(t.alreadySavedNotice);
+      setInfoKey("alreadySaved");
       setShowModal(false);
       return;
     }
@@ -65,7 +68,7 @@ export default function StepFour({
       setSuccess(true);
       setHasSaved(true);
       onHasSavedChange(true);
-      setInfoMsg(t.alreadySavedNotice);
+      setInfoKey(null);
       setTimeout(() => {
         setShowModal(false);
         setSuccess(false);
@@ -85,7 +88,7 @@ export default function StepFour({
     // identique à la pièce jointe de l'e-mail. Le bouton n'est rendu qu'après
     // enregistrement, donc `savedId` est toujours présent ici.
     if (!savedId) {
-      setInfoMsg(t.pdfError);
+      setInfoKey("pdfError");
       return;
     }
     try {
@@ -113,7 +116,7 @@ export default function StepFour({
 
   function handleSaveClick() {
     if (hasSaved) {
-      setInfoMsg(t.alreadySavedNotice);
+      setInfoKey("alreadySaved");
       return;
     }
     // Lancer la vérification de doublons avant d'afficher la modal de confirmation
@@ -171,7 +174,7 @@ export default function StepFour({
             />
           )}
           <h2 className="text-xl font-bold text-gray-800">
-            {hasSaved ? t.requestSaved : t.recapTitle ?? t.requestCreated}
+            {hasSaved ? t.requestSaved : (t.recapTitle ?? t.requestCreated)}
           </h2>
         </div>
 
@@ -186,10 +189,7 @@ export default function StepFour({
               {t.savedMessage2}
             </>
           ) : (
-            <>
-              {t.beforeSaveNotice ??
-                "Enregistrez votre demande pour recevoir le récapitulatif par e-mail. L'accréditation devra être validée par un agent à votre arrivée."}
-            </>
+            t.beforeSaveNotice
           )}
         </div>
 
@@ -197,10 +197,7 @@ export default function StepFour({
         {hasSaved && (
           <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg text-sm font-medium">
             <AlertTriangle size={18} className="shrink-0 mt-0.5 text-blue-500" />
-            <span>
-              {t.spamNotice ??
-                "Si vous ne recevez pas l'e-mail dans les prochaines minutes, pensez à vérifier votre dossier spam / courrier indésirable."}
-            </span>
+            <span>{t.spamNotice}</span>
           </div>
         )}
 
@@ -209,18 +206,17 @@ export default function StepFour({
           <AccreditationRecap
             data={data}
             onEditStep={onEditStep}
-            statusNotice={
-              t.recapStatusPublic ??
-              "Demande à valider — elle sera vérifiée par un agent à votre arrivée."
-            }
+            statusNotice={t.recapStatusPublic}
           />
         )}
 
         {/* Message d'alerte/info */}
-        {infoMsg && (
+        {infoKey && (
           <div className="flex items-center gap-2 bg-orange-50 border-l-4 border-orange-400 text-orange-700 px-4 py-2 rounded text-sm">
             <AlertTriangle size={18} className="shrink-0" />
-            <span>{infoMsg}</span>
+            <span>
+              {infoKey === "alreadySaved" ? t.alreadySavedNotice : t.pdfError}
+            </span>
           </div>
         )}
 

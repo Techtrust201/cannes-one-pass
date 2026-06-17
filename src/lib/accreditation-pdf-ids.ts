@@ -21,6 +21,8 @@ import {
   resolvePdfMode,
   resolvePdfStatusLabel,
 } from "@/lib/accreditation-pdf-modes";
+import { trackingQrPayload, accessQrPayload } from "@/lib/qr-payloads";
+import { getBaseUrl } from "@/lib/base-url";
 
 // Ré-export pour compatibilité des imports existants (la logique pure vit
 // désormais dans accreditation-pdf-modes, testable sans Prisma).
@@ -410,7 +412,7 @@ async function renderAccreditationPage(
   if (isRequest) {
     // Demande : un seul QR de SUIVI (page publique /suivi/{token}), jamais une
     // URL de contrôle d'accès. Ne permet pas l'entrée sur site.
-    const suiviUrl = `${baseUrl}/suivi/${acc.publicToken ?? ""}`;
+    const suiviUrl = trackingQrPayload(baseUrl, acc.publicToken ?? "");
     const qrBuf = await QRCode.toBuffer(suiviUrl, { type: "png" });
     const qrImg = await pdfDoc.embedPng(qrBuf);
     const x = width - 50 - QR_SIZE;
@@ -430,17 +432,17 @@ async function renderAccreditationPage(
   if (!skipMontage) {
     qrDefs.push({
       label: `${pdfT.qrSetup}${livLabel}`,
-      url: `${baseUrl}/logisticien/${acc.id}?phase=livraison`,
+      url: accessQrPayload(baseUrl, acc.id, "livraison"),
     });
   }
   if (!skipDemontage) {
     qrDefs.push({
       label: `${pdfT.qrTeardown}${repLabel}`,
-      url: `${baseUrl}/logisticien/${acc.id}?phase=reprise`,
+      url: accessQrPayload(baseUrl, acc.id, "reprise"),
     });
   }
   if (qrDefs.length === 0) {
-    qrDefs.push({ label: pdfT.qrVehicle, url: `${baseUrl}/logisticien/${acc.id}` });
+    qrDefs.push({ label: pdfT.qrVehicle, url: accessQrPayload(baseUrl, acc.id) });
   }
 
   let qrX = width - 50 - QR_SIZE;
@@ -601,4 +603,32 @@ export async function generatePdfFromIds(
   }
 
   return pdfDoc.save();
+}
+
+/**
+ * SOURCE UNIQUE du PDF d'accréditation (cf. correctif QR/e-mail).
+ *
+ * Toutes les surfaces — téléchargement (route /api/accreditation/pdf),
+ * e-mail de création, e-mail de validation, renvoi e-mail — DOIVENT passer par
+ * cette fonction. Le `baseUrl` est résolu de façon déterministe via
+ * `getBaseUrl()` (jamais le header `host`), garantissant que pour un même
+ * `id` + `mode` + `lang`, le PDF téléchargé et le PDF joint à l'e-mail sont
+ * BYTE-IDENTIQUES (même QR, même payload). Le QR émis est toujours reconnu par
+ * le scanner agent (cf. tests round-trip `qr-payloads`).
+ */
+export async function generateAccreditationPdfBuffer(opts: {
+  /** Identifiant(s) d'accréditation. Accepte un id unique ou une liste. */
+  id?: string;
+  ids?: string[];
+  mode?: "request" | "official";
+  lang?: LangCode;
+  /** Surcharge optionnelle du baseUrl (défaut : getBaseUrl(), recommandé). */
+  baseUrl?: string;
+}): Promise<Buffer> {
+  const ids = opts.ids ?? (opts.id ? [opts.id] : []);
+  const bytes = await generatePdfFromIds(ids, opts.baseUrl ?? getBaseUrl(), {
+    ...(opts.mode ? { mode: opts.mode } : {}),
+    ...(opts.lang ? { lang: opts.lang } : {}),
+  });
+  return Buffer.from(bytes);
 }

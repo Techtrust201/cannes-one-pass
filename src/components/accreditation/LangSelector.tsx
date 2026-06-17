@@ -4,9 +4,13 @@ import { LANGUAGES, type LangCode } from "@/lib/translations";
 import { useTranslation } from "./TranslationProvider";
 import { ChevronDown } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
 export default function LangSelector() {
   const { lang, setLang } = useTranslation();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const current = LANGUAGES.find((l) => l.code === lang) ?? LANGUAGES[0];
@@ -22,6 +26,9 @@ export default function LangSelector() {
   function pick(code: LangCode) {
     setLang(code);
     setOpen(false);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("lang", code);
+    router.replace(`${pathname}?${params.toString()}`);
   }
 
   return (

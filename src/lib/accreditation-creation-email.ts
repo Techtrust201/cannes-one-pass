@@ -17,8 +17,8 @@ import QRCode from "qrcode";
 import { writeHistoryDirect } from "@/lib/history-server";
 import { createEmailSentEntry } from "@/lib/history";
 import { resolveAccreditationSender } from "@/lib/email-sender";
-import { generatePdfFromIds } from "@/lib/accreditation-pdf-ids";
-import { getBaseUrl } from "@/lib/base-url";
+import { generateAccreditationPdfBuffer } from "@/lib/accreditation-pdf-ids";
+import { idQrPayload } from "@/lib/qr-payloads";
 import { isValidLang, type LangCode } from "@/lib/translations";
 
 export type CreationEmailOutcome =
@@ -235,7 +235,7 @@ export async function sendAccreditationCreationEmail(params: {
 
     // QR strictement compatible avec le scanner Lot 1 (resolveAccreditationId
     // lit JSON.parse(text).id) et avec les QR PDF existants.
-    const qrPng = await QRCode.toBuffer(JSON.stringify({ id: acc.id }), {
+    const qrPng = await QRCode.toBuffer(idQrPayload(acc.id), {
       errorCorrectionLevel: "M",
       width: 320,
       margin: 2,
@@ -261,13 +261,16 @@ export async function sendAccreditationCreationEmail(params: {
       const lang: LangCode | undefined = isValidLang(acc.language ?? "")
         ? (acc.language as LangCode)
         : undefined;
-      const pdfBytes = await generatePdfFromIds([acc.id], getBaseUrl(), {
+      // Source unique : MÊME fonction/baseUrl que le téléchargement → PDF
+      // (et QR) byte-identiques.
+      const pdfBuffer = await generateAccreditationPdfBuffer({
+        id: acc.id,
         mode: validated ? "official" : "request",
         ...(lang ? { lang } : {}),
       });
       pdfAttachment = {
         filename: validated ? "accreditation.pdf" : "demande-accreditation.pdf",
-        content: Buffer.from(pdfBytes),
+        content: pdfBuffer,
       };
     } catch (e) {
       console.error("Creation email PDF attachment failed:", e);

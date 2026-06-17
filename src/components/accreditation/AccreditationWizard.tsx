@@ -9,7 +9,7 @@ import {
   TranslationProvider,
   useTranslation,
 } from "@/components/accreditation/TranslationProvider";
-import { LANGUAGES, isValidLang, type LangCode } from "@/lib/translations";
+import { LANGUAGES, isValidLang, type LangCode, type T } from "@/lib/translations";
 import { PalaisStepFourProvider } from "@/templates/accreditation/palais/stepFourContext";
 import { getTemplate } from "@/templates/accreditation/registry";
 import { getRxFlowT } from "@/templates/accreditation/rx/i18n";
@@ -67,7 +67,7 @@ function LanguageSelectionStep({ orgSlug }: { orgSlug: string }) {
         {t.chooseLang}
       </h2>
       <p className="text-gray-500 text-sm mb-8 text-center">
-        {t.chooseLangSub ?? "Choose your language"}
+        {t.chooseLangSub}
       </p>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full max-w-md">
         {LANGUAGES.map((l) => (
@@ -270,15 +270,25 @@ function WizardContent({
       ? buildPalaisStepFourCtx(formData, resetAll, clearForm, setHasSaved, gotoStep)
       : null;
 
-  // Libellés de la progress bar (aria-label). Pour RX, on traduit via le
-  // namespace dédié `t.rx.steps` indexé par id de step ; le Palais conserve ses
-  // libellés statiques (fallback `step.label`).
+  // Libellés de la progress bar (aria-label). RX : namespace `t.rx.steps`.
+  // Palais : clés i18n partagées (plus de labels FR en dur dans steps.tsx).
+  const PALAIS_STEP_KEYS: Record<string, keyof T> = {
+    identification: "identification",
+    vehicle: "recapVehicle",
+    message: "message",
+    recap: "stepRecap",
+  };
+
   const stepLabel = (idx: number) => {
     const def = visibleSteps[idx];
     if (!def) return `Step ${idx + 1}`;
     if (template.slug === "rx") {
       const rxLabel = t.rx.steps[def.id as keyof typeof t.rx.steps];
       if (rxLabel) return rxLabel;
+    }
+    if (template.slug === "palais") {
+      const key = PALAIS_STEP_KEYS[def.id];
+      if (key && t[key]) return String(t[key]);
     }
     return def.label;
   };
@@ -313,7 +323,7 @@ function WizardContent({
             >
               <Image
                 src={template.meta.sideImage}
-                alt="Illustration"
+                alt={t.sideImageAlt ?? "Illustration"}
                 width={1000}
                 height={100}
                 className="object-cover grayscale contrast-125 rounded-lg w-full h-full"
@@ -374,7 +384,7 @@ function WizardContent({
                     )
                   ) : (
                     <p className="text-center text-gray-500">
-                      {t.unknownStep ?? "Étape inconnue."}
+                      {t.unknownStep}
                     </p>
                   )}
                 </div>
@@ -466,10 +476,7 @@ export function AccreditationWizard(props: AccreditationWizardProps) {
     <Suspense
       fallback={
         <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-[#353c52] mx-auto" />
-            <p className="mt-4 text-gray-600">Chargement...</p>
-          </div>
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-[#353c52] mx-auto" />
         </div>
       }
     >

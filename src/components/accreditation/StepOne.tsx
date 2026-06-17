@@ -47,7 +47,7 @@ export default function StepOne({
   const isValid = !!(company && stand && unloading && event);
   useEffect(() => onValidityChange(isValid), [isValid, onValidityChange]);
 
-  const requiredFieldLabel = t.requiredField ?? "Ce champ est obligatoire.";
+  const requiredFieldLabel = t.requiredField!;
   const missingFields: string[] = [];
   if (!company.trim()) missingFields.push(t.decoratorName);
   if (!stand.trim()) missingFields.push(t.standServed);

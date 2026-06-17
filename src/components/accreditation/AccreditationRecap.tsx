@@ -79,8 +79,8 @@ export default function AccreditationRecap({
   const events = useEventOptions();
 
   const v = data.vehicles[0];
-  const notProvided = t.recapNotProvided ?? "Non renseigné";
-  const editLabel = t.recapEdit ?? "Modifier";
+  const notProvided = t.recapNotProvided!;
+  const editLabel = t.recapEdit!;
 
   const eventLabel =
     events.find((e) => e.value === data.event)?.label || data.event || notProvided;
@@ -106,7 +106,7 @@ export default function AccreditationRecap({
       </Section>
 
       <Section
-        title={t.recapVehicle ?? "Véhicule"}
+        title={t.recapVehicle!}
         editLabel={editLabel}
         onEdit={onEditStep ? () => onEditStep(2) : undefined}
       >
@@ -121,12 +121,12 @@ export default function AccreditationRecap({
       </Section>
 
       <Section
-        title={t.recapContact ?? "Contact"}
+        title={t.recapContact!}
         editLabel={editLabel}
         onEdit={onEditStep ? () => onEditStep(3) : undefined}
       >
         <Row
-          label={t.emailRequiredLabel ?? t.emailLabel ?? "E-mail"}
+          label={t.emailRequiredLabel ?? t.emailLabel!}
           value={data.email || notProvided}
         />
         {data.message ? <Row label={t.message} value={data.message} /> : null}
@@ -134,7 +134,7 @@ export default function AccreditationRecap({
 
       <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm">
         <p className="font-semibold text-amber-900">
-          {t.recapStatusLabel ?? "Statut après envoi"}
+          {t.recapStatusLabel}
         </p>
         <p className="text-amber-800 mt-0.5">{statusNotice}</p>
       </div>

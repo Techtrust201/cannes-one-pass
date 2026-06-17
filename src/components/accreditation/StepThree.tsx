@@ -55,13 +55,12 @@ export default function StepThree({
 
   const emailLabel =
     mode === "logisticien"
-      ? "E-mail du destinataire"
-      : (t.emailRequiredLabel ?? t.emailLabel ?? "E-mail");
+      ? (t.emailRequiredLabel ?? t.emailLabel)
+      : (t.emailRequiredLabel ?? t.emailLabel);
   const emailHint =
     mode === "logisticien"
-      ? "Obligatoire pour envoyer automatiquement l'accréditation et le QR code par e-mail."
-      : (t.emailRequiredHint ??
-        "Obligatoire pour recevoir le récapitulatif et le QR code par e-mail.");
+      ? t.emailRequiredHint
+      : t.emailRequiredHint;
   const showEmailError = (emailTouched || showErrors) && !emailValid;
   const showConsentError = showErrors && !consent;
 
@@ -102,13 +101,13 @@ export default function StepThree({
           value={email}
           onChange={(e) => update({ email: e.target.value })}
           onBlur={() => setEmailTouched(true)}
-          placeholder={t.emailPlaceholder ?? "vous@exemple.com"}
+          placeholder={t.emailPlaceholder}
           aria-invalid={showEmailError}
           className={formInputClass(showEmailError)}
         />
         {showEmailError ? (
           <p className="text-xs text-red-500 mt-1 mb-4">
-            {t.emailRequiredError ?? "Veuillez saisir un e-mail valide."}
+            {t.emailRequiredError}
           </p>
         ) : (
           <p className="text-xs text-gray-500 mt-1 mb-4">{emailHint}</p>
@@ -126,7 +125,7 @@ export default function StepThree({
           <RequiredMark />
         </label>
         <FieldError show={showConsentError}>
-          {t.consentRequired ?? t.requiredField ?? "Ce champ est obligatoire."}
+          {t.consentRequired ?? t.requiredField}
         </FieldError>
       </div>
     </div>

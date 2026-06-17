@@ -52,22 +52,22 @@ export async function POST(
       });
     }
 
-    const { getBaseUrl } = await import("@/lib/base-url");
-    const origin = getBaseUrl();
-
-    // Source UNIQUE de vérité : RX comme Palais utilisent le générateur
-    // structuré (générateur legacy supprimé, cf. Lot 5). On demande le mode
-    // « official » ; le garde-fou §3.4b retombe automatiquement en « request »
-    // si l'accréditation n'est pas validée (statut non opérationnel), ce qui
-    // garantit la cohérence bandeau/statut. La langue suit l'accréditation.
-    const { generatePdfFromIds } = await import("@/lib/accreditation-pdf-ids");
+    // Source UNIQUE de vérité : MÊME fonction + MÊME baseUrl (getBaseUrl) que le
+    // téléchargement et l'e-mail de création → PDF/QR byte-identiques. On
+    // demande le mode « official » ; le garde-fou §3.4b retombe automatiquement
+    // en « request » si l'accréditation n'est pas validée (statut non
+    // opérationnel), ce qui garantit la cohérence bandeau/statut. La langue suit
+    // l'accréditation.
+    const { generateAccreditationPdfBuffer } = await import(
+      "@/lib/accreditation-pdf-ids"
+    );
     const { isValidLang } = await import("@/lib/translations");
     const accLang = (acc as { language?: string }).language;
-    const bytes = await generatePdfFromIds([acc.id], origin, {
+    const pdfBuffer = await generateAccreditationPdfBuffer({
+      id: acc.id,
       mode: "official",
       ...(accLang && isValidLang(accLang) ? { lang: accLang } : {}),
     });
-    const pdfBuffer: Buffer = Buffer.from(bytes);
 
     const resend = new Resend(process.env.RESEND_API_KEY!);
     await resend.emails.send({
@@ -75,10 +75,12 @@ export async function POST(
       to: targetEmail,
       subject: "Votre accréditation véhicule",
       html: `<p>Bonjour,<br/>Veuillez trouver ci-joint votre accréditation véhicule pour le Palais des Festivals.<br/>Cordialement,</p>`,
+      // Buffer brut (jamais .toString("base64")) : le SDK Resend encode
+      // lui-même → évite tout double-encodage qui abîmerait le QR.
       attachments: [
         {
           filename: "accreditation.pdf",
-          content: pdfBuffer.toString("base64"),
+          content: pdfBuffer,
         },
       ],
     });

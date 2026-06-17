@@ -43,7 +43,7 @@ export default function VehicleForm({ data, update, onValidityChange, orgSlug, s
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => onValidityChange(!!valid), [valid]);
 
-  const requiredFieldLabel = t.requiredField ?? "Ce champ est obligatoire.";
+  const requiredFieldLabel = t.requiredField!;
   const missingFields: string[] = [];
   if (!(data.plate ?? "").trim()) missingFields.push(t.plate);
   if (!(data.size ?? "").trim()) missingFields.push(t.vehicleType);

@@ -352,6 +352,29 @@ export async function POST(
       }
     });
 
+    // Validation terrain d'une demande publique (NOUVEAU -> ENTREE) : on envoie
+    // la VRAIE accréditation validée par e-mail (PDF officiel, identique au
+    // téléchargement). Non bloquant : l'emaileur ne lève jamais.
+    if (action === "VALIDATE_ENTRY" && result?.ok) {
+      try {
+        const accForEmail = await prisma.accreditation.findUnique({
+          where: { id },
+          select: { email: true },
+        });
+        if (accForEmail?.email) {
+          const { sendAccreditationCreationEmail } = await import(
+            "@/lib/accreditation-creation-email"
+          );
+          await sendAccreditationCreationEmail({
+            accreditationId: id,
+            recipient: accForEmail.email,
+          });
+        }
+      } catch (e) {
+        console.error("Scan validation email failed:", e);
+      }
+    }
+
     return Response.json(result, { status: 200 });
   } catch (error) {
     if (error instanceof Error) {

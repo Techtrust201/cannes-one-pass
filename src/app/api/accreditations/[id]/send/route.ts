@@ -40,7 +40,6 @@ export async function POST(
       include: { vehicles: true, organization: { select: { slug: true } } },
     });
     if (!acc) return new Response("Not found", { status: 404 });
-    const isRx = acc.organization?.slug === "rx";
 
     const targetEmail = email || (acc as { email?: string }).email;
     if (!targetEmail) return new Response("Email manquant", { status: 400 });
@@ -56,37 +55,19 @@ export async function POST(
     const { getBaseUrl } = await import("@/lib/base-url");
     const origin = getBaseUrl();
 
-    let pdfBuffer: Buffer;
-    if (isRx) {
-      // RX : rendu dédié (mode officiel = accréditation d'accès), pas le
-      // layout Palais legacy. L'envoi reste manuel (pas d'emaileur auto).
-      const { generatePdfFromIds } = await import("@/lib/accreditation-pdf-ids");
-      const bytes = await generatePdfFromIds([acc.id], origin, {
-        mode: "official",
-      });
-      pdfBuffer = Buffer.from(bytes);
-    } else {
-      // Palais : chemin historique inchangé.
-      const pdfRes = await fetch(`${origin}/api/accreditation/pdf`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: acc.id,
-          company: acc.company,
-          stand: acc.stand,
-          unloading: acc.unloading,
-          event: acc.event,
-          vehicles: acc.vehicles,
-          message: acc.message ?? "",
-          consent: acc.consent,
-          status: acc.status,
-          entryAt: acc.entryAt?.toISOString(),
-          exitAt: acc.exitAt?.toISOString(),
-        }),
-      });
-      if (!pdfRes.ok) return new Response("PDF error", { status: 500 });
-      pdfBuffer = Buffer.from(await pdfRes.arrayBuffer());
-    }
+    // Source UNIQUE de vérité : RX comme Palais utilisent le générateur
+    // structuré (générateur legacy supprimé, cf. Lot 5). On demande le mode
+    // « official » ; le garde-fou §3.4b retombe automatiquement en « request »
+    // si l'accréditation n'est pas validée (statut non opérationnel), ce qui
+    // garantit la cohérence bandeau/statut. La langue suit l'accréditation.
+    const { generatePdfFromIds } = await import("@/lib/accreditation-pdf-ids");
+    const { isValidLang } = await import("@/lib/translations");
+    const accLang = (acc as { language?: string }).language;
+    const bytes = await generatePdfFromIds([acc.id], origin, {
+      mode: "official",
+      ...(accLang && isValidLang(accLang) ? { lang: accLang } : {}),
+    });
+    const pdfBuffer: Buffer = Buffer.from(bytes);
 
     const resend = new Resend(process.env.RESEND_API_KEY!);
     await resend.emails.send({

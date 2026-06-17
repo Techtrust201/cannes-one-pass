@@ -117,18 +117,21 @@ export default function StepFourLog({
   }
 
   async function downloadPdf() {
+    // Source UNIQUE de vérité : on ne télécharge que le PDF structuré par ID
+    // (identique à la pièce jointe de l'e-mail). Le téléchargement n'est donc
+    // possible qu'une fois l'accréditation créée.
+    if (!createdId) {
+      setInfoMsg(
+        "Enregistrez d'abord l'accréditation pour pouvoir télécharger le PDF."
+      );
+      return;
+    }
     try {
       setLoading(true);
-      // Source unique : une fois l'accréditation créée, on télécharge le PDF
-      // structuré par ID (identique à la pièce jointe de l'e-mail). Avant
-      // création, repli sur le rendu basé sur les données du formulaire.
-      const pdfBody = createdId
-        ? { ids: [createdId], mode: "official" }
-        : { ...data, status: "ATTENTE" };
       const res = await fetch("/api/accreditation/pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(pdfBody),
+        body: JSON.stringify({ ids: [createdId], mode: "official" }),
       });
       if (!res.ok) throw new Error("Erreur génération PDF");
       const blob = await res.blob();
@@ -448,8 +451,13 @@ export default function StepFourLog({
           )}
           <button
             onClick={downloadPdf}
-            disabled={loading}
-            className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-base bg-[#3daaa4] text-white shadow hover:bg-[#319b92] transition-all duration-150 disabled:opacity-60"
+            disabled={loading || !createdId}
+            title={
+              !createdId
+                ? "Enregistrez d'abord l'accréditation"
+                : "Télécharger le PDF de l'accréditation"
+            }
+            className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-base bg-[#3daaa4] text-white shadow hover:bg-[#319b92] transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <Download size={20} />
             {loading ? "Génération…" : "Télécharger l'accréditation"}

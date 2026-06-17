@@ -16,6 +16,15 @@ import {
 import { isValidLang, type LangCode } from "@/lib/translations";
 import { formatSlot } from "@/templates/accreditation/rx/config";
 import type { RxVehicleContext } from "@/lib/rx-vehicle-context";
+import {
+  OFFICIAL_STATUSES,
+  resolvePdfMode,
+  resolvePdfStatusLabel,
+} from "@/lib/accreditation-pdf-modes";
+
+// Ré-export pour compatibilité des imports existants (la logique pure vit
+// désormais dans accreditation-pdf-modes, testable sans Prisma).
+export { OFFICIAL_STATUSES, resolvePdfMode, resolvePdfStatusLabel };
 
 interface RxExtension {
   exhibitor?: { name?: string; stand?: string };
@@ -259,14 +268,17 @@ async function renderAccreditationPage(
     addLabelVal(pdfT.handling, acc.unloading);
   }
 
-  const statusColor: [number, number, number] =
-    acc.status === "ENTREE"
+  // Sécurité : en mode "request" (demande non validée), on N'AFFICHE JAMAIS un
+  // libellé de validation (« VALIDÉE »). Le statut affiché est découplé du
+  // statut brut en base et reste cohérent avec le bandeau « non validée ».
+  const statusColor: [number, number, number] = isRequest
+    ? [0.7, 0.45, 0]
+    : acc.status === "ENTREE"
       ? [0, 0.55, 0.2]
       : acc.status === "SORTIE"
         ? [0.7, 0, 0]
         : [0, 0, 0.6];
-  const statusLabel =
-    pdfT.statusLabels[acc.status] ?? (acc.status || "ATTENTE");
+  const statusLabel = resolvePdfStatusLabel(pdfT, acc.status, mode);
   if (y >= MIN_Y) {
     drawText(page, `${pdfT.status} :`, LABEL_X, y, 12, { color: [0.15, 0.15, 0.15] });
     drawText(page, statusLabel, VALUE_X, y, 12, { color: statusColor });
@@ -444,9 +456,6 @@ async function renderAccreditationPage(
   drawFooterWrapped(noteLines, 52);
 }
 
-/** Statuts opérationnels autorisant un PDF officiel (cf. plan §3.4b). */
-const OFFICIAL_STATUSES = new Set(["ATTENTE", "ENTREE", "SORTIE"]);
-
 export async function generatePdfFromIds(
   ids: string[],
   baseUrl: string,
@@ -562,15 +571,10 @@ export async function generatePdfFromIds(
     const isRx =
       acc.organization?.slug === "rx" ||
       Boolean(parseExtension(acc.extension).exhibitor);
-    // Mode : explicite si fourni, sinon déduit du statut. Garde-fou §3.4b :
-    // 'official' (QR d'accès) n'est produit QUE pour un statut opérationnel
-    // (ATTENTE/ENTREE/SORTIE). Tout autre statut → 'request', même si
-    // 'official' est demandé explicitement.
-    const wantsOfficial =
-      (opts.mode ?? (OFFICIAL_STATUSES.has(acc.status) ? "official" : "request")) ===
-      "official";
-    const mode: "request" | "official" =
-      wantsOfficial && OFFICIAL_STATUSES.has(acc.status) ? "official" : "request";
+    // Mode : explicite si fourni, sinon déduit du statut. Garde-fou §3.4b
+    // appliqué dans resolvePdfMode (jamais 'official' pour un statut non
+    // opérationnel, même si demandé explicitement).
+    const mode = resolvePdfMode(acc.status, opts.mode);
     const zone = acc.currentZone ? zoneByCode.get(acc.currentZone) ?? null : null;
     const accForRender = {
       ...acc,

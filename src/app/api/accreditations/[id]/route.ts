@@ -109,6 +109,11 @@ export async function PATCH(
     }
   }
 
+  // Statut précédent capturé dans la transaction : sert à déclencher l'envoi
+  // de la vraie accréditation validée quand un agent valide une demande
+  // publique (NOUVEAU -> statut validé).
+  let previousStatus: string | null = null;
+
   try {
     await prisma.$transaction(async (tx) => {
       // 1. Lire l'accréditation avec verrouillage optimiste
@@ -117,6 +122,7 @@ export async function PATCH(
         include: { vehicles: true },
       });
       if (!acc) throw new Error("NOT_FOUND");
+      previousStatus = acc.status;
 
       // 2. Vérifier la version (optimistic lock)
       if (version !== undefined && version !== null && acc.version !== version) {
@@ -367,6 +373,28 @@ export async function PATCH(
       where: { id: accreditationId },
       include: { vehicles: true },
     });
+
+    // Validation d'une demande publique par un agent (NOUVEAU -> statut validé) :
+    // on envoie la VRAIE accréditation validée par e-mail (PDF officiel, même
+    // document que le téléchargement). Non bloquant : l'emaileur ne lève jamais
+    // et la réponse de l'API n'est pas affectée en cas d'échec d'envoi.
+    const becameValidated =
+      previousStatus === "NOUVEAU" &&
+      ["ATTENTE", "ENTREE", "SORTIE"].includes(status);
+    const recipientEmail = (accWithVehicles as { email?: string } | null)?.email;
+    if (becameValidated && recipientEmail) {
+      try {
+        const { sendAccreditationCreationEmail } = await import(
+          "@/lib/accreditation-creation-email"
+        );
+        await sendAccreditationCreationEmail({
+          accreditationId,
+          recipient: recipientEmail,
+        });
+      } catch (e) {
+        console.error("Validation email (PATCH) failed:", e);
+      }
+    }
 
     const safeAccWithVehicles = {
       ...accWithVehicles,

@@ -109,6 +109,14 @@ export interface T {
   // Need help (footer)
   needHelp: string;
 
+  // Validation des champs obligatoires (Lot 2)
+  /** Message d'erreur générique sous un champ obligatoire vide. */
+  requiredField?: string;
+  /** Titre du résumé d'erreurs en haut d'étape. */
+  requiredFieldsSummary?: string;
+  /** Erreur du consentement obligatoire. */
+  consentRequired?: string;
+
   // Page contact / formulaire ticket support
   support: SupportT;
 
@@ -187,6 +195,9 @@ const fr: T = {
   saveError: "Impossible d'enregistrer la demande",
   pdfError: "Impossible de télécharger le PDF",
   needHelp: "Besoin d'aide ?",
+  requiredField: "Ce champ est obligatoire.",
+  requiredFieldsSummary: "Veuillez renseigner les champs obligatoires suivants :",
+  consentRequired: "Veuillez accepter la politique de confidentialité.",
   support: supportTranslations.fr,
   rx: rxTranslations.fr,
 };
@@ -262,6 +273,9 @@ const en: T = {
   saveError: "Unable to save the request",
   pdfError: "Unable to download the PDF",
   needHelp: "Need help?",
+  requiredField: "This field is required.",
+  requiredFieldsSummary: "Please fill in the following required fields:",
+  consentRequired: "Please accept the privacy policy.",
   support: supportTranslations.en,
   rx: rxTranslations.en,
 };
@@ -324,6 +338,9 @@ const de: T = {
   saveError: "Antrag konnte nicht gespeichert werden",
   pdfError: "PDF konnte nicht heruntergeladen werden",
   needHelp: "Brauchen Sie Hilfe?",
+  requiredField: "Dieses Feld ist erforderlich.",
+  requiredFieldsSummary: "Bitte füllen Sie die folgenden Pflichtfelder aus:",
+  consentRequired: "Bitte akzeptieren Sie die Datenschutzrichtlinie.",
   support: supportTranslations.de,
   rx: rxTranslations.de,
 };
@@ -386,6 +403,9 @@ const es: T = {
   saveError: "No se pudo guardar la solicitud",
   pdfError: "No se pudo descargar el PDF",
   needHelp: "¿Necesita ayuda?",
+  requiredField: "Este campo es obligatorio.",
+  requiredFieldsSummary: "Por favor, complete los siguientes campos obligatorios:",
+  consentRequired: "Por favor, acepte la política de privacidad.",
   support: supportTranslations.es,
   rx: rxTranslations.es,
 };
@@ -448,6 +468,9 @@ const pt: T = {
   saveError: "Não foi possível guardar o pedido",
   pdfError: "Não foi possível descarregar o PDF",
   needHelp: "Precisa de ajuda?",
+  requiredField: "Este campo é obrigatório.",
+  requiredFieldsSummary: "Por favor, preencha os seguintes campos obrigatórios:",
+  consentRequired: "Por favor, aceite a política de privacidade.",
   support: supportTranslations.pt,
   rx: rxTranslations.pt,
 };
@@ -510,6 +533,9 @@ const it: T = {
   saveError: "Impossibile salvare la richiesta",
   pdfError: "Impossibile scaricare il PDF",
   needHelp: "Hai bisogno di aiuto?",
+  requiredField: "Questo campo è obbligatorio.",
+  requiredFieldsSummary: "Si prega di compilare i seguenti campi obbligatori:",
+  consentRequired: "Si prega di accettare l'informativa sulla privacy.",
   support: supportTranslations.it,
   rx: rxTranslations.it,
 };
@@ -572,6 +598,9 @@ const pl: T = {
   saveError: "Nie udało się zapisać wniosku",
   pdfError: "Nie udało się pobrać PDF",
   needHelp: "Potrzebujesz pomocy?",
+  requiredField: "To pole jest wymagane.",
+  requiredFieldsSummary: "Proszę wypełnić następujące wymagane pola:",
+  consentRequired: "Proszę zaakceptować politykę prywatności.",
   support: supportTranslations.pl,
   rx: rxTranslations.pl,
 };
@@ -634,6 +663,9 @@ const cs: T = {
   saveError: "Žádost se nepodařilo uložit",
   pdfError: "PDF se nepodařilo stáhnout",
   needHelp: "Potřebujete pomoc?",
+  requiredField: "Toto pole je povinné.",
+  requiredFieldsSummary: "Vyplňte prosím následující povinná pole:",
+  consentRequired: "Souhlaste prosím se zásadami ochrany osobních údajů.",
   support: supportTranslations.cs,
   rx: rxTranslations.cs,
 };
@@ -696,6 +728,9 @@ const lt: T = {
   saveError: "Nepavyko išsaugoti prašymo",
   pdfError: "Nepavyko atsisiųsti PDF",
   needHelp: "Reikia pagalbos?",
+  requiredField: "Šis laukas yra privalomas.",
+  requiredFieldsSummary: "Prašome užpildyti šiuos privalomus laukus:",
+  consentRequired: "Prašome sutikti su privatumo politika.",
   support: supportTranslations.lt,
   rx: rxTranslations.lt,
 };
@@ -758,6 +793,9 @@ const tr: T = {
   saveError: "Talep kaydedilemedi",
   pdfError: "PDF indirilemedi",
   needHelp: "Yardıma mı ihtiyacınız var?",
+  requiredField: "Bu alan zorunludur.",
+  requiredFieldsSummary: "Lütfen aşağıdaki zorunlu alanları doldurun:",
+  consentRequired: "Lütfen gizlilik politikasını kabul edin.",
   support: supportTranslations.tr,
   rx: rxTranslations.tr,
 };
@@ -820,6 +858,9 @@ const ru: T = {
   saveError: "Не удалось сохранить заявку",
   pdfError: "Не удалось скачать PDF",
   needHelp: "Нужна помощь?",
+  requiredField: "Это поле обязательно для заполнения.",
+  requiredFieldsSummary: "Пожалуйста, заполните следующие обязательные поля:",
+  consentRequired: "Пожалуйста, примите политику конфиденциальности.",
   support: supportTranslations.ru,
   rx: rxTranslations.ru,
 };

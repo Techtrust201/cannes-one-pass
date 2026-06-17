@@ -136,6 +136,7 @@ function WizardContent({
   );
 
   const [stepValid, setStepValid] = useState(false);
+  const [showErrors, setShowErrors] = useState(false);
   const [hasSaved, setHasSaved] = useState(false);
   const [formData, setFormData] = useState<unknown>(() => template.initialData());
 
@@ -185,6 +186,24 @@ function WizardContent({
     },
     [router, buildStepUrl]
   );
+
+  // Réinitialise l'affichage des erreurs à chaque changement d'étape : on ne
+  // veut pas qu'une étape s'affiche d'emblée « en erreur » avant toute tentative
+  // de validation.
+  useEffect(() => {
+    setShowErrors(false);
+  }, [step]);
+
+  // Action du bouton « Suivant » : si l'étape est valide on avance, sinon on
+  // révèle les erreurs (le bouton n'est jamais bloqué sans explication).
+  const handleNext = useCallback(() => {
+    if (stepValid) {
+      setShowErrors(false);
+      gotoStep(step + 1);
+    } else {
+      setShowErrors(true);
+    }
+  }, [stepValid, gotoStep, step]);
 
   const clearForm = useCallback(() => {
     setFormData(template.initialData());
@@ -236,6 +255,7 @@ function WizardContent({
     data: formData,
     update: (patch) => updateForm(patch),
     onValidityChange: setStepValid,
+    showErrors,
     orgSlug,
     organizationId,
     mode,
@@ -373,9 +393,12 @@ function WizardContent({
 
                   {step < stepCount && (
                     <button
-                      onClick={() => gotoStep(step + 1)}
-                      disabled={!stepValid}
-                      className="px-6 py-2 rounded bg-[#353c52] text-white disabled:opacity-50 hover:bg-primary-dark"
+                      onClick={handleNext}
+                      aria-disabled={!stepValid}
+                      className={cn(
+                        "px-6 py-2 rounded bg-[#353c52] text-white hover:bg-primary-dark transition",
+                        !stepValid && "opacity-60"
+                      )}
                     >
                       {t.next}
                     </button>

@@ -16,7 +16,7 @@ import { useStepFourContext } from "./stepFourContext";
  * la slice `data` adéquate vers le composant historique.
  */
 
-function PalaisStepOne({ data, update, onValidityChange, orgSlug }: StepProps<PalaisFormData>) {
+function PalaisStepOne({ data, update, onValidityChange, orgSlug, showErrors }: StepProps<PalaisFormData>) {
   return (
     <StepOne
       data={data.stepOne}
@@ -25,11 +25,12 @@ function PalaisStepOne({ data, update, onValidityChange, orgSlug }: StepProps<Pa
       }
       onValidityChange={onValidityChange}
       orgSlug={orgSlug}
+      showErrors={showErrors}
     />
   );
 }
 
-function PalaisStepTwo({ data, update, onValidityChange, orgSlug }: StepProps<PalaisFormData>) {
+function PalaisStepTwo({ data, update, onValidityChange, orgSlug, showErrors }: StepProps<PalaisFormData>) {
   return (
     <StepTwo
       data={data.vehicle}
@@ -38,11 +39,12 @@ function PalaisStepTwo({ data, update, onValidityChange, orgSlug }: StepProps<Pa
       }
       onValidityChange={onValidityChange}
       orgSlug={orgSlug}
+      showErrors={showErrors}
     />
   );
 }
 
-function PalaisStepThree({ data, update, onValidityChange }: StepProps<PalaisFormData>) {
+function PalaisStepThree({ data, update, onValidityChange, showErrors }: StepProps<PalaisFormData>) {
   return (
     <StepThree
       data={data.stepThree}
@@ -50,6 +52,7 @@ function PalaisStepThree({ data, update, onValidityChange }: StepProps<PalaisFor
         update({ stepThree: { ...data.stepThree, ...patch } as PalaisFormData["stepThree"] })
       }
       onValidityChange={onValidityChange}
+      showErrors={showErrors}
     />
   );
 }

@@ -11,15 +11,21 @@ import { useVehicleTypes } from "@/hooks/useVehicleTypes";
 import { handleSanitizedPlateInput } from "@/lib/plate-utils";
 import { mapCitySelectToVehicleFields } from "@/lib/city-form-utils";
 import { formInputClass } from "@/lib/form-styles";
+import {
+  FieldError,
+  RequiredFieldsSummary,
+  RequiredMark,
+} from "@/components/accreditation/FormBits";
 
 interface Props {
   data: Vehicle;
   update: (patch: Partial<Vehicle>) => void;
   onValidityChange: (v: boolean) => void;
   orgSlug?: string;
+  showErrors?: boolean;
 }
 
-export default function VehicleForm({ data, update, onValidityChange, orgSlug }: Props) {
+export default function VehicleForm({ data, update, onValidityChange, orgSlug, showErrors = false }: Props) {
   const { t } = useTranslation();
   const { types, loading: typesLoading } = useVehicleTypes(false, orgSlug);
   const plateRef = useRef<HTMLInputElement>(null);
@@ -36,6 +42,16 @@ export default function VehicleForm({ data, update, onValidityChange, orgSlug }:
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => onValidityChange(!!valid), [valid]);
+
+  const requiredFieldLabel = t.requiredField ?? "Ce champ est obligatoire.";
+  const missingFields: string[] = [];
+  if (!(data.plate ?? "").trim()) missingFields.push(t.plate);
+  if (!(data.size ?? "").trim()) missingFields.push(t.vehicleType);
+  if (!(data.phoneNumber ?? "").trim()) missingFields.push(t.driverPhone);
+  if (!(data.date ?? "").trim()) missingFields.push(t.arrivalDate);
+  if (!(data.city ?? "").trim()) missingFields.push(t.departureCity);
+  if (!Array.isArray(data.unloading) || data.unloading.length === 0)
+    missingFields.push(t.unloading);
 
   const handleSanitizedPlateChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>, field: "plate" | "trailerPlate") => {
@@ -70,6 +86,11 @@ export default function VehicleForm({ data, update, onValidityChange, orgSlug }:
 
   return (
     <div className="space-y-6">
+      <RequiredFieldsSummary
+        show={showErrors}
+        title={t.requiredFieldsSummary ?? t.completeAllFields}
+        fields={missingFields}
+      />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-1">
         {/* Plaque */}
         <div>
@@ -82,14 +103,19 @@ export default function VehicleForm({ data, update, onValidityChange, orgSlug }:
               alt="Plaque"
             />{" "}
             {t.plate}
+            <RequiredMark />
           </label>
           <input
             ref={plateRef}
             value={data.plate ?? ""}
             onChange={(e) => handleSanitizedPlateChange(e, "plate")}
             placeholder={t.platePlaceholder}
-            className={formInputClass(!data.plate)}
+            aria-invalid={showErrors && !data.plate}
+            className={formInputClass(showErrors && !data.plate)}
           />
+          <FieldError show={showErrors && !data.plate}>
+            {requiredFieldLabel}
+          </FieldError>
         </div>
         {/* Type de véhicule */}
         <div>
@@ -102,19 +128,24 @@ export default function VehicleForm({ data, update, onValidityChange, orgSlug }:
               alt="Type de véhicule"
             />{" "}
             {t.vehicleType}
+            <RequiredMark />
           </label>
           <select
             value={data.size ?? ""}
             onChange={(e) => handleVehicleTypeChange(e.target.value)}
-            className={formInputClass(!data.size)}
+            aria-invalid={showErrors && !data.size}
+            className={formInputClass(showErrors && !data.size)}
           >
-            <option value="">{typesLoading ? "Chargement..." : t.chooseType}</option>
+            <option value="">{typesLoading ? t.loading : t.chooseType}</option>
             {types.map((o) => (
               <option key={o.code} value={o.code}>
                 {o.label} ({o.tonnageMini}t - {o.tonnageMaxi}t)
               </option>
             ))}
           </select>
+          <FieldError show={showErrors && !data.size}>
+            {requiredFieldLabel}
+          </FieldError>
         </div>
         {/* Plaque de remorque (semi-remorque uniquement, facultatif) */}
         {showTrailerPlate && (
@@ -224,6 +255,7 @@ export default function VehicleForm({ data, update, onValidityChange, orgSlug }:
               alt="N° du conducteur"
             />{" "}
             {t.driverPhone}
+            <RequiredMark />
           </label>
           <PhoneInput
             value={`${data.phoneCode}${data.phoneNumber}`}
@@ -233,9 +265,12 @@ export default function VehicleForm({ data, update, onValidityChange, orgSlug }:
                 phoneNumber: nationalNumber,
               });
             }}
-            error={!data.phoneNumber}
+            error={showErrors && !data.phoneNumber}
             placeholder="612345678"
           />
+          <FieldError show={showErrors && !data.phoneNumber}>
+            {requiredFieldLabel}
+          </FieldError>
         </div>
         {/* Date */}
         <div>
@@ -248,13 +283,18 @@ export default function VehicleForm({ data, update, onValidityChange, orgSlug }:
               alt="Date d'arrivée"
             />{" "}
             {t.arrivalDate}
+            <RequiredMark />
           </label>
           <input
             type="date"
             value={data.date ?? ""}
             onChange={(e) => update({ date: e.target.value })}
-            className={formInputClass(!data.date)}
+            aria-invalid={showErrors && !data.date}
+            className={formInputClass(showErrors && !data.date)}
           />
+          <FieldError show={showErrors && !data.date}>
+            {requiredFieldLabel}
+          </FieldError>
         </div>
         {/* Time */}
         <div>
@@ -300,6 +340,7 @@ export default function VehicleForm({ data, update, onValidityChange, orgSlug }:
               alt="Ville de départ"
             />{" "}
             {t.departureCity}
+            <RequiredMark />
           </label>
           <CityAutocomplete
             value={data.city ?? ""}
@@ -307,14 +348,20 @@ export default function VehicleForm({ data, update, onValidityChange, orgSlug }:
             onCitySelect={(city) => {
               update(mapCitySelectToVehicleFields(city));
             }}
-            className={formInputClass(!data.city)}
+            className={formInputClass(showErrors && !data.city)}
           />
+          <FieldError show={showErrors && !data.city}>
+            {requiredFieldLabel}
+          </FieldError>
         </div>
       </div>
 
       {/* Unloading */}
       <div>
-        <p className="text-sm font-semibold mb-2">{t.unloading}</p>
+        <p className="text-sm font-semibold mb-2">
+          {t.unloading}
+          <RequiredMark />
+        </p>
         <div className="flex gap-6 items-center">
           <label className="inline-flex items-center gap-2 cursor-pointer select-none">
             <Checkbox
@@ -375,6 +422,14 @@ export default function VehicleForm({ data, update, onValidityChange, orgSlug }:
             <span>{t.lateral}</span>
           </label>
         </div>
+        <FieldError
+          show={
+            showErrors &&
+            (!Array.isArray(data.unloading) || data.unloading.length === 0)
+          }
+        >
+          {requiredFieldLabel}
+        </FieldError>
       </div>
     </div>
   );

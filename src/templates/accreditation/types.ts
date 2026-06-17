@@ -25,6 +25,12 @@ export interface StepProps<TData> {
   data: TData;
   update: (patch: Partial<TData>) => void;
   onValidityChange: (valid: boolean) => void;
+  /**
+   * Passe à `true` lorsque l'utilisateur tente de valider l'étape (clic
+   * « Suivant ») alors que des champs obligatoires manquent. Le step affiche
+   * alors les erreurs sous les champs concernés + un résumé en haut d'étape.
+   */
+  showErrors?: boolean;
   /** Slug de l'organisation courante (utile pour scoper les fetches API). */
   orgSlug: TemplateSlug;
   /** ID interne de l'organisation (Organization.id). */

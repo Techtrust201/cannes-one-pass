@@ -7,6 +7,7 @@ import {
   formLabelClass,
   formTextareaClass,
 } from "@/lib/form-styles";
+import { FieldError, RequiredMark } from "@/components/accreditation/FormBits";
 
 interface Data {
   message: string;
@@ -24,6 +25,8 @@ interface Props {
    * les deux cas (source unique de vérité de l'e-mail du flow).
    */
   mode?: "public" | "logisticien";
+  /** Affiche les erreurs des champs obligatoires (après clic « Suivant »). */
+  showErrors?: boolean;
 }
 
 /** Validation e-mail simple : format raisonnable, sans être trop stricte. */
@@ -36,6 +39,7 @@ export default function StepThree({
   update,
   onValidityChange,
   mode = "public",
+  showErrors = false,
 }: Props) {
   const { message, consent } = data;
   const email = data.email ?? "";
@@ -58,7 +62,8 @@ export default function StepThree({
       ? "Obligatoire pour envoyer automatiquement l'accréditation et le QR code par e-mail."
       : (t.emailRequiredHint ??
         "Obligatoire pour recevoir le récapitulatif et le QR code par e-mail.");
-  const showEmailError = emailTouched && !emailValid;
+  const showEmailError = (emailTouched || showErrors) && !emailValid;
+  const showConsentError = showErrors && !consent;
 
   return (
     <div className="flex flex-col w-full">
@@ -114,10 +119,15 @@ export default function StepThree({
             type="checkbox"
             checked={consent}
             onChange={(e) => update({ consent: e.target.checked })}
-            className="accent-primary"
+            className="h-4 w-4 accent-primary"
+            aria-invalid={showConsentError}
           />
           {t.consent}
+          <RequiredMark />
         </label>
+        <FieldError show={showConsentError}>
+          {t.consentRequired ?? t.requiredField ?? "Ce champ est obligatoire."}
+        </FieldError>
       </div>
     </div>
   );

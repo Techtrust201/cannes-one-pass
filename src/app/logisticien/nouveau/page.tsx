@@ -88,6 +88,7 @@ function LogisticienNewContent() {
   const step = Number(searchParams.get("step") ?? "1");
 
   const [stepValid, setStepValid] = useState(false);
+  const [showErrors, setShowErrors] = useState(false);
   const [hasSaved, setHasSaved] = useState(false);
 
   const [formData, setFormData] = useState<FormData>(getDefaultFormData());
@@ -199,7 +200,17 @@ function LogisticienNewContent() {
 
   useEffect(() => {
     setStepValid(false);
+    setShowErrors(false);
   }, [step]);
+
+  function handleNext() {
+    if (stepValid) {
+      setShowErrors(false);
+      gotoStep(step + 1);
+    } else {
+      setShowErrors(true);
+    }
+  }
 
   const prevEspace = useRef<string | null | undefined>(undefined);
   useEffect(() => {
@@ -351,6 +362,7 @@ function LogisticienNewContent() {
                   update={(patch) => updateForm("stepOne", patch)}
                   onValidityChange={setStepValid}
                   orgSlug={espace ?? "palais-des-festivals"}
+                  showErrors={showErrors}
                 />
               )}
               {step === 2 && (
@@ -359,6 +371,7 @@ function LogisticienNewContent() {
                   update={(patch) => updateForm("vehicle", patch)}
                   onValidityChange={setStepValid}
                   orgSlug={espace ?? "palais-des-festivals"}
+                  showErrors={showErrors}
                 />
               )}
               {step === 3 && (
@@ -367,6 +380,7 @@ function LogisticienNewContent() {
                   update={(patch) => updateForm("stepThree", patch)}
                   onValidityChange={setStepValid}
                   mode="logisticien"
+                  showErrors={showErrors}
                 />
               )}
               {step === 4 && (
@@ -397,9 +411,11 @@ function LogisticienNewContent() {
               )}
               {step < 4 && (
                 <button
-                  onClick={() => gotoStep(step + 1)}
-                  disabled={!stepValid}
-                  className="px-6 py-3 rounded-xl bg-[#353c52] text-white text-sm font-medium disabled:opacity-50 hover:bg-[#2a3045] active:bg-[#1f2538] transition min-h-[48px]"
+                  onClick={handleNext}
+                  aria-disabled={!stepValid}
+                  className={`px-6 py-3 rounded-xl bg-[#353c52] text-white text-sm font-medium hover:bg-[#2a3045] active:bg-[#1f2538] transition min-h-[48px] ${
+                    !stepValid ? "opacity-60" : ""
+                  }`}
                 >
                   Suivant
                 </button>

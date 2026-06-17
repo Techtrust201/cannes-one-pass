@@ -15,10 +15,11 @@ const TEL_RE = /^[\d\s\-()]{8,}$/;
  * Coordonnées du responsable logistique du stand. Validation locale au
  * blur (email + téléphone) en plus de la validation de passage d'étape.
  */
-export function StepContactRx({ data, update, onValidityChange }: StepProps<RxFormData>) {
+export function StepContactRx({ data, update, onValidityChange, showErrors }: StepProps<RxFormData>) {
   const { t } = useTranslation();
   const contact = data.stepOne.contact;
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const reveal = (k: string) => touched[k] || showErrors;
 
   const setContact = (patch: Partial<typeof contact>) => {
     update({ stepOne: { ...data.stepOne, contact: { ...contact, ...patch } } });
@@ -58,9 +59,9 @@ export function StepContactRx({ data, update, onValidityChange }: StepProps<RxFo
             onBlur={() => markTouched("lastName")}
             placeholder={t.rx.contact.lastNamePlaceholder}
             autoComplete="family-name"
-            className={formInputClass(touched.lastName && !contact.lastName.trim())}
+            className={formInputClass(reveal("lastName") && !contact.lastName.trim())}
           />
-          {touched.lastName && !contact.lastName.trim() && (
+          {reveal("lastName") && !contact.lastName.trim() && (
             <p className="text-xs text-red-500">{t.rx.contact.required}</p>
           )}
         </div>
@@ -75,9 +76,9 @@ export function StepContactRx({ data, update, onValidityChange }: StepProps<RxFo
             onBlur={() => markTouched("firstName")}
             placeholder={t.rx.contact.firstNamePlaceholder}
             autoComplete="given-name"
-            className={formInputClass(touched.firstName && !contact.firstName.trim())}
+            className={formInputClass(reveal("firstName") && !contact.firstName.trim())}
           />
-          {touched.firstName && !contact.firstName.trim() && (
+          {reveal("firstName") && !contact.firstName.trim() && (
             <p className="text-xs text-red-500">{t.rx.contact.required}</p>
           )}
         </div>
@@ -93,9 +94,9 @@ export function StepContactRx({ data, update, onValidityChange }: StepProps<RxFo
             onBlur={() => markTouched("email")}
             placeholder={t.rx.contact.emailPlaceholder}
             autoComplete="email"
-            className={formInputClass(touched.email && !emailOk)}
+            className={formInputClass(reveal("email") && !emailOk)}
           />
-          {touched.email && !emailOk && (
+          {reveal("email") && !emailOk && (
             <p className="text-xs text-red-500">{t.rx.contact.invalidEmail}</p>
           )}
         </div>
@@ -125,10 +126,10 @@ export function StepContactRx({ data, update, onValidityChange }: StepProps<RxFo
               onBlur={() => markTouched("tel")}
               placeholder={t.rx.contact.phonePlaceholder}
               autoComplete="tel"
-              className={formInputClass(touched.tel && !telOk, "w-auto flex-1 min-w-0")}
+              className={formInputClass(reveal("tel") && !telOk, "w-auto flex-1 min-w-0")}
             />
           </div>
-          {touched.tel && !telOk && (
+          {reveal("tel") && !telOk && (
             <p className="text-xs text-red-500">{t.rx.contact.invalidPhone}</p>
           )}
         </div>

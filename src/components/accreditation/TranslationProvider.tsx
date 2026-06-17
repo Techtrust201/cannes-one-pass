@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
 import { type LangCode, type T, getTranslations, isValidLang } from "@/lib/translations";
+import { safeGetItem, safeSetItem } from "@/lib/safe-storage";
 
 interface TranslationCtx {
   lang: LangCode;
@@ -15,10 +16,11 @@ const LS_KEY = "acc_lang";
 
 function detectLang(urlLang: string | null): LangCode {
   if (urlLang && isValidLang(urlLang)) return urlLang;
-  if (typeof window !== "undefined") {
-    const stored = localStorage.getItem(LS_KEY);
-    if (stored && isValidLang(stored)) return stored;
-  }
+  // Accès tolérant : sur certains mobiles, lire le storage peut lever une
+  // exception (cf. safe-storage). On ne doit jamais crasher ici car ce code
+  // tourne dans l'initialiseur useState (au premier rendu).
+  const stored = safeGetItem(LS_KEY);
+  if (stored && isValidLang(stored)) return stored;
   return "fr";
 }
 
@@ -50,13 +52,13 @@ export function TranslationProvider({
     (code: LangCode) => {
       if (forcedLang) return;
       setLangState(code);
-      localStorage.setItem(LS_KEY, code);
+      safeSetItem(LS_KEY, code);
     },
     [forcedLang]
   );
 
   useEffect(() => {
-    if (!forcedLang) localStorage.setItem(LS_KEY, lang);
+    if (!forcedLang) safeSetItem(LS_KEY, lang);
   }, [lang, forcedLang]);
 
   const effectiveLang = forcedLang ?? lang;

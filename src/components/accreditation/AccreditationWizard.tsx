@@ -10,6 +10,7 @@ import {
   useTranslation,
 } from "@/components/accreditation/TranslationProvider";
 import { LANGUAGES, isValidLang, type LangCode, type T } from "@/lib/translations";
+import { safeGetItem, safeSetItem, safeRemoveItem } from "@/lib/safe-storage";
 import { PalaisStepFourProvider } from "@/templates/accreditation/palais/stepFourContext";
 import { getTemplate } from "@/templates/accreditation/registry";
 import { getRxFlowT } from "@/templates/accreditation/rx/i18n";
@@ -148,8 +149,7 @@ function WizardContent({
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const saved = window.localStorage.getItem(storageKey);
+    const saved = safeGetItem(storageKey);
     if (saved) {
       try {
         setFormData(JSON.parse(saved));
@@ -160,8 +160,7 @@ function WizardContent({
   }, [storageKey]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(storageKey, JSON.stringify(formData));
+    safeSetItem(storageKey, JSON.stringify(formData));
   }, [formData, storageKey]);
 
   // NB : on ne réinitialise PLUS `stepValid` au changement d'étape. Chaque
@@ -173,8 +172,7 @@ function WizardContent({
   useEffect(() => {
     // Auto-langue uniquement en public (le logisticien n'a pas d'étape langue).
     if (isLogisticien || hasLang) return;
-    const stored =
-      typeof window !== "undefined" ? window.localStorage.getItem("acc_lang") : null;
+    const stored = safeGetItem("acc_lang");
     if (stored && isValidLang(stored)) {
       router.replace(`/accreditation/${orgSlug}?step=1&lang=${stored}`);
     }
@@ -207,9 +205,7 @@ function WizardContent({
 
   const clearForm = useCallback(() => {
     setFormData(template.initialData());
-    if (typeof window !== "undefined") {
-      window.localStorage.removeItem(storageKey);
-    }
+    safeRemoveItem(storageKey);
     setHasSaved(false);
   }, [storageKey, template]);
 
@@ -246,9 +242,7 @@ function WizardContent({
   }, [step, stepCount, gotoStep]);
 
   const clearDraft = useCallback(() => {
-    if (typeof window !== "undefined") {
-      window.localStorage.removeItem(storageKey);
-    }
+    safeRemoveItem(storageKey);
   }, [storageKey]);
 
   const stepProps: StepProps<unknown> = {

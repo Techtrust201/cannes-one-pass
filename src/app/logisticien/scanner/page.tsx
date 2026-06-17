@@ -707,6 +707,23 @@ function ScannerInner() {
     [zone, plateInput, pushToast, closeSuggestions]
   );
 
+  // Action unifiée du bouton « Rechercher » et de la touche Entrée.
+  // Règle terrain : si des suggestions existent, on ouvre la meilleure plutôt
+  // que de lancer un lookup exact qui afficherait « Aucune accréditation … »
+  // de façon trompeuse alors qu'un résultat est visible juste en dessous.
+  function handlePlateSearchAction() {
+    const list = suggestions ?? [];
+    if (list.length) {
+      selectSummary(list[activeIndex >= 0 ? activeIndex : 0]);
+      return;
+    }
+    // Une recherche dynamique a déjà tourné sans résultat (≥ 2 caractères) :
+    // le message discret « Aucune plaque trouvée » suffit, pas de lookup exact.
+    if (suggestions !== null) return;
+    // Saisie trop courte pour la recherche dynamique → repli lookup exact.
+    searchPlate();
+  }
+
   function onPlateKeyDown(e: ReactKeyboardEvent<HTMLInputElement>) {
     const list = suggestions ?? [];
     if (e.key === "ArrowDown") {
@@ -717,8 +734,7 @@ function ScannerInner() {
       if (list.length) setActiveIndex((i) => Math.max(i - 1, 0));
     } else if (e.key === "Enter") {
       e.preventDefault();
-      if (list.length) selectSummary(list[activeIndex >= 0 ? activeIndex : 0]);
-      else searchPlate(); // fallback recherche exacte
+      handlePlateSearchAction();
     } else if (e.key === "Escape") {
       closeSuggestions();
     }
@@ -994,12 +1010,31 @@ function ScannerInner() {
                     )}
                   </div>
                   <button
-                    onClick={searchPlate}
-                    disabled={!zone || !plateInput.trim()}
+                    onClick={handlePlateSearchAction}
+                    disabled={
+                      !zone ||
+                      !plateInput.trim() ||
+                      // Recherche dynamique terminée sans résultat : bouton inactif
+                      // (le message « Aucune plaque trouvée » est affiché).
+                      (!searching &&
+                        suggestions !== null &&
+                        suggestions.length === 0)
+                    }
                     className="px-4 rounded-xl bg-[#4F587E] text-white text-sm font-semibold hover:bg-[#3B4252] transition disabled:opacity-50 inline-flex items-center gap-1.5 shrink-0"
                   >
-                    <Search size={15} />
-                    <span className="hidden sm:inline">Rechercher</span>
+                    {suggestions && suggestions.length > 0 ? (
+                      <>
+                        <ExternalLink size={15} />
+                        <span className="hidden sm:inline">
+                          Ouvrir le résultat
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Search size={15} />
+                        <span className="hidden sm:inline">Rechercher</span>
+                      </>
+                    )}
                   </button>
                 </div>
 

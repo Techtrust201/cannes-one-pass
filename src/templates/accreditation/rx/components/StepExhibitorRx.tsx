@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { formInputClass, formLabelClass } from "@/lib/form-styles";
 import { AnchoredDropdown } from "@/components/ui/AnchoredDropdown";
 import EventCarouselSelector from "@/components/accreditation/EventCarouselSelector";
 import { useTranslation } from "@/components/accreditation/TranslationProvider";
@@ -192,7 +193,7 @@ export function StepExhibitorRx({
 
       {/* Combobox exposant recherchable */}
       <div className="space-y-1">
-        <label htmlFor="rx-exhibitor" className="text-sm font-semibold text-gray-700">
+        <label htmlFor="rx-exhibitor" className={formLabelClass}>
           {t.rx.exhibitor.label} <span className="text-red-500">*</span>
         </label>
         <div className="relative" ref={anchorRef}>
@@ -210,8 +211,8 @@ export function StepExhibitorRx({
             }}
             disabled={!stepOne.event || loadingExhibitors}
             className={cn(
-              "w-full rounded-md px-3 py-2 pr-9 shadow-sm focus:ring-primary focus:border-primary text-base sm:text-sm",
-              !stepOne.exhibitorId ? "border-gray-300" : "border-green-400 bg-green-50/40"
+              formInputClass(false, "pr-9"),
+              stepOne.exhibitorId && "border-green-500 bg-green-50/40"
             )}
           />
           {query && (

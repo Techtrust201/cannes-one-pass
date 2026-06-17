@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle, AlertTriangle, Loader2, Download } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { formInputClass } from "@/lib/form-styles";
 import { useTranslation } from "@/components/accreditation/TranslationProvider";
 import { PortalOverlay } from "@/components/ui/PortalOverlay";
 import { useUnloadingProviders } from "@/hooks/useUnloadingProviders";
@@ -412,7 +412,7 @@ export function StepManutentionRx({
           onChange={(e) =>
             update({ stepThree: { ...stepThree, manutentionProvider: e.target.value } })
           }
-          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+          className={formInputClass(false)}
         >
           <option value="">{t.rx.manutention.chooseProvider}</option>
           {manutentionOptions.map((p) => (
@@ -437,11 +437,8 @@ export function StepManutentionRx({
                 })
               }
               placeholder={otherT.otherProviderPlaceholder}
-              className={cn(
-                "w-full border rounded-md px-3 py-2 text-sm",
+              className={formInputClass(
                 !stepThree.manutentionProviderOther?.trim()
-                  ? "border-red-400"
-                  : "border-gray-300"
               )}
             />
             {!stepThree.manutentionProviderOther?.trim() && (

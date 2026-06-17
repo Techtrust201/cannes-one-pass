@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
+import { formInputCompactClass } from "@/lib/form-styles";
 import { handleSanitizedPlateInput } from "@/lib/plate-utils";
 import { mapCitySelectToVehicleFields } from "@/lib/city-form-utils";
 import CityAutocomplete from "@/components/CityAutocomplete";
@@ -312,10 +313,7 @@ export function StepDeliveryRx({
                         onChange={(e) =>
                           patchCategory(cat.id, { livDate: e.target.value, livTime: "" })
                         }
-                        className={cn(
-                          "w-full border rounded-md px-2 py-1.5 text-sm",
-                          !selected.livDate && "border-red-400"
-                        )}
+                        className={formInputCompactClass(!selected.livDate)}
                       >
                         <option value="">{t.rx.delivery.chooseDate}</option>
                         {Object.keys(cat.liv).map((date) => (
@@ -333,9 +331,8 @@ export function StepDeliveryRx({
                         value={selected.livTime}
                         disabled={!selected.livDate}
                         onChange={(e) => patchCategory(cat.id, { livTime: e.target.value })}
-                        className={cn(
-                          "w-full border rounded-md px-2 py-1.5 text-sm disabled:bg-gray-100 disabled:text-gray-400",
-                          selected.livDate && !selected.livTime && "border-red-400"
+                        className={formInputCompactClass(
+                          Boolean(selected.livDate && !selected.livTime)
                         )}
                       >
                         <option value="">
@@ -392,7 +389,7 @@ export function StepDeliveryRx({
                               })
                             }
                             placeholder={t.rx.delivery.interveningPlaceholder}
-                            className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm"
+                            className={formInputCompactClass(false)}
                           />
                         </div>
                         <div>
@@ -405,10 +402,7 @@ export function StepDeliveryRx({
                               updateVehicle(cat.id, idx, { vehicleType: e.target.value })
                             }
                             disabled={typesLoading || vehicleTypes.length === 0}
-                            className={cn(
-                              "w-full border rounded-md px-2 py-1.5 text-sm disabled:bg-gray-100 disabled:text-gray-400",
-                              !v.vehicleType && "border-red-400"
-                            )}
+                            className={formInputCompactClass(!v.vehicleType)}
                           >
                             <option value="">{t.rx.delivery.choose}</option>
                             {vehicleTypes.map((vt) => (
@@ -437,7 +431,7 @@ export function StepDeliveryRx({
                               )
                             }
                             placeholder="AA123BB"
-                            className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm uppercase"
+                            className={formInputCompactClass(false, "uppercase")}
                           />
                         </div>
                         <div className="sm:col-span-3">
@@ -450,7 +444,7 @@ export function StepDeliveryRx({
                             onCitySelect={(city) =>
                               updateVehicle(cat.id, idx, mapCitySelectToVehicleFields(city))
                             }
-                            className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm shadow-sm focus:ring-primary focus:border-primary"
+                            className={formInputCompactClass(false)}
                           />
                         </div>
                         {selected.vehicles.length > 1 ? (

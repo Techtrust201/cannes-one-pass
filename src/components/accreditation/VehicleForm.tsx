@@ -10,6 +10,7 @@ import { useTranslation } from "@/components/accreditation/TranslationProvider";
 import { useVehicleTypes } from "@/hooks/useVehicleTypes";
 import { handleSanitizedPlateInput } from "@/lib/plate-utils";
 import { mapCitySelectToVehicleFields } from "@/lib/city-form-utils";
+import { formInputClass } from "@/lib/form-styles";
 
 interface Props {
   data: Vehicle;
@@ -87,9 +88,7 @@ export default function VehicleForm({ data, update, onValidityChange, orgSlug }:
             value={data.plate ?? ""}
             onChange={(e) => handleSanitizedPlateChange(e, "plate")}
             placeholder={t.platePlaceholder}
-            className={`w-full rounded-md px-3 py-1.5 text-sm shadow-sm focus:ring-primary focus:border-primary ${
-              !data.plate ? "border-red-500" : "border-gray-300"
-            }`}
+            className={formInputClass(!data.plate)}
           />
         </div>
         {/* Type de véhicule */}
@@ -107,9 +106,7 @@ export default function VehicleForm({ data, update, onValidityChange, orgSlug }:
           <select
             value={data.size ?? ""}
             onChange={(e) => handleVehicleTypeChange(e.target.value)}
-            className={`w-full rounded-md px-3 py-1.5 text-sm shadow-sm bg-white focus:ring-primary focus:border-primary ${
-              !data.size ? "border-red-500" : "border-gray-300"
-            }`}
+            className={formInputClass(!data.size)}
           >
             <option value="">{typesLoading ? "Chargement..." : t.chooseType}</option>
             {types.map((o) => (
@@ -138,7 +135,7 @@ export default function VehicleForm({ data, update, onValidityChange, orgSlug }:
               value={data.trailerPlate ?? ""}
               onChange={(e) => handleSanitizedPlateChange(e, "trailerPlate")}
               placeholder="XX456ZZ"
-              className="w-full rounded-md px-3 py-1.5 text-sm shadow-sm focus:ring-primary focus:border-primary border-gray-300"
+              className={formInputClass(false)}
             />
           </div>
         )}
@@ -256,9 +253,7 @@ export default function VehicleForm({ data, update, onValidityChange, orgSlug }:
             type="date"
             value={data.date ?? ""}
             onChange={(e) => update({ date: e.target.value })}
-            className={`w-full rounded-md px-3 py-1.5 text-sm shadow-sm focus:ring-primary focus:border-primary ${
-              !data.date ? "border-red-500" : "border-gray-300"
-            }`}
+            className={formInputClass(!data.date)}
           />
         </div>
         {/* Time */}
@@ -279,7 +274,7 @@ export default function VehicleForm({ data, update, onValidityChange, orgSlug }:
           <select
             value={data.time}
             onChange={(e) => update({ time: e.target.value })}
-            className="w-full rounded-md px-3 py-1.5 text-sm shadow-sm bg-white border-gray-300 focus:ring-primary focus:border-primary"
+            className={formInputClass(false)}
           >
             <option value="">--:--</option>
             {Array.from({ length: 48 }).map((_, i) => {
@@ -312,9 +307,7 @@ export default function VehicleForm({ data, update, onValidityChange, orgSlug }:
             onCitySelect={(city) => {
               update(mapCitySelectToVehicleFields(city));
             }}
-            className={`w-full rounded-md px-3 py-1.5 text-sm shadow-sm focus:ring-primary focus:border-primary ${
-              !data.city ? "border-red-500" : "border-gray-300"
-            }`}
+            className={formInputClass(!data.city)}
           />
         </div>
       </div>

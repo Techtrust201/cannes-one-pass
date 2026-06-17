@@ -361,7 +361,7 @@ export default function StepFourLog({
             id="zoneSelect"
             value={selectedZone}
             onChange={(e) => setSelectedZone(e.target.value)}
-            className="h-11 rounded-xl border border-gray-300 px-3 text-sm font-medium focus:ring-2 focus:ring-[#4F587E] focus:border-[#4F587E] transition bg-white"
+            className="h-11 rounded-xl border border-gray-400 px-3 text-base font-medium focus:ring-2 focus:ring-[#4F587E] focus:border-[#4F587E] transition bg-white"
             disabled={hasSaved}
           >
             <option value="">-- Choisir une zone --</option>

@@ -2,6 +2,11 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useTranslation } from "@/components/accreditation/TranslationProvider";
+import {
+  formInputClass,
+  formLabelClass,
+  formTextareaClass,
+} from "@/lib/form-styles";
 
 interface Data {
   message: string;
@@ -70,7 +75,7 @@ export default function StepThree({
         </div>
         <p className="text-sm text-gray-600 mb-4">&bull; {t.optional}</p>
 
-        <label htmlFor="msg" className="text-sm font-medium block mb-1">
+        <label htmlFor="msg" className={`${formLabelClass} mb-1`}>
           {t.yourMessage}
         </label>
         <textarea
@@ -79,10 +84,10 @@ export default function StepThree({
           value={message}
           onChange={(e) => update({ message: e.target.value })}
           placeholder={t.writeHere}
-          className="w-full border border-[#C6C6C6] rounded-md px-3 py-2 focus:ring-primary focus:border-primary mb-4"
+          className={formTextareaClass(false, "mb-4")}
         />
 
-        <label htmlFor="email" className="text-sm font-medium block mb-1">
+        <label htmlFor="email" className={`${formLabelClass} mb-1`}>
           {emailLabel} <span className="text-red-500">*</span>
         </label>
         <input
@@ -94,9 +99,7 @@ export default function StepThree({
           onBlur={() => setEmailTouched(true)}
           placeholder={t.emailPlaceholder ?? "vous@exemple.com"}
           aria-invalid={showEmailError}
-          className={`w-full border rounded-md px-3 py-2 focus:ring-primary focus:border-primary ${
-            showEmailError ? "border-red-400" : "border-[#C6C6C6]"
-          }`}
+          className={formInputClass(showEmailError)}
         />
         {showEmailError ? (
           <p className="text-xs text-red-500 mt-1 mb-4">

@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { formInputCompactClass } from "@/lib/form-styles";
 import { sanitizeLocalPhoneNumber } from "@/lib/phone-input-utils";
 import { handleSanitizedPlateInput } from "@/lib/plate-utils";
 import { mapCitySelectToVehicleFields } from "@/lib/city-form-utils";
@@ -325,10 +326,7 @@ export function StepPickupRx({
                           onChange={(e) =>
                             patchReturn(cat.id, { repDate: e.target.value, repTime: "" })
                           }
-                          className={cn(
-                            "w-full border rounded-md px-2 py-1.5 text-sm",
-                            !selected.repDate && "border-red-400"
-                          )}
+                          className={formInputCompactClass(!selected.repDate)}
                         >
                           <option value="">{t.rx.pickup.chooseDate}</option>
                           {Object.keys(cat.rep).map((date) => (
@@ -346,9 +344,8 @@ export function StepPickupRx({
                           value={selected.repTime}
                           disabled={!selected.repDate}
                           onChange={(e) => patchReturn(cat.id, { repTime: e.target.value })}
-                          className={cn(
-                            "w-full border rounded-md px-2 py-1.5 text-sm disabled:bg-gray-100 disabled:text-gray-400",
-                            selected.repDate && !selected.repTime && "border-red-400"
+                          className={formInputCompactClass(
+                            Boolean(selected.repDate && !selected.repTime)
                           )}
                         >
                           <option value="">
@@ -395,7 +392,7 @@ export function StepPickupRx({
                                 updateVehicle(cat.id, idx, { interveningCompany: e.target.value })
                               }
                               placeholder={t.rx.delivery.interveningPlaceholder}
-                              className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm"
+                              className={formInputCompactClass(false)}
                             />
                           </div>
                           <div>
@@ -408,10 +405,7 @@ export function StepPickupRx({
                                 updateVehicle(cat.id, idx, { vehicleType: e.target.value })
                               }
                               disabled={typesLoading || vehicleTypes.length === 0}
-                              className={cn(
-                                "w-full border rounded-md px-2 py-1.5 text-sm disabled:bg-gray-100 disabled:text-gray-400",
-                                !v.vehicleType && "border-red-400"
-                              )}
+                              className={formInputCompactClass(!v.vehicleType)}
                             >
                               <option value="">{t.rx.delivery.choose}</option>
                               {vehicleTypes.map((vt) => (
@@ -438,7 +432,7 @@ export function StepPickupRx({
                                 )
                               }
                               placeholder="AA123BB"
-                              className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm uppercase"
+                              className={formInputCompactClass(false, "uppercase")}
                             />
                           </div>
                           <div className="sm:col-span-3">
@@ -451,7 +445,7 @@ export function StepPickupRx({
                               onCitySelect={(city) =>
                                 updateVehicle(cat.id, idx, mapCitySelectToVehicleFields(city))
                               }
-                              className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm shadow-sm focus:ring-primary focus:border-primary"
+                              className={formInputCompactClass(false)}
                             />
                           </div>
                           {selected.vehicles.length > 1 ? (
@@ -547,10 +541,7 @@ export function StepPickupRx({
                         repTime: "",
                       })
                     }
-                    className={cn(
-                      "w-full border rounded-md px-2 py-1.5 text-sm",
-                      !cat.repDate && "border-red-400"
-                    )}
+                    className={formInputCompactClass(!cat.repDate)}
                   >
                     <option value="">{t.rx.pickup.chooseDate}</option>
                     {Object.keys(def.rep).map((date) => (
@@ -570,9 +561,8 @@ export function StepPickupRx({
                     onChange={(e) =>
                       patchReturn(cat.categoryId, { repTime: e.target.value })
                     }
-                    className={cn(
-                      "w-full border rounded-md px-2 py-1.5 text-sm disabled:bg-gray-100 disabled:text-gray-400",
-                      cat.repDate && !cat.repTime && "border-red-400"
+                    className={formInputCompactClass(
+                      Boolean(cat.repDate && !cat.repTime)
                     )}
                   >
                     <option value="">
@@ -631,10 +621,7 @@ export function StepPickupRx({
                                 })
                               }
                               disabled={typesLoading || vehicleTypes.length === 0}
-                              className={cn(
-                                "w-full border rounded-md px-2 py-1.5 text-sm disabled:bg-gray-100",
-                                !v.repVehicleType && "border-red-400"
-                              )}
+                              className={formInputCompactClass(!v.repVehicleType)}
                             >
                               <option value="">{t.rx.pickup.choose}</option>
                               {vehicleTypes.map((vt) => (
@@ -663,7 +650,7 @@ export function StepPickupRx({
                                 )
                               }
                               placeholder="AA123BB"
-                              className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm uppercase"
+                              className={formInputCompactClass(false, "uppercase")}
                             />
                           </div>
                           <div className="sm:col-span-2">
@@ -679,7 +666,7 @@ export function StepPickupRx({
                                     repPhoneCode: e.target.value,
                                   })
                                 }
-                                className="w-20 border border-gray-300 rounded-md px-2 py-1.5 text-sm"
+                                className={formInputCompactClass(false, "w-20")}
                                 placeholder={t.rx.contact.phoneCodePlaceholder}
                               />
                               <input
@@ -695,9 +682,9 @@ export function StepPickupRx({
                                     ),
                                   });
                                 }}
-                                className={cn(
-                                  "flex-1 border rounded-md px-2 py-1.5 text-sm",
-                                  !v.repPhoneNumber?.trim() && "border-red-400"
+                                className={formInputCompactClass(
+                                  !v.repPhoneNumber?.trim(),
+                                  "w-auto flex-1 min-w-0"
                                 )}
                                 placeholder={t.rx.contact.phonePlaceholder}
                               />
@@ -715,7 +702,7 @@ export function StepPickupRx({
                                 })
                               }
                               placeholder={t.rx.delivery.interveningPlaceholder}
-                              className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm"
+                              className={formInputCompactClass(false)}
                             />
                           </div>
                           <div className="sm:col-span-2">
@@ -735,7 +722,7 @@ export function StepPickupRx({
                                   repEstimatedKms: fields.estimatedKms,
                                 });
                               }}
-                              className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm shadow-sm focus:ring-primary focus:border-primary"
+                              className={formInputCompactClass(false)}
                             />
                           </div>
                         </div>

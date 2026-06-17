@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { cn } from "@/lib/utils";
+import { formInputClass, formLabelClass } from "@/lib/form-styles";
 import { sanitizeLocalPhoneNumber } from "@/lib/phone-input-utils";
 import { useTranslation } from "@/components/accreditation/TranslationProvider";
 import type { StepProps } from "../../types";
@@ -49,7 +49,7 @@ export function StepContactRx({ data, update, onValidityChange }: StepProps<RxFo
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1">
-          <label className="text-sm font-semibold text-gray-700">
+          <label className={formLabelClass}>
             {t.rx.contact.lastName} <span className="text-red-500">*</span>
           </label>
           <input
@@ -58,12 +58,7 @@ export function StepContactRx({ data, update, onValidityChange }: StepProps<RxFo
             onBlur={() => markTouched("lastName")}
             placeholder={t.rx.contact.lastNamePlaceholder}
             autoComplete="family-name"
-            className={cn(
-              "w-full rounded-md px-3 py-2 shadow-sm focus:ring-primary focus:border-primary text-base sm:text-sm",
-              touched.lastName && !contact.lastName.trim()
-                ? "border-red-500"
-                : "border-gray-300"
-            )}
+            className={formInputClass(touched.lastName && !contact.lastName.trim())}
           />
           {touched.lastName && !contact.lastName.trim() && (
             <p className="text-xs text-red-500">{t.rx.contact.required}</p>
@@ -71,7 +66,7 @@ export function StepContactRx({ data, update, onValidityChange }: StepProps<RxFo
         </div>
 
         <div className="space-y-1">
-          <label className="text-sm font-semibold text-gray-700">
+          <label className={formLabelClass}>
             {t.rx.contact.firstName} <span className="text-red-500">*</span>
           </label>
           <input
@@ -80,12 +75,7 @@ export function StepContactRx({ data, update, onValidityChange }: StepProps<RxFo
             onBlur={() => markTouched("firstName")}
             placeholder={t.rx.contact.firstNamePlaceholder}
             autoComplete="given-name"
-            className={cn(
-              "w-full rounded-md px-3 py-2 shadow-sm focus:ring-primary focus:border-primary text-base sm:text-sm",
-              touched.firstName && !contact.firstName.trim()
-                ? "border-red-500"
-                : "border-gray-300"
-            )}
+            className={formInputClass(touched.firstName && !contact.firstName.trim())}
           />
           {touched.firstName && !contact.firstName.trim() && (
             <p className="text-xs text-red-500">{t.rx.contact.required}</p>
@@ -93,7 +83,7 @@ export function StepContactRx({ data, update, onValidityChange }: StepProps<RxFo
         </div>
 
         <div className="space-y-1 md:col-span-2">
-          <label className="text-sm font-semibold text-gray-700">
+          <label className={formLabelClass}>
             {t.rx.contact.email} <span className="text-red-500">*</span>
           </label>
           <input
@@ -103,10 +93,7 @@ export function StepContactRx({ data, update, onValidityChange }: StepProps<RxFo
             onBlur={() => markTouched("email")}
             placeholder={t.rx.contact.emailPlaceholder}
             autoComplete="email"
-            className={cn(
-              "w-full rounded-md px-3 py-2 shadow-sm focus:ring-primary focus:border-primary text-base sm:text-sm",
-              touched.email && !emailOk ? "border-red-500" : "border-gray-300"
-            )}
+            className={formInputClass(touched.email && !emailOk)}
           />
           {touched.email && !emailOk && (
             <p className="text-xs text-red-500">{t.rx.contact.invalidEmail}</p>
@@ -114,14 +101,14 @@ export function StepContactRx({ data, update, onValidityChange }: StepProps<RxFo
         </div>
 
         <div className="space-y-1 md:col-span-2">
-          <label className="text-sm font-semibold text-gray-700">
+          <label className={formLabelClass}>
             {t.rx.contact.mobilePhone} <span className="text-red-500">*</span>
           </label>
           <div className="flex gap-2">
             <input
               value={contact.phoneCode}
               onChange={(e) => setContact({ phoneCode: e.target.value })}
-              className="w-20 rounded-md px-3 py-2 border border-gray-300 shadow-sm text-base sm:text-sm"
+              className={formInputClass(false, "w-20")}
               placeholder={t.rx.contact.phoneCodePlaceholder}
             />
             <input
@@ -138,10 +125,7 @@ export function StepContactRx({ data, update, onValidityChange }: StepProps<RxFo
               onBlur={() => markTouched("tel")}
               placeholder={t.rx.contact.phonePlaceholder}
               autoComplete="tel"
-              className={cn(
-                "flex-1 rounded-md px-3 py-2 shadow-sm focus:ring-primary focus:border-primary text-base sm:text-sm",
-                touched.tel && !telOk ? "border-red-500" : "border-gray-300"
-              )}
+              className={formInputClass(touched.tel && !telOk, "w-auto flex-1 min-w-0")}
             />
           </div>
           {touched.tel && !telOk && (

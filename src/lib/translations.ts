@@ -378,6 +378,10 @@ const de: T = {
   recapStatusLabel: "Status nach dem Senden",
   recapStatusPublic: "Zu genehmigender Antrag — wird bei Ihrer Ankunft von einem Mitarbeiter geprüft.",
   recapNotProvided: "Nicht angegeben",
+  beforeSaveNotice:
+    "Speichern Sie Ihre Anfrage, um die Zusammenfassung per E-Mail zu erhalten. Die Akkreditierung muss bei Ihrer Ankunft von einem Mitarbeiter bestätigt werden.",
+  spamNotice:
+    "Wenn Sie die E-Mail nicht innerhalb der nächsten Minuten erhalten, überprüfen Sie bitte Ihren Spam- / Junk-Ordner.",
   support: supportTranslations.de,
   rx: rxTranslations.de,
 };
@@ -450,6 +454,10 @@ const es: T = {
   recapStatusLabel: "Estado tras el envío",
   recapStatusPublic: "Solicitud por validar — será verificada por un agente a su llegada.",
   recapNotProvided: "No indicado",
+  beforeSaveNotice:
+    "Guarde su solicitud para recibir el resumen por correo electrónico. La acreditación deberá ser validada por un agente a su llegada.",
+  spamNotice:
+    "Si no recibe el correo electrónico en los próximos minutos, revise su carpeta de spam / correo no deseado.",
   support: supportTranslations.es,
   rx: rxTranslations.es,
 };
@@ -522,6 +530,10 @@ const pt: T = {
   recapStatusLabel: "Estado após o envio",
   recapStatusPublic: "Pedido a validar — será verificado por um agente à sua chegada.",
   recapNotProvided: "Não indicado",
+  beforeSaveNotice:
+    "Guarde o seu pedido para receber o resumo por e-mail. A acreditação terá de ser validada por um agente à sua chegada.",
+  spamNotice:
+    "Se não receber o e-mail nos próximos minutos, verifique a sua pasta de spam / lixo eletrónico.",
   support: supportTranslations.pt,
   rx: rxTranslations.pt,
 };
@@ -594,6 +606,10 @@ const it: T = {
   recapStatusLabel: "Stato dopo l'invio",
   recapStatusPublic: "Richiesta da validare — verrà verificata da un agente al tuo arrivo.",
   recapNotProvided: "Non indicato",
+  beforeSaveNotice:
+    "Salva la tua richiesta per ricevere il riepilogo via e-mail. L'accredito dovrà essere convalidato da un agente al tuo arrivo.",
+  spamNotice:
+    "Se non ricevi l'e-mail entro pochi minuti, controlla la cartella spam / posta indesiderata.",
   support: supportTranslations.it,
   rx: rxTranslations.it,
 };
@@ -666,6 +682,10 @@ const pl: T = {
   recapStatusLabel: "Status po wysłaniu",
   recapStatusPublic: "Zgłoszenie do zatwierdzenia — zostanie sprawdzone przez pracownika po przybyciu.",
   recapNotProvided: "Nie podano",
+  beforeSaveNotice:
+    "Zapisz swoje zgłoszenie, aby otrzymać podsumowanie e-mailem. Akredytacja będzie musiała zostać zatwierdzona przez pracownika po przybyciu.",
+  spamNotice:
+    "Jeśli nie otrzymasz wiadomości e-mail w ciągu najbliższych minut, sprawdź folder spam / wiadomości-śmieci.",
   support: supportTranslations.pl,
   rx: rxTranslations.pl,
 };
@@ -738,6 +758,10 @@ const cs: T = {
   recapStatusLabel: "Stav po odeslání",
   recapStatusPublic: "Žádost ke schválení — bude zkontrolována pracovníkem při příjezdu.",
   recapNotProvided: "Neuvedeno",
+  beforeSaveNotice:
+    "Uložte svou žádost, abyste obdrželi souhrn e-mailem. Akreditace bude muset být ověřena pracovníkem při vašem příjezdu.",
+  spamNotice:
+    "Pokud e-mail neobdržíte během několika minut, zkontrolujte složku spam / nevyžádaná pošta.",
   support: supportTranslations.cs,
   rx: rxTranslations.cs,
 };
@@ -810,6 +834,10 @@ const lt: T = {
   recapStatusLabel: "Būsena po pateikimo",
   recapStatusPublic: "Užklausa, kurią reikia patvirtinti — ją patikrins darbuotojas atvykus.",
   recapNotProvided: "Nenurodyta",
+  beforeSaveNotice:
+    "Išsaugokite užklausą, kad gautumėte santrauką el. paštu. Akreditaciją turės patvirtinti darbuotojas jums atvykus.",
+  spamNotice:
+    "Jei negausite el. laiško per artimiausias minutes, patikrinkite šlamšto / nepageidaujamų laiškų aplanką.",
   support: supportTranslations.lt,
   rx: rxTranslations.lt,
 };
@@ -882,6 +910,10 @@ const tr: T = {
   recapStatusLabel: "Gönderim sonrası durum",
   recapStatusPublic: "Onaylanacak talep — varışınızda bir görevli tarafından kontrol edilecek.",
   recapNotProvided: "Belirtilmedi",
+  beforeSaveNotice:
+    "Özeti e-posta ile almak için talebinizi kaydedin. Akreditasyonun varışınızda bir görevli tarafından onaylanması gerekir.",
+  spamNotice:
+    "E-postayı önümüzdeki birkaç dakika içinde almazsanız, lütfen spam / önemsiz klasörünüzü kontrol edin.",
   support: supportTranslations.tr,
   rx: rxTranslations.tr,
 };
@@ -954,6 +986,10 @@ const ru: T = {
   recapStatusLabel: "Статус после отправки",
   recapStatusPublic: "Заявка на согласование — будет проверена сотрудником по прибытии.",
   recapNotProvided: "Не указано",
+  beforeSaveNotice:
+    "Сохраните заявку, чтобы получить сводку по электронной почте. Аккредитация должна быть подтверждена сотрудником по прибытии.",
+  spamNotice:
+    "Если вы не получите письмо в ближайшие минуты, проверьте папку «Спам» / «Нежелательная почта».",
   support: supportTranslations.ru,
   rx: rxTranslations.ru,
 };

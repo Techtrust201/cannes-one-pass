@@ -22,6 +22,7 @@ import {
 } from "@/lib/accreditation-pdf-modes";
 import { trackingQrPayload, accessQrPayload } from "@/lib/qr-payloads";
 import { getBaseUrl } from "@/lib/base-url";
+import { getOrgFieldLabel, resolveUnloadingLabel } from "@/lib/org-form-config";
 
 // Ré-export pour compatibilité des imports existants (la logique pure vit
 // désormais dans accreditation-pdf-modes, testable sans Prisma).
@@ -140,6 +141,8 @@ async function renderAccreditationPage(
   },
   vehicleTypes: VehicleTypeData[],
   isRx: boolean,
+  /** Slug de l'organisation (scoping des libellés, ex. Palais → « Société »). */
+  orgSlug: string | null,
   baseUrl: string,
   /** 'official' = accréditation d'accès (QR montage/démontage, validité 24h) ;
    *  'request' = demande non validée (QR de suivi, pas d'accès). */
@@ -236,8 +239,12 @@ async function renderAccreditationPage(
   drawText(page, pdfT.generalInfo, 50, y, 14);
   y -= 25;
 
-  addLabelVal(pdfT.exhibitor, acc.company);
-  addLabelVal(pdfT.stand, acc.stand);
+  // Palais : « Décorateur » → « Société », « Stand » → « Stand | Client ».
+  // Autres orgs (RX inclus) : libellés PDF historiques inchangés.
+  const exhibitorLabel = getOrgFieldLabel(orgSlug, "decoratorName", lang, pdfT.exhibitor);
+  const standLabel = getOrgFieldLabel(orgSlug, "standServed", lang, pdfT.stand);
+  addLabelVal(exhibitorLabel, acc.company);
+  addLabelVal(standLabel, acc.stand);
   addLabelVal(pdfT.event, acc.eventName);
   if (isRequest && acc.publicToken) {
     addLabelVal(pdfT.reference, acc.publicToken);
@@ -266,7 +273,7 @@ async function renderAccreditationPage(
   }
 
   if (acc.unloading) {
-    addLabelVal(pdfT.handling, acc.unloading);
+    addLabelVal(pdfT.handling, resolveUnloadingLabel(acc.unloading, lang));
   }
 
   // Sécurité : en mode "request" (demande non validée), on N'AFFICHE JAMAIS un
@@ -590,6 +597,7 @@ export async function generatePdfFromIds(
       accForRender,
       vehicleTypes,
       isRx,
+      acc.organization?.slug ?? orgSlug,
       baseUrl,
       mode,
       pdfT,

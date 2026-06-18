@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { formInputClass, formLabelClass } from "@/lib/form-styles";
 import { useUnloadingProviders } from "@/hooks/useUnloadingProviders";
 import { useTranslation } from "@/components/accreditation/TranslationProvider";
+import {
+  buildUnloadingOptions,
+  getDefaultUnloadingValue,
+  getOrgFieldLabel,
+} from "@/lib/org-form-config";
 import EventCarouselSelector from "@/components/accreditation/EventCarouselSelector";
 import {
   FieldError,
@@ -31,6 +36,12 @@ interface Props {
   orgSlug?: string;
   /** Affiche les erreurs des champs obligatoires (après clic « Suivant »). */
   showErrors?: boolean;
+  /**
+   * Présélectionne l'option « Déchargement par » par défaut de l'organisation
+   * (ex. « Inconnu » pour le public Palais) afin de ne pas bloquer le chauffeur
+   * sur ce champ obligatoire. À n'activer que sur le parcours public.
+   */
+  preselectDefaultUnloading?: boolean;
 }
 
 export default function StepOne({
@@ -39,18 +50,50 @@ export default function StepOne({
   onValidityChange,
   orgSlug = "palais-des-festivals",
   showErrors = false,
+  preselectDefaultUnloading = false,
 }: Props) {
   const { company, stand, unloading, event } = data;
   const { providers: unloadingProviders } = useUnloadingProviders(orgSlug);
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
+
+  // Libellés scopés par organisation (Palais : « Société », « Stand | Client »).
+  const decoratorLabel = getOrgFieldLabel(orgSlug, "decoratorName", lang, t.decoratorName);
+  const decoratorPlaceholder = getOrgFieldLabel(
+    orgSlug,
+    "decoratorPlaceholder",
+    lang,
+    t.decoratorPlaceholder
+  );
+  const standLabel = getOrgFieldLabel(orgSlug, "standServed", lang, t.standServed);
+  const standPlaceholder = getOrgFieldLabel(orgSlug, "standPlaceholder", lang, t.standPlaceholder);
+
+  // Options « Déchargement par » ordonnées par organisation (codes techniques
+  // stables + prestataires en base). Aucun libellé traduit n'est envoyé au backend.
+  const unloadingOptions = buildUnloadingOptions(orgSlug, unloadingProviders, lang);
+
+  // Présélection (public uniquement) : évite de bloquer le chauffeur sur un
+  // champ obligatoire. One-shot : ne réécrit jamais un choix utilisateur.
+  const didPreselect = useRef(false);
+  useEffect(() => {
+    if (didPreselect.current || !preselectDefaultUnloading) return;
+    if (unloading) {
+      didPreselect.current = true;
+      return;
+    }
+    const def = getDefaultUnloadingValue(orgSlug);
+    if (def) {
+      didPreselect.current = true;
+      update({ unloading: def });
+    }
+  }, [preselectDefaultUnloading, orgSlug, unloading, update]);
 
   const isValid = !!(company && stand && unloading && event);
   useEffect(() => onValidityChange(isValid), [isValid, onValidityChange]);
 
   const requiredFieldLabel = t.requiredField!;
   const missingFields: string[] = [];
-  if (!company.trim()) missingFields.push(t.decoratorName);
-  if (!stand.trim()) missingFields.push(t.standServed);
+  if (!company.trim()) missingFields.push(decoratorLabel);
+  if (!stand.trim()) missingFields.push(standLabel);
   if (!unloading) missingFields.push(t.unloadingBy);
   if (!event) missingFields.push(t.selectEvent);
 
@@ -69,14 +112,14 @@ export default function StepOne({
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             <div className="space-y-1 md:col-span-2 lg:col-span-1">
               <label htmlFor="company" className={formLabelClass}>
-                {t.decoratorName}
+                {decoratorLabel}
                 <RequiredMark />
               </label>
               <input
                 id="company"
                 value={company}
                 onChange={(e) => update({ company: e.target.value })}
-                placeholder={t.decoratorPlaceholder}
+                placeholder={decoratorPlaceholder}
                 aria-invalid={showErrors && !company.trim()}
                 className={formInputClass(showErrors && !company.trim())}
               />
@@ -86,14 +129,14 @@ export default function StepOne({
             </div>
             <div className="space-y-1 md:col-span-2 lg:col-span-1">
               <label htmlFor="stand" className={formLabelClass}>
-                {t.standServed}
+                {standLabel}
                 <RequiredMark />
               </label>
               <input
                 id="stand"
                 value={stand}
                 onChange={(e) => update({ stand: e.target.value })}
-                placeholder={t.standPlaceholder}
+                placeholder={standPlaceholder}
                 aria-invalid={showErrors && !stand.trim()}
                 className={formInputClass(showErrors && !stand.trim())}
               />
@@ -114,10 +157,9 @@ export default function StepOne({
                 className={formInputClass(showErrors && !unloading)}
               >
                 <option value="" disabled>{t.chooseProvider}</option>
-                {unloadingProviders.map((p) => (
-                  <option key={p.id} value={p.name}>{p.name}</option>
+                {unloadingOptions.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
-                <option value="Autonome">{t.manualUnloading}</option>
               </select>
               <FieldError show={showErrors && !unloading}>
                 {requiredFieldLabel}

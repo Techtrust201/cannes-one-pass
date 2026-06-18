@@ -26,6 +26,7 @@ function PalaisStepOne({ data, update, onValidityChange, orgSlug, showErrors }: 
       onValidityChange={onValidityChange}
       orgSlug={orgSlug}
       showErrors={showErrors}
+      preselectDefaultUnloading
     />
   );
 }

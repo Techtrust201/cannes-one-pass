@@ -16,6 +16,11 @@ import { PortalOverlay } from "@/components/ui/PortalOverlay";
 
 import { useEventOptions } from "@/hooks/useEventOptions";
 import { useUnloadingProviders } from "@/hooks/useUnloadingProviders";
+import {
+  buildUnloadingOptions,
+  getOrgFieldLabel,
+  resolveUnloadingLabel,
+} from "@/lib/org-form-config";
 
 interface Props {
   acc: Accreditation;
@@ -43,6 +48,21 @@ export default function AccreditationFormCard({ acc }: Props) {
     (acc.extension as { exhibitor?: unknown } | null)?.exhibitor
   );
   const isOperational = ["ATTENTE", "ENTREE", "SORTIE"].includes(acc.status);
+
+  // Back-office FR. Scoping par famille d'organisation : les accréditations
+  // non-RX (Palais) reçoivent les libellés et options Palais ; RX reste
+  // strictement inchangé. (Le type Accreditation ne porte pas de slug ; seules
+  // les orgs « palais » et « rx » existent, `!isRx` ⇒ Palais.)
+  const orgSlugForLabels = isRx ? "rx" : "palais-des-festivals";
+  const decoratorLabel = getOrgFieldLabel(
+    orgSlugForLabels,
+    "decoratorName",
+    "fr",
+    "Nom du décorateur"
+  );
+  const standLabel = getOrgFieldLabel(orgSlugForLabels, "standServed", "fr", "Stand desservi");
+  const unloadingOptions = buildUnloadingOptions(orgSlugForLabels, unloadingProviders, "fr");
+  const hasUnloadingOption = unloadingOptions.some((o) => o.value === unloading);
 
   async function downloadOfficialPdf() {
     try {
@@ -357,7 +377,7 @@ export default function AccreditationFormCard({ acc }: Props) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4 p-5 text-sm">
             {/* Company */}
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Nom du décorateur</label>
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{decoratorLabel}</label>
               <input
                 className="w-full h-9 rounded-lg border border-gray-200 px-3 text-sm bg-white focus:ring-2 focus:ring-blue-400/40 focus:border-blue-400 transition-all duration-150 placeholder:text-gray-300"
                 value={company}
@@ -368,7 +388,7 @@ export default function AccreditationFormCard({ acc }: Props) {
 
             {/* Stand */}
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Stand desservi</label>
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{standLabel}</label>
               <input
                 className="w-full h-9 rounded-lg border border-gray-200 px-3 text-sm bg-white focus:ring-2 focus:ring-blue-400/40 focus:border-blue-400 transition-all duration-150 placeholder:text-gray-300"
                 value={stand}
@@ -386,13 +406,12 @@ export default function AccreditationFormCard({ acc }: Props) {
                 onChange={(e) => setUnloading(e.target.value)}
               >
                 <option value="">Choisir</option>
-                {unloadingProviders.map((p) => (
-                  <option key={p.id} value={p.name}>{p.name}</option>
+                {unloadingOptions.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
-                {unloading && !unloadingProviders.some((p) => p.name === unloading) && unloading !== "Autonome" && (
-                  <option value={unloading}>{unloading}</option>
+                {unloading && !hasUnloadingOption && (
+                  <option value={unloading}>{resolveUnloadingLabel(unloading, "fr")}</option>
                 )}
-                <option value="Autonome">Déchargement manuel</option>
               </select>
             </div>
 

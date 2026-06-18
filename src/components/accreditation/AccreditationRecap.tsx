@@ -5,6 +5,7 @@ import type { Vehicle } from "@/types";
 import { useTranslation } from "@/components/accreditation/TranslationProvider";
 import { useVehicleTypes } from "@/hooks/useVehicleTypes";
 import { useEventOptions } from "@/hooks/useEventOptions";
+import { getOrgFieldLabel, resolveUnloadingLabel } from "@/lib/org-form-config";
 
 export interface RecapData {
   company: string;
@@ -82,10 +83,12 @@ export default function AccreditationRecap({
   const notProvided = t.recapNotProvided!;
   const editLabel = t.recapEdit!;
 
+  const decoratorLabel = getOrgFieldLabel(orgSlug, "decoratorName", lang, t.decoratorName);
+  const standLabel = getOrgFieldLabel(orgSlug, "standServed", lang, t.standServed);
+
   const eventLabel =
     events.find((e) => e.value === data.event)?.label || data.event || notProvided;
-  const unloadingLabel =
-    data.unloading === "Autonome" ? t.manualUnloading : data.unloading || notProvided;
+  const unloadingLabel = resolveUnloadingLabel(data.unloading, lang) || notProvided;
   const vehicleTypeLabel = v
     ? getDisplayLabel(v.size || v.vehicleType || "", lang) || notProvided
     : notProvided;
@@ -99,8 +102,8 @@ export default function AccreditationRecap({
         editLabel={editLabel}
         onEdit={onEditStep ? () => onEditStep(1) : undefined}
       >
-        <Row label={t.decoratorName} value={data.company || notProvided} />
-        <Row label={t.standServed} value={data.stand || notProvided} />
+        <Row label={decoratorLabel} value={data.company || notProvided} />
+        <Row label={standLabel} value={data.stand || notProvided} />
         <Row label={t.selectEvent} value={eventLabel} />
         <Row label={t.unloadingBy} value={unloadingLabel} />
       </Section>

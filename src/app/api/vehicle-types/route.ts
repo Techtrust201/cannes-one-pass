@@ -9,6 +9,7 @@ import {
 } from "@/lib/auth-helpers";
 import { generateVehicleTypeCode } from "@/lib/vehicle-type-defaults";
 import { parseLocalizedNumber } from "@/lib/parse-localized-number";
+import { parseVehicleTypeDbTranslations } from "@/lib/vehicle-type-i18n";
 
 type VehicleTypeRow = { code: string };
 
@@ -140,7 +141,12 @@ export async function POST(req: NextRequest) {
       rxPalmBeachAtCanto,
       rxZoneCanto,
       rxZoneVieuxPort,
+      displayLabels,
     } = body as Record<string, unknown>;
+
+    // Traductions d'affichage : on ne conserve que les langues supportées et
+    // les valeurs non vides (le repli i18n/label gère les langues manquantes).
+    const sanitizedTranslations = parseVehicleTypeDbTranslations(displayLabels);
 
     if (!label || !gabarit) {
       return Response.json(
@@ -237,6 +243,10 @@ export async function POST(req: NextRequest) {
             isRxOrg && typeof rxZoneVieuxPort === "string" && rxZoneVieuxPort.trim()
               ? rxZoneVieuxPort.trim()
               : null,
+          displayLabels:
+            Object.keys(sanitizedTranslations).length > 0
+              ? sanitizedTranslations
+              : Prisma.JsonNull,
           sortOrder: Math.round(numSort),
           organizationId: orgId,
         },

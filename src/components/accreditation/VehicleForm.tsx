@@ -26,8 +26,8 @@ interface Props {
 }
 
 export default function VehicleForm({ data, update, onValidityChange, orgSlug, showErrors = false }: Props) {
-  const { t } = useTranslation();
-  const { types, loading: typesLoading } = useVehicleTypes(false, orgSlug);
+  const { t, lang } = useTranslation();
+  const { types, loading: typesLoading, getDisplayLabel } = useVehicleTypes(false, orgSlug);
   const plateRef = useRef<HTMLInputElement>(null);
   const trailerPlateRef = useRef<HTMLInputElement>(null);
 
@@ -131,12 +131,8 @@ export default function VehicleForm({ data, update, onValidityChange, orgSlug, s
             <RequiredMark />
           </label>
           {/*
-            i18n des gabarits : les libellés (`o.label`) sont des données
-            configurées en base par organisation (multi-tenant). On les affiche
-            tels quels — décision assumée d'« affichage mixte » : ne pas traduire
-            la donnée métier pour ne pas la casser. Les unités (m³, t) sont
-            neutres ; les rares libellés français (Porteur, Semi remorque)
-            restent lisibles dans toutes les langues.
+            Affichage i18n des gabarits standards (6 codes) ; repli BDD pour
+            les gabarits custom. La valeur envoyée reste le code technique.
           */}
           <select
             value={data.size ?? ""}
@@ -147,7 +143,7 @@ export default function VehicleForm({ data, update, onValidityChange, orgSlug, s
             <option value="">{typesLoading ? t.loading : t.chooseType}</option>
             {types.map((o) => (
               <option key={o.code} value={o.code}>
-                {o.label} ({o.tonnageMini}t - {o.tonnageMaxi}t)
+                {getDisplayLabel(o.code, lang)} ({o.tonnageMini}t - {o.tonnageMaxi}t)
               </option>
             ))}
           </select>

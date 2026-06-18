@@ -1,4 +1,5 @@
 import type { LangCode } from "./translations";
+import { vehicleTypeDisplayLabels } from "./vehicle-type-i18n";
 
 /**
  * Traductions spécifiques au template d'accréditation RX (Cannes Yachting
@@ -476,14 +477,7 @@ const fr: RxT = {
     noteF: "Planning individuel à coordonner avec Scales.",
     noteG: "Manutention via Scales obligatoire pour les bateaux à terre.",
   }),
-  vehicleTypes: {
-    VL: "VL",
-    PORTEUR_LEGER: "10 m³",
-    PORTEUR: "15 m³",
-    GROS_PORTEUR: "20 m³",
-    PORTEUR_ARTICULE: "Porteur articulé (~100 m³)",
-    SEMI_REMORQUE: "Semi-remorque (~90 m³)",
-  },
+  vehicleTypes: vehicleTypeDisplayLabels.fr,
 };
 
 const en: RxT = {
@@ -685,14 +679,7 @@ const en: RxT = {
     noteF: "Individual schedule to be coordinated with Scales.",
     noteG: "Handling via Scales mandatory for boats ashore.",
   }),
-  vehicleTypes: {
-    VL: "Van / LCV",
-    PORTEUR_LEGER: "10 m³",
-    PORTEUR: "15 m³",
-    GROS_PORTEUR: "20 m³",
-    PORTEUR_ARTICULE: "Articulated truck (~100 m³)",
-    SEMI_REMORQUE: "Semi-trailer (~90 m³)",
-  },
+  vehicleTypes: vehicleTypeDisplayLabels.en,
 };
 
 const de: RxT = {
@@ -871,14 +858,7 @@ const de: RxT = {
     noteF: "Individueller Plan mit Scales abzustimmen.",
     noteG: "Handling über Scales für Boote an Land verpflichtend.",
   }),
-  vehicleTypes: {
-    VL: "Transporter / PKW",
-    PORTEUR_LEGER: "10 m³",
-    PORTEUR: "15 m³",
-    GROS_PORTEUR: "20 m³",
-    PORTEUR_ARTICULE: "Sattelzug (~100 m³)",
-    SEMI_REMORQUE: "Sattelauflieger (~90 m³)",
-  },
+  vehicleTypes: vehicleTypeDisplayLabels.de,
 };
 
 const es: RxT = {
@@ -1057,14 +1037,7 @@ const es: RxT = {
     noteF: "Planning individual a coordinar con Scales.",
     noteG: "Manipulación vía Scales obligatoria para los barcos en tierra.",
   }),
-  vehicleTypes: {
-    VL: "Furgoneta / VL",
-    PORTEUR_LEGER: "10 m³",
-    PORTEUR: "15 m³",
-    GROS_PORTEUR: "20 m³",
-    PORTEUR_ARTICULE: "Camión articulado (~100 m³)",
-    SEMI_REMORQUE: "Semirremolque (~90 m³)",
-  },
+  vehicleTypes: vehicleTypeDisplayLabels.es,
 };
 
 const pt: RxT = {
@@ -1243,14 +1216,7 @@ const pt: RxT = {
     noteF: "Planeamento individual a coordenar com a Scales.",
     noteG: "Manuseamento via Scales obrigatório para os barcos em terra.",
   }),
-  vehicleTypes: {
-    VL: "Carrinha / VL",
-    PORTEUR_LEGER: "10 m³",
-    PORTEUR: "15 m³",
-    GROS_PORTEUR: "20 m³",
-    PORTEUR_ARTICULE: "Camião articulado (~100 m³)",
-    SEMI_REMORQUE: "Semirreboque (~90 m³)",
-  },
+  vehicleTypes: vehicleTypeDisplayLabels.pt,
 };
 
 const it: RxT = {
@@ -1429,14 +1395,7 @@ const it: RxT = {
     noteF: "Pianificazione individuale da coordinare con Scales.",
     noteG: "Movimentazione tramite Scales obbligatoria per le barche a terra.",
   }),
-  vehicleTypes: {
-    VL: "Furgone / VL",
-    PORTEUR_LEGER: "10 m³",
-    PORTEUR: "15 m³",
-    GROS_PORTEUR: "20 m³",
-    PORTEUR_ARTICULE: "Autotreno (~100 m³)",
-    SEMI_REMORQUE: "Semirimorchio (~90 m³)",
-  },
+  vehicleTypes: vehicleTypeDisplayLabels.it,
 };
 
 const pl: RxT = {
@@ -1615,14 +1574,7 @@ const pl: RxT = {
     noteF: "Indywidualny harmonogram do uzgodnienia ze Scales.",
     noteG: "Obsługa przez Scales obowiązkowa dla łodzi na lądzie.",
   }),
-  vehicleTypes: {
-    VL: "Dostawczy / VL",
-    PORTEUR_LEGER: "10 m³",
-    PORTEUR: "15 m³",
-    GROS_PORTEUR: "20 m³",
-    PORTEUR_ARTICULE: "Ciężarówka z przyczepą (~100 m³)",
-    SEMI_REMORQUE: "Naczepa (~90 m³)",
-  },
+  vehicleTypes: vehicleTypeDisplayLabels.pl,
 };
 
 const cs: RxT = {
@@ -1801,14 +1753,7 @@ const cs: RxT = {
     noteF: "Individuální plán ke koordinaci se Scales.",
     noteG: "Manipulace přes Scales povinná pro lodě na souši.",
   }),
-  vehicleTypes: {
-    VL: "Dodávka / VL",
-    PORTEUR_LEGER: "10 m³",
-    PORTEUR: "15 m³",
-    GROS_PORTEUR: "20 m³",
-    PORTEUR_ARTICULE: "Tahač s návěsem (~100 m³)",
-    SEMI_REMORQUE: "Návěs (~90 m³)",
-  },
+  vehicleTypes: vehicleTypeDisplayLabels.cs,
 };
 
 const lt: RxT = {
@@ -1987,14 +1932,7 @@ const lt: RxT = {
     noteF: "Individualus grafikas derinamas su Scales.",
     noteG: "Tvarkymas per Scales privalomas laivams sausumoje.",
   }),
-  vehicleTypes: {
-    VL: "Furgonas / VL",
-    PORTEUR_LEGER: "10 m³",
-    PORTEUR: "15 m³",
-    GROS_PORTEUR: "20 m³",
-    PORTEUR_ARTICULE: "Vilkikas su priekaba (~100 m³)",
-    SEMI_REMORQUE: "Puspriekabė (~90 m³)",
-  },
+  vehicleTypes: vehicleTypeDisplayLabels.lt,
 };
 
 const tr: RxT = {
@@ -2173,14 +2111,7 @@ const tr: RxT = {
     noteF: "Scales ile koordine edilecek bireysel plan.",
     noteG: "Karadaki tekneler için Scales aracılığıyla elleçleme zorunludur.",
   }),
-  vehicleTypes: {
-    VL: "Minibüs / VL",
-    PORTEUR_LEGER: "10 m³",
-    PORTEUR: "15 m³",
-    GROS_PORTEUR: "20 m³",
-    PORTEUR_ARTICULE: "Çekici (~100 m³)",
-    SEMI_REMORQUE: "Yarı römork (~90 m³)",
-  },
+  vehicleTypes: vehicleTypeDisplayLabels.tr,
 };
 
 const ru: RxT = {
@@ -2359,14 +2290,7 @@ const ru: RxT = {
     noteF: "Индивидуальный график для согласования со Scales.",
     noteG: "Погрузка через Scales обязательна для судов на берегу.",
   }),
-  vehicleTypes: {
-    VL: "Фургон / VL",
-    PORTEUR_LEGER: "10 m³",
-    PORTEUR: "15 m³",
-    GROS_PORTEUR: "20 m³",
-    PORTEUR_ARTICULE: "Седельный тягач (~100 m³)",
-    SEMI_REMORQUE: "Полуприцеп (~90 m³)",
-  },
+  vehicleTypes: vehicleTypeDisplayLabels.ru,
 };
 
 export const rxTranslations: Record<LangCode, RxT> = {

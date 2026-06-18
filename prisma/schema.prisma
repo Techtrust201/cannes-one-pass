@@ -611,6 +611,11 @@ model VehicleTypeConfig {
   rxZoneCanto      String?
   /// RX : code ZoneConfig cible quand l'exposant est au Vieux Port. Null = repli.
   rxZoneVieuxPort  String?
+  /// Traductions d'affichage configurables par l'admin, indexées par code
+  /// langue (ex. { "en": "Refrigerated truck", "pt": "Camião frigorífico" }).
+  /// Priorité la plus haute du resolver d'affichage, devant l'i18n standard.
+  /// Null/absent → repli sur i18n standard (codes connus) puis label BDD.
+  displayLabels    Json?
   sortOrder        Int      @default(0)
   isActive         Boolean  @default(true)
   createdAt        DateTime @default(now())

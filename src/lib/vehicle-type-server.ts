@@ -1,6 +1,7 @@
 import type { VehicleTypeData } from "@/lib/vehicle-utils";
 import { getDefaultVehicleTypesForScope } from "@/lib/vehicle-type-defaults";
 import { getColorHex } from "@/lib/color-palette";
+import { parseVehicleTypeDbTranslations } from "@/lib/vehicle-type-i18n";
 import type { VehicleTypeConfig } from "@prisma/client";
 
 export {
@@ -25,6 +26,9 @@ export function mapDbVehicleType(type: VehicleTypeConfig): VehicleTypeData {
     rxPalmBeachAtCanto: type.rxPalmBeachAtCanto,
     rxZoneCanto: (type as unknown as { rxZoneCanto?: string | null }).rxZoneCanto ?? null,
     rxZoneVieuxPort: (type as unknown as { rxZoneVieuxPort?: string | null }).rxZoneVieuxPort ?? null,
+    displayLabels: parseVehicleTypeDbTranslations(
+      (type as unknown as { displayLabels?: unknown }).displayLabels
+    ),
     sortOrder: type.sortOrder,
     isActive: type.isActive,
   };
@@ -37,6 +41,7 @@ export function mapDefaultVehicleTypes(orgSlug?: string | null): VehicleTypeData
     rxPalmBeachAtCanto: t.rxPalmBeachAtCanto ?? false,
     rxZoneCanto: t.rxZoneCanto ?? null,
     rxZoneVieuxPort: t.rxZoneVieuxPort ?? null,
+    displayLabels: {},
     isActive: true,
   }));
 }

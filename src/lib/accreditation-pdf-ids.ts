@@ -10,7 +10,6 @@ import type { VehicleTypeData } from "@/lib/vehicle-utils";
 import { formatPhoneNumber } from "@/lib/contact-utils";
 import {
   getPdfTranslations,
-  resolvePdfVehicleLabel,
   type PdfT,
 } from "@/lib/pdf-translations";
 import { isValidLang, type LangCode } from "@/lib/translations";
@@ -292,12 +291,12 @@ async function renderAccreditationPage(
     drawText(page, pdfT.deliveryVehicle, 50, y, 14);
     y -= 25;
 
-    const rawGabarit = resolveVehicleTypeLabelFromList(
+    const gabarit = resolveVehicleTypeLabelFromList(
       vehicleTypes,
       v.vehicleType,
-      v.size
+      v.size,
+      lang
     );
-    const gabarit = resolvePdfVehicleLabel(lang, v.vehicleType, rawGabarit);
     addLabelVal(pdfT.template, gabarit);
     addLabelVal(pdfT.plate, v.plate || pdfT.platePending);
     if (v.trailerPlate) addLabelVal(pdfT.trailerPlate, v.trailerPlate);
@@ -335,15 +334,11 @@ async function renderAccreditationPage(
     if (sameRep) {
       addLabelVal(pdfT.returnVehicle, pdfT.sameAsDelivery);
     } else {
-      const repRawGabarit = resolveVehicleTypeLabelFromList(
+      const repGabarit = resolveVehicleTypeLabelFromList(
         vehicleTypes,
         ctx.repVehicleType,
-        null
-      );
-      const repGabarit = resolvePdfVehicleLabel(
-        lang,
-        ctx.repVehicleType,
-        repRawGabarit
+        null,
+        lang
       );
       addLabelVal(pdfT.templateReturn, repGabarit);
       addLabelVal(pdfT.plateReturn, ctx.repPlate || "—");

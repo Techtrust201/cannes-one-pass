@@ -20,6 +20,11 @@ import { resolveAccreditationSender } from "@/lib/email-sender";
 import { generateAccreditationPdfBuffer } from "@/lib/accreditation-pdf-ids";
 import { idQrPayload } from "@/lib/qr-payloads";
 import { isValidLang, type LangCode } from "@/lib/translations";
+import {
+  mapDbVehicleType,
+  mapDefaultVehicleTypes,
+  resolveVehicleTypeLabelFromList,
+} from "@/lib/vehicle-type-server";
 
 export type CreationEmailOutcome =
   | "sent"
@@ -69,6 +74,7 @@ function buildHtml(
   acc: { company: string; stand: string; event: string },
   vehicle: MinimalVehicle | undefined,
   vehicleIdentity: string,
+  gabarit: string,
   /**
    * `true` = accréditation déjà validée administrativement (créée depuis
    * l'espace logisticien) -> message « validée ». `false` = demande publique
@@ -78,9 +84,6 @@ function buildHtml(
 ): string {
   const phone = vehicle
     ? `${vehicle.phoneCode ?? ""} ${vehicle.phoneNumber ?? ""}`.trim()
-    : "";
-  const gabarit = vehicle
-    ? vehicle.vehicleType?.trim() || vehicle.size?.trim() || ""
     : "";
   const row = (label: string, value: string) =>
     value
@@ -226,6 +229,30 @@ export async function sendAccreditationCreationEmail(params: {
     }
 
     const vehicle = acc.vehicles[0] as MinimalVehicle | undefined;
+    const lang: LangCode = isValidLang(acc.language ?? "")
+      ? (acc.language as LangCode)
+      : "fr";
+
+    let vehicleTypes = mapDefaultVehicleTypes(null);
+    if (acc.organizationId) {
+      const types = await prisma.vehicleTypeConfig.findMany({
+        where: { organizationId: acc.organizationId, isActive: true },
+        orderBy: { sortOrder: "asc" },
+      });
+      if (types.length > 0) {
+        vehicleTypes = types.map(mapDbVehicleType);
+      }
+    }
+
+    const gabarit = vehicle
+      ? resolveVehicleTypeLabelFromList(
+          vehicleTypes,
+          vehicle.vehicleType,
+          vehicle.size,
+          lang
+        )
+      : "";
+
     // Identité véhicule pour le sujet (évite la confusion si plusieurs e-mails).
     const vehicleIdentity =
       vehicle?.plate?.trim() ||
@@ -250,7 +277,7 @@ export async function sendAccreditationCreationEmail(params: {
     const subject = validated
       ? `Votre accréditation validée — ${vehicleIdentity} (${acc.company})`
       : `Demande d'accréditation reçue — ${vehicleIdentity} (${acc.company})`;
-    const html = buildHtml(acc, vehicle, vehicleIdentity, validated);
+    const html = buildHtml(acc, vehicle, vehicleIdentity, gabarit, validated);
 
     // Source unique de vérité du document : on attache à l'e-mail le MÊME PDF
     // propre que celui téléchargé depuis l'interface (générateur structuré
@@ -258,15 +285,10 @@ export async function sendAccreditationCreationEmail(params: {
     // génération échoue, l'e-mail part quand même (avec le QR inline).
     let pdfAttachment: { filename: string; content: Buffer } | null = null;
     try {
-      const lang: LangCode | undefined = isValidLang(acc.language ?? "")
-        ? (acc.language as LangCode)
-        : undefined;
-      // Source unique : MÊME fonction/baseUrl que le téléchargement → PDF
-      // (et QR) byte-identiques.
       const pdfBuffer = await generateAccreditationPdfBuffer({
         id: acc.id,
         mode: validated ? "official" : "request",
-        ...(lang ? { lang } : {}),
+        lang,
       });
       pdfAttachment = {
         filename: validated ? "accreditation.pdf" : "demande-accreditation.pdf",

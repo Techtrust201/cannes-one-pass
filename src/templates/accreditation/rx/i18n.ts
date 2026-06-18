@@ -1,4 +1,8 @@
 import type { LangCode, T } from "@/lib/translations";
+import {
+  resolveVehicleTypeDisplayLabel,
+  type VehicleTypeDbTranslations,
+} from "@/lib/vehicle-type-i18n";
 import type { RxCategory, RxSpaceDef } from "./config";
 
 /**
@@ -32,28 +36,25 @@ export function getLocalizedCategory(
 }
 
 /**
- * Libellé type de véhicule.
+ * Libellé type de véhicule (affichage uniquement).
  *
- * L'appellation configurée en base (gabarit puis label) est la source de
- * vérité et prime sur tout : c'est l'admin qui pilote le libellé. La table
- * i18n figée `t.rx.vehicleTypes[code]` ne sert que de repli lorsque la base ne
- * fournit ni gabarit ni label (ex. cache vide), afin de garder une UI cohérente
- * avec le récap et le back-office (qui lisent déjà le gabarit BDD).
+ * Priorité : traduction BDD (admin) → i18n standard par code → gabarit/label
+ * BDD pour les gabarits custom non traduits.
  */
 export function getLocalizedVehicleType(
   code: string,
-  t: T,
+  lang: LangCode,
   fallbackGabarit?: string,
-  fallbackLabel?: string
+  fallbackLabel?: string,
+  dbTranslations?: VehicleTypeDbTranslations | null
 ): string {
-  const gabarit = fallbackGabarit?.trim();
-  if (gabarit) return gabarit;
-  const label = fallbackLabel?.trim();
-  if (label) return label;
-  const key = code.trim().toUpperCase();
-  const tr = t.rx.vehicleTypes[key];
-  if (tr) return tr;
-  return code.replace(/_/g, " ");
+  return resolveVehicleTypeDisplayLabel({
+    code,
+    lang,
+    dbTranslations,
+    dbGabarit: fallbackGabarit,
+    dbLabel: fallbackLabel,
+  });
 }
 
 /** Repli français pour les libellés skip non encore traduits dans une langue. */

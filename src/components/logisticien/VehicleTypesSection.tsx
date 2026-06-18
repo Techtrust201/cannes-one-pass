@@ -10,6 +10,7 @@ import {
   PowerOff,
   RotateCcw,
   MapPin,
+  Languages,
 } from "lucide-react";
 import { useVehicleTypes } from "@/hooks/useVehicleTypes";
 import { useEspaceSlug } from "@/hooks/useEspaceSlug";
@@ -19,6 +20,33 @@ import { invalidateVehicleTypeCache } from "@/lib/vehicle-utils";
 import type { VehicleTypeData } from "@/lib/vehicle-utils";
 import { withEspaceQuery } from "@/lib/url";
 import { parseLocalizedNumber } from "@/lib/parse-localized-number";
+import { LANGUAGES } from "@/lib/translations";
+import {
+  isStandardVehicleTypeCode,
+  type VehicleTypeDbTranslations,
+} from "@/lib/vehicle-type-i18n";
+
+type TranslationFields = Record<string, string>;
+
+/** Ne conserve que les langues supportées avec une valeur non vide. */
+function buildDisplayLabels(translations: TranslationFields): VehicleTypeDbTranslations {
+  const out: VehicleTypeDbTranslations = {};
+  for (const { code } of LANGUAGES) {
+    const value = translations[code]?.trim();
+    if (value) out[code] = value;
+  }
+  return out;
+}
+
+/**
+ * Compte les langues sans traduction BDD explicite pour un gabarit. Les codes
+ * standards disposent d'un repli i18n intégré : on n'affiche donc l'alerte
+ * « traductions manquantes » que pour les gabarits custom (créés en admin).
+ */
+function countMissingTranslations(type: VehicleTypeData): number {
+  if (isStandardVehicleTypeCode(type.code)) return 0;
+  return LANGUAGES.filter((l) => !type.displayLabels?.[l.code]?.trim()).length;
+}
 
 interface VehicleTypesSectionProps {
   canWrite: boolean;
@@ -104,12 +132,14 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [createForm, setCreateForm] = useState(EMPTY_FORM);
+  const [createTranslations, setCreateTranslations] = useState<TranslationFields>({});
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
   const [seeding, setSeeding] = useState(false);
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<Record<string, string | boolean>>({});
+  const [editTranslations, setEditTranslations] = useState<TranslationFields>({});
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState("");
 
@@ -159,12 +189,14 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
           rxPalmBeachAtCanto: createForm.rxPalmBeachAtCanto,
           rxZoneCanto: createForm.rxZoneCanto || null,
           rxZoneVieuxPort: createForm.rxZoneVieuxPort || null,
+          displayLabels: buildDisplayLabels(createTranslations),
           sortOrder: nums.values.sortOrder,
         }),
       });
       if (res.ok) {
         setShowCreateForm(false);
         setCreateForm(EMPTY_FORM);
+        setCreateTranslations({});
         invalidateVehicleTypeCache();
         await refresh();
       } else {
@@ -199,12 +231,14 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
       rxZoneVieuxPort: type.rxZoneVieuxPort ?? "",
       sortOrder: String(type.sortOrder),
     });
+    setEditTranslations({ ...(type.displayLabels ?? {}) });
     setEditError("");
   };
 
   const cancelEdit = () => {
     setEditingId(null);
     setEditForm({});
+    setEditTranslations({});
     setEditError("");
   };
 
@@ -243,6 +277,7 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
           rxZoneVieuxPort: editForm.rxZoneVieuxPort
             ? String(editForm.rxZoneVieuxPort)
             : null,
+          displayLabels: buildDisplayLabels(editTranslations),
           sortOrder: nums.values.sortOrder,
         }),
       });
@@ -291,10 +326,63 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
     }
   };
 
+  const renderTranslations = (
+    gabaritFallback: string,
+    translations: TranslationFields,
+    setTranslations: (next: TranslationFields) => void
+  ) => {
+    const fallback = gabaritFallback.trim() || "—";
+    const filledCount = LANGUAGES.filter((l) => translations[l.code]?.trim()).length;
+    const missingCount = LANGUAGES.length - filledCount;
+    return (
+      <details className="sm:col-span-2 rounded-lg border border-gray-200 bg-gray-50/60 p-3">
+        <summary className="cursor-pointer text-xs font-semibold text-gray-600 select-none flex items-center gap-2">
+          <Languages size={14} className="shrink-0 text-gray-400" />
+          Traductions du libellé affiché
+          {missingCount > 0 ? (
+            <span className="text-[10px] font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
+              {missingCount} manquante{missingCount > 1 ? "s" : ""}
+            </span>
+          ) : (
+            <span className="text-[10px] font-medium text-green-700 bg-green-50 px-1.5 py-0.5 rounded">
+              Complet
+            </span>
+          )}
+        </summary>
+        <p className="text-[10px] text-gray-400 mt-2">
+          Libellé affiché aux exposants dans leur langue (formulaire, récap, PDF,
+          e-mail). Laissez vide pour utiliser le repli automatique :{" "}
+          <span className="font-medium text-gray-500">« {fallback} »</span>.
+        </p>
+        <div className="grid gap-2 sm:grid-cols-2 mt-3">
+          {LANGUAGES.map((l) => (
+            <div key={l.code}>
+              <label className="text-[11px] font-semibold text-gray-500 flex items-center gap-1">
+                <span aria-hidden>{l.flag}</span>
+                {l.label}
+              </label>
+              <input
+                type="text"
+                value={translations[l.code] ?? ""}
+                onChange={(e) =>
+                  setTranslations({ ...translations, [l.code]: e.target.value })
+                }
+                placeholder={fallback}
+                className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              />
+            </div>
+          ))}
+        </div>
+      </details>
+    );
+  };
+
   const renderFormFields = (
     form: typeof createForm | Record<string, string | boolean>,
     setForm: (patch: Record<string, string | boolean>) => void,
-    isEditing = false
+    isEditing = false,
+    translations: TranslationFields = {},
+    setTranslations: (next: TranslationFields) => void = () => {}
   ) => (
     <div className="grid gap-3 sm:grid-cols-2">
       <div className="sm:col-span-2">
@@ -418,6 +506,11 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
           Plaque de remorque requise
         </label>
       </div>
+      {renderTranslations(
+        String(form.gabarit ?? ""),
+        translations,
+        setTranslations
+      )}
       {espace === "rx" && (
         <div className="sm:col-span-2 grid gap-3 sm:grid-cols-2 rounded-lg border border-blue-100 bg-blue-50/40 p-3">
           <div className="sm:col-span-2 flex items-center gap-1.5 text-xs font-semibold text-blue-900">
@@ -549,8 +642,12 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
       {showCreateForm && canWrite && (
         <div className="mb-6 bg-white rounded-2xl border-2 border-dashed border-orange-300/40 p-5 shadow-sm">
           <h3 className="text-sm font-bold text-gray-800 mb-3">Ajouter un type de véhicule</h3>
-          {renderFormFields(createForm, (patch) =>
-            setCreateForm((prev) => ({ ...prev, ...patch }))
+          {renderFormFields(
+            createForm,
+            (patch) => setCreateForm((prev) => ({ ...prev, ...patch })),
+            false,
+            createTranslations,
+            setCreateTranslations
           )}
           {createError && <p className="text-red-500 text-xs mt-2">{createError}</p>}
           <div className="flex gap-2 mt-4">
@@ -595,7 +692,9 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
                       {renderFormFields(
                         editForm,
                         (patch) => setEditForm((prev) => ({ ...prev, ...patch })),
-                        true
+                        true,
+                        editTranslations,
+                        setEditTranslations
                       )}
                       {editError && <p className="text-red-500 text-xs mt-2">{editError}</p>}
                       <div className="flex gap-2 mt-4">
@@ -625,6 +724,16 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
                           {type.rxPalmBeachAtCanto && (
                             <span className="text-[10px] text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded">
                               Palm Beach Canto
+                            </span>
+                          )}
+                          {countMissingTranslations(type) > 0 && (
+                            <span
+                              className="inline-flex items-center gap-1 text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded"
+                              title="Gabarit custom : des langues utilisent le repli automatique faute de traduction."
+                            >
+                              <Languages size={11} className="shrink-0" />
+                              {countMissingTranslations(type)} trad. manquante
+                              {countMissingTranslations(type) > 1 ? "s" : ""}
                             </span>
                           )}
                         </div>

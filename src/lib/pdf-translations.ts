@@ -1,6 +1,6 @@
 import type { LangCode } from "./translations";
 import { isValidLang } from "./translations";
-import { rxTranslations } from "./rx-translations";
+import { resolveVehicleTypeDisplayLabel } from "./vehicle-type-i18n";
 
 export interface PdfT {
   requestTitle: string;
@@ -311,9 +311,9 @@ export function resolvePdfVehicleLabel(
   code: string | null | undefined,
   fallbackGabarit: string
 ): string {
-  if (!code) return fallbackGabarit;
-  const key = code.trim().toUpperCase();
-  const vt = rxTranslations[lang]?.vehicleTypes?.[key];
-  if (vt) return vt;
-  return fallbackGabarit;
+  return resolveVehicleTypeDisplayLabel({
+    code,
+    lang,
+    dbGabarit: fallbackGabarit,
+  });
 }

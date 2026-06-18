@@ -74,8 +74,8 @@ export default function AccreditationRecap({
   onEditStep,
   statusNotice,
 }: Props) {
-  const { t } = useTranslation();
-  const { getLabel } = useVehicleTypes(false, orgSlug);
+  const { t, lang } = useTranslation();
+  const { getDisplayLabel } = useVehicleTypes(false, orgSlug);
   const events = useEventOptions();
 
   const v = data.vehicles[0];
@@ -87,7 +87,7 @@ export default function AccreditationRecap({
   const unloadingLabel =
     data.unloading === "Autonome" ? t.manualUnloading : data.unloading || notProvided;
   const vehicleTypeLabel = v
-    ? getLabel(v.size || v.vehicleType || "") || notProvided
+    ? getDisplayLabel(v.size || v.vehicleType || "", lang) || notProvided
     : notProvided;
   const phone = v && v.phoneNumber ? `${v.phoneCode} ${v.phoneNumber}`.trim() : notProvided;
   const schedule = v?.time ? `${v.date} · ${v.time}` : v?.date || notProvided;

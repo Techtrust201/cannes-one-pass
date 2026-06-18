@@ -1,10 +1,12 @@
 import { NextRequest } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   requirePermission,
   getAccessibleOrganizationIds,
 } from "@/lib/auth-helpers";
 import { parseLocalizedNumber } from "@/lib/parse-localized-number";
+import { parseVehicleTypeDbTranslations } from "@/lib/vehicle-type-i18n";
 
 /**
  * Vérifie que l'utilisateur peut administrer un gabarit appartenant à
@@ -168,6 +170,13 @@ export async function PATCH(
       updates.sortOrder = Math.round(parsedOrder);
     }
     if (body.isActive !== undefined) updates.isActive = Boolean(body.isActive);
+    // Traductions d'affichage : on remplace l'ensemble par la version sanitizée
+    // (langues supportées + valeurs non vides). Une map vide efface la colonne.
+    if (body.displayLabels !== undefined) {
+      const sanitized = parseVehicleTypeDbTranslations(body.displayLabels);
+      updates.displayLabels =
+        Object.keys(sanitized).length > 0 ? sanitized : Prisma.JsonNull;
+    }
 
     // Renommage : update + cascade atomique sur les véhicules de la MÊME
     // organisation (Vehicle.vehicleType est une chaîne, pas une FK). Le scope

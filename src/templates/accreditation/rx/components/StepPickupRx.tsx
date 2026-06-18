@@ -412,9 +412,10 @@ export function StepPickupRx({
                                 <option key={vt.id} value={vt.code}>
                                   {getLocalizedVehicleType(
                                     vt.code,
-                                    t,
+                                    lang,
                                     vt.gabarit,
-                                    vt.label
+                                    vt.label,
+                                    vt.displayLabels
                                   )}
                                 </option>
                               ))}
@@ -628,9 +629,10 @@ export function StepPickupRx({
                                 <option key={vt.id} value={vt.code}>
                                   {getLocalizedVehicleType(
                                     vt.code,
-                                    t,
+                                    lang,
                                     vt.gabarit,
-                                    vt.label
+                                    vt.label,
+                                    vt.displayLabels
                                   )}
                                 </option>
                               ))}

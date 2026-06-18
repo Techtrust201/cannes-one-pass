@@ -21,11 +21,20 @@ import type { LangCode } from "@/lib/translations";
  * donc jamais impacté.
  */
 
-/** Slugs reconnus comme l'organisation Palais des Festivals. */
-const PALAIS_SLUGS = new Set(["palais-des-festivals", "palais"]);
+/**
+ * Slug canonique de l'organisation Palais des Festivals (`Organization.slug`
+ * en base). À NE PAS confondre avec le slug de *template* (`"palais"`,
+ * `formTemplate`) qui n'est jamais propagé comme `orgSlug` aux composants.
+ */
+export const PALAIS_ORG_SLUG = "palais-des-festivals";
 
+/**
+ * Vrai uniquement pour l'organisation Palais des Festivals, identifiée par son
+ * slug d'organisation explicite. On n'utilise JAMAIS `!isRx` comme proxy :
+ * cela impacterait toute organisation non-RX (présente ou future).
+ */
 export function isPalaisOrg(slug?: string | null): boolean {
-  return !!slug && PALAIS_SLUGS.has(slug.trim().toLowerCase());
+  return slug?.trim().toLowerCase() === PALAIS_ORG_SLUG;
 }
 
 /* ------------------------------------------------------------------ *
@@ -120,8 +129,32 @@ export function getOrgFieldLabel(
 }
 
 /* ------------------------------------------------------------------ *
- * 2. Options « Déchargement par » configurables par organisation     *
+ * 2. Options « Déchargement par » — ordre & options synthétiques      *
  * ------------------------------------------------------------------ */
+
+/**
+ * ⚠️ STATUT « ADMINISTRABLE » — à lire avant d'évoluer ce bloc.
+ *
+ * Contrairement aux gabarits (table `VehicleTypeConfig` avec colonne
+ * `sortOrder`, éditable en back-office), le champ « Déchargement par » n'est
+ * PAS pilotable depuis le back-office en l'état :
+ *
+ *  - Les PRESTATAIRES (table `UnloadingProvider`) sont administrables en CRUD
+ *    (création / renommage / activation via `/api/unloading-providers` et la
+ *    section `UnloadingProvidersSection`), MAIS leur ordre d'affichage n'est
+ *    pas configurable : l'API renvoie un tri alphabétique (`orderBy: name asc`),
+ *    la table n'a pas de colonne `sortOrder`.
+ *  - Les options SYNTHÉTIQUES (`UNKNOWN`, `Autonome`) et l'ordre global
+ *    ci-dessous sont une CONFIG APPLICATIVE codée ici, par organisation. Ce
+ *    n'est donc PAS une gestion back-office : c'est une config temporaire et
+ *    figée dans le code (changer l'ordre = changer ce fichier + déployer).
+ *
+ * Pour rendre cet ordre réellement administrable (sujet général demandé), il
+ * faudrait : ajouter `sortOrder` (+ éventuellement `displayLabels`, `isActive`)
+ * à `UnloadingProvider`, exposer ce tri dans l'API et l'UI d'admin, et modéliser
+ * les options synthétiques comme des entrées de table. Hors périmètre du besoin
+ * Killian (contenu Palais) ; à traiter séparément.
+ */
 
 /**
  * Codes techniques stables envoyés au backend pour les options synthétiques

@@ -12,21 +12,30 @@ import { LANGUAGES, type LangCode } from "./translations";
 
 const LANGS = LANGUAGES.map((l) => l.code) as LangCode[];
 
+/** Slug d'organisation Palais (distinct du slug de template « palais »). */
+const PALAIS = "palais-des-festivals";
+
 const PROVIDERS = [
   { id: "p1", name: "GL Events" },
   { id: "p2", name: "Sud Manut" },
 ];
 
 describe("isPalaisOrg", () => {
-  it("reconnaît les slugs Palais (insensible à la casse)", () => {
+  it("reconnaît le slug d'organisation Palais (insensible à la casse)", () => {
     expect(isPalaisOrg("palais-des-festivals")).toBe(true);
-    expect(isPalaisOrg("palais")).toBe(true);
     expect(isPalaisOrg("PALAIS-DES-FESTIVALS")).toBe(true);
+    expect(isPalaisOrg("  palais-des-festivals  ")).toBe(true);
   });
 
-  it("rejette RX, les autres orgs et les valeurs vides", () => {
+  it("ne traite PAS le slug de template « palais » comme l'organisation Palais", () => {
+    // « palais » est un formTemplate, jamais un Organization.slug : il ne doit
+    // pas déclencher les surcharges Palais.
+    expect(isPalaisOrg("palais")).toBe(false);
+  });
+
+  it("rejette RX, une organisation fictive et les valeurs vides", () => {
     expect(isPalaisOrg("rx")).toBe(false);
-    expect(isPalaisOrg("autre-org")).toBe(false);
+    expect(isPalaisOrg("cannes-lions")).toBe(false);
     expect(isPalaisOrg(null)).toBe(false);
     expect(isPalaisOrg(undefined)).toBe(false);
   });
@@ -44,9 +53,9 @@ describe("getOrgFieldLabel — Palais", () => {
 
   it("fournit une traduction non française pour en/pt/pl (pas de résidu FR)", () => {
     for (const key of ["decoratorName", "standServed"] as const) {
-      const fr = getOrgFieldLabel("palais", key, "fr", "fallback");
+      const fr = getOrgFieldLabel(PALAIS, key, "fr", "fallback");
       for (const lang of ["en", "pt", "pl"] as LangCode[]) {
-        const label = getOrgFieldLabel("palais", key, lang, "fallback");
+        const label = getOrgFieldLabel(PALAIS, key, lang, "fallback");
         expect(label).not.toBe("fallback");
         expect(label.trim().length).toBeGreaterThan(0);
         // « Société » ne doit pas rester tel quel dans une autre langue.
@@ -58,18 +67,24 @@ describe("getOrgFieldLabel — Palais", () => {
   it("couvre les 11 langues pour chaque libellé surchargé", () => {
     for (const key of ["decoratorName", "decoratorPlaceholder", "standServed", "standPlaceholder"] as const) {
       for (const lang of LANGS) {
-        expect(getOrgFieldLabel("palais", key, lang, "fallback")).not.toBe("fallback");
+        expect(getOrgFieldLabel(PALAIS, key, lang, "fallback")).not.toBe("fallback");
       }
     }
   });
 });
 
-describe("getOrgFieldLabel — RX / autres (inchangé)", () => {
-  it("renvoie le fallback pour RX et les autres organisations", () => {
+describe("getOrgFieldLabel — RX / autres orgs / template (inchangé)", () => {
+  it("renvoie le fallback pour RX, une org fictive, le template « palais » et null", () => {
     expect(getOrgFieldLabel("rx", "decoratorName", "fr", "Nom du décorateur")).toBe(
       "Nom du décorateur"
     );
-    expect(getOrgFieldLabel("autre-org", "standServed", "en", "Stand served")).toBe("Stand served");
+    expect(getOrgFieldLabel("cannes-lions", "standServed", "en", "Stand served")).toBe(
+      "Stand served"
+    );
+    // Slug de template, pas l'organisation Palais → pas de surcharge.
+    expect(getOrgFieldLabel("palais", "decoratorName", "fr", "Nom du décorateur")).toBe(
+      "Nom du décorateur"
+    );
     expect(getOrgFieldLabel(null, "decoratorName", "fr", "Nom du décorateur")).toBe(
       "Nom du décorateur"
     );
@@ -92,26 +107,28 @@ describe("buildUnloadingOptions — Palais", () => {
   });
 
   it("traduit les options génériques selon la langue", () => {
-    const en = buildUnloadingOptions("palais", PROVIDERS, "en");
+    const en = buildUnloadingOptions(PALAIS, PROVIDERS, "en");
     expect(en[0].label).toBe("Unknown");
     expect(en[1].label).toBe("Manual unloading");
-    const pl = buildUnloadingOptions("palais", PROVIDERS, "pl");
+    const pl = buildUnloadingOptions(PALAIS, PROVIDERS, "pl");
     expect(pl[0].label).toBe("Nieznany");
   });
 
   it("n'envoie jamais de libellé traduit comme valeur backend", () => {
-    const en = buildUnloadingOptions("palais", PROVIDERS, "en");
+    const en = buildUnloadingOptions(PALAIS, PROVIDERS, "en");
     expect(en[0].value).toBe(UNLOADING_UNKNOWN);
     expect(en[1].value).toBe(UNLOADING_MANUAL);
   });
 });
 
 describe("buildUnloadingOptions — défaut (non Palais)", () => {
-  it("préserve le comportement historique : prestataires puis Déchargement manuel", () => {
-    const opts = buildUnloadingOptions("rx", PROVIDERS, "fr");
-    expect(opts.map((o) => o.value)).toEqual(["GL Events", "Sud Manut", UNLOADING_MANUAL]);
-    // Pas d'option « Inconnu » hors Palais.
-    expect(opts.some((o) => o.value === UNLOADING_UNKNOWN)).toBe(false);
+  it("préserve le comportement historique pour RX et une org fictive", () => {
+    for (const slug of ["rx", "cannes-lions", "palais" /* template slug */]) {
+      const opts = buildUnloadingOptions(slug, PROVIDERS, "fr");
+      expect(opts.map((o) => o.value)).toEqual(["GL Events", "Sud Manut", UNLOADING_MANUAL]);
+      // Pas d'option « Inconnu » hors organisation Palais.
+      expect(opts.some((o) => o.value === UNLOADING_UNKNOWN)).toBe(false);
+    }
   });
 });
 
@@ -120,8 +137,10 @@ describe("getDefaultUnloadingValue", () => {
     expect(getDefaultUnloadingValue("palais-des-festivals")).toBe(UNLOADING_UNKNOWN);
   });
 
-  it("ne présélectionne rien hors Palais", () => {
+  it("ne présélectionne rien hors organisation Palais", () => {
     expect(getDefaultUnloadingValue("rx")).toBe("");
+    expect(getDefaultUnloadingValue("cannes-lions")).toBe("");
+    expect(getDefaultUnloadingValue("palais")).toBe(""); // slug de template
     expect(getDefaultUnloadingValue(null)).toBe("");
   });
 });

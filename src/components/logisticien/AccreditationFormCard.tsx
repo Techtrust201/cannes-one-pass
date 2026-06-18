@@ -24,9 +24,15 @@ import {
 
 interface Props {
   acc: Accreditation;
+  /**
+   * Slug de l'organisation de l'accréditation (`Organization.slug`), fourni par
+   * la page serveur via la relation. Scope les libellés/options Palais sans
+   * proxy `!isRx`. Null si l'accréditation n'est rattachée à aucune org.
+   */
+  orgSlug?: string | null;
 }
 
-export default function AccreditationFormCard({ acc }: Props) {
+export default function AccreditationFormCard({ acc, orgSlug = null }: Props) {
   const router = useRouter();
   const EVENT_OPTIONS = useEventOptions();
   const { providers: unloadingProviders } = useUnloadingProviders();
@@ -49,19 +55,12 @@ export default function AccreditationFormCard({ acc }: Props) {
   );
   const isOperational = ["ATTENTE", "ENTREE", "SORTIE"].includes(acc.status);
 
-  // Back-office FR. Scoping par famille d'organisation : les accréditations
-  // non-RX (Palais) reçoivent les libellés et options Palais ; RX reste
-  // strictement inchangé. (Le type Accreditation ne porte pas de slug ; seules
-  // les orgs « palais » et « rx » existent, `!isRx` ⇒ Palais.)
-  const orgSlugForLabels = isRx ? "rx" : "palais-des-festivals";
-  const decoratorLabel = getOrgFieldLabel(
-    orgSlugForLabels,
-    "decoratorName",
-    "fr",
-    "Nom du décorateur"
-  );
-  const standLabel = getOrgFieldLabel(orgSlugForLabels, "standServed", "fr", "Stand desservi");
-  const unloadingOptions = buildUnloadingOptions(orgSlugForLabels, unloadingProviders, "fr");
+  // Back-office FR. Scoping STRICT par slug d'organisation (jamais `!isRx`) :
+  // seul `palais-des-festivals` reçoit les libellés/options Palais. RX et toute
+  // autre organisation (présente ou future) restent inchangés.
+  const decoratorLabel = getOrgFieldLabel(orgSlug, "decoratorName", "fr", "Nom du décorateur");
+  const standLabel = getOrgFieldLabel(orgSlug, "standServed", "fr", "Stand desservi");
+  const unloadingOptions = buildUnloadingOptions(orgSlug, unloadingProviders, "fr");
   const hasUnloadingOption = unloadingOptions.some((o) => o.value === unloading);
 
   async function downloadOfficialPdf() {

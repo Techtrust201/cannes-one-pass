@@ -67,7 +67,10 @@ export default async function Page({
       </div>
       {/* Desktop */}
       <div className="hidden sm:block">
-        <AccreditationFormCard acc={safeAcc as Accreditation} />
+        <AccreditationFormCard
+          acc={safeAcc as Accreditation}
+          orgSlug={acc.organization?.slug ?? null}
+        />
       </div>
     </div>
   );

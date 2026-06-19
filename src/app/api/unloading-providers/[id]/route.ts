@@ -20,7 +20,7 @@ export async function PATCH(
 
   const { id } = await params;
   const body = await req.json();
-  const { name, isActive } = body;
+  const { name, isActive, sortOrder } = body;
 
   try {
     const existing = await prisma.unloadingProvider.findUnique({
@@ -45,6 +45,10 @@ export async function PATCH(
       updates.name = trimmedName;
     }
     if (isActive !== undefined) updates.isActive = Boolean(isActive);
+    if (sortOrder !== undefined && sortOrder !== null && sortOrder !== "") {
+      const parsed = Math.round(Number(sortOrder));
+      if (Number.isFinite(parsed)) updates.sortOrder = parsed;
+    }
 
     const updated = await prisma.unloadingProvider.update({
       where: { id },

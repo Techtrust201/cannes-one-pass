@@ -18,6 +18,7 @@ interface UnloadingProvider {
   id: string;
   name: string;
   isActive: boolean;
+  sortOrder: number;
 }
 
 interface UnloadingProvidersSectionProps {
@@ -42,11 +43,13 @@ export default function UnloadingProvidersSection({
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newName, setNewName] = useState("");
+  const [newSortOrder, setNewSortOrder] = useState("0");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  const [editSortOrder, setEditSortOrder] = useState("0");
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState("");
 
@@ -81,11 +84,15 @@ export default function UnloadingProvidersSection({
       const res = await fetch(withEspaceQuery("/api/unloading-providers", espace), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newName.trim() }),
+        body: JSON.stringify({
+          name: newName.trim(),
+          sortOrder: Number(newSortOrder) || 0,
+        }),
       });
       if (res.ok || res.status === 200) {
         setShowCreateForm(false);
         setNewName("");
+        setNewSortOrder("0");
         fetchProviders();
       } else {
         const err = await res.json();
@@ -101,12 +108,14 @@ export default function UnloadingProvidersSection({
   const startEdit = (provider: UnloadingProvider) => {
     setEditingId(provider.id);
     setEditName(provider.name);
+    setEditSortOrder(String(provider.sortOrder ?? 0));
     setEditError("");
   };
 
   const cancelEdit = () => {
     setEditingId(null);
     setEditName("");
+    setEditSortOrder("0");
     setEditError("");
   };
 
@@ -118,7 +127,10 @@ export default function UnloadingProvidersSection({
       const res = await fetch(`/api/unloading-providers/${editingId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: editName.trim() }),
+        body: JSON.stringify({
+          name: editName.trim(),
+          sortOrder: Number(editSortOrder) || 0,
+        }),
       });
       if (res.ok) {
         cancelEdit();
@@ -215,6 +227,17 @@ export default function UnloadingProvidersSection({
               className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#4F587E] focus:border-transparent"
               autoFocus
             />
+            <input
+              type="number"
+              value={newSortOrder}
+              onChange={(e) => setNewSortOrder(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleCreate();
+              }}
+              placeholder="Ordre"
+              title="Ordre d'affichage (croissant)"
+              className="w-24 px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#4F587E] focus:border-transparent"
+            />
             <button
               onClick={handleCreate}
               disabled={creating || !newName.trim()}
@@ -274,6 +297,22 @@ export default function UnloadingProvidersSection({
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#4F587E] focus:border-transparent"
                         autoFocus
                       />
+                      <label className="block">
+                        <span className="text-xs font-semibold text-gray-500 uppercase">
+                          Ordre d&apos;affichage
+                        </span>
+                        <input
+                          type="number"
+                          value={editSortOrder}
+                          onChange={(e) => setEditSortOrder(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") saveEdit();
+                            if (e.key === "Escape") cancelEdit();
+                          }}
+                          title="Ordre d'affichage (croissant)"
+                          className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#4F587E] focus:border-transparent"
+                        />
+                      </label>
                       {editError && (
                         <p className="text-red-500 text-xs">{editError}</p>
                       )}
@@ -304,6 +343,12 @@ export default function UnloadingProvidersSection({
                         <div className="w-2 h-2 bg-green-400 rounded-full shrink-0" />
                         <span className="font-semibold text-gray-800">
                           {provider.name}
+                        </span>
+                        <span
+                          className="text-[10px] font-semibold text-gray-400 bg-gray-100 rounded px-1.5 py-0.5"
+                          title="Ordre d'affichage"
+                        >
+                          #{provider.sortOrder ?? 0}
                         </span>
                       </div>
                       {canWrite && (

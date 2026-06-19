@@ -298,25 +298,48 @@ export function buildUnloadingOptions(
 ): UnloadingOption[] {
   const config = getOrgUnloadingConfig(orgSlug);
 
-  const synthetic = config.synthetic
-    .filter((o) => o.isActive)
-    .map((o) => ({
-      value: o.code,
-      label: o.displayLabels[lang] ?? o.displayLabels.fr,
-      sortOrder: o.sortOrder,
-      isDefault: o.isDefault,
-    }));
+  const activeSynthetic = config.synthetic.filter((o) => o.isActive);
 
-  const providerOptions = providers.map((p, idx) => ({
-    value: p.name,
-    label: p.name,
-    sortOrder: config.providersSortOrder + idx,
-    isDefault: false as boolean | undefined,
+  const synthetic = activeSynthetic.map((o) => ({
+    value: o.code,
+    label: o.displayLabels[lang] ?? o.displayLabels.fr,
+    sortOrder: o.sortOrder,
+    isDefault: o.isDefault,
   }));
+
+  // Déduplication : un prestataire en base peut faire doublon avec une option
+  // synthétique (ex. un prestataire nommé « Inconnu » qui ferait doublon avec
+  // le code UNKNOWN, ou « Autonome »/« Déchargement manuel » avec le manuel).
+  // On masque ces prestataires : l'option synthétique (traduite, code stable)
+  // prime. Comparaison insensible casse/espaces, sur le code ET tous les
+  // libellés de l'option synthétique.
+  const reserved = new Set<string>();
+  for (const o of activeSynthetic) {
+    reserved.add(normalizeName(o.code));
+    for (const label of Object.values(o.displayLabels)) {
+      reserved.add(normalizeName(label));
+    }
+  }
+
+  // Les prestataires conservent l'ordre fourni (l'API les trie déjà par
+  // sortOrder puis nom — cf. /api/unloading-providers).
+  const providerOptions = providers
+    .filter((p) => !reserved.has(normalizeName(p.name)))
+    .map((p, idx) => ({
+      value: p.name,
+      label: p.name,
+      sortOrder: config.providersSortOrder + idx,
+      isDefault: false as boolean | undefined,
+    }));
 
   return [...synthetic, ...providerOptions]
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .map(({ value, label, isDefault }) => ({ value, label, isDefault }));
+}
+
+/** Normalise un nom pour comparaison (minuscules, espaces compactés). */
+function normalizeName(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
 /**

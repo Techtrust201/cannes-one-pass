@@ -121,6 +121,50 @@ describe("buildUnloadingOptions — Palais", () => {
   });
 });
 
+describe("buildUnloadingOptions — déduplication", () => {
+  it("masque un prestataire « Inconnu » qui ferait doublon avec l'option synthétique (Palais)", () => {
+    const providers = [
+      { id: "p0", name: "Inconnu" },
+      { id: "p1", name: "GL Events" },
+    ];
+    const opts = buildUnloadingOptions(PALAIS, providers, "fr");
+    // Une seule entrée « Inconnu » (la synthétique UNKNOWN), pas le prestataire.
+    const inconnus = opts.filter((o) => o.label === "Inconnu");
+    expect(inconnus).toHaveLength(1);
+    expect(inconnus[0].value).toBe(UNLOADING_UNKNOWN);
+    expect(opts.map((o) => o.value)).toEqual([UNLOADING_UNKNOWN, UNLOADING_MANUAL, "GL Events"]);
+  });
+
+  it("masque un prestataire « Autonome » ou « Déchargement manuel » (doublon manuel)", () => {
+    const providers = [
+      { id: "p0", name: "Autonome" },
+      { id: "p1", name: "Déchargement manuel" },
+      { id: "p2", name: "Mathez" },
+    ];
+    const opts = buildUnloadingOptions(PALAIS, providers, "fr");
+    expect(opts.map((o) => o.value)).toEqual([UNLOADING_UNKNOWN, UNLOADING_MANUAL, "Mathez"]);
+  });
+
+  it("déduplique de façon insensible à la casse et aux espaces", () => {
+    const providers = [{ id: "p0", name: "  inconnu  " }, { id: "p1", name: "BBO" }];
+    const opts = buildUnloadingOptions(PALAIS, providers, "fr");
+    expect(opts.filter((o) => o.label === "Inconnu")).toHaveLength(1);
+    expect(opts.some((o) => o.value === "BBO")).toBe(true);
+  });
+
+  it("préserve l'ordre des prestataires tel que fourni par l'API (déjà trié)", () => {
+    const providers = [
+      { id: "p1", name: "Zeta" },
+      { id: "p2", name: "Alpha" },
+    ];
+    // L'API trie par sortOrder puis nom ; le builder ne réordonne pas les
+    // prestataires entre eux.
+    const opts = buildUnloadingOptions(PALAIS, providers, "fr");
+    const providerValues = opts.map((o) => o.value).filter((v) => v === "Zeta" || v === "Alpha");
+    expect(providerValues).toEqual(["Zeta", "Alpha"]);
+  });
+});
+
 describe("buildUnloadingOptions — défaut (non Palais)", () => {
   it("préserve le comportement historique pour RX et une org fictive", () => {
     for (const slug of ["rx", "cannes-lions", "palais" /* template slug */]) {

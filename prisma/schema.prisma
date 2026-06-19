@@ -580,6 +580,9 @@ model UnloadingProvider {
   id        String   @id @default(uuid())
   name      String
   isActive  Boolean  @default(true)
+  /// Ordre d'affichage configurable depuis le back-office (onglet Prestataires).
+  /// Tri croissant ; en cas d'égalité, repli alphabétique sur `name`.
+  sortOrder Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

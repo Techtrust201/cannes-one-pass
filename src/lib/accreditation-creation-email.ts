@@ -25,6 +25,7 @@ import {
   mapDefaultVehicleTypes,
   resolveVehicleTypeLabelFromList,
 } from "@/lib/vehicle-type-server";
+import { getOrgFieldLabel } from "@/lib/org-form-config";
 
 export type CreationEmailOutcome =
   | "sent"
@@ -80,8 +81,17 @@ function buildHtml(
    * l'espace logisticien) -> message « validée ». `false` = demande publique
    * encore à valider par un agent (statut NOUVEAU).
    */
-  validated: boolean
+  validated: boolean,
+  /**
+   * Slug d'organisation : scope les libellés (Palais → « Société » /
+   * « Stand | Client »). Les autres organisations conservent les libellés
+   * historiques de l'e-mail (« Société » / « Stand »).
+   */
+  orgSlug: string | null
 ): string {
+  // Corps d'e-mail en français : on résout les libellés Palais en FR.
+  const companyLabel = getOrgFieldLabel(orgSlug, "decoratorName", "fr", "Société");
+  const standLabel = getOrgFieldLabel(orgSlug, "standServed", "fr", "Stand");
   const phone = vehicle
     ? `${vehicle.phoneCode ?? ""} ${vehicle.phoneNumber ?? ""}`.trim()
     : "";
@@ -126,8 +136,8 @@ function buildHtml(
     ${banner}
 
     <table style="width:100%;border-collapse:collapse;background:#F9FAFB;border-radius:8px;overflow:hidden;margin-bottom:20px;">
-      ${row("Société", acc.company)}
-      ${row("Stand", acc.stand)}
+      ${row(companyLabel, acc.company)}
+      ${row(standLabel, acc.stand)}
       ${row("Événement", acc.event)}
       ${row("Véhicule", vehicleIdentity)}
       ${gabarit ? row("Gabarit du véhicule", gabarit) : ""}
@@ -192,6 +202,7 @@ export async function sendAccreditationCreationEmail(params: {
         vehicles: true,
         organization: {
           select: {
+            slug: true,
             name: true,
             emailFromName: true,
             emailFromAddress: true,
@@ -277,7 +288,14 @@ export async function sendAccreditationCreationEmail(params: {
     const subject = validated
       ? `Votre accréditation validée — ${vehicleIdentity} (${acc.company})`
       : `Demande d'accréditation reçue — ${vehicleIdentity} (${acc.company})`;
-    const html = buildHtml(acc, vehicle, vehicleIdentity, gabarit, validated);
+    const html = buildHtml(
+      acc,
+      vehicle,
+      vehicleIdentity,
+      gabarit,
+      validated,
+      acc.organization?.slug ?? null
+    );
 
     // Source unique de vérité du document : on attache à l'e-mail le MÊME PDF
     // propre que celui téléchargé depuis l'interface (générateur structuré

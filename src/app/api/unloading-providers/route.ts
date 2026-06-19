@@ -45,7 +45,8 @@ export async function GET(req: NextRequest) {
     const providers = await withRetry(() =>
       prisma.unloadingProvider.findMany({
         where: { ...(includeAll ? {} : { isActive: true }), ...scopeFilter },
-        orderBy: { name: "asc" },
+        // Ordre configurable depuis le back-office, repli alphabétique stable.
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
       })
     );
     return Response.json(providers);
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
     const orgId = await resolveEspaceOrgId(espace);
 
     const body = await req.json();
-    const { name } = body;
+    const { name, sortOrder } = body;
 
     if (!name || !name.trim()) {
       return Response.json(
@@ -85,6 +86,11 @@ export async function POST(req: NextRequest) {
     }
 
     const trimmedName = name.trim();
+    const parsedSortOrder =
+      sortOrder === undefined || sortOrder === null || sortOrder === ""
+        ? 0
+        : Math.round(Number(sortOrder));
+    const safeSortOrder = Number.isFinite(parsedSortOrder) ? parsedSortOrder : 0;
 
     const existing = await prisma.unloadingProvider.findFirst({
       where: { name: trimmedName, organizationId: orgId },
@@ -93,7 +99,7 @@ export async function POST(req: NextRequest) {
       if (!existing.isActive) {
         const reactivated = await prisma.unloadingProvider.update({
           where: { id: existing.id },
-          data: { isActive: true },
+          data: { isActive: true, sortOrder: safeSortOrder },
         });
         return Response.json(reactivated, { status: 200 });
       }
@@ -104,7 +110,7 @@ export async function POST(req: NextRequest) {
     }
 
     const created = await prisma.unloadingProvider.create({
-      data: { name: trimmedName, organizationId: orgId },
+      data: { name: trimmedName, organizationId: orgId, sortOrder: safeSortOrder },
     });
 
     return Response.json(created, { status: 201 });

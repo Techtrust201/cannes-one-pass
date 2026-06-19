@@ -1,4 +1,5 @@
 import type { HistoryAction, ActorSource } from "@prisma/client";
+import { resolveUnloadingLabel } from "@/lib/org-form-config";
 
 export interface HistoryEntryData {
   accreditationId: string;
@@ -65,6 +66,10 @@ function translateValue(field: string, value: string): string {
   if (!value) return "Aucune";
   if (field === "status") return translateStatus(value);
   if (field === "currentZone") return translateZone(value);
+  // Déchargement : résout les codes synthétiques (UNKNOWN, Autonome) en libellé
+  // FR lisible (« Inconnu », « Déchargement manuel ») ; les noms de prestataires
+  // restent inchangés. Audit back-office en français.
+  if (field === "unloading") return resolveUnloadingLabel(value, "fr");
   return value;
 }
 

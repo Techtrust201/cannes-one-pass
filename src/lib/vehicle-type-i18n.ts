@@ -167,9 +167,14 @@ export function parseVehicleTypeDbTranslations(
  * Ordre de priorité (cf. spec gabarits administrables) :
  *   1. Traduction BDD pour la langue courante (`dbTranslations[lang]`) — permet
  *      à l'admin de traduire les gabarits custom créés en back-office.
- *   2. Traduction i18n standard par code (codes connus codés en dur).
- *   3. Gabarit BDD, puis label BDD (repli pour gabarits custom non traduits).
- *   4. Code technique humanisé (dernier recours).
+ *   2. Libellé BDD PERSONNALISÉ : si le gabarit/label saisi en back-office
+ *      diffère du libellé standard FR du code, l'admin l'a personnalisé → il
+ *      prime sur l'i18n standard (ex. code GROS_PORTEUR relabellisé « Porteur »
+ *      ne doit pas s'afficher « 20 m³ »). Sans traduction BDD, ce libellé sert
+ *      dans toutes les langues (l'admin peut ajouter des traductions ensuite).
+ *   3. Traduction i18n standard par code (codes connus non personnalisés).
+ *   4. Gabarit BDD, puis label BDD (repli pour gabarits custom non traduits).
+ *   5. Code technique humanisé (dernier recours).
  */
 export function resolveVehicleTypeDisplayLabel(opts: {
   code: string | null | undefined;
@@ -183,18 +188,32 @@ export function resolveVehicleTypeDisplayLabel(opts: {
   const dbTranslated = dbTranslations?.[lang]?.trim();
   if (dbTranslated) return dbTranslated;
 
+  const gabarit = dbGabarit?.trim();
+  const label = dbLabel?.trim();
+  const dbDisplay = gabarit || label;
+
   const normalized = normalizeVehicleTypeCode(code);
   if (normalized) {
-    const translated = vehicleTypeDisplayLabels[lang]?.[normalized];
-    if (translated) return translated;
+    // L'admin a-t-il personnalisé le libellé (diffère du standard FR du code) ?
+    // Si oui, on respecte sa saisie plutôt que d'imposer le libellé i18n codé
+    // en dur — évite qu'un code standard relabellisé affiche l'ancien libellé.
+    const standardFr = FRENCH_STANDARD_LABELS[normalized];
+    const isCustomized =
+      !!dbDisplay && normalizeLabelForCompare(dbDisplay) !== normalizeLabelForCompare(standardFr);
+    if (!isCustomized) {
+      const translated = vehicleTypeDisplayLabels[lang]?.[normalized];
+      if (translated) return translated;
+    }
   }
 
-  const gabarit = dbGabarit?.trim();
-  if (gabarit) return gabarit;
-  const label = dbLabel?.trim();
-  if (label) return label;
+  if (dbDisplay) return dbDisplay;
   if (code?.trim()) return code.trim().replace(/_/g, " ");
   return "";
+}
+
+/** Normalise un libellé pour comparaison (minuscules, espaces compactés). */
+function normalizeLabelForCompare(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
 /** Alias court pour les appels serveur (PDF, e-mail). */

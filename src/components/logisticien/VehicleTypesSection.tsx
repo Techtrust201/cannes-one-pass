@@ -11,6 +11,8 @@ import {
   RotateCcw,
   MapPin,
   Languages,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import { useVehicleTypes } from "@/hooks/useVehicleTypes";
 import { useEspaceSlug } from "@/hooks/useEspaceSlug";
@@ -142,6 +144,7 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
   const [editTranslations, setEditTranslations] = useState<TranslationFields>({});
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState("");
+  const [reordering, setReordering] = useState(false);
 
   const handleSeed = async () => {
     setSeeding(true);
@@ -172,6 +175,11 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
 
     setCreating(true);
     setCreateError("");
+    // Nouveau type ajouté en fin de liste (ordre = max + 1) : l'ordre se gère
+    // ensuite visuellement avec les flèches monter/descendre, pas au clavier.
+    const nextSortOrder = activeTypes.length
+      ? Math.max(...activeTypes.map((t) => t.sortOrder ?? 0)) + 1
+      : 0;
     try {
       const res = await fetch(withEspaceQuery("/api/vehicle-types", espace), {
         method: "POST",
@@ -190,7 +198,7 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
           rxZoneCanto: createForm.rxZoneCanto || null,
           rxZoneVieuxPort: createForm.rxZoneVieuxPort || null,
           displayLabels: buildDisplayLabels(createTranslations),
-          sortOrder: nums.values.sortOrder,
+          sortOrder: nextSortOrder,
         }),
       });
       if (res.ok) {
@@ -323,6 +331,37 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
       }
     } catch {
       alert("Erreur réseau");
+    }
+  };
+
+  // Réordonnancement par flèches : échange le type avec son voisin puis
+  // renumérote 0..n et persiste les positions modifiées. L'ordre s'applique
+  // au formulaire public (cache invalidé + revalidation « live »).
+  const moveType = async (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (reordering || target < 0 || target >= activeTypes.length) return;
+
+    const reordered = [...activeTypes];
+    [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
+    setReordering(true);
+    try {
+      const requests = reordered
+        .map((t, i) => ({ t, i }))
+        .filter(({ t, i }) => (t.sortOrder ?? 0) !== i)
+        .map(({ t, i }) =>
+          fetch(`/api/vehicle-types/${t.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sortOrder: i }),
+          })
+        );
+      await Promise.all(requests);
+      invalidateVehicleTypeCache();
+      await refresh();
+    } catch {
+      alert("Erreur réseau lors du réordonnancement");
+    } finally {
+      setReordering(false);
     }
   };
 
@@ -468,16 +507,6 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
             <option key={v} value={v}>{v}</option>
           ))}
         </select>
-      </div>
-      <div>
-        <label className="text-xs font-semibold text-gray-500 uppercase">Ordre</label>
-        <input
-          type="text"
-          inputMode="numeric"
-          value={String(form.sortOrder ?? "0")}
-          onChange={(e) => setForm({ sortOrder: e.target.value })}
-          className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-        />
       </div>
       <div className="sm:col-span-2">
         <label className="text-xs font-semibold text-gray-500 uppercase mb-2 block">Couleur</label>
@@ -673,9 +702,18 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
         </div>
       )}
 
+      {canWrite && activeTypes.length > 1 && (
+        <p className="mb-4 flex items-center gap-2 text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+          <ChevronUp size={13} className="text-orange-500" />
+          <ChevronDown size={13} className="-ml-1.5 text-orange-500" />
+          Utilisez les flèches pour ordonner la liste. L&apos;ordre s&apos;applique
+          automatiquement au formulaire d&apos;accréditation (mise à jour en direct).
+        </p>
+      )}
+
       {activeTypes.length > 0 ? (
         <div className="grid gap-3">
-          {activeTypes.map((type) => {
+          {activeTypes.map((type, index) => {
             const colors = getColorClasses(type.color);
             const isEditing = editingId === type.id;
 
@@ -716,6 +754,28 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
                     </>
                   ) : (
                     <div className="flex items-start justify-between gap-4">
+                      {canWrite && (
+                        <div className="flex flex-col -my-1 pt-0.5 shrink-0">
+                          <button
+                            onClick={() => moveType(index, -1)}
+                            disabled={index === 0 || reordering}
+                            className="p-0.5 rounded text-gray-300 hover:text-orange-500 hover:bg-gray-100 transition disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-300"
+                            title="Monter"
+                            aria-label="Monter"
+                          >
+                            <ChevronUp size={16} />
+                          </button>
+                          <button
+                            onClick={() => moveType(index, 1)}
+                            disabled={index === activeTypes.length - 1 || reordering}
+                            className="p-0.5 rounded text-gray-300 hover:text-orange-500 hover:bg-gray-100 transition disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-300"
+                            title="Descendre"
+                            aria-label="Descendre"
+                          >
+                            <ChevronDown size={16} />
+                          </button>
+                        </div>
+                      )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${colors.bg} ${colors.text}`}>

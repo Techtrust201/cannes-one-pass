@@ -86,6 +86,38 @@ describe("resolveVehicleTypeDisplayLabel", () => {
       resolveVehicleTypeDisplayLabel({ code: " porteur_articule ", lang: "es" })
     ).toBe("Camión articulado");
   });
+
+  it("respecte un libellé personnalisé en BDD pour un code standard relabellisé", () => {
+    // Cas réel : code standard GROS_PORTEUR (i18n = « 20 m³ ») relabellisé
+    // « Porteur » en back-office. On ne doit PAS afficher « 20 m³ ».
+    expect(
+      resolveVehicleTypeDisplayLabel({
+        code: "GROS_PORTEUR",
+        lang: "fr",
+        dbGabarit: "Porteur",
+        dbLabel: "Porteur",
+      })
+    ).toBe("Porteur");
+    // Sans traduction dédiée, le libellé admin sert aussi dans les autres langues.
+    expect(
+      resolveVehicleTypeDisplayLabel({
+        code: "GROS_PORTEUR",
+        lang: "en",
+        dbGabarit: "Porteur",
+      })
+    ).toBe("Porteur");
+  });
+
+  it("garde l'i18n standard quand le libellé BDD correspond au standard FR", () => {
+    expect(
+      resolveVehicleTypeDisplayLabel({
+        code: "GROS_PORTEUR",
+        lang: "en",
+        dbGabarit: "20 m³",
+        dbLabel: "20 m³",
+      })
+    ).toBe("20 m³");
+  });
 });
 
 describe("resolveVehicleTypeDisplayLabel — gabarits administrables (BDD)", () => {

@@ -10,6 +10,8 @@ import {
   PlusCircle,
   Power,
   PowerOff,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import { useEspaceSlug } from "@/hooks/useEspaceSlug";
 import { withEspaceQuery } from "@/lib/url";
@@ -43,15 +45,14 @@ export default function UnloadingProvidersSection({
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newName, setNewName] = useState("");
-  const [newSortOrder, setNewSortOrder] = useState("0");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
-  const [editSortOrder, setEditSortOrder] = useState("0");
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState("");
+  const [reordering, setReordering] = useState(false);
 
   const fetchProviders = useCallback(async () => {
     setLoading(true);
@@ -80,19 +81,22 @@ export default function UnloadingProvidersSection({
     if (!newName.trim()) return;
     setCreating(true);
     setCreateError("");
+    // Nouveau prestataire ajouté en fin de liste (ordre = max + 1).
+    const nextSortOrder = providers.length
+      ? Math.max(...providers.map((p) => p.sortOrder ?? 0)) + 1
+      : 0;
     try {
       const res = await fetch(withEspaceQuery("/api/unloading-providers", espace), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: newName.trim(),
-          sortOrder: Number(newSortOrder) || 0,
+          sortOrder: nextSortOrder,
         }),
       });
       if (res.ok || res.status === 200) {
         setShowCreateForm(false);
         setNewName("");
-        setNewSortOrder("0");
         fetchProviders();
       } else {
         const err = await res.json();
@@ -108,14 +112,12 @@ export default function UnloadingProvidersSection({
   const startEdit = (provider: UnloadingProvider) => {
     setEditingId(provider.id);
     setEditName(provider.name);
-    setEditSortOrder(String(provider.sortOrder ?? 0));
     setEditError("");
   };
 
   const cancelEdit = () => {
     setEditingId(null);
     setEditName("");
-    setEditSortOrder("0");
     setEditError("");
   };
 
@@ -127,10 +129,7 @@ export default function UnloadingProvidersSection({
       const res = await fetch(`/api/unloading-providers/${editingId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: editName.trim(),
-          sortOrder: Number(editSortOrder) || 0,
-        }),
+        body: JSON.stringify({ name: editName.trim() }),
       });
       if (res.ok) {
         cancelEdit();
@@ -143,6 +142,44 @@ export default function UnloadingProvidersSection({
       setEditError("Erreur réseau");
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Réordonnancement par flèches : on échange le prestataire avec son voisin,
+  // puis on renumérote 0..n et on persiste uniquement les positions modifiées.
+  // L'UI est mise à jour de façon optimiste pour un ressenti « live ».
+  const moveProvider = async (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (reordering || target < 0 || target >= providers.length) return;
+
+    const previous = providers;
+    const reordered = [...providers];
+    [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
+    const withOrder = reordered.map((p, i) => ({ ...p, sortOrder: i }));
+    setProviders(withOrder);
+    setReordering(true);
+
+    try {
+      const changed = withOrder.filter((p) => {
+        const before = previous.find((x) => x.id === p.id);
+        return !before || before.sortOrder !== p.sortOrder;
+      });
+      const results = await Promise.all(
+        changed.map((p) =>
+          fetch(`/api/unloading-providers/${p.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sortOrder: p.sortOrder }),
+          })
+        )
+      );
+      if (results.some((r) => !r.ok)) {
+        setProviders(previous);
+      }
+    } catch {
+      setProviders(previous);
+    } finally {
+      setReordering(false);
     }
   };
 
@@ -206,6 +243,15 @@ export default function UnloadingProvidersSection({
         )}
       </div>
 
+      {canWrite && providers.length > 1 && (
+        <p className="mb-4 flex items-center gap-2 text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+          <ChevronUp size={13} className="text-[#4F587E]" />
+          <ChevronDown size={13} className="-ml-1.5 text-[#4F587E]" />
+          Utilisez les flèches pour ordonner la liste. L&apos;ordre s&apos;applique
+          automatiquement au formulaire des chauffeurs (mise à jour en direct).
+        </p>
+      )}
+
       {showCreateForm && canWrite && (
         <div className="mb-6 bg-white rounded-2xl border-2 border-dashed border-[#4F587E]/30 p-5 shadow-sm">
           <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
@@ -226,17 +272,6 @@ export default function UnloadingProvidersSection({
               placeholder="Nom du prestataire (ex: BBO)"
               className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#4F587E] focus:border-transparent"
               autoFocus
-            />
-            <input
-              type="number"
-              value={newSortOrder}
-              onChange={(e) => setNewSortOrder(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleCreate();
-              }}
-              placeholder="Ordre"
-              title="Ordre d'affichage (croissant)"
-              className="w-24 px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#4F587E] focus:border-transparent"
             />
             <button
               onClick={handleCreate}
@@ -269,7 +304,7 @@ export default function UnloadingProvidersSection({
 
       {providers.length > 0 ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {providers.map((provider) => {
+          {providers.map((provider, index) => {
             const isEditing = editingId === provider.id;
             return (
               <div
@@ -297,22 +332,6 @@ export default function UnloadingProvidersSection({
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#4F587E] focus:border-transparent"
                         autoFocus
                       />
-                      <label className="block">
-                        <span className="text-xs font-semibold text-gray-500 uppercase">
-                          Ordre d&apos;affichage
-                        </span>
-                        <input
-                          type="number"
-                          value={editSortOrder}
-                          onChange={(e) => setEditSortOrder(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") saveEdit();
-                            if (e.key === "Escape") cancelEdit();
-                          }}
-                          title="Ordre d'affichage (croissant)"
-                          className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#4F587E] focus:border-transparent"
-                        />
-                      </label>
                       {editError && (
                         <p className="text-red-500 text-xs">{editError}</p>
                       )}
@@ -339,20 +358,36 @@ export default function UnloadingProvidersSection({
                     </div>
                   ) : (
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {canWrite && (
+                          <div className="flex flex-col -my-1">
+                            <button
+                              onClick={() => moveProvider(index, -1)}
+                              disabled={index === 0 || reordering}
+                              className="p-0.5 rounded text-gray-300 hover:text-[#4F587E] hover:bg-gray-100 transition disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-300"
+                              title="Monter"
+                              aria-label="Monter"
+                            >
+                              <ChevronUp size={15} />
+                            </button>
+                            <button
+                              onClick={() => moveProvider(index, 1)}
+                              disabled={index === providers.length - 1 || reordering}
+                              className="p-0.5 rounded text-gray-300 hover:text-[#4F587E] hover:bg-gray-100 transition disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-300"
+                              title="Descendre"
+                              aria-label="Descendre"
+                            >
+                              <ChevronDown size={15} />
+                            </button>
+                          </div>
+                        )}
                         <div className="w-2 h-2 bg-green-400 rounded-full shrink-0" />
-                        <span className="font-semibold text-gray-800">
+                        <span className="font-semibold text-gray-800 truncate">
                           {provider.name}
-                        </span>
-                        <span
-                          className="text-[10px] font-semibold text-gray-400 bg-gray-100 rounded px-1.5 py-0.5"
-                          title="Ordre d'affichage"
-                        >
-                          #{provider.sortOrder ?? 0}
                         </span>
                       </div>
                       {canWrite && (
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 shrink-0">
                           <button
                             onClick={() => startEdit(provider)}
                             className="p-1.5 rounded-lg text-gray-400 hover:text-[#4F587E] hover:bg-gray-100 transition"

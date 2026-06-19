@@ -18,8 +18,11 @@ export function useVehicleTypes(includeInactive = false, espaceSlug?: string | n
   const [types, setTypes] = useState<VehicleTypeData[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
+  const refresh = useCallback(async (opts?: { silent?: boolean }) => {
+    // Revalidation « silencieuse » : on ne repasse pas en état loading pour
+    // éviter tout flicker du menu pendant un rafraîchissement en arrière-plan
+    // (focus/onglet/polling). Le premier chargement, lui, affiche le loader.
+    if (!opts?.silent) setLoading(true);
     try {
       invalidateVehicleTypeCache();
       const base = includeInactive
@@ -71,6 +74,28 @@ export function useVehicleTypes(includeInactive = false, espaceSlug?: string | n
 
   useEffect(() => {
     refresh();
+  }, [refresh]);
+
+  // Mise à jour « live » optimisée : on revalide en silence quand l'utilisateur
+  // revient sur l'onglet/la fenêtre (gratuit, piloté par événement) et via un
+  // polling doux uniquement tant que l'onglet est visible (évite de consommer
+  // en arrière-plan). Couvre le cas « admin modifie en back-office → le
+  // formulaire reflète le changement sans refresh manuel ».
+  useEffect(() => {
+    const revalidate = () => refresh({ silent: true });
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") revalidate();
+    };
+    window.addEventListener("focus", revalidate);
+    document.addEventListener("visibilitychange", onVisibility);
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "visible") revalidate();
+    }, 60000);
+    return () => {
+      window.removeEventListener("focus", revalidate);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.clearInterval(intervalId);
+    };
   }, [refresh]);
 
   return {

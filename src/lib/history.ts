@@ -1,5 +1,6 @@
 import type { HistoryAction, ActorSource } from "@prisma/client";
 import { resolveUnloadingLabel } from "@/lib/org-form-config";
+import { getZoneLabel } from "@/lib/zone-utils";
 
 export interface HistoryEntryData {
   accreditationId: string;
@@ -29,7 +30,10 @@ const STATUS_LABELS: Record<string, string> = {
   ABSENT: "Absent",
 };
 
-const ZONE_LABELS: Record<string, string> = {
+// Repli statique des zones par défaut UNIQUEMENT (cache zones froid côté
+// serveur). Les zones sont administrables : le label éditable en base prime
+// (cf. translateZone) pour ne jamais figer un nom de zone renommé.
+const ZONE_LABELS_FALLBACK: Record<string, string> = {
   LA_BOCCA: "La Bocca",
   PALAIS_DES_FESTIVALS: "Palais des Festivals",
   PANTIERO: "Pantiero",
@@ -54,7 +58,13 @@ function translateStatus(status: string): string {
 
 function translateZone(zone: string): string {
   if (!zone) return "Aucune";
-  return ZONE_LABELS[zone] || zone;
+  // Priorité au label administrable en base (zone renommée / zone custom).
+  // `getZoneLabel` retombe sur le code humanisé si le cache est froid : on
+  // préfère alors le repli statique des 4 zones par défaut s'il existe.
+  const dbLabel = getZoneLabel(zone);
+  const humanizedCode = zone.replace(/_/g, " ");
+  if (dbLabel && dbLabel !== humanizedCode) return dbLabel;
+  return ZONE_LABELS_FALLBACK[zone] || dbLabel || zone;
 }
 
 function translateField(field: string): string {

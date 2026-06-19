@@ -12,6 +12,7 @@
 // créerait une dépendance circulaire (undefined à l'initialisation). La
 // validation des codes langue se fait donc localement (cf. SUPPORTED_LANG_SET).
 import type { LangCode } from "./translations";
+import { resolveAdminManagedLabel } from "./admin-managed-label";
 
 /** Map partielle code langue → libellé d'affichage (traductions BDD admin). */
 export type VehicleTypeDbTranslations = Partial<Record<LangCode, string>>;
@@ -185,35 +186,18 @@ export function resolveVehicleTypeDisplayLabel(opts: {
 }): string {
   const { code, lang, dbTranslations, dbLabel, dbGabarit } = opts;
 
-  const dbTranslated = dbTranslations?.[lang]?.trim();
-  if (dbTranslated) return dbTranslated;
+  // Le gabarit prime sur le label comme libellé d'affichage éditable.
+  const dbDisplay = dbGabarit?.trim() || dbLabel?.trim() || null;
 
-  const gabarit = dbGabarit?.trim();
-  const label = dbLabel?.trim();
-  const dbDisplay = gabarit || label;
-
-  const normalized = normalizeVehicleTypeCode(code);
-  if (normalized) {
-    // L'admin a-t-il personnalisé le libellé (diffère du standard FR du code) ?
-    // Si oui, on respecte sa saisie plutôt que d'imposer le libellé i18n codé
-    // en dur — évite qu'un code standard relabellisé affiche l'ancien libellé.
-    const standardFr = FRENCH_STANDARD_LABELS[normalized];
-    const isCustomized =
-      !!dbDisplay && normalizeLabelForCompare(dbDisplay) !== normalizeLabelForCompare(standardFr);
-    if (!isCustomized) {
-      const translated = vehicleTypeDisplayLabels[lang]?.[normalized];
-      if (translated) return translated;
-    }
-  }
-
-  if (dbDisplay) return dbDisplay;
-  if (code?.trim()) return code.trim().replace(/_/g, " ");
-  return "";
-}
-
-/** Normalise un libellé pour comparaison (minuscules, espaces compactés). */
-function normalizeLabelForCompare(value: string): string {
-  return value.trim().toLowerCase().replace(/\s+/g, " ");
+  return resolveAdminManagedLabel({
+    code,
+    lang,
+    dbTranslations,
+    dbLabel: dbDisplay,
+    standardCode: normalizeVehicleTypeCode(code),
+    standardLabelsByLang: vehicleTypeDisplayLabels,
+    standardFrenchLabels: FRENCH_STANDARD_LABELS,
+  });
 }
 
 /** Alias court pour les appels serveur (PDF, e-mail). */

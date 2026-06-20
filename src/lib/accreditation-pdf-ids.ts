@@ -1,4 +1,4 @@
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { PDFDocument, PDFName, PDFString, StandardFonts, rgb } from "pdf-lib";
 import QRCode from "qrcode";
 import prisma from "@/lib/prisma";
 import {
@@ -39,6 +39,8 @@ interface RxExtension {
   };
   vehicleContext?: RxVehicleContext;
   manutentionProvider?: string;
+  /** Zone d'attente pré-suggérée (RX) ; fallback PDF si currentZone non défini. */
+  suggestedZone?: string;
 }
 
 function parseExtension(raw: unknown): RxExtension {
@@ -244,6 +246,38 @@ async function renderAccreditationPage(
     y = drawWrapped(page, val, VALUE_X, y, VALUE_MAX_WIDTH, 12, { color: [0, 0, 0] });
   };
 
+  // Lien Google Maps cliquable : texte bleu souligné + annotation URI pdf-lib.
+  // Aide les chauffeurs à se rendre directement sur la zone d'attente.
+  const addMapsLink = (url: string) => {
+    if (y < MIN_Y + LINE_HEIGHT * 2) return;
+    const size = 11;
+    const text = pdfT.mapsLink;
+    const x = VALUE_X;
+    drawText(page, text, x, y, size, { color: [0.1, 0.33, 0.8] });
+    const textWidth = font.widthOfTextAtSize(text, size);
+    page.drawLine({
+      start: { x, y: y - 2 },
+      end: { x: x + textWidth, y: y - 2 },
+      thickness: 0.6,
+      color: rgb(0.1, 0.33, 0.8),
+    });
+    const annot = pdfDoc.context.obj({
+      Type: "Annot",
+      Subtype: "Link",
+      Rect: [x, y - 3, x + textWidth, y + size],
+      Border: [0, 0, 0],
+      A: { Type: "Action", S: "URI", URI: PDFString.of(url) },
+    });
+    const ref = pdfDoc.context.register(annot);
+    const existing = page.node.Annots();
+    if (existing) {
+      existing.push(ref);
+    } else {
+      page.node.set(PDFName.of("Annots"), pdfDoc.context.obj([ref]));
+    }
+    y -= LINE_HEIGHT;
+  };
+
   drawText(page, pdfT.generalInfo, 50, y, 14);
   y -= 25;
 
@@ -263,6 +297,9 @@ async function renderAccreditationPage(
     addLabelVal(
       pdfT.gpsCoords,
       `${acc.zone.latitude.toFixed(5)}, ${acc.zone.longitude.toFixed(5)}`
+    );
+    addMapsLink(
+      `https://www.google.com/maps/search/?api=1&query=${acc.zone.latitude},${acc.zone.longitude}`
     );
   }
 
@@ -574,7 +611,14 @@ export async function generatePdfFromIds(
     // appliqué dans resolvePdfMode (jamais 'official' pour un statut non
     // opérationnel, même si demandé explicitement).
     const mode = resolvePdfMode(acc.status, opts.mode);
-    const zone = acc.currentZone ? zoneByCode.get(acc.currentZone) ?? null : null;
+    // Zone d'attente : zone réelle (currentZone) prioritaire ; à défaut, zone
+    // pré-suggérée RX (extension.suggestedZone) pour aider le chauffeur même
+    // avant validation/affectation définitive.
+    const suggestedZoneCode = parseExtension(acc.extension).suggestedZone;
+    const effectiveZoneCode = acc.currentZone ?? suggestedZoneCode ?? null;
+    const zone = effectiveZoneCode
+      ? zoneByCode.get(effectiveZoneCode) ?? null
+      : null;
     const accForRender = {
       ...acc,
       eventName: acc.eventRef?.name ?? acc.event,

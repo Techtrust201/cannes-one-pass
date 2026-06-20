@@ -18,6 +18,7 @@ import { writeHistoryDirect } from "@/lib/history-server";
 import { createEmailSentEntry } from "@/lib/history";
 import { resolveAccreditationSender } from "@/lib/email-sender";
 import { generateAccreditationPdfBuffer } from "@/lib/accreditation-pdf-ids";
+import { buildAccreditationPdfFilename } from "@/lib/accreditation-pdf-filename";
 import { idQrPayload } from "@/lib/qr-payloads";
 import { isValidLang, type LangCode } from "@/lib/translations";
 import {
@@ -309,7 +310,11 @@ export async function sendAccreditationCreationEmail(params: {
         lang,
       });
       pdfAttachment = {
-        filename: validated ? "accreditation.pdf" : "demande-accreditation.pdf",
+        filename: buildAccreditationPdfFilename({
+          stand: acc.stand,
+          plate: vehicle?.plate,
+          validated,
+        }),
         content: pdfBuffer,
       };
     } catch (e) {

@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
+import prisma from "@/lib/prisma";
 import { generateAccreditationPdfBuffer } from "@/lib/accreditation-pdf-ids";
+import { buildAccreditationPdfFilename } from "@/lib/accreditation-pdf-filename";
 import { isValidLang, type LangCode } from "@/lib/translations";
 
 /**
@@ -53,12 +55,30 @@ export async function POST(req: NextRequest) {
       ...(lang ? { lang } : {}),
     });
 
-    const filename =
-      mode === "official" ? "accreditation.pdf" : "demande-accreditation.pdf";
+    // Nom de fichier parlant : Accreditation_<Stand>_<Plaque>.pdf (Lot 4).
+    // Stand depuis la 1re accréditation ; plaque uniquement pour un PDF
+    // individuel (un seul id). Le mode « official » force « validé » (préfixe
+    // Accreditation) ; sinon « Demande_Accreditation ».
+    const meta = await prisma.accreditation.findFirst({
+      where: { id: ids[0] },
+      select: {
+        stand: true,
+        status: true,
+        vehicles: { select: { plate: true }, take: 1 },
+      },
+    });
+    const validated =
+      mode === "official" ||
+      (mode !== "request" && (meta?.status ?? "NOUVEAU") !== "NOUVEAU");
+    const filename = buildAccreditationPdfFilename({
+      stand: meta?.stand,
+      plate: ids.length === 1 ? meta?.vehicles?.[0]?.plate : null,
+      validated,
+    });
     return new Response(new Uint8Array(pdfBytes), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename=${filename}`,
+        "Content-Disposition": `attachment; filename="${filename}"`,
       },
     });
   } catch (error) {

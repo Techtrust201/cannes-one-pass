@@ -61,12 +61,23 @@ export async function POST(
     const { generateAccreditationPdfBuffer } = await import(
       "@/lib/accreditation-pdf-ids"
     );
+    const { buildAccreditationPdfFilename } = await import(
+      "@/lib/accreditation-pdf-filename"
+    );
     const { isValidLang } = await import("@/lib/translations");
     const accLang = (acc as { language?: string }).language;
     const pdfBuffer = await generateAccreditationPdfBuffer({
       id: acc.id,
       mode: "official",
       ...(accLang && isValidLang(accLang) ? { lang: accLang } : {}),
+    });
+    // Nom de fichier parlant (Lot 4). Le renvoi vise un document validé
+    // (mode official) ; le garde-fou §3.4b peut le retomber en « request »,
+    // mais le préfixe « Accreditation » reste cohérent avec l'intention d'envoi.
+    const pdfFilename = buildAccreditationPdfFilename({
+      stand: acc.stand,
+      plate: acc.vehicles?.[0]?.plate,
+      validated: acc.status !== "NOUVEAU",
     });
 
     const resend = new Resend(process.env.RESEND_API_KEY!);
@@ -79,7 +90,7 @@ export async function POST(
       // lui-même → évite tout double-encodage qui abîmerait le QR.
       attachments: [
         {
-          filename: "accreditation.pdf",
+          filename: pdfFilename,
           content: pdfBuffer,
         },
       ],

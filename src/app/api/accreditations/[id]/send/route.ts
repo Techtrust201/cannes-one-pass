@@ -65,6 +65,7 @@ export async function POST(
       "@/lib/accreditation-pdf-filename"
     );
     const { isValidLang } = await import("@/lib/translations");
+    const { getEmailTranslations } = await import("@/lib/email-translations");
     const accLang = (acc as { language?: string }).language;
     const pdfBuffer = await generateAccreditationPdfBuffer({
       id: acc.id,
@@ -80,12 +81,16 @@ export async function POST(
       validated: acc.status !== "NOUVEAU",
     });
 
+    // Lot 8 : sujet/corps multilingues (auparavant figés en FR + mention
+    // « Palais des Festivals » erronée pour les autres organisations, ex. RX).
+    const emailLang = accLang && isValidLang(accLang) ? accLang : "fr";
+    const et = getEmailTranslations(emailLang);
     const resend = new Resend(process.env.RESEND_API_KEY!);
     await resend.emails.send({
       from: process.env.FROM_EMAIL!,
       to: targetEmail,
-      subject: "Votre accréditation véhicule",
-      html: `<p>Bonjour,<br/>Veuillez trouver ci-joint votre accréditation véhicule pour le Palais des Festivals.<br/>Cordialement,</p>`,
+      subject: et.titleValidated,
+      html: `<p>${et.greeting}<br/>${et.introValidated}</p>`,
       // Buffer brut (jamais .toString("base64")) : le SDK Resend encode
       // lui-même → évite tout double-encodage qui abîmerait le QR.
       attachments: [

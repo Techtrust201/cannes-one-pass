@@ -19,6 +19,8 @@ import { createEmailSentEntry } from "@/lib/history";
 import { resolveAccreditationSender } from "@/lib/email-sender";
 import { generateAccreditationPdfBuffer } from "@/lib/accreditation-pdf-ids";
 import { buildAccreditationPdfFilename } from "@/lib/accreditation-pdf-filename";
+import { getEmailTranslations } from "@/lib/email-translations";
+import { getPdfTranslations } from "@/lib/pdf-translations";
 import { idQrPayload } from "@/lib/qr-payloads";
 import { isValidLang, type LangCode } from "@/lib/translations";
 import {
@@ -88,11 +90,17 @@ function buildHtml(
    * « Stand | Client »). Les autres organisations conservent les libellés
    * historiques de l'e-mail (« Société » / « Stand »).
    */
-  orgSlug: string | null
+  orgSlug: string | null,
+  /** Langue du corps de l'e-mail (Lot 8) : suit la langue de l'accréditation. */
+  lang: LangCode
 ): string {
-  // Corps d'e-mail en français : on résout les libellés Palais en FR.
-  const companyLabel = getOrgFieldLabel(orgSlug, "decoratorName", "fr", "Société");
-  const standLabel = getOrgFieldLabel(orgSlug, "standServed", "fr", "Stand");
+  // Lot 8 : corps d'e-mail multilingue (auparavant figé en FR).
+  const et = getEmailTranslations(lang);
+  const pdfT = getPdfTranslations(lang);
+  // Libellés société/stand : Palais → libellé dédié dans la langue ; autres
+  // organisations (RX inclus) → fallback PDF traduit.
+  const companyLabel = getOrgFieldLabel(orgSlug, "decoratorName", lang, pdfT.exhibitor);
+  const standLabel = getOrgFieldLabel(orgSlug, "standServed", lang, pdfT.stand);
   const phone = vehicle
     ? `${vehicle.phoneCode ?? ""} ${vehicle.phoneNumber ?? ""}`.trim()
     : "";
@@ -108,30 +116,28 @@ function buildHtml(
   const banner = validated
     ? `
     <div style="background:#DCFCE7;border-left:4px solid #16A34A;padding:12px 16px;border-radius:8px;margin-bottom:20px;">
-      <strong style="color:#166534;">Votre accréditation a été validée.</strong>
+      <strong style="color:#166534;">${escapeHtml(et.bannerValidatedTitle)}</strong>
       <div style="font-size:13px;color:#166534;margin-top:4px;">
-        Présentez ce QR code à votre arrivée sur site.
+        ${escapeHtml(et.bannerValidatedText)}
       </div>
     </div>`
     : `
     <div style="background:#FEF3C7;border-left:4px solid #F59E0B;padding:12px 16px;border-radius:8px;margin-bottom:20px;">
-      <strong style="color:#92400E;">Accréditation pas encore valide.</strong>
+      <strong style="color:#92400E;">${escapeHtml(et.bannerRequestTitle)}</strong>
       <div style="font-size:13px;color:#92400E;margin-top:4px;">
-        Elle devra être validée par un agent à votre arrivée sur site. Présentez ce QR code à l'agent.
+        ${escapeHtml(et.bannerRequestText)}
       </div>
     </div>`;
 
   return `
   <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#111827;">
-    <h2 style="color:#4F587E;margin:0 0 4px;">${
-      validated ? "Votre accréditation" : "Demande d'accréditation reçue"
-    }</h2>
+    <h2 style="color:#4F587E;margin:0 0 4px;">${escapeHtml(
+      validated ? et.titleValidated : et.titleRequest
+    )}</h2>
     <p style="font-size:14px;color:#374151;margin:0 0 16px;">
-      Bonjour,<br/>${
-        validated
-          ? "Votre accréditation véhicule a été créée et validée. Voici votre récapitulatif et votre QR code."
-          : "Votre demande d'accréditation véhicule a bien été enregistrée. Voici votre récapitulatif et votre QR code."
-      }
+      ${escapeHtml(et.greeting)}<br/>${escapeHtml(
+        validated ? et.introValidated : et.introRequest
+      )}
     </p>
 
     ${banner}
@@ -139,31 +145,31 @@ function buildHtml(
     <table style="width:100%;border-collapse:collapse;background:#F9FAFB;border-radius:8px;overflow:hidden;margin-bottom:20px;">
       ${row(companyLabel, acc.company)}
       ${row(standLabel, acc.stand)}
-      ${row("Événement", acc.event)}
-      ${row("Véhicule", vehicleIdentity)}
-      ${gabarit ? row("Gabarit du véhicule", gabarit) : ""}
-      ${vehicle?.trailerPlate ? row("Remorque", vehicle.trailerPlate) : ""}
-      ${vehicle?.date ? row("Date prévue", `${vehicle.date}${vehicle.time ? " " + vehicle.time : ""}`) : ""}
-      ${vehicle?.city ? row("Ville de départ", vehicle.city) : ""}
-      ${phone ? row("Téléphone chauffeur", phone) : ""}
+      ${row(et.event, acc.event)}
+      ${row(et.vehicle, vehicleIdentity)}
+      ${gabarit ? row(et.vehicleTemplate, gabarit) : ""}
+      ${vehicle?.trailerPlate ? row(et.trailer, vehicle.trailerPlate) : ""}
+      ${vehicle?.date ? row(et.plannedDate, `${vehicle.date}${vehicle.time ? " " + vehicle.time : ""}`) : ""}
+      ${vehicle?.city ? row(et.departureCity, vehicle.city) : ""}
+      ${phone ? row(et.driverPhone, phone) : ""}
     </table>
 
     <div style="text-align:center;margin-bottom:8px;">
-      <img src="cid:qraccreditation" alt="QR code de l'accréditation" width="220" height="220" style="border:1px solid #E5E7EB;border-radius:12px;background:#fff;" />
-      <div style="font-size:12px;color:#6b7280;margin-top:6px;">QR de l'accréditation — à présenter à l'agent</div>
+      <img src="cid:qraccreditation" alt="${escapeHtml(et.qrAlt)}" width="220" height="220" style="border:1px solid #E5E7EB;border-radius:12px;background:#fff;" />
+      <div style="font-size:12px;color:#6b7280;margin-top:6px;">${escapeHtml(et.qrCaption)}</div>
     </div>
 
     <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;padding:12px 16px;margin-top:20px;">
       <div style="font-size:13px;color:#1E3A8A;font-weight:600;">
-        Vous ne trouvez pas cet e-mail ?
+        ${escapeHtml(et.spamTitle)}
       </div>
       <div style="font-size:13px;color:#1E40AF;margin-top:4px;">
-        Si vous ne recevez pas l'e-mail dans les prochaines minutes, pensez à vérifier votre dossier spam / courrier indésirable.
+        ${escapeHtml(et.spamText)}
       </div>
     </div>
 
     <p style="font-size:12px;color:#9ca3af;margin-top:24px;">
-      Cet e-mail est envoyé automatiquement, merci de ne pas y répondre.
+      ${escapeHtml(et.footerAuto)}
     </p>
   </div>`;
 }
@@ -286,16 +292,18 @@ export async function sendAccreditationCreationEmail(params: {
     // encore à valider à l'arrivée. Dérivé du statut réel : fonctionne aussi
     // pour le renvoi d'e-mail (resend-creation-email).
     const validated = acc.status !== "NOUVEAU";
+    const et = getEmailTranslations(lang);
     const subject = validated
-      ? `Votre accréditation validée — ${vehicleIdentity} (${acc.company})`
-      : `Demande d'accréditation reçue — ${vehicleIdentity} (${acc.company})`;
+      ? `${et.subjectValidated} — ${vehicleIdentity} (${acc.company})`
+      : `${et.subjectRequest} — ${vehicleIdentity} (${acc.company})`;
     const html = buildHtml(
       acc,
       vehicle,
       vehicleIdentity,
       gabarit,
       validated,
-      acc.organization?.slug ?? null
+      acc.organization?.slug ?? null,
+      lang
     );
 
     // Source unique de vérité du document : on attache à l'e-mail le MÊME PDF

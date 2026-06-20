@@ -43,6 +43,8 @@ export interface T {
   chooseProvider: string;
   manualUnloading: string;
   selectEvent: string;
+  /** Libellé court du champ « Événement » (récap, lecture seule). */
+  eventField: string;
   noEvents: string;
   completeAllFields: string;
 
@@ -163,6 +165,7 @@ const fr: T = {
   chooseProvider: "Choisir un prestataire",
   manualUnloading: "Déchargement manuel",
   selectEvent: "Sélectionnez un évènement :",
+  eventField: "Événement",
   noEvents: "Aucun événement disponible pour le moment.",
   completeAllFields: "Complétez tous les champs obligatoires pour continuer.",
   plate: "Plaque",
@@ -250,6 +253,7 @@ const en: T = {
   chooseProvider: "Choose a provider",
   manualUnloading: "Manual unloading",
   selectEvent: "Select an event:",
+  eventField: "Event",
   noEvents: "No events available at the moment.",
   completeAllFields: "Complete all required fields to continue.",
   plate: "Plate",
@@ -337,6 +341,7 @@ const de: T = {
   chooseProvider: "Anbieter wählen",
   manualUnloading: "Manuelle Entladung",
   selectEvent: "Wählen Sie eine Veranstaltung:",
+  eventField: "Veranstaltung",
   noEvents: "Derzeit keine Veranstaltungen verfügbar.",
   completeAllFields: "Füllen Sie alle Pflichtfelder aus, um fortzufahren.",
   plate: "Kennzeichen",
@@ -424,6 +429,7 @@ const es: T = {
   chooseProvider: "Elegir un proveedor",
   manualUnloading: "Descarga manual",
   selectEvent: "Seleccione un evento:",
+  eventField: "Evento",
   noEvents: "No hay eventos disponibles en este momento.",
   completeAllFields: "Complete todos los campos obligatorios para continuar.",
   plate: "Matrícula",
@@ -511,6 +517,7 @@ const pt: T = {
   chooseProvider: "Escolher um prestador",
   manualUnloading: "Descarga manual",
   selectEvent: "Selecione um evento:",
+  eventField: "Evento",
   noEvents: "Nenhum evento disponível de momento.",
   completeAllFields: "Preencha todos os campos obrigatórios para continuar.",
   plate: "Matrícula",
@@ -598,6 +605,7 @@ const it: T = {
   chooseProvider: "Scegli un fornitore",
   manualUnloading: "Scarico manuale",
   selectEvent: "Seleziona un evento:",
+  eventField: "Evento",
   noEvents: "Nessun evento disponibile al momento.",
   completeAllFields: "Completa tutti i campi obbligatori per continuare.",
   plate: "Targa",
@@ -685,6 +693,7 @@ const pl: T = {
   chooseProvider: "Wybierz dostawcę",
   manualUnloading: "Rozładunek ręczny",
   selectEvent: "Wybierz wydarzenie:",
+  eventField: "Wydarzenie",
   noEvents: "Brak dostępnych wydarzeń.",
   completeAllFields: "Wypełnij wszystkie wymagane pola, aby kontynuować.",
   plate: "Tablica rejestracyjna",
@@ -772,6 +781,7 @@ const cs: T = {
   chooseProvider: "Vyberte poskytovatele",
   manualUnloading: "Ruční vykládka",
   selectEvent: "Vyberte událost:",
+  eventField: "Akce",
   noEvents: "Momentálně nejsou k dispozici žádné události.",
   completeAllFields: "Pro pokračování vyplňte všechna povinná pole.",
   plate: "SPZ",
@@ -859,6 +869,7 @@ const lt: T = {
   chooseProvider: "Pasirinkite tiekėją",
   manualUnloading: "Rankinis iškrovimas",
   selectEvent: "Pasirinkite renginį:",
+  eventField: "Renginys",
   noEvents: "Šiuo metu nėra galimų renginių.",
   completeAllFields: "Užpildykite visus privalomus laukus, kad galėtumėte tęsti.",
   plate: "Valstybinis numeris",
@@ -946,6 +957,7 @@ const tr: T = {
   chooseProvider: "Sağlayıcı seçin",
   manualUnloading: "Manuel boşaltma",
   selectEvent: "Bir etkinlik seçin:",
+  eventField: "Etkinlik",
   noEvents: "Şu anda mevcut etkinlik yok.",
   completeAllFields: "Devam etmek için tüm zorunlu alanları doldurun.",
   plate: "Plaka",
@@ -1033,6 +1045,7 @@ const ru: T = {
   chooseProvider: "Выберите поставщика",
   manualUnloading: "Ручная разгрузка",
   selectEvent: "Выберите мероприятие:",
+  eventField: "Мероприятие",
   noEvents: "На данный момент нет доступных мероприятий.",
   completeAllFields: "Заполните все обязательные поля для продолжения.",
   plate: "Номерной знак",

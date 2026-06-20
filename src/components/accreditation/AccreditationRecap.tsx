@@ -28,10 +28,13 @@ interface Props {
 }
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
+  // Mobile : libellé petit/gris au-dessus, valeur en dessous pleine largeur
+  // (lisible, pas d'écrasement). Desktop (sm+) : disposition compacte
+  // libellé à gauche / valeur à droite.
   return (
-    <div className="flex justify-between gap-4 py-1 text-sm">
-      <span className="text-gray-500 shrink-0">{label}</span>
-      <span className="text-gray-900 font-medium text-right break-words">
+    <div className="flex flex-col gap-0.5 py-1.5 text-sm sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+      <span className="text-xs text-gray-500 sm:shrink-0 sm:text-sm">{label}</span>
+      <span className="min-w-0 break-words whitespace-normal font-medium text-gray-900 sm:text-right">
         {value}
       </span>
     </div>
@@ -89,8 +92,11 @@ export default function AccreditationRecap({
   const eventLabel =
     events.find((e) => e.value === data.event)?.label || data.event || notProvided;
   const unloadingLabel = resolveUnloadingLabel(data.unloading, lang) || notProvided;
+  // Résolution par le CODE technique sélectionné (vehicleType), retrouvé dans
+  // la liste des gabarits chargés pour CE scope d'organisation → applique le
+  // libellé personnalisé/traduit (ex. « Porteur »), jamais un remappage i18n.
   const vehicleTypeLabel = v
-    ? getDisplayLabel(v.size || v.vehicleType || "", lang) || notProvided
+    ? getDisplayLabel(v.vehicleType || v.size || "", lang) || notProvided
     : notProvided;
   const phone = v && v.phoneNumber ? `${v.phoneCode} ${v.phoneNumber}`.trim() : notProvided;
   const schedule = v?.time ? `${v.date} · ${v.time}` : v?.date || notProvided;
@@ -104,7 +110,7 @@ export default function AccreditationRecap({
       >
         <Row label={decoratorLabel} value={data.company || notProvided} />
         <Row label={standLabel} value={data.stand || notProvided} />
-        <Row label={t.selectEvent} value={eventLabel} />
+        <Row label={t.eventField} value={eventLabel} />
         <Row label={t.unloadingBy} value={unloadingLabel} />
       </Section>
 

@@ -28,6 +28,12 @@ interface Props {
   onHasSavedChange: (hasSaved: boolean) => void;
   /** Navigation vers une étape pour modification depuis le récap. */
   onEditStep?: (step: number) => void;
+  /**
+   * Slug d'organisation : indispensable pour que le récap charge les gabarits
+   * de la BONNE organisation (libellés personnalisés, ex. « Porteur ») et
+   * applique les libellés de champs scopés (Palais : « Société », « Stand | Client »).
+   */
+  orgSlug?: string;
 }
 
 export default function StepFour({
@@ -36,6 +42,7 @@ export default function StepFour({
   onClearForm,
   onHasSavedChange,
   onEditStep,
+  orgSlug,
 }: Props) {
   const { t, lang } = useTranslation();
   const [loading, setLoading] = useState(false);
@@ -205,6 +212,7 @@ export default function StepFour({
         {!hasSaved && (
           <AccreditationRecap
             data={data}
+            orgSlug={orgSlug}
             onEditStep={onEditStep}
             statusNotice={t.recapStatusPublic}
           />

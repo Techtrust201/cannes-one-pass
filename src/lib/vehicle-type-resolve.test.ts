@@ -62,6 +62,31 @@ describe("resolveVehicleTypeLabelFromList", () => {
   });
 });
 
+describe("resolveVehicleTypeLabelFromList — scope Palais (gabarit personnalisé)", () => {
+  // Reproduit le scope Palais : GROS_PORTEUR relabellisé « Porteur ». Le récap
+  // (résolution avec lang) doit afficher « Porteur », jamais « 20 m³ ».
+  const palaisTypes: VehicleTypeData[] = [
+    makeType({ id: 1, code: "VL", label: "VL", gabarit: "VL" }),
+    makeType({ id: 4, code: "GROS_PORTEUR", label: "Porteur", gabarit: "Porteur" }),
+  ];
+
+  it("FR : GROS_PORTEUR personnalisé → « Porteur », pas « 20 m³ »", () => {
+    const label = resolveVehicleTypeLabelFromList(palaisTypes, "GROS_PORTEUR", null, "fr");
+    expect(label).toBe("Porteur");
+    expect(label).not.toBe("20 m³");
+  });
+
+  it("EN : libellé admin sans traduction → « Porteur » (pas « 20 m³ »)", () => {
+    const label = resolveVehicleTypeLabelFromList(palaisTypes, "GROS_PORTEUR", null, "en");
+    expect(label).toBe("Porteur");
+    expect(label).not.toBe("20 m³");
+  });
+
+  it("VL standard non personnalisé → traduit normalement (EN = VL)", () => {
+    expect(resolveVehicleTypeLabelFromList(palaisTypes, "VL", null, "en")).toBe("VL");
+  });
+});
+
 describe("resolveVehicleTypeShortLabelFromList", () => {
   it("VL → VL", () => {
     expect(resolveVehicleTypeShortLabelFromList(types, "VL")).toBe("VL");

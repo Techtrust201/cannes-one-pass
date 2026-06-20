@@ -63,12 +63,12 @@ function PalaisStepThree({ data, update, onValidityChange, showErrors }: StepPro
  * callback de reset. On délègue ces props depuis le wizard parent via
  * un contexte React injecté en haut du rendu.
  */
-function PalaisStepFour(_props: StepProps<PalaisFormData>) {
-  void _props;
+function PalaisStepFour({ orgSlug }: StepProps<PalaisFormData>) {
   const ctx = useStepFourContext();
   return (
     <StepFour
       data={ctx.data}
+      orgSlug={orgSlug}
       onReset={ctx.onReset}
       onClearForm={ctx.onClearForm}
       onHasSavedChange={ctx.onHasSavedChange}

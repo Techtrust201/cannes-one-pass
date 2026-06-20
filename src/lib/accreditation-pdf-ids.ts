@@ -197,8 +197,9 @@ async function renderAccreditationPage(
     dashArray: [3, 3],
   });
 
-  // Bandeau rouge très visible pour les demandes non validées : ce document
-  // n'autorise PAS l'accès au site (sécurité opérationnelle).
+  // Bandeau d'en-tête. Rouge = demande non validée (n'autorise PAS l'accès au
+  // site). Vert = document VALIDÉ (« DEMANDE VALIDÉE »). Mutuellement exclusifs :
+  // jamais de mention « validée » sur une demande non validée (cf. resolvePdfMode).
   let bannerOffset = 0;
   if (isRequest) {
     page.drawRectangle({
@@ -208,14 +209,21 @@ async function renderAccreditationPage(
       height: 26,
       color: rgb(0.86, 0.15, 0.15),
     });
-    drawText(
-      page,
-      pdfT.requestBanner,
-      60,
-      height - 131,
-      12,
-      { color: [1, 1, 1] }
-    );
+    drawText(page, pdfT.requestBanner, 60, height - 131, 12, {
+      color: [1, 1, 1],
+    });
+    bannerOffset = 36;
+  } else {
+    page.drawRectangle({
+      x: 50,
+      y: height - 138,
+      width: width - 100,
+      height: 26,
+      color: rgb(0.09, 0.6, 0.31),
+    });
+    drawText(page, pdfT.officialBanner, 60, height - 131, 12, {
+      color: [1, 1, 1],
+    });
     bannerOffset = 36;
   }
 
@@ -276,22 +284,9 @@ async function renderAccreditationPage(
     addLabelVal(pdfT.handling, resolveUnloadingLabel(acc.unloading, lang));
   }
 
-  // Sécurité : en mode "request" (demande non validée), on N'AFFICHE JAMAIS un
-  // libellé de validation (« VALIDÉE »). Le statut affiché est découplé du
-  // statut brut en base et reste cohérent avec le bandeau « non validée ».
-  const statusColor: [number, number, number] = isRequest
-    ? [0.7, 0.45, 0]
-    : acc.status === "ENTREE"
-      ? [0, 0.55, 0.2]
-      : acc.status === "SORTIE"
-        ? [0.7, 0, 0]
-        : [0, 0, 0.6];
-  const statusLabel = resolvePdfStatusLabel(pdfT, acc.status, mode);
-  if (y >= MIN_Y) {
-    drawText(page, `${pdfT.status} :`, LABEL_X, y, 12, { color: [0.15, 0.15, 0.15] });
-    drawText(page, statusLabel, VALUE_X, y, 12, { color: statusColor });
-    y -= LINE_HEIGHT;
-  }
+  // Lot 5 : la ligne « Statut » du véhicule est retirée du PDF. L'état validé /
+  // non validé est porté uniquement par le bandeau d'en-tête (« DEMANDE
+  // VALIDÉE » vs « DEMANDE NON VALIDÉE »), plus clair et non contradictoire.
 
   if (v) {
     y -= 10;

@@ -66,6 +66,61 @@ function mockCache(entries: Record<string, ResolvedCity>): Map<string, ResolvedC
   return new Map(Object.entries(entries));
 }
 
+// Lot 3 (RX) — le bilan carbone doit résoudre CO₂/pdfCode par CODE technique,
+// pas par libellé : deux gabarits peuvent partager un même libellé (ou un
+// libellé personnalisé/traduit) sans fausser les émissions.
+describe("bilan carbone résolu par code (anti-régression libellé)", () => {
+  const mkType = (
+    id: number,
+    code: string,
+    label: string,
+    co2: number,
+    pdf: "A" | "B" | "C" | "D"
+  ) => ({
+    id,
+    code,
+    label,
+    gabarit: label,
+    tonnageMini: 12,
+    tonnageMoyen: 19,
+    tonnageMaxi: 26,
+    co2Coefficient: co2,
+    pdfCode: pdf,
+    color: "blue",
+    showTrailerPlate: false,
+    rxPalmBeachAtCanto: false,
+    rxZoneCanto: null,
+    rxZoneVieuxPort: null,
+    sortOrder: id,
+    isActive: true,
+  });
+
+  it("utilise le CO₂/pdfCode du CODE sélectionné même si un autre gabarit a le même libellé", () => {
+    // Deux gabarits au même libellé « Porteur » : l'ancien lookup par libellé
+    // aurait pris le premier (PORTEUR, 0.22). Le lookup par code doit prendre
+    // GROS_PORTEUR (0.30, pdf C).
+    const types = [
+      mkType(1, "PORTEUR", "Porteur", 0.22, "B"),
+      mkType(2, "GROS_PORTEUR", "Porteur", 0.3, "C"),
+    ];
+    const cityCache = mockCache({
+      Paris: { cityName: "Paris", countryName: "France", distance: 1000 },
+    });
+
+    const entries = buildCarbonEntriesForVehicle({
+      acc: { ...baseAcc, extension: null },
+      vehicle: { ...baseVehicle, vehicleType: "GROS_PORTEUR", estimatedKms: 1000 },
+      vehicleTypes: types,
+      zoneCoords,
+      cityCache,
+    });
+
+    // km A/R = 1000 × 2 = 2000 ; émissions = 2000 × 0.30 = 600 (et non 440).
+    expect(entries[0].kgCO2eq).toBe(600);
+    expect(entries[0].pdfCode).toBe("C");
+  });
+});
+
 const baseAcc = {
   id: "acc-1",
   event: "RX Test",

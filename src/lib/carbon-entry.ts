@@ -5,8 +5,8 @@ import {
 } from "@/lib/carbon-city";
 import { parseRxVehicleContext } from "@/lib/rx-vehicle-context";
 import {
-  getCo2CoefficientForLabelFromList,
-  getPdfCodeForLabelFromList,
+  getCo2CoefficientFromList,
+  getPdfCodeFromList,
   resolveVehicleTypeLabelFromList,
 } from "@/lib/vehicle-type-server";
 import type { VehicleTypeData } from "@/lib/vehicle-utils";
@@ -143,7 +143,13 @@ export function buildCarbonLegEntry(params: {
     leg.vehicleType,
     leg.size
   );
-  const pdfCode = getPdfCodeForLabelFromList(vehicleTypes, vehicleTypeLabel);
+  // Bilan carbone fiabilisé : pdfCode/CO₂ résolus par CODE technique d'abord
+  // (repli par libellé pour le legacy), pour ne jamais dépendre d'un libellé
+  // administrable/traduit.
+  const pdfCode = getPdfCodeFromList(vehicleTypes, {
+    code: leg.vehicleType,
+    label: vehicleTypeLabel,
+  });
 
   const rawCity = (leg.city || "").trim();
   const resolved = cityCache.get(rawCity) ?? resolveCity(rawCity);
@@ -153,7 +159,10 @@ export function buildCarbonLegEntry(params: {
   const { kmInterZone, roundTrips } = computeInterZoneKm(timeSlots, zoneCoords);
   const kmTotal = kmAllerRetour + kmInterZone;
 
-  const coeff = getCo2CoefficientForLabelFromList(vehicleTypes, vehicleTypeLabel);
+  const coeff = getCo2CoefficientFromList(vehicleTypes, {
+    code: leg.vehicleType,
+    label: vehicleTypeLabel,
+  });
   const kgCO2eq = kmTotal > 0 ? Math.round(kmTotal * coeff) : 0;
   const kgCO2eqInterZone =
     kmInterZone > 0 ? Math.round(kmInterZone * coeff) : 0;

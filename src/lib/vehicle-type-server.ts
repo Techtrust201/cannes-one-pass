@@ -73,16 +73,34 @@ export function getVehicleTypeColorsFromList(
   return colors;
 }
 
-export function getCo2CoefficientForLabelFromList(
+/**
+ * Lot 3 (RX) — Résout le coefficient CO₂ d'un véhicule en privilégiant le
+ * **code technique** (robuste aux libellés traduits / personnalisés en
+ * back-office), avec repli par libellé pour les données legacy (lignes dont
+ * seul le `size`/libellé était connu). Empêche qu'un libellé administrable
+ * fausse le bilan carbone.
+ */
+export function getCo2CoefficientFromList(
   types: VehicleTypeData[],
-  label: string
+  opts: { code?: string | null; label?: string | null }
 ): number {
-  return types.find((t) => t.label === label)?.co2Coefficient ?? 0.22;
+  const code = opts.code?.trim();
+  const byCode = code ? types.find((t) => t.code === code) : undefined;
+  if (byCode) return byCode.co2Coefficient;
+  const label = opts.label?.trim();
+  const byLabel = label ? types.find((t) => t.label === label) : undefined;
+  return byLabel?.co2Coefficient ?? 0.22;
 }
 
-export function getPdfCodeForLabelFromList(
+/** Idem `getCo2CoefficientFromList` pour le pdfCode (catégorie A/B/C/D). */
+export function getPdfCodeFromList(
   types: VehicleTypeData[],
-  label: string
+  opts: { code?: string | null; label?: string | null }
 ): string {
-  return types.find((t) => t.label === label)?.pdfCode ?? "C";
+  const code = opts.code?.trim();
+  const byCode = code ? types.find((t) => t.code === code) : undefined;
+  if (byCode) return byCode.pdfCode;
+  const label = opts.label?.trim();
+  const byLabel = label ? types.find((t) => t.label === label) : undefined;
+  return byLabel?.pdfCode ?? "C";
 }

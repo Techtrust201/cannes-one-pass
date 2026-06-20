@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { formInputCompactClass } from "@/lib/form-styles";
+import { sanitizeLocalPhoneNumber } from "@/lib/phone-input-utils";
 import { handleSanitizedPlateInput } from "@/lib/plate-utils";
 import { mapCitySelectToVehicleFields } from "@/lib/city-form-utils";
 import CityAutocomplete from "@/components/CityAutocomplete";
@@ -142,6 +143,8 @@ export function StepDeliveryRx({
       plate?: string | null;
       trailerPlate?: string;
       interveningCompany?: string;
+      phoneCode?: string;
+      phoneNumber?: string;
       city?: string;
       country?: RxFormData["stepTwo"]["categories"][number]["vehicles"][number]["country"];
       estimatedKms?: number;
@@ -434,6 +437,42 @@ export function StepDeliveryRx({
                             placeholder="AA123BB"
                             className={formInputCompactClass(false, "uppercase")}
                           />
+                        </div>
+                        <div className="sm:col-span-3">
+                          <label className="text-xs text-gray-600 block mb-0.5">
+                            {t.rx.delivery.driverPhone}
+                          </label>
+                          <div className="flex gap-2">
+                            <input
+                              value={v.phoneCode ?? stepOne.contact.phoneCode}
+                              onChange={(e) =>
+                                updateVehicle(cat.id, idx, {
+                                  phoneCode: e.target.value,
+                                })
+                              }
+                              className={formInputCompactClass(false, "w-20")}
+                              placeholder={t.rx.contact.phoneCodePlaceholder}
+                            />
+                            <input
+                              type="tel"
+                              value={v.phoneNumber ?? ""}
+                              onChange={(e) => {
+                                const code =
+                                  v.phoneCode ?? stepOne.contact.phoneCode;
+                                updateVehicle(cat.id, idx, {
+                                  phoneNumber: sanitizeLocalPhoneNumber(
+                                    code,
+                                    e.target.value
+                                  ),
+                                });
+                              }}
+                              className={formInputCompactClass(
+                                false,
+                                "w-auto flex-1 min-w-0"
+                              )}
+                              placeholder={t.rx.contact.phonePlaceholder}
+                            />
+                          </div>
                         </div>
                         <div className="sm:col-span-3">
                           <label className="text-xs text-gray-600 block mb-0.5">

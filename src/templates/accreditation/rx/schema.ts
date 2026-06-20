@@ -72,6 +72,10 @@ export const rxExtensionSchema = z.object({
               trailerPlate: z.string().optional(),
               notes: z.string().optional(),
               interveningCompany: z.string().optional(),
+              // Téléphone chauffeur du véhicule de livraison / montage (optionnel,
+              // repli sur le téléphone contact côté mapPayload).
+              phoneCode: z.string().optional(),
+              phoneNumber: z.string().optional(),
               city: z.string().optional(),
               country: z.string().optional(),
               estimatedKms: z.number().optional(),

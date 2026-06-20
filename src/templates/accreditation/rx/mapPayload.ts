@@ -11,14 +11,37 @@ function normalizeContact(contact: RxFormData["stepOne"]["contact"]) {
   };
 }
 
+/**
+ * Téléphone effectif du chauffeur de livraison : téléphone saisi sur le
+ * véhicule s'il existe, sinon repli sur le téléphone du contact (responsable
+ * logistique). Le numéro est sanitisé selon l'indicatif retenu.
+ */
+function resolveDeliveryDriverPhone(
+  v: RxFormData["stepTwo"]["categories"][number]["vehicles"][number],
+  contact: RxFormData["stepOne"]["contact"]
+): { phoneCode: string; phoneNumber: string } {
+  const hasOwn = !!v.phoneNumber?.trim();
+  const code = hasOwn ? (v.phoneCode?.trim() || contact.phoneCode) : contact.phoneCode;
+  const number = hasOwn
+    ? sanitizeLocalPhoneNumber(code, v.phoneNumber!)
+    : contact.phoneNumber;
+  return { phoneCode: code, phoneNumber: number };
+}
+
 function resolveRepFields(
   v: RxFormData["stepTwo"]["categories"][number]["vehicles"][number],
   contact: RxFormData["stepOne"]["contact"]
 ) {
   const same = v.repSameAsDelivery !== false;
-  const repCode = same ? contact.phoneCode : (v.repPhoneCode ?? contact.phoneCode);
+  // Reprise « même véhicule » : on reprend le chauffeur de la livraison (et
+  // non plus systématiquement le contact), pour rester cohérent avec le
+  // téléphone chauffeur saisi côté montage.
+  const deliveryDriver = resolveDeliveryDriverPhone(v, contact);
+  const repCode = same
+    ? deliveryDriver.phoneCode
+    : (v.repPhoneCode ?? contact.phoneCode);
   const repNumber = same
-    ? contact.phoneNumber
+    ? deliveryDriver.phoneNumber
     : (v.repPhoneNumber ?? contact.phoneNumber);
   return {
     repSameAsDelivery: same,
@@ -61,6 +84,7 @@ export function mapRxPayload(
   for (const cat of form.stepTwo.categories) {
     for (const v of cat.vehicles) {
       const rep = resolveRepFields(v, contact);
+      const driver = resolveDeliveryDriverPhone(v, contact);
       // Date/heure principale du véhicule : montage si présent, sinon
       // démontage (cas « accréditation uniquement pour le démontage »).
       const primaryDate = cat.livDate || cat.repDate;
@@ -68,8 +92,8 @@ export function mapRxPayload(
       vehicles.push({
         plate: v.plate ?? null,
         size: "", // taille libre, non utilisée par RX → vide
-        phoneCode: contact.phoneCode,
-        phoneNumber: contact.phoneNumber,
+        phoneCode: driver.phoneCode,
+        phoneNumber: driver.phoneNumber,
         date: primaryDate ?? "",
         time: primaryTime ?? "",
         city: (v.city ?? "").trim(),

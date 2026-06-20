@@ -35,6 +35,14 @@ export interface RxCategorySelection {
     notes?: string;
     /** Société réalisant la prestation avec ce véhicule (transporteur, décorateur, prestataire…). */
     interveningCompany?: string;
+    /**
+     * Téléphone du chauffeur du véhicule de livraison / montage (ou véhicule
+     * principal en mode skip-montage). Optionnel : à défaut, on retombe sur le
+     * téléphone du contact (responsable logistique). Harmonisé avec la reprise
+     * (`repPhoneCode` / `repPhoneNumber`).
+     */
+    phoneCode?: string;
+    phoneNumber?: string;
     /** Ville de départ (bilan carbone). */
     city?: string;
     country?: CountryRegion;

@@ -83,6 +83,7 @@ export interface RxT {
     vehicleType: string;
     choose: string;
     plateOptional: string;
+    driverPhone: string;
     removeVehicle: string;
     scalesMandatory: string;
     scalesDefault: string;
@@ -324,6 +325,7 @@ const fr: RxT = {
     vehicleType: "Type de véhicule",
     choose: "— Choisir —",
     plateOptional: "Plaque (optionnelle)",
+    driverPhone: "Téléphone chauffeur",
     removeVehicle: "Retirer ce véhicule",
     scalesMandatory: "Coordination Scales obligatoire :",
     scalesDefault: "cette catégorie nécessite la prise de RDV avec Scales.",
@@ -545,6 +547,7 @@ const en: RxT = {
     vehicleType: "Vehicle type",
     choose: "— Choose —",
     plateOptional: "Plate (optional)",
+    driverPhone: "Driver phone",
     removeVehicle: "Remove this vehicle",
     scalesMandatory: "Mandatory Scales coordination:",
     scalesDefault: "this category requires booking an appointment with Scales.",
@@ -747,6 +750,7 @@ const de: RxT = {
     vehicleType: "Fahrzeugtyp",
     choose: "— Wählen —",
     plateOptional: "Kennzeichen (optional)",
+    driverPhone: "Telefon des Fahrers",
     removeVehicle: "Dieses Fahrzeug entfernen",
     scalesMandatory: "Verpflichtende Scales-Koordination:",
     scalesDefault: "diese Kategorie erfordert einen Termin mit Scales.",
@@ -926,6 +930,7 @@ const es: RxT = {
     vehicleType: "Tipo de vehículo",
     choose: "— Elegir —",
     plateOptional: "Matrícula (opcional)",
+    driverPhone: "Teléfono del conductor",
     removeVehicle: "Eliminar este vehículo",
     scalesMandatory: "Coordinación Scales obligatoria:",
     scalesDefault: "esta categoría requiere concertar una cita con Scales.",
@@ -1105,6 +1110,7 @@ const pt: RxT = {
     vehicleType: "Tipo de veículo",
     choose: "— Escolher —",
     plateOptional: "Matrícula (opcional)",
+    driverPhone: "Telefone do motorista",
     removeVehicle: "Remover este veículo",
     scalesMandatory: "Coordenação Scales obrigatória:",
     scalesDefault: "esta categoria exige a marcação de uma reunião com a Scales.",
@@ -1284,6 +1290,7 @@ const it: RxT = {
     vehicleType: "Tipo di veicolo",
     choose: "— Scegli —",
     plateOptional: "Targa (facoltativa)",
+    driverPhone: "Telefono dell'autista",
     removeVehicle: "Rimuovi questo veicolo",
     scalesMandatory: "Coordinamento Scales obbligatorio:",
     scalesDefault: "questa categoria richiede la prenotazione di un appuntamento con Scales.",
@@ -1463,6 +1470,7 @@ const pl: RxT = {
     vehicleType: "Typ pojazdu",
     choose: "— Wybierz —",
     plateOptional: "Tablica (opcjonalna)",
+    driverPhone: "Telefon kierowcy",
     removeVehicle: "Usuń ten pojazd",
     scalesMandatory: "Obowiązkowa koordynacja Scales:",
     scalesDefault: "ta kategoria wymaga umówienia spotkania ze Scales.",
@@ -1642,6 +1650,7 @@ const cs: RxT = {
     vehicleType: "Typ vozidla",
     choose: "— Vyberte —",
     plateOptional: "SPZ (nepovinná)",
+    driverPhone: "Telefon řidiče",
     removeVehicle: "Odebrat toto vozidlo",
     scalesMandatory: "Povinná koordinace Scales:",
     scalesDefault: "tato kategorie vyžaduje sjednání schůzky se Scales.",
@@ -1821,6 +1830,7 @@ const lt: RxT = {
     vehicleType: "Transporto priemonės tipas",
     choose: "— Pasirinkite —",
     plateOptional: "Numeris (neprivalomas)",
+    driverPhone: "Vairuotojo telefonas",
     removeVehicle: "Pašalinti šią transporto priemonę",
     scalesMandatory: "Privalomas Scales koordinavimas:",
     scalesDefault: "ši kategorija reikalauja susitikimo su Scales rezervavimo.",
@@ -2000,6 +2010,7 @@ const tr: RxT = {
     vehicleType: "Araç tipi",
     choose: "— Seçin —",
     plateOptional: "Plaka (isteğe bağlı)",
+    driverPhone: "Sürücü telefonu",
     removeVehicle: "Bu aracı kaldır",
     scalesMandatory: "Zorunlu Scales koordinasyonu:",
     scalesDefault: "bu kategori Scales ile randevu alınmasını gerektirir.",
@@ -2179,6 +2190,7 @@ const ru: RxT = {
     vehicleType: "Тип транспортного средства",
     choose: "— Выберите —",
     plateOptional: "Номер (необязательно)",
+    driverPhone: "Телефон водителя",
     removeVehicle: "Удалить это транспортное средство",
     scalesMandatory: "Обязательная координация со Scales:",
     scalesDefault: "эта категория требует записи на встречу со Scales.",

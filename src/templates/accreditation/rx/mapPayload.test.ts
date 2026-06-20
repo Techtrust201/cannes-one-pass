@@ -240,6 +240,48 @@ describe("rx template — mapPayload", () => {
     expect(payload.vehicles[0].city).toBe("");
     expect(rxPayloadSchema.safeParse(payload).success).toBe(true);
   });
+
+  // ── Lot 2 : téléphone chauffeur sur le véhicule de livraison / set-up ──
+  it("utilise le téléphone chauffeur du véhicule de livraison s'il est saisi", () => {
+    const form = buildRxForm();
+    form.stepTwo.categories[0].vehicles[0].phoneCode = "+33";
+    form.stepTwo.categories[0].vehicles[0].phoneNumber = "0712345678";
+    const payload = mapRxPayload(form, "fr", { split: true });
+    expect(payload.vehicles[0].phoneCode).toBe("+33");
+    // Sanitisé : le préfixe national « 0 » est retiré.
+    expect(payload.vehicles[0].phoneNumber).toBe("712345678");
+  });
+
+  it("retombe sur le téléphone contact quand le véhicule n'a pas de téléphone", () => {
+    const payload = mapRxPayload(buildRxForm(), "fr", { split: true });
+    expect(payload.vehicles[0].phoneCode).toBe("+33");
+    expect(payload.vehicles[0].phoneNumber).toBe("612345678"); // = contact
+  });
+
+  it("reprise « même véhicule » : reprend le téléphone chauffeur de livraison", () => {
+    const form = buildRxForm();
+    form.stepTwo.categories[0].vehicles[0].phoneCode = "+33";
+    form.stepTwo.categories[0].vehicles[0].phoneNumber = "0712345678";
+    // repSameAsDelivery par défaut (non false) → reprise = même véhicule.
+    const payload = mapRxPayload(form, "fr", { split: true });
+    expect(payload.vehicles[0].repSameAsDelivery).toBe(true);
+    expect(payload.vehicles[0].repPhoneNumber).toBe("712345678");
+  });
+
+  it("reprise « véhicule différent » : conserve son propre téléphone chauffeur", () => {
+    const form = buildRxForm();
+    form.stepTwo.categories[0].vehicles[0].phoneCode = "+33";
+    form.stepTwo.categories[0].vehicles[0].phoneNumber = "0712345678";
+    form.stepTwo.categories[0].vehicles[0].repSameAsDelivery = false;
+    form.stepTwo.categories[0].vehicles[0].repVehicleType = "VL";
+    form.stepTwo.categories[0].vehicles[0].repPhoneCode = "+33";
+    form.stepTwo.categories[0].vehicles[0].repPhoneNumber = "799999999";
+    const payload = mapRxPayload(form, "fr", { split: true });
+    // Livraison garde le téléphone chauffeur set-up…
+    expect(payload.vehicles[0].phoneNumber).toBe("712345678");
+    // …et la reprise garde le sien (chauffeur différent).
+    expect(payload.vehicles[0].repPhoneNumber).toBe("799999999");
+  });
 });
 
 describe("rx template — schema", () => {

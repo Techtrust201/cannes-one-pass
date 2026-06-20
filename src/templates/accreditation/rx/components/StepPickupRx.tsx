@@ -146,6 +146,8 @@ export function StepPickupRx({
       vehicleType?: string;
       plate?: string | null;
       interveningCompany?: string;
+      phoneCode?: string;
+      phoneNumber?: string;
       city?: string;
       country?: RxFormData["stepTwo"]["categories"][number]["vehicles"][number]["country"];
       estimatedKms?: number;
@@ -197,8 +199,12 @@ export function StepPickupRx({
       repSameAsDelivery: true,
       repVehicleType: v.vehicleType,
       repPlate: v.plate ?? null,
-      repPhoneCode: stepOne.contact.phoneCode,
-      repPhoneNumber: stepOne.contact.phoneNumber,
+      // Reprise « même véhicule » : on reprend le chauffeur de la livraison
+      // (téléphone saisi sur le véhicule), avec repli sur le contact.
+      repPhoneCode: v.phoneCode?.trim() ? v.phoneCode : stepOne.contact.phoneCode,
+      repPhoneNumber: v.phoneNumber?.trim()
+        ? v.phoneNumber
+        : stepOne.contact.phoneNumber,
     };
   };
 
@@ -435,6 +441,42 @@ export function StepPickupRx({
                               placeholder="AA123BB"
                               className={formInputCompactClass(false, "uppercase")}
                             />
+                          </div>
+                          <div className="sm:col-span-3">
+                            <label className="text-xs text-gray-600 block mb-0.5">
+                              {t.rx.delivery.driverPhone}
+                            </label>
+                            <div className="flex gap-2">
+                              <input
+                                value={v.phoneCode ?? stepOne.contact.phoneCode}
+                                onChange={(e) =>
+                                  updateVehicle(cat.id, idx, {
+                                    phoneCode: e.target.value,
+                                  })
+                                }
+                                className={formInputCompactClass(false, "w-20")}
+                                placeholder={t.rx.contact.phoneCodePlaceholder}
+                              />
+                              <input
+                                type="tel"
+                                value={v.phoneNumber ?? ""}
+                                onChange={(e) => {
+                                  const code =
+                                    v.phoneCode ?? stepOne.contact.phoneCode;
+                                  updateVehicle(cat.id, idx, {
+                                    phoneNumber: sanitizeLocalPhoneNumber(
+                                      code,
+                                      e.target.value
+                                    ),
+                                  });
+                                }}
+                                className={formInputCompactClass(
+                                  false,
+                                  "w-auto flex-1 min-w-0"
+                                )}
+                                placeholder={t.rx.contact.phonePlaceholder}
+                              />
+                            </div>
                           </div>
                           <div className="sm:col-span-3">
                             <label className="text-xs text-gray-600 block mb-0.5">

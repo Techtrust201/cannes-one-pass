@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle, AlertTriangle, Loader2, Download } from "lucide-react";
 import { formInputClass } from "@/lib/form-styles";
+import { formatPhoneNumber } from "@/lib/contact-utils";
 import { useTranslation } from "@/components/accreditation/TranslationProvider";
 import { PortalOverlay } from "@/components/ui/PortalOverlay";
 import { useUnloadingProviders } from "@/hooks/useUnloadingProviders";
@@ -494,6 +495,12 @@ export function StepManutentionRx({
         <div>
           <span className="font-semibold">{t.rx.manutention.recapContact}</span> {stepOne.contact.firstName}{" "}
           {stepOne.contact.lastName} · {stepOne.contact.email}
+          {stepOne.contact.phoneNumber?.trim()
+            ? ` · ${formatPhoneNumber(
+                stepOne.contact.phoneCode,
+                stepOne.contact.phoneNumber
+              )}`
+            : ""}
         </div>
         {vehiclesByZone.length > 0 && (
           <div className="pt-1 mt-1 border-t border-gray-200 space-y-0.5">

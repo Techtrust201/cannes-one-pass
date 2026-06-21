@@ -35,6 +35,10 @@ import {
   resolveVehicleTypeDisplayLabel,
   type VehicleTypeDbTranslations,
 } from "@/lib/vehicle-type-i18n";
+import {
+  suggestVehicleTypeCode,
+  isValidVehicleTypeCode,
+} from "@/lib/vehicle-type-code";
 
 /** Lien Google Maps standard à partir de coordonnées (cf. PDF chauffeur). */
 function googleMapsUrl(lat: number, lng: number): string {
@@ -147,6 +151,9 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [createForm, setCreateForm] = useState(EMPTY_FORM);
+  // Le code se préremplit depuis l'appellation tant que l'admin ne l'a pas
+  // saisi manuellement (puis on cesse l'auto-remplissage pour ne pas écraser).
+  const [createCodeTouched, setCreateCodeTouched] = useState(false);
   const [createTranslations, setCreateTranslations] = useState<TranslationFields>({});
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
@@ -180,6 +187,13 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
       setCreateError("L'appellation (gabarit) est requise");
       return;
     }
+    // Code saisi (ou prérempli) requis : on refuse un code vide côté client
+    // avant même l'appel API. La valeur exacte est conservée (ex. « 15 m³ »).
+    const code = String(createForm.code ?? "").trim();
+    if (!isValidVehicleTypeCode(code)) {
+      setCreateError("Le code technique est requis");
+      return;
+    }
     const nums = validateNumericFields(createForm);
     if (!nums.ok) {
       setCreateError(nums.error);
@@ -198,6 +212,7 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          code,
           gabarit,
           label: gabarit,
           tonnageMini: nums.values.tonnageMini,
@@ -217,6 +232,7 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
       if (res.ok) {
         setShowCreateForm(false);
         setCreateForm(EMPTY_FORM);
+        setCreateCodeTouched(false);
         setCreateTranslations({});
         invalidateVehicleTypeCache();
         await refresh();
@@ -511,23 +527,60 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
                 Texte affiché dans les formulaires, listes et exports.
               </p>
             </div>
-            {isEditing && (
-              <div className="sm:col-span-2">
-                <label className="text-xs font-semibold text-gray-500 uppercase flex items-center gap-1">
-                  <Lock size={12} className="text-gray-400" />
-                  Code technique (verrouillé)
+            {isEditing ? (
+              <div className="sm:col-span-2 min-w-0">
+                <label className="text-xs font-semibold text-gray-500 uppercase flex flex-wrap items-center gap-1.5">
+                  <Lock size={12} className="shrink-0 text-gray-400" />
+                  <span>Code technique</span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-bold text-gray-600 normal-case">
+                    <Lock size={10} className="shrink-0" />
+                    Verrouillé
+                  </span>
                 </label>
                 <input
                   type="text"
                   value={codeVal}
                   readOnly
                   disabled
-                  className="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono bg-gray-100 text-gray-500 cursor-not-allowed"
+                  className="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono bg-gray-100 text-gray-500 cursor-not-allowed break-words"
                 />
-                <p className="text-[10px] text-gray-400 mt-1">
-                  Le code technique ne doit pas être renommé : il identifie ce
-                  gabarit dans les accréditations historiques, l&apos;historique et
-                  les documents déjà générés. Modifiable uniquement à la création.
+                <p className="text-[11px] text-gray-500 mt-1 whitespace-normal break-words leading-relaxed">
+                  Ce code est verrouillé car il peut déjà être utilisé par des
+                  accréditations existantes.
+                </p>
+              </div>
+            ) : (
+              <div className="sm:col-span-2 min-w-0">
+                <label className="text-xs font-semibold text-gray-500 uppercase flex items-center gap-1.5">
+                  <Tag size={12} className="shrink-0 text-[#4F587E]" />
+                  Code technique
+                </label>
+                {/* Explication complète : le code est la clé interne reliant le
+                    gabarit à tout le reste du système. Visible à la création
+                    uniquement, puis verrouillé. */}
+                <p className="mt-1 flex items-start gap-1.5 text-[11px] text-blue-900 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 whitespace-normal break-words leading-relaxed">
+                  <Info size={13} className="shrink-0 mt-0.5" />
+                  <span>
+                    Le code technique est l&apos;identifiant interne du gabarit. Il
+                    sert à relier ce gabarit aux accréditations, aux calculs
+                    carbone, aux PDF, aux e-mails et aux historiques. Après
+                    création, il sera verrouillé pour éviter de casser les
+                    anciennes accréditations.
+                  </span>
+                </p>
+                <input
+                  type="text"
+                  value={codeVal}
+                  onChange={(e) => setForm({ code: e.target.value })}
+                  placeholder="15 m³, 20 m³, Porteur…"
+                  className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
+                />
+                <p className="text-[11px] text-gray-500 mt-1 whitespace-normal break-words leading-relaxed">
+                  Exemple : <code className="font-mono">15 m³</code>,{" "}
+                  <code className="font-mono">20 m³</code>,{" "}
+                  <code className="font-mono">Porteur</code>. Choisissez un code
+                  stable et compréhensible. Prérempli depuis l&apos;appellation,
+                  modifiable avant création.
                 </p>
               </div>
             )}
@@ -770,8 +823,13 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
             )}
             <button
               onClick={() => {
-                setShowCreateForm(!showCreateForm);
+                const next = !showCreateForm;
+                setShowCreateForm(next);
                 setCreateError("");
+                if (next) {
+                  setCreateForm(EMPTY_FORM);
+                  setCreateCodeTouched(false);
+                }
               }}
               className="flex items-center gap-1.5 px-3 py-2 bg-[#4F587E] text-white rounded-lg text-xs font-semibold hover:bg-[#3B4252]"
             >
@@ -818,7 +876,19 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
           <h3 className="text-sm font-bold text-gray-800 mb-3">Ajouter un type de véhicule</h3>
           {renderFormFields(
             createForm,
-            (patch) => setCreateForm((prev) => ({ ...prev, ...patch })),
+            (patch) => {
+              // Préremplit le code depuis l'appellation tant qu'il n'a pas été
+              // saisi manuellement. Conserve la valeur exacte (ex. « 15 m³ »),
+              // sans transformation forcée vers un format « 15_M3 ».
+              if ("code" in patch) setCreateCodeTouched(true);
+              setCreateForm((prev) => {
+                const next = { ...prev, ...patch };
+                if ("gabarit" in patch && !createCodeTouched && !("code" in patch)) {
+                  next.code = suggestVehicleTypeCode(String(patch.gabarit ?? ""));
+                }
+                return next;
+              });
+            },
             false,
             createTranslations,
             setCreateTranslations
@@ -837,6 +907,7 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
               onClick={() => {
                 setShowCreateForm(false);
                 setCreateForm(EMPTY_FORM);
+                setCreateCodeTouched(false);
                 setCreateError("");
               }}
               className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold"

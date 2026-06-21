@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import {
   Pencil,
   Check,
@@ -13,6 +13,13 @@ import {
   Languages,
   ChevronUp,
   ChevronDown,
+  Lock,
+  Info,
+  AlertTriangle,
+  ExternalLink,
+  Eye,
+  Tag,
+  Scale,
 } from "lucide-react";
 import { useVehicleTypes } from "@/hooks/useVehicleTypes";
 import { useEspaceSlug } from "@/hooks/useEspaceSlug";
@@ -25,8 +32,14 @@ import { parseLocalizedNumber } from "@/lib/parse-localized-number";
 import { LANGUAGES } from "@/lib/translations";
 import {
   isStandardVehicleTypeCode,
+  resolveVehicleTypeDisplayLabel,
   type VehicleTypeDbTranslations,
 } from "@/lib/vehicle-type-i18n";
+
+/** Lien Google Maps standard à partir de coordonnées (cf. PDF chauffeur). */
+function googleMapsUrl(lat: number, lng: number): string {
+  return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+}
 
 type TranslationFields = Record<string, string>;
 
@@ -416,181 +429,313 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
     );
   };
 
+  // Aperçu live : résout le libellé tel qu'il apparaîtra (formulaire, récap,
+  // PDF, e-mail) en appliquant la priorité admin (traduction BDD > libellé perso
+  // > i18n standard > repli). Évite toute surprise d'affichage côté exposant.
+  const renderZonePreview = (zoneCode: string) => {
+    const z = zones.find((zz) => zz.zone === zoneCode);
+    if (!z) return null;
+    return (
+      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-gray-500">
+        <span className="inline-flex items-center gap-1">
+          <MapPin size={11} className="text-gray-400" />
+          {z.latitude.toFixed(5)}, {z.longitude.toFixed(5)}
+        </span>
+        <a
+          href={googleMapsUrl(z.latitude, z.longitude)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-blue-600 hover:underline"
+        >
+          <ExternalLink size={11} />
+          Google Maps
+        </a>
+        {z.address ? <span className="text-gray-400">· {z.address}</span> : null}
+      </div>
+    );
+  };
+
   const renderFormFields = (
     form: typeof createForm | Record<string, string | boolean>,
     setForm: (patch: Record<string, string | boolean>) => void,
     isEditing = false,
     translations: TranslationFields = {},
     setTranslations: (next: TranslationFields) => void = () => {}
-  ) => (
-    <div className="grid gap-3 sm:grid-cols-2">
-      <div className="sm:col-span-2">
-        <label className="text-xs font-semibold text-gray-500 uppercase">
-          Appellation (gabarit)
-        </label>
-        <input
-          type="text"
-          value={String(form.gabarit ?? "")}
-          onChange={(e) => setForm({ gabarit: e.target.value })}
-          placeholder="10 m³, VL, ~90 m³ Semi-remorque…"
-          className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-        />
-        <p className="text-[10px] text-gray-400 mt-1">
-          Texte affiché dans les formulaires, listes et exports.
-        </p>
+  ) => {
+    const gabaritVal = String(form.gabarit ?? "");
+    const codeVal = String(form.code ?? "");
+    const previewTranslations = buildDisplayLabels(translations);
+    const previewFr = resolveVehicleTypeDisplayLabel({
+      code: codeVal || null,
+      lang: "fr",
+      dbTranslations: previewTranslations,
+      dbLabel: gabaritVal,
+      dbGabarit: gabaritVal,
+    });
+    const previewEn = resolveVehicleTypeDisplayLabel({
+      code: codeVal || null,
+      lang: "en",
+      dbTranslations: previewTranslations,
+      dbLabel: gabaritVal,
+      dbGabarit: gabaritVal,
+    });
+
+    const sectionTitle = (
+      icon: ReactNode,
+      title: string
+    ) => (
+      <div className="flex items-center gap-1.5 text-[11px] font-bold text-gray-700 uppercase tracking-wide">
+        <span className="text-[#4F587E]">{icon}</span>
+        {title}
       </div>
-      {isEditing && (
-        <div className="sm:col-span-2">
-          <label className="text-xs font-semibold text-gray-500 uppercase">
-            Identifiant technique
-          </label>
-          <input
-            type="text"
-            value={String(form.code ?? "")}
-            onChange={(e) => setForm({ code: e.target.value })}
-            className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
-          />
-          <p className="text-[10px] text-gray-400 mt-1">
-            Clé stable en base (véhicules existants). Modifiable uniquement si aucun
-            véhicule ne l&apos;utilise encore.
+    );
+
+    return (
+      <div className="space-y-5">
+        {/* ── Section : Affichage ──────────────────────────────────────── */}
+        <section className="space-y-3">
+          {sectionTitle(<Tag size={14} />, "Affichage")}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <label className="text-xs font-semibold text-gray-500 uppercase">
+                Appellation (gabarit)
+              </label>
+              <input
+                type="text"
+                value={gabaritVal}
+                onChange={(e) => setForm({ gabarit: e.target.value })}
+                placeholder="10 m³, VL, ~90 m³ Semi-remorque…"
+                className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              />
+              <p className="text-[10px] text-gray-400 mt-1">
+                Texte affiché dans les formulaires, listes et exports.
+              </p>
+            </div>
+            {isEditing && (
+              <div className="sm:col-span-2">
+                <label className="text-xs font-semibold text-gray-500 uppercase flex items-center gap-1">
+                  <Lock size={12} className="text-gray-400" />
+                  Code technique (verrouillé)
+                </label>
+                <input
+                  type="text"
+                  value={codeVal}
+                  readOnly
+                  disabled
+                  className="mt-1 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono bg-gray-100 text-gray-500 cursor-not-allowed"
+                />
+                <p className="text-[10px] text-gray-400 mt-1">
+                  Le code technique ne doit pas être renommé : il identifie ce
+                  gabarit dans les accréditations historiques, l&apos;historique et
+                  les documents déjà générés. Modifiable uniquement à la création.
+                </p>
+              </div>
+            )}
+            <div className="sm:col-span-2">
+              <label className="text-xs font-semibold text-gray-500 uppercase mb-2 block">
+                Couleur
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {COLOR_OPTIONS.map((c) => (
+                  <button
+                    key={c.value}
+                    type="button"
+                    onClick={() => setForm({ color: c.value })}
+                    className={`w-7 h-7 rounded-full border-2 ${
+                      form.color === c.value ? "border-gray-900 scale-110" : "border-transparent"
+                    }`}
+                    style={{ backgroundColor: c.hex }}
+                    title={c.label}
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="inline-flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={Boolean(form.showTrailerPlate)}
+                  onChange={(e) => setForm({ showTrailerPlate: e.target.checked })}
+                />
+                Plaque de remorque requise
+              </label>
+            </div>
+          </div>
+          {/* Aperçu live du libellé affiché */}
+          <div className="rounded-lg border border-indigo-100 bg-indigo-50/50 p-3">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-indigo-900">
+              <Eye size={13} className="shrink-0" />
+              Aperçu du libellé (formulaire, récap, PDF, e-mail)
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2 text-xs">
+              <span className="inline-flex items-center gap-1 rounded bg-white border border-indigo-100 px-2 py-1">
+                <span aria-hidden>🇫🇷</span>
+                <span className="font-semibold text-gray-800">{previewFr || "—"}</span>
+              </span>
+              <span className="inline-flex items-center gap-1 rounded bg-white border border-indigo-100 px-2 py-1">
+                <span aria-hidden>🇬🇧</span>
+                <span className="font-semibold text-gray-800">{previewEn || "—"}</span>
+              </span>
+            </div>
+          </div>
+        </section>
+
+        {/* ── Section : Poids & carbone ────────────────────────────────── */}
+        <section className="space-y-3">
+          {sectionTitle(<Scale size={14} />, "Poids & carbone")}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="text-xs font-semibold text-gray-500 uppercase">Tonnage mini (T)</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={String(form.tonnageMini ?? "")}
+                onChange={(e) => setForm({ tonnageMini: e.target.value })}
+                className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-500 uppercase">Tonnage moyen (T)</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={String(form.tonnageMoyen ?? "")}
+                onChange={(e) => setForm({ tonnageMoyen: e.target.value })}
+                className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-500 uppercase">Tonnage maxi (T)</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={String(form.tonnageMaxi ?? "")}
+                onChange={(e) => setForm({ tonnageMaxi: e.target.value })}
+                className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-500 uppercase">CO₂ (kg/km)</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={String(form.co2Coefficient ?? "")}
+                onChange={(e) => setForm({ co2Coefficient: e.target.value })}
+                className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="text-xs font-semibold text-gray-500 uppercase">Code PDF (catégorie)</label>
+              <select
+                value={String(form.pdfCode ?? "C")}
+                onChange={(e) => setForm({ pdfCode: e.target.value })}
+                className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+              >
+                {["A", "B", "C", "D"].map((v) => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <p className="flex items-start gap-1.5 text-[10px] text-gray-500">
+            <Info size={12} className="shrink-0 mt-0.5 text-gray-400" />
+            Le <strong>facteur CO₂</strong> alimente le bilan carbone des
+            accréditations. Le <strong>code PDF</strong> détermine la catégorie
+            affichée sur le document. Les tonnages sont descriptifs (catégorisation).
           </p>
-        </div>
-      )}
-      <div>
-        <label className="text-xs font-semibold text-gray-500 uppercase">Tonnage mini (T)</label>
-        <input
-          type="text"
-          inputMode="decimal"
-          value={String(form.tonnageMini ?? "")}
-          onChange={(e) => setForm({ tonnageMini: e.target.value })}
-          className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-        />
-      </div>
-      <div>
-        <label className="text-xs font-semibold text-gray-500 uppercase">Tonnage moyen (T)</label>
-        <input
-          type="text"
-          inputMode="decimal"
-          value={String(form.tonnageMoyen ?? "")}
-          onChange={(e) => setForm({ tonnageMoyen: e.target.value })}
-          className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-        />
-      </div>
-      <div>
-        <label className="text-xs font-semibold text-gray-500 uppercase">Tonnage maxi (T)</label>
-        <input
-          type="text"
-          inputMode="decimal"
-          value={String(form.tonnageMaxi ?? "")}
-          onChange={(e) => setForm({ tonnageMaxi: e.target.value })}
-          className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-        />
-      </div>
-      <div>
-        <label className="text-xs font-semibold text-gray-500 uppercase">CO₂ (kg/km)</label>
-        <input
-          type="text"
-          inputMode="decimal"
-          value={String(form.co2Coefficient ?? "")}
-          onChange={(e) => setForm({ co2Coefficient: e.target.value })}
-          className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-        />
-      </div>
-      <div>
-        <label className="text-xs font-semibold text-gray-500 uppercase">Code PDF</label>
-        <select
-          value={String(form.pdfCode ?? "C")}
-          onChange={(e) => setForm({ pdfCode: e.target.value })}
-          className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
-        >
-          {["A", "B", "C", "D"].map((v) => (
-            <option key={v} value={v}>{v}</option>
-          ))}
-        </select>
-      </div>
-      <div className="sm:col-span-2">
-        <label className="text-xs font-semibold text-gray-500 uppercase mb-2 block">Couleur</label>
-        <div className="flex flex-wrap gap-2">
-          {COLOR_OPTIONS.map((c) => (
-            <button
-              key={c.value}
-              type="button"
-              onClick={() => setForm({ color: c.value })}
-              className={`w-7 h-7 rounded-full border-2 ${
-                form.color === c.value ? "border-gray-900 scale-110" : "border-transparent"
-              }`}
-              style={{ backgroundColor: c.hex }}
-              title={c.label}
-            />
-          ))}
-        </div>
-      </div>
-      <div className="sm:col-span-2">
-        <label className="inline-flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={Boolean(form.showTrailerPlate)}
-            onChange={(e) => setForm({ showTrailerPlate: e.target.checked })}
-          />
-          Plaque de remorque requise
-        </label>
-      </div>
-      {renderTranslations(
-        String(form.gabarit ?? ""),
-        translations,
-        setTranslations
-      )}
-      {espace === "rx" && (
-        <div className="sm:col-span-2 grid gap-3 sm:grid-cols-2 rounded-lg border border-blue-100 bg-blue-50/40 p-3">
-          <div className="sm:col-span-2 flex items-center gap-1.5 text-xs font-semibold text-blue-900">
-            <MapPin size={14} className="shrink-0" />
-            Aire de rétention par port (RX)
+          {isEditing && (
+            <p className="flex items-start gap-1.5 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+              Modifier le CO₂ ou le code PDF impacte le <strong>bilan carbone</strong>
+              {" "}et la catégorie PDF des prochaines accréditations. Les documents
+              déjà générés ne sont pas recalculés.
+            </p>
+          )}
+        </section>
+
+        {/* ── Section : Routage & zone d'attente (RX) ──────────────────── */}
+        {espace === "rx" && (
+          <section className="space-y-3">
+            {sectionTitle(<MapPin size={14} />, "Routage & zone d'attente")}
+            <div className="grid gap-3 sm:grid-cols-2 rounded-lg border border-blue-100 bg-blue-50/40 p-3">
+              <div>
+                <label className="text-xs font-semibold text-gray-500 uppercase">
+                  Exposant au Port Canto →
+                </label>
+                <select
+                  value={String(form.rxZoneCanto ?? "")}
+                  onChange={(e) => setForm({ rxZoneCanto: e.target.value })}
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                >
+                  <option value="">Repli automatique</option>
+                  {zones.map((z) => (
+                    <option key={z.zone} value={z.zone}>
+                      {z.label}
+                    </option>
+                  ))}
+                </select>
+                {renderZonePreview(String(form.rxZoneCanto ?? ""))}
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-500 uppercase">
+                  Exposant au Vieux Port →
+                </label>
+                <select
+                  value={String(form.rxZoneVieuxPort ?? "")}
+                  onChange={(e) => setForm({ rxZoneVieuxPort: e.target.value })}
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                >
+                  <option value="">Repli automatique</option>
+                  {zones.map((z) => (
+                    <option key={z.zone} value={z.zone}>
+                      {z.label}
+                    </option>
+                  ))}
+                </select>
+                {renderZonePreview(String(form.rxZoneVieuxPort ?? ""))}
+              </div>
+              <label className="sm:col-span-2 inline-flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={Boolean(form.rxPalmBeachAtCanto)}
+                  onChange={(e) => setForm({ rxPalmBeachAtCanto: e.target.checked })}
+                />
+                Autoriser Palm Beach au Port Canto (repli si zones non renseignées)
+              </label>
+              <p className="sm:col-span-2 text-[10px] text-gray-400">
+                Zone de déchargement vers laquelle ce gabarit est dirigé selon le
+                port de l&apos;exposant. « Repli automatique » conserve l&apos;ancienne
+                règle. Pour ajouter une aire de rétention, créez-la d&apos;abord dans{" "}
+                <strong>Zones</strong> : elle apparaîtra ici. Sans impact sur le flux Palais.
+              </p>
+            </div>
+            <p className="flex items-start gap-1.5 text-[10px] text-gray-500">
+              <Info size={12} className="shrink-0 mt-0.5 text-gray-400" />
+              Le routage détermine la <strong>zone d&apos;attente</strong> affichée
+              dans le PDF chauffeur (nom, GPS, lien Google Maps). Astuce métier :
+              les <strong>15 m³ et 20 m³ sont des utilitaires volume</strong>, pas
+              des porteurs — ils suivent le routage utilitaire.
+            </p>
+            {isEditing && (
+              <p className="flex items-start gap-1.5 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+                Modifier le routage change la <strong>zone d&apos;attente</strong>
+                {" "}suggérée et affichée dans le PDF des prochaines demandes.
+              </p>
+            )}
+          </section>
+        )}
+
+        {/* ── Section : Traductions ────────────────────────────────────── */}
+        <section className="space-y-2">
+          {sectionTitle(<Languages size={14} />, "Traductions")}
+          <div className="grid gap-3 sm:grid-cols-2">
+            {renderTranslations(gabaritVal, translations, setTranslations)}
           </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase">
-              Exposant au Port Canto →
-            </label>
-            <select
-              value={String(form.rxZoneCanto ?? "")}
-              onChange={(e) => setForm({ rxZoneCanto: e.target.value })}
-              className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
-            >
-              <option value="">Repli automatique</option>
-              {zones.map((z) => (
-                <option key={z.zone} value={z.zone}>
-                  {z.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase">
-              Exposant au Vieux Port →
-            </label>
-            <select
-              value={String(form.rxZoneVieuxPort ?? "")}
-              onChange={(e) => setForm({ rxZoneVieuxPort: e.target.value })}
-              className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
-            >
-              <option value="">Repli automatique</option>
-              {zones.map((z) => (
-                <option key={z.zone} value={z.zone}>
-                  {z.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <p className="sm:col-span-2 text-[10px] text-gray-400">
-            Zone de déchargement vers laquelle ce gabarit est dirigé selon le
-            port de l&apos;exposant. « Repli automatique » conserve l&apos;ancienne
-            règle (case Palm Beach au Port Canto). Pour ajouter une aire de
-            rétention, créez-la d&apos;abord dans <strong>Zones</strong> : elle
-            apparaîtra ici. Sans impact sur le flux Palais.
-          </p>
-        </div>
-      )}
-    </div>
-  );
+        </section>
+      </div>
+    );
+  };
 
   if (loading) {
     return (

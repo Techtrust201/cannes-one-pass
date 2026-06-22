@@ -123,6 +123,9 @@ export interface RxT {
     recapVehicles: string;
     recapContact: string;
     recapZones: string;
+    /** Sous-titres de phase dans le bloc « Zones estimées » du récap. */
+    phaseSetup: string;
+    phaseTeardown: string;
     validate: string;
     validateHint: string;
     validateHintScales: string;
@@ -371,6 +374,8 @@ const fr: RxT = {
     recapVehicles: "Véhicules :",
     recapContact: "Contact :",
     recapZones: "Zones estimées :",
+    phaseSetup: "Montage",
+    phaseTeardown: "Démontage",
     validate: "Valider l'accréditation",
     validateHint: "Confirmez le consentement",
     validateHintScales: " et l'acquittement Scales",
@@ -593,6 +598,8 @@ const en: RxT = {
     recapVehicles: "Vehicles:",
     recapContact: "Contact:",
     recapZones: "Estimated zones:",
+    phaseSetup: "Set-up",
+    phaseTeardown: "Teardown",
     validate: "Validate the accreditation",
     validateHint: "Confirm consent",
     validateHintScales: " and the Scales acknowledgement",
@@ -796,6 +803,8 @@ const de: RxT = {
     recapVehicles: "Fahrzeuge:",
     recapContact: "Kontakt:",
     recapZones: "Geschätzte Zonen:",
+    phaseSetup: "Aufbau",
+    phaseTeardown: "Abbau",
     validate: "Akkreditierung bestätigen",
     validateHint: "Bestätigen Sie die Einwilligung",
     validateHintScales: " und die Scales-Bestätigung",
@@ -976,6 +985,8 @@ const es: RxT = {
     recapVehicles: "Vehículos:",
     recapContact: "Contacto:",
     recapZones: "Zonas estimadas:",
+    phaseSetup: "Montaje",
+    phaseTeardown: "Desmontaje",
     validate: "Validar la acreditación",
     validateHint: "Confirme el consentimiento",
     validateHintScales: " y la confirmación de Scales",
@@ -1156,6 +1167,8 @@ const pt: RxT = {
     recapVehicles: "Veículos:",
     recapContact: "Contacto:",
     recapZones: "Zonas estimadas:",
+    phaseSetup: "Montagem",
+    phaseTeardown: "Desmontagem",
     validate: "Validar a acreditação",
     validateHint: "Confirme o consentimento",
     validateHintScales: " e a confirmação Scales",
@@ -1336,6 +1349,8 @@ const it: RxT = {
     recapVehicles: "Veicoli:",
     recapContact: "Contatto:",
     recapZones: "Zone stimate:",
+    phaseSetup: "Montaggio",
+    phaseTeardown: "Smontaggio",
     validate: "Convalida l'accreditamento",
     validateHint: "Conferma il consenso",
     validateHintScales: " e la conferma Scales",
@@ -1516,6 +1531,8 @@ const pl: RxT = {
     recapVehicles: "Pojazdy:",
     recapContact: "Kontakt:",
     recapZones: "Szacowane strefy:",
+    phaseSetup: "Montaż",
+    phaseTeardown: "Demontaż",
     validate: "Zatwierdź akredytację",
     validateHint: "Potwierdź zgodę",
     validateHintScales: " i potwierdzenie Scales",
@@ -1696,6 +1713,8 @@ const cs: RxT = {
     recapVehicles: "Vozidla:",
     recapContact: "Kontakt:",
     recapZones: "Odhadované zóny:",
+    phaseSetup: "Montáž",
+    phaseTeardown: "Demontáž",
     validate: "Potvrdit akreditaci",
     validateHint: "Potvrďte souhlas",
     validateHintScales: " a potvrzení Scales",
@@ -1876,6 +1895,8 @@ const lt: RxT = {
     recapVehicles: "Transporto priemonės:",
     recapContact: "Kontaktas:",
     recapZones: "Numatomos zonos:",
+    phaseSetup: "Surinkimas",
+    phaseTeardown: "Išmontavimas",
     validate: "Patvirtinti akreditaciją",
     validateHint: "Patvirtinkite sutikimą",
     validateHintScales: " ir Scales patvirtinimą",
@@ -2056,6 +2077,8 @@ const tr: RxT = {
     recapVehicles: "Araçlar:",
     recapContact: "İletişim:",
     recapZones: "Tahmini bölgeler:",
+    phaseSetup: "Kurulum",
+    phaseTeardown: "Söküm",
     validate: "Akreditasyonu doğrula",
     validateHint: "Onayı onaylayın",
     validateHintScales: " ve Scales onayını",
@@ -2236,6 +2259,8 @@ const ru: RxT = {
     recapVehicles: "Транспортные средства:",
     recapContact: "Контакт:",
     recapZones: "Расчётные зоны:",
+    phaseSetup: "Монтаж",
+    phaseTeardown: "Демонтаж",
     validate: "Подтвердить аккредитацию",
     validateHint: "Подтвердите согласие",
     validateHintScales: " и подтверждение Scales",

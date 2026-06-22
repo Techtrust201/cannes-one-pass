@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { formInputCompactClass } from "@/lib/form-styles";
-import { sanitizeLocalPhoneNumber } from "@/lib/phone-input-utils";
+import PhoneInput from "@/components/ui/PhoneInput";
 import { handleSanitizedPlateInput } from "@/lib/plate-utils";
 import { mapCitySelectToVehicleFields } from "@/lib/city-form-utils";
 import CityAutocomplete from "@/components/CityAutocomplete";
@@ -446,37 +446,16 @@ export function StepPickupRx({
                             <label className="text-xs text-gray-600 block mb-0.5">
                               {t.rx.delivery.driverPhone}
                             </label>
-                            <div className="flex gap-2">
-                              <input
-                                value={v.phoneCode ?? stepOne.contact.phoneCode}
-                                onChange={(e) =>
-                                  updateVehicle(cat.id, idx, {
-                                    phoneCode: e.target.value,
-                                  })
-                                }
-                                className={formInputCompactClass(false, "w-20")}
-                                placeholder={t.rx.contact.phoneCodePlaceholder}
-                              />
-                              <input
-                                type="tel"
-                                value={v.phoneNumber ?? ""}
-                                onChange={(e) => {
-                                  const code =
-                                    v.phoneCode ?? stepOne.contact.phoneCode;
-                                  updateVehicle(cat.id, idx, {
-                                    phoneNumber: sanitizeLocalPhoneNumber(
-                                      code,
-                                      e.target.value
-                                    ),
-                                  });
-                                }}
-                                className={formInputCompactClass(
-                                  false,
-                                  "w-auto flex-1 min-w-0"
-                                )}
-                                placeholder={t.rx.contact.phonePlaceholder}
-                              />
-                            </div>
+                            <PhoneInput
+                              value={`${v.phoneCode ?? stepOne.contact.phoneCode}${v.phoneNumber ?? ""}`}
+                              onChange={({ dialCode, nationalNumber }) =>
+                                updateVehicle(cat.id, idx, {
+                                  phoneCode: `+${dialCode}`,
+                                  phoneNumber: nationalNumber,
+                                })
+                              }
+                              placeholder={t.rx.contact.phonePlaceholder}
+                            />
                           </div>
                           <div className="sm:col-span-3">
                             <label className="text-xs text-gray-600 block mb-0.5">
@@ -702,37 +681,17 @@ export function StepPickupRx({
                               {t.rx.pickup.driverPhonePickup}{" "}
                               <span className="text-red-500">*</span>
                             </label>
-                            <div className="flex gap-2">
-                              <input
-                                value={v.repPhoneCode ?? stepOne.contact.phoneCode}
-                                onChange={(e) =>
-                                  patchRepVehicle(cat.categoryId, idx, {
-                                    repPhoneCode: e.target.value,
-                                  })
-                                }
-                                className={formInputCompactClass(false, "w-20")}
-                                placeholder={t.rx.contact.phoneCodePlaceholder}
-                              />
-                              <input
-                                type="tel"
-                                value={v.repPhoneNumber ?? stepOne.contact.phoneNumber}
-                                onChange={(e) => {
-                                  const code =
-                                    v.repPhoneCode ?? stepOne.contact.phoneCode;
-                                  patchRepVehicle(cat.categoryId, idx, {
-                                    repPhoneNumber: sanitizeLocalPhoneNumber(
-                                      code,
-                                      e.target.value
-                                    ),
-                                  });
-                                }}
-                                className={formInputCompactClass(
-                                  !v.repPhoneNumber?.trim(),
-                                  "w-auto flex-1 min-w-0"
-                                )}
-                                placeholder={t.rx.contact.phonePlaceholder}
-                              />
-                            </div>
+                            <PhoneInput
+                              value={`${v.repPhoneCode ?? stepOne.contact.phoneCode}${v.repPhoneNumber ?? stepOne.contact.phoneNumber}`}
+                              onChange={({ dialCode, nationalNumber }) =>
+                                patchRepVehicle(cat.categoryId, idx, {
+                                  repPhoneCode: `+${dialCode}`,
+                                  repPhoneNumber: nationalNumber,
+                                })
+                              }
+                              error={!v.repPhoneNumber?.trim()}
+                              placeholder={t.rx.contact.phonePlaceholder}
+                            />
                           </div>
                           <div className="sm:col-span-2">
                             <label className="text-xs text-gray-600 block mb-0.5">

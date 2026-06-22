@@ -281,38 +281,69 @@ export function StepManutentionRx({
   );
 
   // Pré-visualisation des aires de rétention : on regroupe les véhicules par
-  // zone estimée (gabarit × port de l'exposant). Purement informatif côté
-  // formulaire ; la zone réelle est figée à la validation back-office.
-  const vehiclesByZone = useMemo(() => {
-    // Regroupe les gabarits par code de zone résolu (supporte une matrice
-    // configurable à N zones, pas seulement Palm Beach / La Bocca).
-    const groups = new Map<string, string[]>();
-    for (const cat of stepTwo.categories) {
-      for (const v of cat.vehicles) {
-        if (!v.vehicleType) continue;
-        const zone = suggestZone(
-          v.vehicleType,
-          stepOne.exhibitorSector,
-          palmBeachAtCantoCodes,
-          zoneRouting
-        );
-        if (!zone) continue;
-        const arr = groups.get(zone) ?? [];
-        arr.push(getVehicleLabel(v.vehicleType));
-        groups.set(zone, arr);
+  // zone estimée (gabarit × port de l'exposant), séparément pour le montage et
+  // le démontage. Purement informatif côté formulaire ; la zone réelle est
+  // figée à la validation back-office.
+  //
+  // Bugfix : l'ancien calcul ne regardait que `v.vehicleType` (montage), ce qui
+  // faisait disparaître du récap les véhicules de reprise distincts
+  // (`repSameAsDelivery === false` → `repVehicleType`). On parcourt désormais
+  // les deux phases sans jamais perdre un gabarit.
+  const { montageZones, demontageZones } = useMemo(() => {
+    type ZoneGroup = { zone: string; items: { label: string; count: number }[] };
+
+    const buildPhase = (phase: "montage" | "demontage"): ZoneGroup[] => {
+      // Map zone → (label → compteur), pour grouper proprement et garder le
+      // nombre de véhicules par gabarit sans en perdre.
+      const groups = new Map<string, Map<string, number>>();
+      for (const cat of stepTwo.categories) {
+        for (const v of cat.vehicles) {
+          const code =
+            phase === "montage"
+              ? v.vehicleType
+              : v.repSameAsDelivery === false
+                ? v.repVehicleType
+                : v.vehicleType;
+          if (!code) continue;
+          const zone = suggestZone(
+            code,
+            stepOne.exhibitorSector,
+            palmBeachAtCantoCodes,
+            zoneRouting
+          );
+          if (!zone) continue;
+          const label = getVehicleLabel(code);
+          const byLabel = groups.get(zone) ?? new Map<string, number>();
+          byLabel.set(label, (byLabel.get(label) ?? 0) + 1);
+          groups.set(zone, byLabel);
+        }
       }
-    }
-    return Array.from(groups.entries()).map(([zone, labels]) => ({
-      zone,
-      labels,
-    }));
+      return Array.from(groups.entries()).map(([zone, byLabel]) => ({
+        zone,
+        items: Array.from(byLabel.entries()).map(([label, count]) => ({
+          label,
+          count,
+        })),
+      }));
+    };
+
+    return {
+      montageZones: stepTwo.skipMontage ? [] : buildPhase("montage"),
+      demontageZones: stepTwo.skipDemontage ? [] : buildPhase("demontage"),
+    };
   }, [
     stepTwo.categories,
+    stepTwo.skipMontage,
+    stepTwo.skipDemontage,
     stepOne.exhibitorSector,
     palmBeachAtCantoCodes,
     zoneRouting,
     getVehicleLabel,
   ]);
+
+  const hasZoneEstimates = montageZones.length > 0 || demontageZones.length > 0;
+  // Si une seule phase est concernée, le sous-titrage par phase n'apporte rien.
+  const showPhaseLabels = montageZones.length > 0 && demontageZones.length > 0;
 
   // Écran de succès — wording et PDF distincts : public (demande) vs logisticien (officiel).
   if (hasSaved) {
@@ -502,15 +533,34 @@ export function StepManutentionRx({
               )}`
             : ""}
         </div>
-        {vehiclesByZone.length > 0 && (
-          <div className="pt-1 mt-1 border-t border-gray-200 space-y-0.5">
+        {hasZoneEstimates && (
+          <div className="pt-1 mt-1 border-t border-gray-200 space-y-1.5">
             <span className="font-semibold">{t.rx.manutention.recapZones}</span>
-            {vehiclesByZone.map(({ zone, labels }) => (
-              <div key={zone} className="text-gray-600">
-                {labels.length} → {getZoneLabel(zone)}
-                <span className="text-gray-400"> · {labels.join(", ")}</span>
-              </div>
-            ))}
+            {([
+              { phase: "montage", label: t.rx.manutention.phaseSetup, zones: montageZones },
+              { phase: "demontage", label: t.rx.manutention.phaseTeardown, zones: demontageZones },
+            ] as const).map(({ phase, label, zones }) =>
+              zones.length > 0 ? (
+                <div key={phase} className="space-y-0.5">
+                  {showPhaseLabels && (
+                    <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      {label}
+                    </div>
+                  )}
+                  {zones.map(({ zone, items }) => (
+                    <div key={zone} className="text-gray-600">
+                      <span className="font-medium">{getZoneLabel(zone)}</span>
+                      <span className="text-gray-400">
+                        {" : "}
+                        {items
+                          .map((it) => (it.count > 1 ? `${it.label} ×${it.count}` : it.label))
+                          .join(", ")}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : null
+            )}
           </div>
         )}
       </div>

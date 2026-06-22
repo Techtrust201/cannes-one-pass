@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { formInputClass, formLabelClass } from "@/lib/form-styles";
-import { sanitizeLocalPhoneNumber } from "@/lib/phone-input-utils";
+import PhoneInput from "@/components/ui/PhoneInput";
 import { useTranslation } from "@/components/accreditation/TranslationProvider";
 import type { StepProps } from "../../types";
 import type { RxFormData } from "../types";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const TEL_RE = /^[\d\s\-()]{8,}$/;
+/** Numéro national (hors indicatif) jugé valide à partir de 6 chiffres. */
+const MIN_PHONE_DIGITS = 6;
 
 /**
  * Step 2 RX — Contact.
@@ -26,7 +27,7 @@ export function StepContactRx({ data, update, onValidityChange, showErrors }: St
   };
 
   const emailOk = EMAIL_RE.test(contact.email);
-  const telOk = TEL_RE.test(contact.phoneNumber);
+  const telOk = contact.phoneNumber.replace(/\D/g, "").length >= MIN_PHONE_DIGITS;
   const isValid =
     contact.firstName.trim().length > 0 &&
     contact.lastName.trim().length > 0 &&
@@ -105,28 +106,17 @@ export function StepContactRx({ data, update, onValidityChange, showErrors }: St
           <label className={formLabelClass}>
             {t.rx.contact.mobilePhone} <span className="text-red-500">*</span>
           </label>
-          <div className="flex gap-2">
-            <input
-              value={contact.phoneCode}
-              onChange={(e) => setContact({ phoneCode: e.target.value })}
-              className={formInputClass(false, "w-20")}
-              placeholder={t.rx.contact.phoneCodePlaceholder}
-            />
-            <input
-              type="tel"
-              value={contact.phoneNumber}
-              onChange={(e) =>
+          <div onBlur={() => markTouched("tel")}>
+            <PhoneInput
+              value={`${contact.phoneCode}${contact.phoneNumber}`}
+              onChange={({ dialCode, nationalNumber }) =>
                 setContact({
-                  phoneNumber: sanitizeLocalPhoneNumber(
-                    contact.phoneCode,
-                    e.target.value
-                  ),
+                  phoneCode: `+${dialCode}`,
+                  phoneNumber: nationalNumber,
                 })
               }
-              onBlur={() => markTouched("tel")}
+              error={reveal("tel") && !telOk}
               placeholder={t.rx.contact.phonePlaceholder}
-              autoComplete="tel"
-              className={formInputClass(reveal("tel") && !telOk, "w-auto flex-1 min-w-0")}
             />
           </div>
           {reveal("tel") && !telOk && (

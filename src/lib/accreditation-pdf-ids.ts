@@ -443,6 +443,35 @@ async function renderAccreditationPage(
   const skipMontage = (ext as { skipMontage?: boolean }).skipMontage === true;
   const skipDemontage = (ext as { skipDemontage?: boolean }).skipDemontage === true;
 
+  // Caption sous un QR : texte multi-lignes, centré sous le QR, sans overflow.
+  // Largeur bornée à ~QR_SIZE pour ne jamais déborder ni chevaucher le QR voisin
+  // (libellés longs : « Set-up Mon 12 Jun 2026 », dates localisées, etc.).
+  const CAPTION_SIZE = 7.5;
+  const CAPTION_LINE_H = 9;
+  const CAPTION_MAX_W = QR_SIZE + 14;
+  const drawQrCaption = (label: string, qrLeftX: number) => {
+    const centerX = qrLeftX + QR_SIZE / 2;
+    const words = label.split(" ");
+    const lines: string[] = [];
+    let line = "";
+    for (const w of words) {
+      const test = line ? `${line} ${w}` : w;
+      if (font.widthOfTextAtSize(test, CAPTION_SIZE) > CAPTION_MAX_W && line) {
+        lines.push(line);
+        line = w;
+      } else {
+        line = test;
+      }
+    }
+    if (line) lines.push(line);
+    let capY = QR_Y - 11;
+    for (const ln of lines) {
+      const w = font.widthOfTextAtSize(ln, CAPTION_SIZE);
+      drawRaw(ln, centerX - w / 2, capY, CAPTION_SIZE);
+      capY -= CAPTION_LINE_H;
+    }
+  };
+
   if (isRequest) {
     // Demande : un seul QR de SUIVI (page publique /suivi/{token}), jamais une
     // URL de contrôle d'accès. Ne permet pas l'entrée sur site.
@@ -451,7 +480,7 @@ async function renderAccreditationPage(
     const qrImg = await pdfDoc.embedPng(qrBuf);
     const x = width - 50 - QR_SIZE;
     page.drawImage(qrImg, { x, y: QR_Y, width: QR_SIZE, height: QR_SIZE });
-    drawRaw(pdfT.qrTracking, x - 18, QR_Y - 14);
+    drawQrCaption(pdfT.qrTracking, x);
 
     const noteLines = [pdfT.requestNote1, pdfT.requestNote2];
     drawFooterWrapped(noteLines, 52);
@@ -484,7 +513,7 @@ async function renderAccreditationPage(
     const buf = await QRCode.toBuffer(def.url, { type: "png" });
     const img = await pdfDoc.embedPng(buf);
     page.drawImage(img, { x: qrX, y: QR_Y, width: QR_SIZE, height: QR_SIZE });
-    drawRaw(def.label, qrX, QR_Y - 14, 8);
+    drawQrCaption(def.label, qrX);
     qrX -= QR_SIZE + 24;
   }
 

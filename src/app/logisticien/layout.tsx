@@ -132,10 +132,12 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
           onClick={() => setSidebarOpen(false)}
         />
       )}
-      {/* Sidebar */}
+      {/* Sidebar — sticky sur desktop : reste visible quand une sous-page
+          défile au niveau fenêtre (Flux véhicules, Archives…). Sur le
+          dashboard (app-shell à hauteur fixe) le rendu est identique. */}
       <aside
         className={`
-        fixed sm:static top-0 left-0 z-[60] h-screen bg-[#3F4660] text-white flex flex-col transition-all duration-300
+        fixed sm:sticky sm:top-0 sm:self-start top-0 left-0 z-[60] h-screen bg-[#3F4660] text-white flex flex-col transition-all duration-300
         ${sidebarOpen ? "translate-x-0 w-60" : "-translate-x-full w-60"}
         sm:translate-x-0 sm:flex
         ${collapsed ? "sm:w-16" : "sm:w-60"}

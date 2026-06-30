@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Pencil, Trash2, LogIn, LogOut, Clock, MapPin, Briefcase, ChevronLeft, ChevronRight } from "lucide-react";
+import { Pencil, Trash2, LogIn, LogOut, Clock, MapPin, Briefcase, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import type { RefObject } from "react";
 import StatusPill from "./StatusPill";
 import type { Accreditation } from "@/types";
 import { getZoneLabel, getZoneColorClasses } from "@/lib/zone-utils";
@@ -7,6 +8,8 @@ import { buildLink } from "@/lib/url";
 import { formatVehicleDate } from "@/lib/date-utils";
 import { useVehicleTypesContext } from "@/contexts/VehicleTypesContext";
 import type { EventLogoMap } from "./AccreditationTable";
+import AccreditationListModeToggle from "./AccreditationListModeToggle";
+import type { AccreditationListMode } from "@/hooks/useAccreditationListMode";
 
 interface MobileAccreditationListProps {
   pageData: Accreditation[];
@@ -17,6 +20,13 @@ interface MobileAccreditationListProps {
   perPage: number;
   searchParams: Record<string, string>;
   eventLogoMap?: EventLogoMap;
+  listMode: AccreditationListMode;
+  onModeChange: (mode: AccreditationListMode) => void;
+  loadingMore: boolean;
+  hasMore: boolean;
+  loadMoreError: boolean;
+  onRetryLoadMore: () => void;
+  sentinelRef: RefObject<HTMLDivElement | null>;
 }
 
 function fmtDuration(entryAt: Date | string | null | undefined, exitAt: Date | string | null | undefined) {
@@ -38,17 +48,29 @@ export default function MobileAccreditationList({
   perPage,
   searchParams,
   eventLogoMap = {},
+  listMode,
+  onModeChange,
+  loadingMore,
+  hasMore,
+  loadMoreError,
+  onRetryLoadMore,
+  sentinelRef,
 }: MobileAccreditationListProps) {
   const { getShortLabel, needsTrailer } = useVehicleTypesContext();
   return (
     <div className="block md:hidden w-full space-y-3 overflow-x-hidden">
-      {/* Compteur de résultats */}
-      <div className="flex items-center justify-between px-1">
+      {/* Compteur de résultats + sélecteur de mode */}
+      <div className="flex items-center justify-between gap-2 px-1">
         <p className="text-xs text-gray-500 font-medium">
           {filteredCount === 0
             ? "Aucun résultat"
-            : `${Math.min((currentPage - 1) * perPage + 1, filteredCount)}–${Math.min(currentPage * perPage, filteredCount)} sur ${filteredCount}`}
+            : listMode === "infinite"
+              ? `${pageData.length} / ${filteredCount}`
+              : `${Math.min((currentPage - 1) * perPage + 1, filteredCount)}–${Math.min(currentPage * perPage, filteredCount)} sur ${filteredCount}`}
         </p>
+        <div className="rounded-lg bg-[#3F4660] p-0.5">
+          <AccreditationListModeToggle mode={listMode} onChange={onModeChange} compact />
+        </div>
       </div>
 
       {pageData.length === 0 && (
@@ -202,8 +224,30 @@ export default function MobileAccreditationList({
         );
       })}
 
-      {/* Pagination mobile */}
-      {totalPages > 1 && (
+      {/* Sentinel + état de chargement (mode défilement continu) */}
+      {listMode === "infinite" && (
+        <div ref={sentinelRef} className="py-4 text-center text-xs text-gray-500">
+          {loadingMore ? (
+            <span className="inline-flex items-center gap-2">
+              <Loader2 size={14} className="animate-spin" />
+              Chargement…
+            </span>
+          ) : loadMoreError ? (
+            <button
+              type="button"
+              onClick={onRetryLoadMore}
+              className="text-[#4F587E] font-semibold"
+            >
+              Erreur de chargement — réessayer
+            </button>
+          ) : !hasMore && pageData.length > 0 ? (
+            <span className="text-gray-400">Tous les résultats sont affichés</span>
+          ) : null}
+        </div>
+      )}
+
+      {/* Pagination mobile (mode paginé uniquement) */}
+      {listMode === "paginated" && totalPages > 1 && (
         <div className="flex items-center justify-between pt-3 pb-2">
           {currentPage > 1 ? (
             <Link

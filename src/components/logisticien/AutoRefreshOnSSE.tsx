@@ -3,6 +3,8 @@
 import { useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAccreditationStream } from "@/hooks/useAccreditationStream";
+import { safeGetItem } from "@/lib/safe-storage";
+import { LIST_MODE_STORAGE_KEY } from "@/hooks/useAccreditationListMode";
 interface AutoRefreshOnSSEProps {
   /** Zone à filtrer (optionnel) */
   zone?: string;
@@ -31,6 +33,13 @@ export default function AutoRefreshOnSSE({
     // Skip si l'utilisateur est en train de saisir dans un champ
     const activeTag = document.activeElement?.tagName?.toLowerCase();
     if (activeTag === "input" || activeTag === "textarea" || activeTag === "select") {
+      return;
+    }
+
+    // En mode défilement continu, un router.refresh() réinitialiserait la liste
+    // chargée progressivement et la position de scroll : on s'abstient pour ne
+    // pas perdre le contexte utilisateur (le mode paginé reste rafraîchi).
+    if (safeGetItem(LIST_MODE_STORAGE_KEY) === "infinite") {
       return;
     }
 

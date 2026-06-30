@@ -1,8 +1,12 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { List, Pencil, Trash2, LogIn, LogOut, Clock, CheckSquare, Square, Archive, ArrowRight, Loader2, MapPin, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { useAccreditationListMode } from "@/hooks/useAccreditationListMode";
+import { useInfiniteAccreditations } from "@/hooks/useInfiniteAccreditations";
+import AccreditationListModeToggle from "./AccreditationListModeToggle";
+import ScrollToTopButton from "./ScrollToTopButton";
 import { useRouter } from "next/navigation";
 import StatusPill from "./StatusPill";
 import MobileAccreditationList from "./MobileAccreditationList";
@@ -131,7 +135,7 @@ function EventLogo({ slug, eventMap }: { slug: string | undefined | null; eventM
 }
 
 export default function AccreditationTable({
-  pageData,
+  pageData: initialPageData,
   currentPage,
   totalPages,
   filteredCount,
@@ -150,6 +154,68 @@ export default function AccreditationTable({
   const { allZoneKeys, isFinalDestination } = useZones();
   const { hasPermission } = usePermissions();
   const { getShortLabel, needsTrailer } = useVehicleTypesContext();
+
+  // --- Mode d'affichage (paginé vs défilement continu) ---
+  const [listMode, setListMode] = useAccreditationListMode();
+  const [desktopScrollEl, setDesktopScrollEl] = useState<HTMLDivElement | null>(null);
+  const desktopSentinelRef = useRef<HTMLDivElement>(null);
+  const mobileSentinelRef = useRef<HTMLDivElement>(null);
+
+  const {
+    items: infiniteItems,
+    loading: loadingMore,
+    hasMore,
+    error: loadMoreError,
+    loadMore,
+  } = useInfiniteAccreditations({
+    enabled: listMode === "infinite",
+    initialItems: initialPageData,
+    total: filteredCount,
+    perPage,
+    searchParams,
+  });
+
+  // Données effectivement affichées selon le mode.
+  const pageData = listMode === "infinite" ? infiniteItems : initialPageData;
+
+  // En défilement continu, on repart toujours du 1er lot : on retire `page` de
+  // l'URL lors du passage en mode infini pour éviter un offset SSR décalé.
+  const handleModeChange = useCallback(
+    (next: typeof listMode) => {
+      setListMode(next);
+      if (next === "infinite" && searchParams.page && searchParams.page !== "1") {
+        const params = new URLSearchParams(
+          Object.entries(searchParams).filter(([, v]) => v) as [string, string][]
+        );
+        params.delete("page");
+        router.replace(`/logisticien?${params.toString()}`, { scroll: false });
+      }
+    },
+    [setListMode, searchParams, router]
+  );
+
+  // IntersectionObserver : charge le lot suivant à l'approche du sentinel.
+  // Desktop = conteneur scrollable interne ; mobile = fenêtre (root null).
+  useEffect(() => {
+    if (listMode !== "infinite" || !hasMore) return;
+    const targets: { el: HTMLElement | null; root: Element | null }[] = [
+      { el: desktopSentinelRef.current, root: desktopScrollEl },
+      { el: mobileSentinelRef.current, root: null },
+    ];
+    const observers: IntersectionObserver[] = [];
+    for (const { el, root } of targets) {
+      if (!el) continue;
+      const obs = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((e) => e.isIntersecting)) loadMore();
+        },
+        { root, rootMargin: "300px" }
+      );
+      obs.observe(el);
+      observers.push(obs);
+    }
+    return () => observers.forEach((o) => o.disconnect());
+  }, [listMode, hasMore, loadMore, desktopScrollEl]);
 
   // Clé de groupe (statut|zone) de la sélection actuelle
   const selectionGroupKey = useMemo(() => {
@@ -328,7 +394,19 @@ export default function AccreditationTable({
         perPage={perPage}
         searchParams={searchParams}
         eventLogoMap={eventLogoMap}
+        listMode={listMode}
+        onModeChange={handleModeChange}
+        loadingMore={loadingMore}
+        hasMore={hasMore}
+        loadMoreError={loadMoreError}
+        onRetryLoadMore={loadMore}
+        sentinelRef={mobileSentinelRef}
       />
+
+      {/* Bouton retour en haut — mobile (scroll fenêtre) */}
+      <div className="md:hidden">
+        <ScrollToTopButton />
+      </div>
 
       {/* ===== DESKTOP ===== */}
       <div className="hidden md:flex md:h-full md:min-h-0 flex-col overflow-hidden bg-white border border-gray-200 rounded-2xl md:rounded-xl shadow-lg">
@@ -338,11 +416,16 @@ export default function AccreditationTable({
             <List size={18} />
           </div>
           <h1 className="text-sm font-bold">Liste d&apos;accréditations</h1>
-          <span className="ml-auto text-xs text-white/70 font-medium">{filteredCount} résultat{filteredCount !== 1 ? "s" : ""}</span>
+          <AccreditationListModeToggle mode={listMode} onChange={handleModeChange} />
+          <span className="ml-auto text-xs text-white/70 font-medium">
+            {listMode === "infinite"
+              ? `${pageData.length} / ${filteredCount}`
+              : `${filteredCount} résultat${filteredCount !== 1 ? "s" : ""}`}
+          </span>
         </div>
 
         {/* Table */}
-        <div className="flex-1 min-h-0 overflow-auto">
+        <div ref={setDesktopScrollEl} className="flex-1 min-h-0 overflow-auto relative">
           <table className="w-full text-xs border-collapse">
             <thead className="sticky top-0 z-10 bg-gray-50 border-b border-gray-200">
               <tr>
@@ -550,9 +633,35 @@ export default function AccreditationTable({
               )}
             </tbody>
           </table>
+
+          {/* Sentinel + état de chargement (mode défilement continu) */}
+          {listMode === "infinite" && (
+            <div ref={desktopSentinelRef} className="px-4 py-3 text-center text-xs text-gray-500">
+              {loadingMore ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 size={14} className="animate-spin" />
+                  Chargement…
+                </span>
+              ) : loadMoreError ? (
+                <button
+                  type="button"
+                  onClick={loadMore}
+                  className="text-[#4F587E] font-semibold hover:underline"
+                >
+                  Erreur de chargement — réessayer
+                </button>
+              ) : !hasMore && pageData.length > 0 ? (
+                <span className="text-gray-400">Tous les résultats sont affichés</span>
+              ) : null}
+            </div>
+          )}
+
+          {/* Bouton retour en haut — desktop (conteneur scrollable interne) */}
+          <ScrollToTopButton scrollContainer={desktopScrollEl} />
         </div>
 
-        {/* Pagination */}
+        {/* Pagination (mode paginé uniquement) */}
+        {listMode === "paginated" && (
         <div className="px-4 py-3 md:py-2 bg-gray-50 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-gray-600 flex-shrink-0 border-t border-gray-200 rounded-b-2xl md:rounded-b-xl text-xs">
           <span className="font-medium">
             {filteredCount === 0
@@ -625,6 +734,7 @@ export default function AccreditationTable({
             </PaginationContent>
           </Pagination>
         </div>
+        )}
       </div>
 
       {/* ===== BULK ACTION BAR ===== */}

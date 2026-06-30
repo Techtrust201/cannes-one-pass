@@ -10,8 +10,14 @@ import VehiclesTabs, {
 } from "@/components/logisticien/vehicles/VehiclesTabs";
 import UnloadingProvidersSection from "@/components/logisticien/vehicles/UnloadingProvidersSection";
 import PermanentsPlaceholder from "@/components/logisticien/vehicles/PermanentsPlaceholder";
+import CountingSection from "@/components/logisticien/vehicles/CountingSection";
 
-const VALID_TABS = new Set<VehiclesTab>(["providers", "types", "permanents"]);
+const VALID_TABS = new Set<VehiclesTab>([
+  "providers",
+  "types",
+  "stats",
+  "permanents",
+]);
 
 function FluxVehiculesPageContent() {
   const { hasPermission, loading: permLoading } = usePermissions();
@@ -59,6 +65,7 @@ function FluxVehiculesPageContent() {
           <UnloadingProvidersSection canWrite={canWrite} />
         )}
         {tab === "types" && <VehicleTypesSection canWrite={canWrite} />}
+        {tab === "stats" && <CountingSection />}
         {tab === "permanents" && <PermanentsPlaceholder />}
       </div>
     </div>

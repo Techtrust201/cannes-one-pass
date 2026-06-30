@@ -22,21 +22,15 @@ import AutoRefreshOnSSE from "@/components/logisticien/AutoRefreshOnSSE";
 import NoEspaceState from "@/components/logisticien/NoEspaceState";
 import type { SortDirection } from "@/components/ui/table";
 import { DEFAULT_VEHICLE_TYPES } from "@/lib/vehicle-type-defaults";
-import { parseVehicleDate, parseSearchDate, formatTimeForSearch } from "@/lib/date-utils";
-
-// --- Utilitaire de normalisation accent/casse/espaces/ligatures ---
-const slug = (s: unknown) =>
-  String(s ?? "")
-    .toLowerCase()
-    .normalize("NFD")
-    // Supprime les diacritiques (accents)
-    .replace(/[\u0300-\u036f]/g, "")
-    // Remplace les ligatures courantes
-    .replace(/œ/g, "oe")
-    .replace(/æ/g, "ae")
-    // Unifie les espaces
-    .replace(/\s+/g, " ")
-    .trim();
+import {
+  mapDbVehicleType,
+  mapDefaultVehicleTypes,
+} from "@/lib/vehicle-type-server";
+import {
+  filterAndSortAccreditations,
+  paginate,
+  type DashboardSortKey,
+} from "@/lib/accreditations-dashboard";
 
 /* ---------- Page Dashboard ---------- */
 export default async function LogisticienDashboard(props: {
@@ -133,211 +127,51 @@ export default async function LogisticienDashboard(props: {
     sel = "",
   } = paramsObj;
 
-  // --- Filtering ---
-  let filtered = data;
-  if (q && q.trim()) {
-    const needle = slug(q);
-    const queryAsDate = parseSearchDate(q);
-
-    filtered = filtered.filter((acc) => {
-      // Match par date exacte si la requête ressemble à une date (ex. 04/03/2026 ou 2026-03-04)
-      if (queryAsDate) {
-        const accDate = parseVehicleDate(acc.vehicles?.[0]?.date);
-        if (accDate && accDate.getTime() === queryAsDate.getTime()) return true;
-      }
-
-      // Champs texte + date brute + horaires (entrée/sortie) pour la recherche texte
-      const timeHay = [
-        ...formatTimeForSearch(acc.lastStepEntryAt),
-        ...formatTimeForSearch(acc.lastStepExitAt),
-        ...formatTimeForSearch(acc.entryAt),
-        ...formatTimeForSearch(acc.exitAt),
-      ];
-      const ext = (acc.extension ?? null) as {
-        vehicleContext?: { interveningCompany?: string | null };
-      } | null;
-      const interveningCompany = ext?.vehicleContext?.interveningCompany ?? null;
-      const haystack = [
-        acc.id,
-        acc.publicToken,
-        acc.status,
-        acc.company,
-        acc.stand,
-        acc.event,
-        acc.vehicles?.[0]?.date,
-        interveningCompany,
-        ...(acc.vehicles?.flatMap((v) => [v.plate, v.trailerPlate]) ?? []),
-        ...timeHay,
-      ]
-        .filter(Boolean)
-        .map((x) => slug(String(x)));
-
-      return haystack.some((hay) => hay.includes(needle));
-    });
-  }
-
-  if (status && status !== "all") {
-    filtered = filtered.filter((acc) => (acc.status as string) === status);
-  }
-
-  if (zone && zone !== "all") {
-    filtered = filtered.filter((acc) => acc.currentZone === zone);
-  }
-
-  if (vehicleType && vehicleType !== "all") {
-    filtered = filtered.filter((acc) =>
-      acc.vehicles?.some((v) => v.vehicleType === vehicleType || v.size === vehicleType)
-    );
-  }
-
-  const hasFrom = Boolean(from);
-  const hasTo = Boolean(to);
-
-  if (hasFrom || hasTo) {
-    const fromDate = hasFrom ? new Date(from) : new Date(0);
-    fromDate.setHours(0, 0, 0, 0);
-
-    const toDate = hasTo ? new Date(to) : new Date(8640000000000000); // max date
-    toDate.setHours(23, 59, 59, 999);
-
-    // swap if user inverted
-    const [start, end] =
-      fromDate <= toDate ? [fromDate, toDate] : [toDate, fromDate];
-
-    filtered = filtered.filter((acc) => {
-      const d = parseVehicleDate(acc.vehicles?.[0]?.date);
-      if (!d) return false;
-      return d >= start && d <= end;
-    });
-  }
-
-  // --- Sorting ---
-  const validSortKeys = [
-    "status",
-    "id",
-    "vehicleDate",
-    "company",
-    "stand",
-    "event",
-    "entryAt",
-    "exitAt",
-    "duration",
-  ] as const;
-  const sortKey = (validSortKeys as readonly string[]).includes(sort)
-    ? (sort as (typeof validSortKeys)[number])
-    : "vehicleDate";
-  const direction = dir === "asc" ? 1 : -1;
-
-  filtered.sort((a, b) => {
-    let aVal: string | number | Date | undefined;
-    let bVal: typeof aVal;
-
-    switch (sortKey) {
-      case "status":
-        aVal = (a.status as string) ?? "";
-        bVal = (b.status as string) ?? "";
-        break;
-      case "id":
-        aVal = a.id;
-        bVal = b.id;
-        break;
-      case "company":
-        aVal = (a.company as string) ?? "";
-        bVal = (b.company as string) ?? "";
-        break;
-      case "stand":
-        aVal = (a.stand as string) ?? "";
-        bVal = (b.stand as string) ?? "";
-        break;
-      case "event":
-        aVal = (a.event as string) ?? "";
-        bVal = (b.event as string) ?? "";
-        break;
-      case "entryAt": {
-        const aEntry = a.lastStepEntryAt || a.entryAt;
-        const bEntry = b.lastStepEntryAt || b.entryAt;
-        aVal = aEntry ? new Date(aEntry) : new Date(0);
-        bVal = bEntry ? new Date(bEntry) : new Date(0);
-        break;
-      }
-      case "exitAt": {
-        const aExit = a.lastStepExitAt || a.exitAt;
-        const bExit = b.lastStepExitAt || b.exitAt;
-        aVal = aExit ? new Date(aExit) : new Date(0);
-        bVal = bExit ? new Date(bExit) : new Date(0);
-        break;
-      }
-      case "duration": {
-        // Calcul de la durée en millisecondes (dernier step)
-        const getDuration = (acc: typeof a) => {
-          const entry = acc.lastStepEntryAt || acc.entryAt;
-          const exit = acc.lastStepExitAt || acc.exitAt;
-          if (!entry || !exit) return 0;
-          return new Date(exit).getTime() - new Date(entry).getTime();
-        };
-        aVal = getDuration(a);
-        bVal = getDuration(b);
-        break;
-      }
-      default:
-        // vehicleDate
-        aVal = parseVehicleDate(a.vehicles?.[0]?.date) ?? new Date(0);
-        bVal = parseVehicleDate(b.vehicles?.[0]?.date) ?? new Date(0);
-    }
-
-    if (aVal === undefined || bVal === undefined) return 0;
-
-    if (aVal < bVal) return -1 * direction;
-    if (aVal > bVal) return 1 * direction;
-    return 0;
+  // Gabarits véhicule scopés à l'organisation de l'espace courant. Chargés
+  // AVANT le filtrage pour permettre un matching de gabarit robuste (codes
+  // canoniques vs codes-libellés prod RX) — évite de sous-compter les poids
+  // lourds / camions. Repli sur les gabarits par défaut si l'org n'en a aucun.
+  const activeVehicleTypes = await prisma.vehicleTypeConfig.findMany({
+    where: { isActive: true, ...(espaceOrgId ? { organizationId: espaceOrgId } : {}) },
+    orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
   });
+  const vehicleTypesData =
+    activeVehicleTypes.length > 0
+      ? activeVehicleTypes.map(mapDbVehicleType)
+      : mapDefaultVehicleTypes(espaceParam);
 
-  // Tri secondaire : les accréditations du jour remontent en premier,
-  // triées par priorité de statut (ENTREE > ATTENTE > NOUVEAU > reste)
-  if (sort === "vehicleDate" && dir === "desc") {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    const statusPriority: Record<string, number> = {
-      ENTREE: 0,
-      ATTENTE: 1,
-      NOUVEAU: 2,
-      SORTIE: 3,
-      REFUS: 4,
-      ABSENT: 5,
-    };
-
-    filtered.sort((a, b) => {
-      const aDate = parseVehicleDate(a.vehicles?.[0]?.date);
-      const bDate = parseVehicleDate(b.vehicles?.[0]?.date);
-      const aIsToday = aDate && aDate >= today && aDate < tomorrow;
-      const bIsToday = bDate && bDate >= today && bDate < tomorrow;
-
-      if (aIsToday && !bIsToday) return -1;
-      if (!aIsToday && bIsToday) return 1;
-
-      if (aIsToday && bIsToday) {
-        const aPrio = statusPriority[a.status as string] ?? 99;
-        const bPrio = statusPriority[b.status as string] ?? 99;
-        return aPrio - bPrio;
-      }
-      return 0;
-    });
-  }
+  // --- Filtrage + tri (logique partagée avec l'API défilement infini) ---
+  const filtered = filterAndSortAccreditations(
+    data,
+    { q, status, zone, vehicleType, from, to, sort, dir },
+    vehicleTypesData
+  );
 
   // --- Pagination ---
   const perPage = 15;
-  const currentPage = Math.max(1, Number(page));
+  const requestedPage = Math.max(1, Number(page) || 1);
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
 
-  if (currentPage > totalPages) {
+  if (requestedPage > totalPages) {
     redirect(buildLink(paramsObj, totalPages));
   }
 
-  const sliceStart = (currentPage - 1) * perPage;
-  const pageData = filtered.slice(sliceStart, sliceStart + perPage);
+  const { items: pageData, currentPage } = paginate(filtered, requestedPage, perPage);
+  const sortKey: DashboardSortKey = (
+    [
+      "status",
+      "id",
+      "vehicleDate",
+      "company",
+      "stand",
+      "event",
+      "entryAt",
+      "exitAt",
+      "duration",
+    ] as const
+  ).includes(sort as DashboardSortKey)
+    ? (sort as DashboardSortKey)
+    : "vehicleDate";
 
   // ---- Selected accreditation ----
   let selected = filtered.find((a) => String(a.id) === sel);
@@ -368,10 +202,6 @@ export default async function LogisticienDashboard(props: {
     ...activeZones.map((z) => ({ value: z.zone, label: z.label })),
   ];
 
-  const activeVehicleTypes = await prisma.vehicleTypeConfig.findMany({
-    where: { isActive: true, ...(espaceOrgId ? { organizationId: espaceOrgId } : {}) },
-    orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
-  });
   const vehicleTypeOptions = [
     { value: "", label: "Tous types" },
     ...(activeVehicleTypes.length > 0

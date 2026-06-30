@@ -118,6 +118,39 @@ export function resolveVehicleTypeShortLabelFromList(
   return resolveVehicleTypeLabelFromList(types, vehicleType, fallbackSize);
 }
 
+/**
+ * Normalisation tolérante (casse / accents / espaces) pour comparer des
+ * libellés de gabarit qui peuvent légèrement diverger ("Semi remorque" vs
+ * "Semi-remorque" vs "semi remorque").
+ */
+function normalizeRawLabel(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Clé de « famille » de gabarit, robuste au divorce entre codes canoniques
+ * (`SEMI_REMORQUE`, `GROS_PORTEUR`…) et codes-libellés prod RX (`"Semi remorque"`,
+ * `"20 m³"`…). Permet de comparer un code de filtre et le `vehicleType`/`size`
+ * d'un véhicule même lorsqu'ils proviennent de référentiels différents.
+ *
+ * Exemples : `"Semi remorque"` et `"SEMI_REMORQUE"` → `"SEMI_REMORQUE"` ;
+ * `"20 m³"` et `"GROS_PORTEUR"` → `"GROS_PORTEUR"`.
+ */
+export function vehicleTypeFamilyKey(
+  types: VehicleTypeData[],
+  raw: string | null | undefined
+): string {
+  if (!raw) return "";
+  const match = findByCode(types, raw);
+  const base = match ? match.code : raw;
+  return heuristicCode(base) ?? normalizeRawLabel(base);
+}
+
 export function resolveVehicleTypeCodeFromList(
   types: VehicleTypeData[],
   vehicleType: string | null | undefined,

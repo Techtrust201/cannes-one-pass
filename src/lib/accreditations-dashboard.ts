@@ -68,10 +68,18 @@ export interface DashboardQuery {
   status?: string;
   zone?: string;
   vehicleType?: string;
+  /** Famille de véhicules : "heavy" = poids lourds, "light" = utilitaires, "all" ou absent = tous */
+  vehicleFamily?: "heavy" | "light" | "all";
   from?: string;
   to?: string;
   sort?: string;
   dir?: string;
+  /** Filtre événement exact (slug ou nom) — distinct de q (recherche texte) */
+  event?: string;
+  /** Filtre société exact */
+  company?: string;
+  /** Filtre stand exact */
+  stand?: string;
 }
 
 /**
@@ -105,8 +113,20 @@ export function accreditationMatchesVehicleType(
   return (acc.vehicles ?? []).some((v) => vehicleMatchesType(types, v, code));
 }
 
+/** Catégorie PDF C/D = poids lourd. */
+function isHeavy(pdfCode: string | undefined | null): boolean {
+  return pdfCode === "C" || pdfCode === "D";
+}
+
+/** Un véhicule est-il poids lourd selon ses codes de gabarit résolus ? */
+function vehicleIsHeavy(types: VehicleTypeData[], v: Vehicle): boolean {
+  const code = resolveVehicleTypeCodeFromList(types, v.vehicleType, v.size);
+  const matched = types.find((t) => t.code === code || t.code === code.toUpperCase());
+  return isHeavy(matched?.pdfCode);
+}
+
 /**
- * Applique recherche texte + filtres (statut, zone, gabarit, dates).
+ * Applique recherche texte + filtres (statut, zone, gabarit, dates, famille, événement…).
  * NE modifie PAS le tableau d'entrée.
  */
 export function filterAccreditations(
@@ -114,7 +134,7 @@ export function filterAccreditations(
   query: DashboardQuery,
   vehicleTypes: VehicleTypeData[]
 ): Accreditation[] {
-  const { q, status, zone, vehicleType, from, to } = query;
+  const { q, status, zone, vehicleType, vehicleFamily, from, to, event, company, stand } = query;
   let filtered = data;
 
   if (q && q.trim()) {
@@ -168,6 +188,34 @@ export function filterAccreditations(
     filtered = filtered.filter((acc) =>
       accreditationMatchesVehicleType(vehicleTypes, acc, vehicleType)
     );
+  }
+
+  if (vehicleFamily && vehicleFamily !== "all") {
+    filtered = filtered.filter((acc) =>
+      (acc.vehicles ?? []).some((v) =>
+        vehicleFamily === "heavy"
+          ? vehicleIsHeavy(vehicleTypes, v)
+          : !vehicleIsHeavy(vehicleTypes, v)
+      )
+    );
+  }
+
+  // Filtre événement exact (insensible à la casse)
+  if (event && event.trim()) {
+    const needle = slug(event);
+    filtered = filtered.filter((acc) => slug(acc.event ?? "") === needle);
+  }
+
+  // Filtre société exact
+  if (company && company.trim()) {
+    const needle = slug(company);
+    filtered = filtered.filter((acc) => slug(acc.company ?? "") === needle);
+  }
+
+  // Filtre stand exact
+  if (stand && stand.trim()) {
+    const needle = slug(stand);
+    filtered = filtered.filter((acc) => slug(acc.stand ?? "") === needle);
   }
 
   const hasFrom = Boolean(from);
@@ -364,10 +412,8 @@ export interface AccreditationStats {
   heavyAccreditations: number;
 }
 
-/** Catégorie PDF C/D = poids lourd (cf. décision métier Killian). */
-function isHeavyPdfCode(pdfCode: string | undefined | null): boolean {
-  return pdfCode === "C" || pdfCode === "D";
-}
+/** Alias interne pour la compatibilité ascendante avec computeAccreditationStats. */
+const isHeavyPdfCode = isHeavy;
 
 /**
  * Calcule les compteurs par statut et par gabarit, en résolvant chaque

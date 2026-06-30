@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, Download, RefreshCw, ChevronDown } from "lucide-react";
+import { Search, Download, RefreshCw, ChevronDown, X } from "lucide-react";
 import type { DateRange } from "@/app/logisticien/carbon/page";
 import { useMemo, useState, useRef, useEffect } from "react";
 import { useEspaceSlug } from "@/hooks/useEspaceSlug";
@@ -13,6 +13,8 @@ interface EventOption {
 interface CarbonHeaderProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  selectedEvent: string;
+  onEventChange: (event: string) => void;
   dateRange: DateRange;
   onDateRangeChange: (range: DateRange) => void;
   onExportPdf: () => void;
@@ -70,6 +72,8 @@ function buildPresets(): Preset[] {
 export default function CarbonHeader({
   searchQuery,
   onSearchChange,
+  selectedEvent,
+  onEventChange,
   dateRange,
   onDateRangeChange,
   onExportPdf,
@@ -131,67 +135,70 @@ export default function CarbonHeader({
 
   return (
     <div className="bg-white border-b border-gray-200 px-3 md:px-6 py-3 md:py-4">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4">
-        {/* Recherche + Presets événement */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-4">
+        {/* Filtres principaux : événement + recherche texte */}
         <div className="flex flex-col gap-2 w-full md:w-auto md:flex-shrink-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs text-gray-500 shrink-0">Événement :</span>
-            <button
-              onClick={() => onSearchChange("")}
-              className={`px-2.5 py-1 text-xs rounded font-medium transition-colors ${
-                searchQuery === ""
-                  ? "bg-emerald-600 text-white"
-                  : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-              }`}
-            >
-              Tous
-            </button>
-            {events.map((event) => {
-              const isActive = searchQuery === event.slug;
-              return (
-                <button
-                  key={event.slug}
-                  onClick={() => onSearchChange(event.slug)}
-                  className={`px-2.5 py-1 text-xs rounded font-medium transition-colors ${
-                    isActive
-                      ? "bg-emerald-600 text-white"
-                      : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-                  }`}
-                >
-                  {event.name}
-                </button>
-              );
-            })}
-          </div>
-          <div className="relative w-full md:w-80">
-          <Search
-            className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors ${
-              isSearching ? "text-blue-500 animate-pulse" : "text-gray-400"
-            }`}
-          />
-          <input
-            type="text"
-            placeholder="Rechercher entreprise, événement, plaque..."
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className={`pl-10 pr-10 py-2.5 border-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full bg-gray-50 focus:bg-white transition-all ${
-              isSearching ? "border-blue-300" : "border-gray-300"
-            }`}
-          />
-          {searchQuery && !isSearching && (
-            <button
-              onClick={() => onSearchChange("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-              title="Effacer la recherche"
-            >
-              ×
-            </button>
-          )}
-          {isSearching && (
-            <div className="absolute right-3 top-1/2 -translate-y-1/2">
-              <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent" />
+          {/* Sélecteur événement — tous les événements accessibles */}
+          <div className="flex items-center gap-2">
+            <label htmlFor="carbon-event-select" className="text-xs text-gray-500 shrink-0">
+              Événement :
+            </label>
+            <div className="relative flex-1 md:w-72">
+              <select
+                id="carbon-event-select"
+                value={selectedEvent}
+                onChange={(e) => onEventChange(e.target.value)}
+                className="w-full pl-3 pr-8 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 appearance-none"
+              >
+                <option value="">Tous les événements</option>
+                {events.map((ev) => (
+                  <option key={ev.slug} value={ev.slug}>
+                    {ev.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             </div>
-          )}
+            {selectedEvent && (
+              <button
+                onClick={() => onEventChange("")}
+                className="p-1 rounded text-gray-400 hover:text-gray-700 transition-colors"
+                title="Tous les événements"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+          {/* Recherche texte libre (société, plaque, stand…) */}
+          <div className="relative w-full md:w-80">
+            <Search
+              className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors ${
+                isSearching ? "text-blue-500 animate-pulse" : "text-gray-400"
+              }`}
+            />
+            <input
+              type="text"
+              placeholder="Rechercher société, plaque, stand…"
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className={`pl-10 pr-10 py-2.5 border-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full bg-gray-50 focus:bg-white transition-all ${
+                isSearching ? "border-blue-300" : "border-gray-300"
+              }`}
+            />
+            {searchQuery && !isSearching && (
+              <button
+                onClick={() => onSearchChange("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                title="Effacer la recherche"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+            {isSearching && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent" />
+              </div>
+            )}
           </div>
         </div>
 

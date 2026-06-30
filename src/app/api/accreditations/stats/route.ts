@@ -56,13 +56,22 @@ export async function GET(request: NextRequest) {
       ? activeVehicleTypes.map(mapDbVehicleType)
       : mapDefaultVehicleTypes(espaceParam);
 
-  // Seuls les filtres de date sont appliqués (le comptage doit refléter tous
-  // les statuts et gabarits de la période).
+  const familyParam = searchParams.get("vehicleFamily");
   const scoped = filterAccreditations(
     data,
     {
       from: searchParams.get("from") ?? "",
       to: searchParams.get("to") ?? "",
+      status: searchParams.get("status") ?? "",
+      zone: searchParams.get("zone") ?? "",
+      vehicleType: searchParams.get("vehicleType") ?? "",
+      vehicleFamily:
+        familyParam === "heavy" || familyParam === "light"
+          ? familyParam
+          : "all",
+      event: searchParams.get("event") ?? "",
+      company: searchParams.get("company") ?? "",
+      stand: searchParams.get("stand") ?? "",
     },
     vehicleTypesData
   );

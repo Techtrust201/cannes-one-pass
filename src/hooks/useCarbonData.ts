@@ -65,7 +65,8 @@ interface UseCarbonDataResult {
 
 export function useCarbonData(
   dateRange: DateRange,
-  searchQuery: string
+  searchQuery: string,
+  selectedEvent = ""
 ): UseCarbonDataResult {
   const espace = useEspaceSlug();
   const [data, setData] = useState<CarbonData | null>(null);
@@ -106,7 +107,9 @@ export function useCarbonData(
       if (debouncedSearchQuery.trim()) {
         params.append("search", debouncedSearchQuery.trim());
       }
-
+      if (selectedEvent.trim()) {
+        params.append("event", selectedEvent.trim());
+      }
       if (espace) params.append("espace", espace);
 
       const response = await fetch(`/api/carbon?${params}`, {
@@ -160,7 +163,7 @@ export function useCarbonData(
     } finally {
       if (!signal.aborted) setLoading(false);
     }
-  }, [dateRange.start, dateRange.end, debouncedSearchQuery, espace]);
+  }, [dateRange.start, dateRange.end, debouncedSearchQuery, selectedEvent, espace]);
 
   useEffect(() => {
     fetchData();

@@ -33,17 +33,20 @@ function getDefaultDateRange(): DateRange {
 export default function CarbonPage() {
   const espace = useEspaceSlug();
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedEvent, setSelectedEvent] = useState("");
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
   const [activeTab, setActiveTab] = useState<CarbonTab>("Tableau");
 
   useEffect(() => {
     setSearchQuery("");
+    setSelectedEvent("");
   }, [espace]);
 
   // Récupération des données réelles
   const { data, loading, error, isSearching, refetch } = useCarbonData(
     dateRange,
-    searchQuery
+    searchQuery,
+    selectedEvent
   );
 
   const handleExportPdf = async () => {
@@ -167,7 +170,12 @@ export default function CarbonPage() {
       case "Liste":
         return <ListeTab {...commonProps} />;
       case "Par événement":
-        return <EventDetailTab {...commonProps} />;
+        return (
+          <EventDetailTab
+            {...commonProps}
+            selectedEvent={selectedEvent}
+          />
+        );
       default:
         return <TableauTab {...commonProps} />;
     }
@@ -178,6 +186,8 @@ export default function CarbonPage() {
       <CarbonHeader
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+        selectedEvent={selectedEvent}
+        onEventChange={setSelectedEvent}
         dateRange={dateRange}
         onDateRangeChange={setDateRange}
         onExportPdf={handleExportPdf}

@@ -85,6 +85,8 @@ export async function GET(req: NextRequest) {
     const startDate = searchParams.get("start") || `${currentYear}-01-01`;
     const endDate = searchParams.get("end") || todayStr;
     const search = searchParams.get("search") || "";
+    // Filtre événement exact (séparé de la recherche texte libre).
+    const eventFilter = searchParams.get("event")?.trim() || "";
 
     // Cloisonnement multi-tenant : restreindre aux events accessibles à
     // l'utilisateur (avec prise en compte du contexte d'Espace si fourni).
@@ -121,6 +123,11 @@ export async function GET(req: NextRequest) {
                   { vehicles: { some: { plate: { contains: search, mode: "insensitive" } } } },
                 ],
               }
+            : {},
+          // Filtre événement exact : basé sur le champ `event` de l'accréditation
+          // (contient le slug ou le nom de l'événement selon la source).
+          eventFilter
+            ? { event: { equals: eventFilter, mode: "insensitive" } }
             : {},
         ],
       },

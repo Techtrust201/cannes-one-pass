@@ -15,7 +15,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { useEspaceSlug } from "@/hooks/useEspaceSlug";
-import { useEspaceEvents } from "@/hooks/useEspaceEvents";
+import { useOrgFilterOptions } from "@/hooks/useOrgFilterOptions";
 import { useAccreditationStream } from "@/hooks/useAccreditationStream";
 import type { AccreditationStats } from "@/lib/accreditations-dashboard";
 import ScrollToTopButton from "@/components/logisticien/ScrollToTopButton";
@@ -91,52 +91,13 @@ export default function CountingSection() {
   const [panelOpen, setPanelOpen] = useState(false);
   const activeFilterCount = countActiveFilters(filters);
 
-  // Listes de référence pour les selects
-  const events = useEspaceEvents(espace);
-  const [zones, setZones] = useState<{ zone: string; label: string }[]>([]);
-  // Liste STABLE des gabarits (catalogue complet de l'organisation), pour que
-  // le select gabarit ne se vide pas lorsqu'un filtre est déjà actif.
-  const [vehicleTypeOptions, setVehicleTypeOptions] = useState<
-    { code: string; label: string }[]
-  >([]);
-
-  // Charger les zones (permission GESTION_ZONES requise, gracieux si absent)
-  useEffect(() => {
-    const url = espace
-      ? `/api/zones?espace=${encodeURIComponent(espace)}`
-      : "/api/zones";
-    fetch(url)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((data: { zone?: string; label?: string }[]) => {
-        if (!Array.isArray(data)) return;
-        setZones(
-          data
-            .map((z) => ({ zone: z.zone ?? "", label: z.label ?? z.zone ?? "" }))
-            .filter((z) => z.zone)
-        );
-      })
-      .catch(() => setZones([]));
-  }, [espace]);
-
-  // Charger le catalogue de gabarits (lecture publique avec ?espace=, donc
-  // accessible même sans permission GESTION_*).
-  useEffect(() => {
-    if (!espace) return;
-    fetch(`/api/vehicle-types?espace=${encodeURIComponent(espace)}`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((data: { code?: string; label?: string; gabarit?: string }[]) => {
-        if (!Array.isArray(data)) return;
-        setVehicleTypeOptions(
-          data
-            .map((t) => ({
-              code: t.code ?? "",
-              label: t.label ?? t.gabarit ?? t.code ?? "",
-            }))
-            .filter((t) => t.code)
-        );
-      })
-      .catch(() => setVehicleTypeOptions([]));
-  }, [espace]);
+  // Catalogue org : gabarits, événements, zones issus du même contexte/hooks
+  // que le reste de l'app → jamais alimenté par les stats filtrées.
+  const {
+    vehicleTypes: orgVehicleTypes,
+    events,
+    zones: orgZones,
+  } = useOrgFilterOptions();
 
   const fetchStats = useCallback(
     async (opts?: { silent?: boolean; overrideFilters?: Filters }) => {
@@ -174,22 +135,28 @@ export default function CountingSection() {
   });
 
   const handleFilterChange = (key: keyof Filters, value: string) => {
-    setFilters((prev) => ({ ...prev, [key]: value }));
+    setFilters((prev) => {
+      const next = { ...prev, [key]: value };
+      // Si la famille change, réinitialiser le gabarit si celui-ci devient
+      // incompatible (ex. VL sélectionné + passage en Poids lourds).
+      if (key === "vehicleFamily" && prev.vehicleType) {
+        const selectedType = orgVehicleTypes.find(
+          (t) => t.value === prev.vehicleType
+        );
+        if (selectedType) {
+          const incompatible =
+            (value === "heavy" && !selectedType.isHeavy) ||
+            (value === "light" && selectedType.isHeavy);
+          if (incompatible) next.vehicleType = "";
+        }
+      }
+      return next;
+    });
   };
 
   const handleReset = () => {
     setFilters(EMPTY_FILTERS);
   };
-
-  // Source STABLE pour le select gabarit : catalogue complet si chargé, sinon
-  // repli sur les gabarits présents dans les stats.
-  const knownVehicleTypes =
-    vehicleTypeOptions.length > 0
-      ? vehicleTypeOptions
-      : (stats?.byVehicleType ?? []).map((t) => ({
-          code: t.code,
-          label: t.label,
-        }));
 
   if (loading && !stats) {
     return (
@@ -316,8 +283,8 @@ export default function CountingSection() {
                 >
                   <option value="">Tous les événements</option>
                   {events.map((ev) => (
-                    <option key={ev.slug} value={ev.slug}>
-                      {ev.name}
+                    <option key={ev.value} value={ev.value}>
+                      {ev.label}
                     </option>
                   ))}
                 </select>
@@ -374,8 +341,8 @@ export default function CountingSection() {
               </div>
             </div>
 
-            {/* Gabarit */}
-            {knownVehicleTypes.length > 0 && (
+            {/* Gabarit — catalogue org complet, indépendant des filtres actifs */}
+            {orgVehicleTypes.length > 0 && (
               <div className="flex flex-col gap-1">
                 <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
                   Gabarit
@@ -389,8 +356,8 @@ export default function CountingSection() {
                     className="w-full pl-2.5 pr-7 py-1.5 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#4F587E] appearance-none"
                   >
                     <option value="">Tous les gabarits</option>
-                    {knownVehicleTypes.map((t) => (
-                      <option key={t.code} value={t.code}>
+                    {orgVehicleTypes.map((t) => (
+                      <option key={t.value} value={t.value}>
                         {t.label}
                       </option>
                     ))}
@@ -401,7 +368,7 @@ export default function CountingSection() {
             )}
 
             {/* Zone */}
-            {zones.length > 0 && (
+            {orgZones.length > 0 && (
               <div className="flex flex-col gap-1">
                 <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
                   Zone actuelle
@@ -413,8 +380,8 @@ export default function CountingSection() {
                     className="w-full pl-2.5 pr-7 py-1.5 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#4F587E] appearance-none"
                   >
                     <option value="">Toutes les zones</option>
-                    {zones.map((z) => (
-                      <option key={z.zone} value={z.zone}>
+                    {orgZones.map((z) => (
+                      <option key={z.value} value={z.value}>
                         {z.label}
                       </option>
                     ))}
@@ -485,7 +452,7 @@ export default function CountingSection() {
                   let displayValue = value;
                   if (key === "event") {
                     displayValue =
-                      events.find((e) => e.slug === value)?.name ?? value;
+                      events.find((e) => e.value === value)?.label ?? value;
                   } else if (key === "status") {
                     displayValue =
                       STATUS_META.find((s) => s.code === value)?.label ?? value;
@@ -494,10 +461,10 @@ export default function CountingSection() {
                       value === "heavy" ? "Poids lourds" : "Utilitaires";
                   } else if (key === "zone") {
                     displayValue =
-                      zones.find((z) => z.zone === value)?.label ?? value;
+                      orgZones.find((z) => z.value === value)?.label ?? value;
                   } else if (key === "vehicleType") {
                     displayValue =
-                      knownVehicleTypes.find((t) => t.code === value)?.label ??
+                      orgVehicleTypes.find((t) => t.value === value)?.label ??
                       value;
                   }
                   return (

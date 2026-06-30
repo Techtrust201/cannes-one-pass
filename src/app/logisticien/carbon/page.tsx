@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import CarbonHeader from "@/components/logisticien/carbon/CarbonHeader";
 import { useEspaceSlug } from "@/hooks/useEspaceSlug";
-import { useEspaceEvents } from "@/hooks/useEspaceEvents";
+import { useOrgFilterOptions } from "@/hooks/useOrgFilterOptions";
 import CarbonTabs from "@/components/logisticien/carbon/CarbonTabs";
 import CarbonStats from "@/components/logisticien/carbon/CarbonStats";
 import TableauTab from "@/components/logisticien/carbon/TableauTab";
@@ -34,7 +34,7 @@ function getDefaultDateRange(): DateRange {
 
 export default function CarbonPage() {
   const espace = useEspaceSlug();
-  const events = useEspaceEvents(espace);
+  const { events } = useOrgFilterOptions();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedEvent, setSelectedEvent] = useState("");
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);

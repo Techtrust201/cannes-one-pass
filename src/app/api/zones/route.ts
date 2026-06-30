@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {
   requirePermission,
+  requireAuth,
+  hasPermission,
   resolveEspaceOrgId,
   getAccessibleOrganizationIds,
 } from "@/lib/auth-helpers";
@@ -23,25 +25,53 @@ function dedupeByZone<T extends ZoneRow>(rows: T[]): T[] {
  * - `?espace=<slug>` : zones de cette organisation uniquement.
  * - Sans `?espace=` : zones des organisations accessibles à l'utilisateur
  *   (dé-dupliquées par `zone` si plusieurs orgs).
+ *
+ * Permissions acceptées :
+ * - `GESTION_ZONES` read (accès admin complet)
+ * - `FLUX_VEHICULES` ou `BILAN_CARBONE` read + `?espace=` (lecture scopée
+ *   pour alimenter les selects de filtre Comptage / Bilan carbone)
  */
 export async function GET(req: NextRequest) {
+  const espaceParam = req.nextUrl.searchParams.get("espace")?.trim() || null;
   let session: Awaited<ReturnType<typeof requirePermission>> | null = null;
+  let scopedReadOnly = false;
+
   try {
     session = await requirePermission(req, "GESTION_ZONES", "read");
-  } catch (error) {
-    if (error instanceof Response) {
-      return new Response(error.body, { status: error.status, statusText: error.statusText });
+  } catch (adminError) {
+    if (espaceParam) {
+      try {
+        const { session: authSession } = await requireAuth(req);
+        const userId = authSession.user.id;
+        const hasFlux = await hasPermission(userId, "FLUX_VEHICULES", "read");
+        const hasCarbone = await hasPermission(userId, "BILAN_CARBONE", "read");
+        if (!hasFlux && !hasCarbone) {
+          if (adminError instanceof Response) {
+            return new Response(adminError.body, { status: adminError.status, statusText: adminError.statusText });
+          }
+          return new Response("Non autorisé", { status: 401 });
+        }
+        scopedReadOnly = true;
+      } catch {
+        if (adminError instanceof Response) {
+          return new Response(adminError.body, { status: adminError.status, statusText: adminError.statusText });
+        }
+        return new Response("Non autorisé", { status: 401 });
+      }
+    } else {
+      if (adminError instanceof Response) {
+        return new Response(adminError.body, { status: adminError.status, statusText: adminError.statusText });
+      }
+      return new Response("Non autorisé", { status: 401 });
     }
-    return new Response("Non autorisé", { status: 401 });
   }
 
   try {
-    const espace = req.nextUrl.searchParams.get("espace")?.trim() || null;
     const orderBy = { label: "asc" as const };
 
-    // Cas 1 : espace fourni → scope strict à cette organisation.
-    if (espace) {
-      const orgId = await resolveEspaceOrgId(espace);
+    // Lecture scopée (FLUX_VEHICULES/BILAN_CARBONE) ou espace fourni → org seulement.
+    if (espaceParam) {
+      const orgId = await resolveEspaceOrgId(espaceParam);
       if (!orgId) return Response.json([]);
       const zones = await prisma.zoneConfig.findMany({
         where: { organizationId: orgId },
@@ -50,8 +80,11 @@ export async function GET(req: NextRequest) {
       return Response.json(zones);
     }
 
-    // Cas 2/3 : pas d'espace → orgs accessibles à l'utilisateur.
-    const accessible = await getAccessibleOrganizationIds(session.user.id);
+    // Accès admin sans espace → ne pas autoriser la lecture scopée sans espace.
+    if (scopedReadOnly) return Response.json([]);
+
+    // Cas 2/3 : pas d'espace → orgs accessibles à l'utilisateur (admin uniquement).
+    const accessible = await getAccessibleOrganizationIds(session!.user.id);
     if (Array.isArray(accessible) && accessible.length > 0) {
       const zones = await prisma.zoneConfig.findMany({
         where: { organizationId: { in: accessible } },

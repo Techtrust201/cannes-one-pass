@@ -1,6 +1,12 @@
 import { NextRequest } from "next/server";
 import { prisma, withRetry } from "@/lib/prisma";
-import { requirePermission, getAccessibleEventIdsForEspace } from "@/lib/auth-helpers";
+import {
+  requirePermission,
+  requireAuth,
+  hasPermission,
+  getAccessibleEventIdsForEspace,
+  resolveEspaceOrgId,
+} from "@/lib/auth-helpers";
 import { isEventVisibleForAccreditation } from "@/lib/events";
 import type { Event } from "@/types";
 
@@ -15,21 +21,56 @@ function handleAuthError(error: unknown) {
 
 export async function GET(req: NextRequest) {
   const activeOnly = req.nextUrl.searchParams.get("active") === "true";
+  const espaceParam = req.nextUrl.searchParams.get("espace")?.trim() || null;
   let currentUserId: string | undefined;
+  // Mode lecture scopée : l'utilisateur a FLUX_VEHICULES ou BILAN_CARBONE
+  // mais pas GESTION_DATES → on retourne uniquement les événements de l'org.
+  let scopedReadOnly = false;
 
   // L'endpoint ?active=true est public (pour Step 1 accreditation)
   if (!activeOnly) {
     try {
       const session = await requirePermission(req, "GESTION_DATES", "read");
       currentUserId = session.user.id;
-    } catch (error) {
-      return handleAuthError(error);
+    } catch (adminError) {
+      // Si un espace est spécifié, on accepte FLUX_VEHICULES ou BILAN_CARBONE
+      // comme accès lecture restreint au catalogue de l'org (pour les filtres).
+      if (espaceParam) {
+        try {
+          const { session } = await requireAuth(req);
+          const userId = session.user.id;
+          const hasFlux = await hasPermission(userId, "FLUX_VEHICULES", "read");
+          const hasCarbone = await hasPermission(userId, "BILAN_CARBONE", "read");
+          if (!hasFlux && !hasCarbone) {
+            return handleAuthError(adminError);
+          }
+          currentUserId = userId;
+          scopedReadOnly = true;
+        } catch {
+          return handleAuthError(adminError);
+        }
+      } else {
+        return handleAuthError(adminError);
+      }
     }
   }
 
   try {
     const now = new Date();
-    const espaceParam = req.nextUrl.searchParams.get("espace")?.trim() || null;
+
+    // Lecture scopée (FLUX_VEHICULES/BILAN_CARBONE) : retourner uniquement les
+    // événements de l'organisation demandée, champs réduits au minimum nécessaire
+    // pour alimenter les selects de filtre.
+    if (scopedReadOnly && espaceParam) {
+      const orgId = await resolveEspaceOrgId(espaceParam);
+      if (!orgId) return Response.json([]);
+      const events = await prisma.event.findMany({
+        where: { organizationId: orgId, isArchived: false },
+        select: { id: true, slug: true, name: true, startDate: true },
+        orderBy: { startDate: "asc" },
+      });
+      return Response.json(events);
+    }
 
     const scopeFilter: Record<string, unknown> = {};
     // Sur les endpoints non-publics, restreindre au périmètre du user

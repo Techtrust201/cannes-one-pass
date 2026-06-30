@@ -26,6 +26,7 @@ import {
   mapDbVehicleType,
   mapDefaultVehicleTypes,
 } from "@/lib/vehicle-type-server";
+import { buildVehicleTypeFilterOptions } from "@/lib/org-filter-options";
 import {
   filterAndSortAccreditations,
   paginate,
@@ -204,9 +205,7 @@ export default async function LogisticienDashboard(props: {
 
   const vehicleTypeOptions = [
     { value: "", label: "Tous types" },
-    ...(activeVehicleTypes.length > 0
-      ? activeVehicleTypes.map((t) => ({ value: t.code, label: t.gabarit }))
-      : DEFAULT_VEHICLE_TYPES.map((t) => ({ value: t.code, label: t.gabarit }))),
+    ...buildVehicleTypeFilterOptions(vehicleTypesData),
   ];
 
   return (

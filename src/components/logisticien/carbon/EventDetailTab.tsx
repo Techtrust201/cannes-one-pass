@@ -3,18 +3,14 @@
 import { formatNumber } from "@/lib/carbonData";
 import type { CarbonData, CarbonDataEntry } from "@/hooks/useCarbonData";
 import VehicleTypeReferenceTable from "@/components/accreditation/VehicleTypeReferenceTable";
-
-interface EventOption {
-  slug: string;
-  name: string;
-}
+import type { FilterOption } from "@/lib/org-filter-options";
 
 interface EventDetailTabProps {
   data: CarbonData;
   dateRange: unknown;
   searchQuery: unknown;
   selectedEvent?: string;
-  events?: EventOption[];
+  events?: FilterOption[];
 }
 
 /** Top N libellés d'un compteur, formatés "Libellé (n)". */
@@ -370,9 +366,9 @@ export default function EventDetailTab({
   // nom lisible si on le connaît, sinon retourne la valeur telle quelle.
   const nameForSlug = (slug: string): string => {
     const match = events.find(
-      (e) => e.slug.toLowerCase() === slug.toLowerCase()
+      (e) => e.value.toLowerCase() === slug.toLowerCase()
     );
-    return match?.name ?? slug;
+    return match?.label ?? slug;
   };
 
   if (!selectedEvent) {

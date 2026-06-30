@@ -3,14 +3,14 @@
 import { Search, Download, RefreshCw, ChevronDown, X } from "lucide-react";
 import type { DateRange } from "@/app/logisticien/carbon/page";
 import { useMemo, useState, useRef, useEffect } from "react";
-import type { EspaceEventOption } from "@/hooks/useEspaceEvents";
+import type { FilterOption } from "@/lib/org-filter-options";
 
 interface CarbonHeaderProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   selectedEvent: string;
   onEventChange: (event: string) => void;
-  events: EspaceEventOption[];
+  events: FilterOption[];
   dateRange: DateRange;
   onDateRangeChange: (range: DateRange) => void;
   onExportPdf: () => void;
@@ -120,8 +120,8 @@ export default function CarbonHeader({
               >
                 <option value="">Tous les événements</option>
                 {events.map((ev) => (
-                  <option key={ev.slug} value={ev.slug}>
-                    {ev.name}
+                  <option key={ev.value} value={ev.value}>
+                    {ev.label}
                   </option>
                 ))}
               </select>

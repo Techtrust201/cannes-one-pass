@@ -132,12 +132,11 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
           onClick={() => setSidebarOpen(false)}
         />
       )}
-      {/* Sidebar — sticky sur desktop : reste visible quand une sous-page
-          défile au niveau fenêtre (Flux véhicules, Archives…). Sur le
-          dashboard (app-shell à hauteur fixe) le rendu est identique. */}
+      {/* Sidebar — fixed sur desktop : reste toujours visible au scroll
+          (pages longues type Comptage, Archives…). Le main compense via ml. */}
       <aside
         className={`
-        fixed sm:sticky sm:top-0 sm:self-start top-0 left-0 z-[60] h-screen bg-[#3F4660] text-white flex flex-col transition-all duration-300
+        fixed top-0 left-0 z-[60] h-screen bg-[#3F4660] text-white flex flex-col transition-all duration-300
         ${sidebarOpen ? "translate-x-0 w-60" : "-translate-x-full w-60"}
         sm:translate-x-0 sm:flex
         ${collapsed ? "sm:w-16" : "sm:w-60"}
@@ -657,8 +656,12 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
           </button>
         )}
       </aside>
-      {/* Contenu principal */}
-      <main className="flex-1 bg-gray-50 h-auto min-h-0 overflow-x-hidden pb-[var(--mobile-nav-total)] md:pb-0 flex flex-col">
+      {/* Contenu principal — marge gauche desktop = largeur sidebar fixed */}
+      <main
+        className={`flex-1 bg-gray-50 h-auto min-h-0 overflow-x-hidden pb-[var(--mobile-nav-total)] md:pb-0 flex flex-col transition-all duration-300 ${
+          collapsed ? "sm:ml-16" : "sm:ml-60"
+        }`}
+      >
         {/* Barre supérieure mobile : espace actif + accès rapide switch */}
         <div className="md:hidden sticky top-0 z-40 bg-[#3F4660] text-white px-3 py-2 flex items-center justify-between gap-2 shadow-sm pt-[calc(var(--safe-top)+0.5rem)]">
           <button

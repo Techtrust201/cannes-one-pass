@@ -119,10 +119,38 @@ function isHeavy(pdfCode: string | undefined | null): boolean {
 }
 
 /** Un véhicule est-il poids lourd selon ses codes de gabarit résolus ? */
-function vehicleIsHeavy(types: VehicleTypeData[], v: Vehicle): boolean {
+export function vehicleIsHeavy(types: VehicleTypeData[], v: Vehicle): boolean {
   const code = resolveVehicleTypeCodeFromList(types, v.vehicleType, v.size);
   const matched = types.find((t) => t.code === code || t.code === code.toUpperCase());
   return isHeavy(matched?.pdfCode);
+}
+
+/**
+ * Construit un prédicat de correspondance véhicule à partir des filtres
+ * famille / gabarit. Sert à ne COMPTER que les véhicules pertinents quand un
+ * filtre famille ou gabarit est actif (ex. « Poids lourds » ⇒ on n'additionne
+ * pas les utilitaires des accréditations mixtes). Retourne `null` si aucun
+ * filtre véhicule n'est actif (on compte alors tous les véhicules).
+ */
+export function buildVehiclePredicate(
+  vehicleTypes: VehicleTypeData[],
+  query: Pick<DashboardQuery, "vehicleFamily" | "vehicleType">
+): ((v: Vehicle) => boolean) | null {
+  const { vehicleFamily, vehicleType } = query;
+  const hasFamily = Boolean(vehicleFamily && vehicleFamily !== "all");
+  const hasType = Boolean(vehicleType && vehicleType !== "all");
+  if (!hasFamily && !hasType) return null;
+  return (v: Vehicle) => {
+    if (hasFamily) {
+      const heavy = vehicleIsHeavy(vehicleTypes, v);
+      if (vehicleFamily === "heavy" && !heavy) return false;
+      if (vehicleFamily === "light" && heavy) return false;
+    }
+    if (hasType && !vehicleMatchesType(vehicleTypes, v, vehicleType as string)) {
+      return false;
+    }
+    return true;
+  };
 }
 
 /**
@@ -423,8 +451,10 @@ const isHeavyPdfCode = isHeavy;
  */
 export function computeAccreditationStats(
   data: Accreditation[],
-  vehicleTypes: VehicleTypeData[]
+  vehicleTypes: VehicleTypeData[],
+  opts?: { vehicleFilter?: ((v: Vehicle) => boolean) | null }
 ): AccreditationStats {
+  const vehicleFilter = opts?.vehicleFilter ?? null;
   const byStatus: Record<string, number> = {};
   for (const s of ALL_STATUSES) byStatus[s] = 0;
 
@@ -443,6 +473,10 @@ export function computeAccreditationStats(
 
     let accHasHeavy = false;
     for (const v of acc.vehicles ?? []) {
+      // Si un filtre véhicule est actif, on ne comptabilise que les véhicules
+      // correspondants (les compteurs reflètent alors uniquement cette famille
+      // / ce gabarit).
+      if (vehicleFilter && !vehicleFilter(v)) continue;
       totalVehicles += 1;
       const code = resolveVehicleTypeCodeFromList(
         vehicleTypes,

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import CarbonHeader from "@/components/logisticien/carbon/CarbonHeader";
 import { useEspaceSlug } from "@/hooks/useEspaceSlug";
+import { useEspaceEvents } from "@/hooks/useEspaceEvents";
 import CarbonTabs from "@/components/logisticien/carbon/CarbonTabs";
 import CarbonStats from "@/components/logisticien/carbon/CarbonStats";
 import TableauTab from "@/components/logisticien/carbon/TableauTab";
@@ -10,6 +11,7 @@ import CamembertTab from "@/components/logisticien/carbon/CamembertTab";
 import BatonsTab from "@/components/logisticien/carbon/BatonsTab";
 import ListeTab from "@/components/logisticien/carbon/ListeTab";
 import EventDetailTab from "@/components/logisticien/carbon/EventDetailTab";
+import ScrollToTopButton from "@/components/logisticien/ScrollToTopButton";
 import { useCarbonData } from "@/hooks/useCarbonData";
 
 export type DateRange = {
@@ -32,10 +34,12 @@ function getDefaultDateRange(): DateRange {
 
 export default function CarbonPage() {
   const espace = useEspaceSlug();
+  const events = useEspaceEvents(espace);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedEvent, setSelectedEvent] = useState("");
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
   const [activeTab, setActiveTab] = useState<CarbonTab>("Tableau");
+  const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setSearchQuery("");
@@ -174,6 +178,7 @@ export default function CarbonPage() {
           <EventDetailTab
             {...commonProps}
             selectedEvent={selectedEvent}
+            events={events}
           />
         );
       default:
@@ -188,6 +193,7 @@ export default function CarbonPage() {
         onSearchChange={setSearchQuery}
         selectedEvent={selectedEvent}
         onEventChange={setSelectedEvent}
+        events={events}
         dateRange={dateRange}
         onDateRangeChange={setDateRange}
         onExportPdf={handleExportPdf}
@@ -199,11 +205,12 @@ export default function CarbonPage() {
       />
       <CarbonStats data={data} loading={loading} />
       <CarbonTabs activeTab={activeTab} onTabChange={setActiveTab} />
-      <div className="flex-1 overflow-y-auto">
+      <div ref={setScrollEl} className="flex-1 overflow-y-auto">
         <div className="p-3 md:p-6" data-export-content>
           {renderActiveTab()}
         </div>
       </div>
+      <ScrollToTopButton scrollContainer={scrollEl} />
     </div>
   );
 }

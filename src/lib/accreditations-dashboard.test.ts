@@ -4,6 +4,7 @@ import {
   filterAndSortAccreditations,
   accreditationMatchesVehicleType,
   computeAccreditationStats,
+  buildVehiclePredicate,
   paginate,
 } from "./accreditations-dashboard";
 import type { Accreditation, Vehicle, AccreditationStatus } from "@/types";
@@ -187,6 +188,44 @@ describe("computeAccreditationStats", () => {
     const semi = s.byVehicleType.find((t) => t.code === "SEMI_REMORQUE");
     expect(semi?.vehicles).toBe(1);
     expect(semi?.isHeavy).toBe(true);
+  });
+});
+
+describe("computeAccreditationStats — filtre véhicule (famille / gabarit)", () => {
+  // id 3 = accréditation MIXTE (1 poids lourd SEMI + 1 utilitaire VL)
+  const data = [
+    makeAcc("1", "NOUVEAU", [{ vehicleType: "VL" }]),
+    makeAcc("2", "NOUVEAU", [{ vehicleType: "PORTEUR" }]),
+    makeAcc("3", "ATTENTE", [{ vehicleType: "SEMI_REMORQUE" }, { vehicleType: "VL" }]),
+    makeAcc("4", "ENTREE", [{ vehicleType: "GROS_PORTEUR" }]),
+  ];
+
+  it("famille=heavy : ne compte que les véhicules poids lourds (accréditation mixte)", () => {
+    const scoped = filterAccreditations(data, { vehicleFamily: "heavy" }, canonicalTypes);
+    // Accréditations gardées : id 2 (Porteur) + id 3 (Semi+VL) = 2
+    expect(scoped).toHaveLength(2);
+    const filter = buildVehiclePredicate(canonicalTypes, { vehicleFamily: "heavy" });
+    const s = computeAccreditationStats(scoped, canonicalTypes, { vehicleFilter: filter });
+    // On ne compte QUE les PL : Porteur (id2) + Semi (id3) = 2, et PAS le VL de id3
+    expect(s.totalVehicles).toBe(2);
+    expect(s.heavyVehicles).toBe(2);
+    expect(s.byVehicleType.every((t) => t.isHeavy)).toBe(true);
+  });
+
+  it("famille=light : ne compte que les utilitaires", () => {
+    const scoped = filterAccreditations(data, { vehicleFamily: "light" }, canonicalTypes);
+    const filter = buildVehiclePredicate(canonicalTypes, { vehicleFamily: "light" });
+    const s = computeAccreditationStats(scoped, canonicalTypes, { vehicleFilter: filter });
+    // Utilitaires : VL (id1), VL (id3), GROS_PORTEUR (id4) = 3
+    expect(s.totalVehicles).toBe(3);
+    expect(s.heavyVehicles).toBe(0);
+    expect(s.byVehicleType.every((t) => !t.isHeavy)).toBe(true);
+  });
+
+  it("sans filtre véhicule : compte tout (predicate null)", () => {
+    expect(buildVehiclePredicate(canonicalTypes, {})).toBeNull();
+    const s = computeAccreditationStats(data, canonicalTypes);
+    expect(s.totalVehicles).toBe(5);
   });
 });
 

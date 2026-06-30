@@ -15,6 +15,7 @@ import {
 import {
   filterAccreditations,
   computeAccreditationStats,
+  buildVehiclePredicate,
 } from "@/lib/accreditations-dashboard";
 
 /**
@@ -57,6 +58,10 @@ export async function GET(request: NextRequest) {
       : mapDefaultVehicleTypes(espaceParam);
 
   const familyParam = searchParams.get("vehicleFamily");
+  const vehicleFamily: "heavy" | "light" | "all" =
+    familyParam === "heavy" || familyParam === "light" ? familyParam : "all";
+  const vehicleType = searchParams.get("vehicleType") ?? "";
+
   const scoped = filterAccreditations(
     data,
     {
@@ -64,11 +69,8 @@ export async function GET(request: NextRequest) {
       to: searchParams.get("to") ?? "",
       status: searchParams.get("status") ?? "",
       zone: searchParams.get("zone") ?? "",
-      vehicleType: searchParams.get("vehicleType") ?? "",
-      vehicleFamily:
-        familyParam === "heavy" || familyParam === "light"
-          ? familyParam
-          : "all",
+      vehicleType,
+      vehicleFamily,
       event: searchParams.get("event") ?? "",
       company: searchParams.get("company") ?? "",
       stand: searchParams.get("stand") ?? "",
@@ -76,6 +78,16 @@ export async function GET(request: NextRequest) {
     vehicleTypesData
   );
 
-  const stats = computeAccreditationStats(scoped, vehicleTypesData);
+  // Quand un filtre famille/gabarit est actif, les compteurs de véhicules ne
+  // doivent additionner QUE les véhicules correspondants (pas les autres
+  // véhicules d'une accréditation mixte).
+  const vehicleFilter = buildVehiclePredicate(vehicleTypesData, {
+    vehicleFamily,
+    vehicleType,
+  });
+
+  const stats = computeAccreditationStats(scoped, vehicleTypesData, {
+    vehicleFilter,
+  });
   return Response.json(stats);
 }

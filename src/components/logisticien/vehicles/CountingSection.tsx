@@ -15,8 +15,10 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { useEspaceSlug } from "@/hooks/useEspaceSlug";
+import { useEspaceEvents } from "@/hooks/useEspaceEvents";
 import { useAccreditationStream } from "@/hooks/useAccreditationStream";
 import type { AccreditationStats } from "@/lib/accreditations-dashboard";
+import ScrollToTopButton from "@/components/logisticien/ScrollToTopButton";
 
 const STATUS_META: {
   code: string;
@@ -90,24 +92,13 @@ export default function CountingSection() {
   const activeFilterCount = countActiveFilters(filters);
 
   // Listes de référence pour les selects
-  const [events, setEvents] = useState<{ slug: string; name: string }[]>([]);
+  const events = useEspaceEvents(espace);
   const [zones, setZones] = useState<{ zone: string; label: string }[]>([]);
-
-  // Charger les événements
-  useEffect(() => {
-    if (!espace) return;
-    fetch(`/api/events?espace=${encodeURIComponent(espace)}`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((data: { slug?: string; name?: string }[]) => {
-        if (!Array.isArray(data)) return;
-        setEvents(
-          data
-            .map((e) => ({ slug: e.slug ?? "", name: e.name ?? e.slug ?? "" }))
-            .filter((e) => e.slug)
-        );
-      })
-      .catch(() => setEvents([]));
-  }, [espace]);
+  // Liste STABLE des gabarits (catalogue complet de l'organisation), pour que
+  // le select gabarit ne se vide pas lorsqu'un filtre est déjà actif.
+  const [vehicleTypeOptions, setVehicleTypeOptions] = useState<
+    { code: string; label: string }[]
+  >([]);
 
   // Charger les zones (permission GESTION_ZONES requise, gracieux si absent)
   useEffect(() => {
@@ -125,6 +116,26 @@ export default function CountingSection() {
         );
       })
       .catch(() => setZones([]));
+  }, [espace]);
+
+  // Charger le catalogue de gabarits (lecture publique avec ?espace=, donc
+  // accessible même sans permission GESTION_*).
+  useEffect(() => {
+    if (!espace) return;
+    fetch(`/api/vehicle-types?espace=${encodeURIComponent(espace)}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: { code?: string; label?: string; gabarit?: string }[]) => {
+        if (!Array.isArray(data)) return;
+        setVehicleTypeOptions(
+          data
+            .map((t) => ({
+              code: t.code ?? "",
+              label: t.label ?? t.gabarit ?? t.code ?? "",
+            }))
+            .filter((t) => t.code)
+        );
+      })
+      .catch(() => setVehicleTypeOptions([]));
   }, [espace]);
 
   const fetchStats = useCallback(
@@ -170,8 +181,15 @@ export default function CountingSection() {
     setFilters(EMPTY_FILTERS);
   };
 
-  // Extraire les gabarits connus depuis les stats
-  const knownVehicleTypes = stats?.byVehicleType ?? [];
+  // Source STABLE pour le select gabarit : catalogue complet si chargé, sinon
+  // repli sur les gabarits présents dans les stats.
+  const knownVehicleTypes =
+    vehicleTypeOptions.length > 0
+      ? vehicleTypeOptions
+      : (stats?.byVehicleType ?? []).map((t) => ({
+          code: t.code,
+          label: t.label,
+        }));
 
   if (loading && !stats) {
     return (
@@ -625,6 +643,8 @@ export default function CountingSection() {
           )}
         </>
       )}
+
+      <ScrollToTopButton />
     </div>
   );
 }

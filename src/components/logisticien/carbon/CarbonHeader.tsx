@@ -3,18 +3,14 @@
 import { Search, Download, RefreshCw, ChevronDown, X } from "lucide-react";
 import type { DateRange } from "@/app/logisticien/carbon/page";
 import { useMemo, useState, useRef, useEffect } from "react";
-import { useEspaceSlug } from "@/hooks/useEspaceSlug";
-
-interface EventOption {
-  slug: string;
-  name: string;
-}
+import type { EspaceEventOption } from "@/hooks/useEspaceEvents";
 
 interface CarbonHeaderProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   selectedEvent: string;
   onEventChange: (event: string) => void;
+  events: EspaceEventOption[];
   dateRange: DateRange;
   onDateRangeChange: (range: DateRange) => void;
   onExportPdf: () => void;
@@ -74,6 +70,7 @@ export default function CarbonHeader({
   onSearchChange,
   selectedEvent,
   onEventChange,
+  events,
   dateRange,
   onDateRangeChange,
   onExportPdf,
@@ -83,38 +80,9 @@ export default function CarbonHeader({
   isSearching = false,
   onRefresh,
 }: CarbonHeaderProps) {
-  const espace = useEspaceSlug();
   const presets = useMemo(() => buildPresets(), []);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
-  const [events, setEvents] = useState<EventOption[]>([]);
   const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!espace) {
-      setEvents([]);
-      return;
-    }
-    let cancelled = false;
-    fetch(`/api/events?espace=${encodeURIComponent(espace)}`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((data) => {
-        if (cancelled || !Array.isArray(data)) return;
-        setEvents(
-          data
-            .map((e: { slug?: string; name?: string }) => ({
-              slug: e.slug ?? "",
-              name: e.name ?? e.slug ?? "",
-            }))
-            .filter((e: EventOption) => e.slug)
-        );
-      })
-      .catch(() => {
-        if (!cancelled) setEvents([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [espace]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {

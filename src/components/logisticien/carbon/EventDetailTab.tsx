@@ -4,11 +4,50 @@ import { formatNumber } from "@/lib/carbonData";
 import type { CarbonData, CarbonDataEntry } from "@/hooks/useCarbonData";
 import VehicleTypeReferenceTable from "@/components/accreditation/VehicleTypeReferenceTable";
 
+interface EventOption {
+  slug: string;
+  name: string;
+}
+
 interface EventDetailTabProps {
   data: CarbonData;
   dateRange: unknown;
   searchQuery: unknown;
   selectedEvent?: string;
+  events?: EventOption[];
+}
+
+/** Top N libellés d'un compteur, formatés "Libellé (n)". */
+function topEntries(counts: Record<string, number>, limit = 3): string {
+  return Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([label, n]) => `${label} (${n})`)
+    .join(", ");
+}
+
+/**
+ * Construit, pour chaque événement (clé = valeur brute `evenement`), le top des
+ * gabarits et des sociétés à partir des entrées détaillées.
+ */
+function buildEventBreakdowns(detailed: CarbonDataEntry[]) {
+  const map = new Map<
+    string,
+    { gabarits: Record<string, number>; societes: Record<string, number> }
+  >();
+  for (const e of detailed) {
+    const key = e.evenement || "—";
+    let agg = map.get(key);
+    if (!agg) {
+      agg = { gabarits: {}, societes: {} };
+      map.set(key, agg);
+    }
+    const type = e.type || "—";
+    agg.gabarits[type] = (agg.gabarits[type] ?? 0) + 1;
+    const soc = e.entreprise || "Non renseigné";
+    agg.societes[soc] = (agg.societes[soc] ?? 0) + 1;
+  }
+  return map;
 }
 
 /** Agrège par société avec gabarits utilisés */
@@ -39,8 +78,15 @@ function aggregateBySociete(detailed: CarbonDataEntry[]) {
 }
 
 /** Synthèse "tous les événements" — une ligne par événement */
-function AllEventsView({ data }: { data: CarbonData }) {
+function AllEventsView({
+  data,
+  nameForSlug,
+}: {
+  data: CarbonData;
+  nameForSlug: (slug: string) => string;
+}) {
   const rows = data.aggregations.evenement;
+  const breakdowns = buildEventBreakdowns(data.detailed);
   const totalVehicules = rows.reduce((s, r) => s + r.nbVehicules, 0);
   const totalKm = rows.reduce((s, r) => s + r.distanceKm, 0);
   const totalKg = rows.reduce((s, r) => s + r.emissionsKgCO2eq, 0);
@@ -73,16 +119,19 @@ function AllEventsView({ data }: { data: CarbonData }) {
                 <th className="px-4 py-3 text-right font-medium text-gray-900">Km total</th>
                 <th className="px-4 py-3 text-right font-medium text-gray-900">KgCO₂eq</th>
                 <th className="px-4 py-3 text-right font-medium text-gray-900">Moy. / véh.</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-900">Part CO₂</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-900">Principaux gabarits</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-900">Principales sociétés</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => {
                 const avgKg = row.nbVehicules > 0 ? row.emissionsKgCO2eq / row.nbVehicules : 0;
-                const pct = totalKg > 0 ? (row.emissionsKgCO2eq / totalKg) * 100 : 0;
+                const bd = breakdowns.get(row.category);
                 return (
                   <tr key={row.category} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="px-4 py-3 text-gray-900 font-medium">{row.category}</td>
+                    <td className="px-4 py-3 text-gray-900 font-medium">
+                      {nameForSlug(row.category)}
+                    </td>
                     <td className="px-4 py-3 text-right font-mono text-gray-900">
                       {formatNumber(row.nbVehicules)}
                     </td>
@@ -95,18 +144,11 @@ function AllEventsView({ data }: { data: CarbonData }) {
                     <td className="px-4 py-3 text-right font-mono text-gray-600">
                       {formatNumber(avgKg)}
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <div className="w-16 bg-gray-200 rounded-full h-1.5">
-                          <div
-                            className="bg-emerald-500 h-1.5 rounded-full"
-                            style={{ width: `${Math.min(pct, 100)}%` }}
-                          />
-                        </div>
-                        <span className="text-xs text-gray-500 tabular-nums w-10 text-right">
-                          {pct.toFixed(1)}%
-                        </span>
-                      </div>
+                    <td className="px-4 py-3 text-gray-600 text-xs">
+                      {bd ? topEntries(bd.gabarits) : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600 text-xs">
+                      {bd ? topEntries(bd.societes) : "—"}
                     </td>
                   </tr>
                 );
@@ -119,7 +161,7 @@ function AllEventsView({ data }: { data: CarbonData }) {
                 <td className="px-4 py-3 text-right font-mono text-gray-600">
                   {totalVehicules > 0 ? formatNumber(totalKg / totalVehicules) : "—"}
                 </td>
-                <td className="px-4 py-3 text-right text-xs text-gray-500">100%</td>
+                <td className="px-4 py-3" colSpan={2}></td>
               </tr>
             </tbody>
           </table>
@@ -132,10 +174,13 @@ function AllEventsView({ data }: { data: CarbonData }) {
         {rows.map((row) => {
           const avgKg = row.nbVehicules > 0 ? row.emissionsKgCO2eq / row.nbVehicules : 0;
           const pct = totalKg > 0 ? (row.emissionsKgCO2eq / totalKg) * 100 : 0;
+          const bd = breakdowns.get(row.category);
           return (
             <div key={row.category} className="bg-white rounded-lg border border-gray-200 p-3">
               <div className="flex justify-between items-start mb-2">
-                <p className="font-medium text-gray-900 flex-1 mr-2">{row.category}</p>
+                <p className="font-medium text-gray-900 flex-1 mr-2">
+                  {nameForSlug(row.category)}
+                </p>
                 <span className="text-sm font-mono text-orange-600 shrink-0">
                   {formatNumber(row.emissionsKgCO2eq)} kg
                 </span>
@@ -145,6 +190,16 @@ function AllEventsView({ data }: { data: CarbonData }) {
                 <span>{formatNumber(row.distanceKm)} km</span>
                 <span>moy. {formatNumber(avgKg)} kg/véh.</span>
               </div>
+              {bd && (
+                <div className="text-xs text-gray-500 space-y-0.5 mb-2">
+                  <p>
+                    <span className="text-gray-400">Gabarits :</span> {topEntries(bd.gabarits)}
+                  </p>
+                  <p className="truncate">
+                    <span className="text-gray-400">Sociétés :</span> {topEntries(bd.societes)}
+                  </p>
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <div className="flex-1 bg-gray-200 rounded-full h-1.5">
                   <div
@@ -309,16 +364,22 @@ function SingleEventView({
 export default function EventDetailTab({
   data,
   selectedEvent,
+  events = [],
 }: EventDetailTabProps) {
+  // Mappe une valeur brute d'événement (slug stocké dans `acc.event`) vers son
+  // nom lisible si on le connaît, sinon retourne la valeur telle quelle.
+  const nameForSlug = (slug: string): string => {
+    const match = events.find(
+      (e) => e.slug.toLowerCase() === slug.toLowerCase()
+    );
+    return match?.name ?? slug;
+  };
+
   if (!selectedEvent) {
-    return <AllEventsView data={data} />;
+    return <AllEventsView data={data} nameForSlug={nameForSlug} />;
   }
 
-  // Nom lisible : chercher dans les agrégations par événement
-  const eventRow = data.aggregations.evenement.find(
-    (r) => r.category.toLowerCase() === selectedEvent.toLowerCase()
+  return (
+    <SingleEventView data={data} eventLabel={nameForSlug(selectedEvent)} />
   );
-  const eventLabel = eventRow?.category ?? selectedEvent;
-
-  return <SingleEventView data={data} eventLabel={eventLabel} />;
 }

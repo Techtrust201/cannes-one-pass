@@ -10,6 +10,7 @@ import type { VehicleTypeData } from "@/lib/vehicle-utils";
 import type { ZoneConfigData } from "@/lib/zone-utils";
 import type { EspaceEventOption } from "@/hooks/useEspaceEvents";
 import { ALL_STATUSES } from "@/lib/accreditations-dashboard";
+import { isHeavyFromVehicleType } from "@/lib/vehicle-family";
 
 export interface FilterOption {
   value: string;
@@ -39,7 +40,7 @@ const STATUS_LABELS: Record<string, string> = {
  *   → même libellé que la liste accréditations et l'admin Flux véhicules
  * - Ordre : `sortOrder` du catalogue org
  * - Filtrage : uniquement les types actifs (`isActive`)
- * - `isHeavy` : pdfCode C ou D (même règle que accreditations-dashboard.ts)
+ * - `isHeavy` : pdfCode C ou D (`vehicle-family.ts`)
  */
 export function buildVehicleTypeFilterOptions(
   types: VehicleTypeData[]
@@ -51,7 +52,7 @@ export function buildVehicleTypeFilterOptions(
       value: t.code,
       label: t.gabarit || t.label || t.code,
       pdfCode: t.pdfCode,
-      isHeavy: t.pdfCode === "C" || t.pdfCode === "D",
+      isHeavy: isHeavyFromVehicleType(t),
     }));
 }
 

@@ -14,6 +14,7 @@ import {
   vehicleTypeFamilyKey,
   resolveVehicleTypeCodeFromList,
 } from "@/lib/vehicle-type-resolve";
+import { vehicleIsHeavy } from "@/lib/vehicle-family";
 import {
   parseVehicleDate,
   parseSearchDate,
@@ -113,17 +114,7 @@ export function accreditationMatchesVehicleType(
   return (acc.vehicles ?? []).some((v) => vehicleMatchesType(types, v, code));
 }
 
-/** Catégorie PDF C/D = poids lourd. */
-function isHeavy(pdfCode: string | undefined | null): boolean {
-  return pdfCode === "C" || pdfCode === "D";
-}
-
-/** Un véhicule est-il poids lourd selon ses codes de gabarit résolus ? */
-export function vehicleIsHeavy(types: VehicleTypeData[], v: Vehicle): boolean {
-  const code = resolveVehicleTypeCodeFromList(types, v.vehicleType, v.size);
-  const matched = types.find((t) => t.code === code || t.code === code.toUpperCase());
-  return isHeavy(matched?.pdfCode);
-}
+export { vehicleIsHeavy } from "@/lib/vehicle-family";
 
 /**
  * Construit un prédicat de correspondance véhicule à partir des filtres
@@ -440,9 +431,6 @@ export interface AccreditationStats {
   heavyAccreditations: number;
 }
 
-/** Alias interne pour la compatibilité ascendante avec computeAccreditationStats. */
-const isHeavyPdfCode = isHeavy;
-
 /**
  * Calcule les compteurs par statut et par gabarit, en résolvant chaque
  * véhicule via la même logique de gabarit que le filtre (robuste aux libellés
@@ -487,7 +475,7 @@ export function computeAccreditationStats(
         (t) => t.code === code || t.code === code.toUpperCase()
       );
       const label = matched?.label || matched?.gabarit || code;
-      const heavy = isHeavyPdfCode(matched?.pdfCode);
+      const heavy = vehicleIsHeavy(vehicleTypes, v);
 
       let entry = typeAgg.get(code);
       if (!entry) {

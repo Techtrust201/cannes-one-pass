@@ -101,6 +101,20 @@ enum ZoneAction {
   TRANSFER
 }
 
+// Famille de capacité RX : véhicule léger ou poids lourd.
+// Source de vérité : VehicleTypeConfig.vehicleFamily si renseigné,
+// sinon pdfCode (C|D = HEAVY, autre = LIGHT).
+enum VehicleFamily {
+  LIGHT
+  HEAVY
+}
+
+// Phase logistique d'un créneau de capacité RX.
+enum RxPhase {
+  MONTAGE
+  DEMONTAGE
+}
+
 enum CountryRegion {
   FRANCE
   ESPAGNE
@@ -252,6 +266,7 @@ model Organization {
   exhibitors         Exhibitor[]
   supportTickets     SupportTicket[]
   stands             Stand[]
+  rxCapacities       RxCapacity[]
 
   @@index([isActive])
 }
@@ -326,6 +341,7 @@ model Event {
   exhibitors     Exhibitor[]
   supportTickets SupportTicket[]
   stands         Stand[]
+  rxCapacities   RxCapacity[]
 
   @@index([isArchived, startDate])
   @@index([organizationId])
@@ -624,6 +640,12 @@ model VehicleTypeConfig {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
+  // Surcharge explicite de la famille RX (LIGHT/HEAVY).
+  // Prioritaire sur pdfCode dans le helper vehicle-family.
+  // À renseigner lors de la création d'un nouveau gabarit pour éviter
+  // tout risque de mauvaise classification par défaut du pdfCode.
+  vehicleFamily VehicleFamily?
+
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id])
 
@@ -720,4 +742,49 @@ model SupportTicketReply {
 
   @@index([ticketId, createdAt])
   @@index([authorUserId])
+}
+
+// ============================================================
+// CAPACITÉ RX — Quotas par créneau horaire, zone, famille, phase
+// ============================================================
+//
+// Clé logique : organizationId + eventId + zone + date + startTime
+//               + endTime + vehicleFamily + phase
+//
+// Un seul enregistrement par combinaison (contrainte @@unique).
+// remaining = capacity - count(NOUVEAU) - count(ATTENTE) - count(ENTREE)
+// Le calcul du remaining est fait à la volée côté API (pas de colonne dénormalisée).
+//
+model RxCapacity {
+  id             Int           @id @default(autoincrement())
+
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  eventId        String
+  event          Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  // Clé logique du créneau (format texte pour rester cohérent avec
+  // Vehicle.date / Vehicle.time et le planning RX existant).
+  zone           String        // Code ZoneConfig (ex: "LA_BOCCA")
+  date           String        // YYYY-MM-DD
+  startTime      String        // HH:MM
+  endTime        String        // HH:MM
+
+  vehicleFamily  VehicleFamily // LIGHT | HEAVY
+  phase          RxPhase       // MONTAGE | DEMONTAGE
+
+  capacity       Int           // Places totales autorisées sur ce créneau
+
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  // Garantit l'unicité de la clé métier — un upsert suffit pour créer ou modifier.
+  @@unique([organizationId, eventId, zone, date, startTime, endTime, vehicleFamily, phase])
+
+  // Index composite pour les requêtes de comptage remaining (filtre fréquent :
+  // org + event + zone + date, puis family + phase discriminent le créneau).
+  @@index([organizationId, eventId, zone, date])
+
+  @@map("rx_capacity")
 }

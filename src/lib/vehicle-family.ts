@@ -52,9 +52,14 @@ export function resolveVehicleFamilyFromText(
 }
 
 export function resolveVehicleFamilyFromConfig(
-  config: Pick<VehicleTypeData, "pdfCode"> | null | undefined
+  config: Pick<VehicleTypeData, "pdfCode"> & { vehicleFamily?: string | null } | null | undefined
 ): VehicleFamily | null {
-  if (!config?.pdfCode) return null;
+  if (!config) return null;
+  // Priorité 1 : surcharge explicite admin (vehicleFamily sur VehicleTypeConfig).
+  if (config.vehicleFamily === "HEAVY") return "HEAVY";
+  if (config.vehicleFamily === "LIGHT") return "LIGHT";
+  // Priorité 2 : pdfCode.
+  if (!config.pdfCode) return null;
   return resolveVehicleFamilyFromPdfCode(config.pdfCode);
 }
 

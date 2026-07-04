@@ -79,3 +79,26 @@ Modèles Prisma utiles : Accreditation (statuts NOUVEAU/ATTENTE/ENTREE/SORTIE/RE
 APIs concernées : POST /api/accreditations (création, sans contrôle capacité), PATCH /api/accreditations/[id] (transitions statut), GET /api/accreditations/stats et dashboard (comptage dashboard, pas capacité créneau), GET /api/vehicle-types.
 Risques à traiter tôt : centraliser HEAVY/LIGHT (doublon isHeavy), trancher pdfCode vs fallback gabarit (15/20 m³), ne pas confondre VehicleTimeSlot et quota planning.
 Prochaine phase recommandée (Phase 1–2) : modèle Prisma capacité par clé logique (organizationId + eventId + zone + date + startTime + endTime + vehicleFamily + phase), helper central rx-capacity (famille, comptage consommateurs, remaining), puis validation API POST/PATCH scopée RX — sans toucher le front ni le Palais.
+
+## Création de nouveaux types de véhicule
+
+L’administration permet de créer ou modifier des types de véhicules.
+
+Chaque nouveau type de véhicule doit permettre de déterminer clairement sa famille de capacité :
+
+- LIGHT ;
+- HEAVY.
+
+Règle actuelle :
+- `VehicleTypeConfig.pdfCode` est la source de vérité si disponible ;
+- pdfCode C ou D = HEAVY ;
+- autre pdfCode = LIGHT.
+
+Cette classification doit être visible ou contrôlée lors de la création/modification d’un type de véhicule.
+
+Si un admin crée un nouveau type de véhicule sans classification exploitable, le système ne doit pas se baser uniquement sur le libellé texte.
+
+À terme, si `pdfCode` devient insuffisant ou ambigu, prévoir un champ explicite :
+
+```prisma
+vehicleFamily String? // LIGHT | HEAVY

@@ -69,3 +69,13 @@ Les règles RX doivent rester scopées à RX.
 Ne pas créer de doublons si un modèle ou helper existe déjà.
 Avant grosse modification : lister les fichiers concernés.
 Ouvrir maximum 8 fichiers avant validation humaine.
+
+
+Résumé de passation — capacité RX
+Fichiers clés : docs/rx/RX_CAPACITY_CONTRACT.md (contrat), prisma/schema.prisma, src/templates/accreditation/rx/planning-data.ts + config.ts (genSlots), scripts/import-rx-planning.ts, src/lib/accreditations-dashboard.ts, src/lib/vehicle-type-defaults.ts, src/lib/vehicle-utils.ts, src/lib/rx-zone-rules.ts, formulaire RX (StepDeliveryRx, StepPickupRx, mapPayload.ts).
+Capacité absente aujourd’hui : pas de modèle quota, pas d’API remaining, pas de flux dérogation repéré dans le code.
+Helpers existants : vehicleIsHeavy / isHeavy(pdfCode C|D) dans accreditations-dashboard.ts ; doublon dans org-filter-options.ts ; résolution gabarit via vehicle-type-resolve.ts + vehicle-utils.ts ; créneaux horaires via genSlots ; planning dates/plages via RX_PLANNING ; zones via suggestZone / buildRxZoneRouting.
+Modèles Prisma utiles : Accreditation (statuts NOUVEAU/ATTENTE/ENTREE/SORTIE/REFUS/ABSENT, extension JSON), Vehicle (vehicleType, date, time), VehicleTypeConfig (pdfCode, routage RX), VehicleTimeSlot (scan zone réelle — ≠ quota créneau), Event, Organization, ZoneConfig.
+APIs concernées : POST /api/accreditations (création, sans contrôle capacité), PATCH /api/accreditations/[id] (transitions statut), GET /api/accreditations/stats et dashboard (comptage dashboard, pas capacité créneau), GET /api/vehicle-types.
+Risques à traiter tôt : centraliser HEAVY/LIGHT (doublon isHeavy), trancher pdfCode vs fallback gabarit (15/20 m³), ne pas confondre VehicleTimeSlot et quota planning.
+Prochaine phase recommandée (Phase 1–2) : modèle Prisma capacité par clé logique (organizationId + eventId + zone + date + startTime + endTime + vehicleFamily + phase), helper central rx-capacity (famille, comptage consommateurs, remaining), puis validation API POST/PATCH scopée RX — sans toucher le front ni le Palais.

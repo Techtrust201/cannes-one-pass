@@ -1,0 +1,17 @@
+---
+alwaysApply: true
+---
+
+# Cannes One Pass — règles projet
+
+- Ne jamais dupliquer une logique métier existante.
+- Chercher les helpers, modèles, services et APIs existants avant d’en créer.
+- Les règles RX doivent rester scopées à RX et ne doivent pas casser le Palais.
+- Les règles critiques doivent être validées côté API, pas seulement côté front.
+- Pour capacité/créneaux RX, lire seulement `docs/rx/RX_CAPACITY_CONTRACT.md` sauf demande explicite.
+- Ne pas lire `docs/rx/SPEC_CAPACITES_CRENEAUX_DEROGATION.md` sauf demande explicite.
+- Avant une grosse modification : proposer un plan court et lister les fichiers à modifier.
+- Ouvrir maximum 8 fichiers avant validation humaine.
+- Si plus de 8 fichiers semblent nécessaires, s’arrêter et expliquer pourquoi.
+- En phase d’audit : ne modifier aucun fichier.
+- À la fin de chaque phase : fournir un résumé de passation de 15 lignes maximum.

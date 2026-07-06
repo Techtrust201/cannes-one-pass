@@ -11,6 +11,13 @@ import {
 } from "@/lib/auth-helpers";
 import { getTemplate } from "@/templates/accreditation/registry";
 import { suggestZone, buildRxZoneRouting, type RxZoneRouting } from "@/lib/rx-zone-rules";
+import {
+  resolveVehicleFamilyFromConfig,
+  resolveVehicleFamilyFromText,
+  type VehicleFamily,
+} from "@/lib/vehicle-family";
+import { getRxAvailability } from "@/lib/rx-capacity-service";
+import type { RxCapacityKey } from "@/lib/rx-capacity";
 import { normalizePlate } from "@/lib/plate-utils";
 import { isValidEmail } from "@/lib/email-sender";
 
@@ -387,6 +394,8 @@ export async function POST(req: NextRequest) {
         : "";
     let rxPalmBeachCodes: Set<string> | null = null;
     let rxZoneRouting: Map<string, RxZoneRouting> | undefined;
+    // Map code.toUpperCase() → VehicleFamily, pour la vérification des quotas.
+    let rxVtFamilyMap: Map<string, VehicleFamily> = new Map();
     if (splitPerVehicle && organizationSlug === "rx" && exhibitorSector) {
       const vtConfigs = await prisma.vehicleTypeConfig.findMany({
         where: {
@@ -395,6 +404,8 @@ export async function POST(req: NextRequest) {
         },
         select: {
           code: true,
+          pdfCode: true,
+          vehicleFamily: true,
           rxPalmBeachAtCanto: true,
           rxZoneCanto: true,
           rxZoneVieuxPort: true,
@@ -406,6 +417,15 @@ export async function POST(req: NextRequest) {
           .map((c) => c.code.toUpperCase())
       );
       rxZoneRouting = buildRxZoneRouting(vtConfigs);
+      rxVtFamilyMap = new Map(
+        vtConfigs.map((c) => [
+          c.code.toUpperCase(),
+          resolveVehicleFamilyFromConfig({
+            pdfCode: c.pdfCode as "A" | "B" | "C" | "D",
+            vehicleFamily: c.vehicleFamily ?? null,
+          }) ?? resolveVehicleFamilyFromText(c.code),
+        ])
+      );
     }
     const resolveVehicleZone = (v: Record<string, unknown>): string | null => {
       if (!rxPalmBeachCodes) {
@@ -418,6 +438,79 @@ export async function POST(req: NextRequest) {
         rxZoneRouting
       );
     };
+
+    // ── RX : vérification des quotas de capacité (avant tout write) ──────────
+    // Bloque la création (409) si un créneau montage ou démontage est complet
+    // selon RxCapacity. Seules les lignes ayant hasQuota=true sont bloquantes :
+    // si aucun quota n'est configuré pour ce créneau, on laisse passer sans
+    // restriction (comportement read-only de cette phase).
+    if (splitPerVehicle && organizationSlug === "rx" && organizationId && eventRecord?.id) {
+      const resolveVehicleFamily = (vehicleTypeCode: string): VehicleFamily => {
+        const key = (vehicleTypeCode ?? "").trim().toUpperCase();
+        return rxVtFamilyMap.get(key) ?? resolveVehicleFamilyFromText(vehicleTypeCode);
+      };
+
+      for (const v of vehiclesArr) {
+        const vt = (v.vehicleType as string) ?? "";
+        const vf = resolveVehicleFamily(vt);
+        const zone = resolveVehicleZone(v);
+        if (!zone) continue;
+
+        // Créneau MONTAGE
+        const livDate = (v.date as string) ?? "";
+        const livSlot = (v.time as string) ?? "";
+        if (livDate && livSlot && livSlot.includes("-")) {
+          const [livStart, livEnd] = livSlot.split("-");
+          const montageKey: RxCapacityKey = {
+            organizationId,
+            eventId: eventRecord.id,
+            zone,
+            date: livDate,
+            startTime: livStart,
+            endTime: livEnd,
+            vehicleFamily: vf,
+            phase: "MONTAGE",
+          };
+          const montage = await getRxAvailability(montageKey);
+          if (montage.hasQuota && montage.isFull) {
+            return Response.json(
+              {
+                error: `Créneau de montage complet : ${zone} le ${livDate} de ${livStart} à ${livEnd} (${vf})`,
+                code: "RX_QUOTA_FULL",
+              },
+              { status: 409 }
+            );
+          }
+        }
+
+        // Créneau DÉMONTAGE
+        const repDate = (v.repDate as string) ?? "";
+        const repSlot = (v.repTime as string) ?? "";
+        if (repDate && repSlot && repSlot.includes("-")) {
+          const [repStart, repEnd] = repSlot.split("-");
+          const demontageKey: RxCapacityKey = {
+            organizationId,
+            eventId: eventRecord.id,
+            zone,
+            date: repDate,
+            startTime: repStart,
+            endTime: repEnd,
+            vehicleFamily: vf,
+            phase: "DEMONTAGE",
+          };
+          const demontage = await getRxAvailability(demontageKey);
+          if (demontage.hasQuota && demontage.isFull) {
+            return Response.json(
+              {
+                error: `Créneau de démontage complet : ${zone} le ${repDate} de ${repStart} à ${repEnd} (${vf})`,
+                code: "RX_QUOTA_FULL",
+              },
+              { status: 409 }
+            );
+          }
+        }
+      }
+    }
 
     // Jeton public non devinable (QR de suivi du PDF « demande »), distinct de
     // l'id d'accès. Généré pour chaque accréditation créée.

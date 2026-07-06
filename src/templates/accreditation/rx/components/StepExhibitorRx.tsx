@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { formInputClass, formLabelClass } from "@/lib/form-styles";
 import { AnchoredDropdown } from "@/components/ui/AnchoredDropdown";
 import EventCarouselSelector from "@/components/accreditation/EventCarouselSelector";
+import type { EventOption } from "@/components/accreditation/EventCarouselSelector";
 import { useTranslation } from "@/components/accreditation/TranslationProvider";
 import { deriveSpaceFromSector } from "../config";
 import type { StepProps } from "../../types";
@@ -83,15 +84,17 @@ export function StepExhibitorRx({
   // Changement d'événement via le carrousel : on réinitialise l'exposant
   // sélectionné (et l'aval) uniquement si un exposant était réellement choisi,
   // afin de ne pas perturber l'auto-sélection initiale ni la restauration d'un
-  // brouillon.
-  const handleEventChange = (slug: string) => {
-    if (slug === stepOne.event) return;
+  // brouillon. L'eventId est stocké en même temps que le slug pour permettre
+  // aux étapes suivantes (Livraison/Reprise) d'appeler /api/rx/availability.
+  const handleEventSelected = (ev: EventOption) => {
+    if (ev.key === stepOne.event) return;
     if (stepOne.exhibitorId) {
       setQuery("");
       update({
         stepOne: {
           ...stepOne,
-          event: slug,
+          event: ev.key,
+          eventId: ev.id,
           exhibitorId: "",
           exhibitorName: "",
           exhibitorStand: "",
@@ -101,7 +104,7 @@ export function StepExhibitorRx({
         ...RESET_DOWNSTREAM,
       });
     } else {
-      update({ stepOne: { ...stepOne, event: slug } });
+      update({ stepOne: { ...stepOne, event: ev.key, eventId: ev.id } });
     }
   };
 
@@ -187,7 +190,7 @@ export function StepExhibitorRx({
       <EventCarouselSelector
         orgSlug={orgSlug}
         value={stepOne.event}
-        onChange={handleEventChange}
+        onEventSelected={handleEventSelected}
         onEventsResolved={(count) => setNoEvents(count === 0)}
       />
 

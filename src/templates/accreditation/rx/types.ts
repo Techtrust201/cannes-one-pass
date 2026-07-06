@@ -65,6 +65,8 @@ export interface RxCategorySelection {
 export interface RxFormData {
   stepOne: {
     event: string; // slug de l'event sélectionné via le carrousel
+    /** ID interne de l'événement — peuplé en même temps que `event`. */
+    eventId: string;
     exhibitorId: string;
     exhibitorName: string;
     exhibitorStand: string;
@@ -101,6 +103,7 @@ export function getDefaultRxFormData(): RxFormData {
   return {
     stepOne: {
       event: "",
+      eventId: "",
       exhibitorId: "",
       exhibitorName: "",
       exhibitorStand: "",

@@ -7,6 +7,7 @@ function buildRxForm(): RxFormData {
   return {
     stepOne: {
       event: "yachting-2026",
+      eventId: "13f93542-73bf-40f6-bc4a-66335de47184",
       exhibitorId: "exhibitor-id-1",
       exhibitorName: "Test Exhibitor",
       exhibitorStand: "PALAIS 110",

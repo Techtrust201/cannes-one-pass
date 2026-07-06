@@ -7,6 +7,7 @@ function buildForm(): RxFormData {
   return {
     stepOne: {
       event: "cyf26",
+      eventId: "13f93542-73bf-40f6-bc4a-66335de47184",
       exhibitorId: "ex-1",
       exhibitorName: "Test Exhibitor",
       exhibitorStand: "POWER 12",

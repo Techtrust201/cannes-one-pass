@@ -31,7 +31,13 @@ interface Props {
   /** Slug de l'événement actuellement sélectionné. */
   value: string;
   /** Notifie le parent d'un changement d'événement (slug). */
-  onChange: (eventSlug: string) => void;
+  onChange?: (eventSlug: string) => void;
+  /**
+   * Variante enrichie : notifie le parent avec l'objet EventOption complet
+   * (id + slug + label + logo). Utilisé par les templates qui ont besoin de
+   * l'id interne de l'événement (ex. RX pour les quotas de capacité).
+   */
+  onEventSelected?: (event: EventOption) => void;
   /**
    * Notifie le parent du nombre d'événements actifs une fois le chargement
    * terminé (permet par ex. d'afficher un message bloquant si 0 événement).
@@ -96,6 +102,7 @@ export default function EventCarouselSelector({
   orgSlug,
   value,
   onChange,
+  onEventSelected,
   onEventsResolved,
 }: Props) {
   const { events, loading: eventsLoading } = useActiveEvents(orgSlug);
@@ -106,11 +113,16 @@ export default function EventCarouselSelector({
   const isUpdatingFromCarousel = useRef(false);
   const hasInitialized = useRef(false);
 
+  const notifyEvent = useCallback((ev: EventOption) => {
+    onChange?.(ev.key);
+    onEventSelected?.(ev);
+  }, [onChange, onEventSelected]);
+
   const initDefault = useCallback(() => {
     if (!value && events.length > 0) {
-      onChange(events[0].key);
+      notifyEvent(events[0]);
     }
-  }, [value, events, onChange]);
+  }, [value, events, notifyEvent]);
 
   useEffect(() => {
     if (!eventsLoading) initDefault();
@@ -128,9 +140,9 @@ export default function EventCarouselSelector({
 
     if (!hasInitialized.current) {
       const initialIdx = carouselApi.selectedScrollSnap();
-      const initialEvent = events[initialIdx]?.key;
-      if (initialEvent && (!value || initialEvent !== value)) {
-        onChange(initialEvent);
+      const initialEv = events[initialIdx];
+      if (initialEv && (!value || initialEv.key !== value)) {
+        notifyEvent(initialEv);
       }
       hasInitialized.current = true;
     }
@@ -158,10 +170,10 @@ export default function EventCarouselSelector({
 
   useEffect(() => {
     if (!hasInitialized.current || events.length === 0) return;
-    const newEvent = events[currentIdx]?.key;
-    if (newEvent && newEvent !== value) {
+    const newEv = events[currentIdx];
+    if (newEv && newEv.key !== value) {
       isUpdatingFromCarousel.current = true;
-      onChange(newEvent);
+      notifyEvent(newEv);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIdx]);

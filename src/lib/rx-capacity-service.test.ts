@@ -89,9 +89,14 @@ describe("resolveDbVehicleFamily", () => {
   });
 });
 
-// ── getRxAvailability ─────────────────────────────────────────────────────
+// ── getRxAvailability — MONTAGE ────────────────────────────────────────────
+//
+// Créneau BASE_KEY = 09:00 → 10:00. Le format effectif de `Vehicle.time` en
+// base est la plage complète "09:00-10:00" ; on couvre aussi "09:00" (rétrocompat).
 
-describe("getRxAvailability", () => {
+const SLOT = "09:00-10:00"; // plage complète (format réel en base)
+
+describe("getRxAvailability — MONTAGE", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -123,6 +128,59 @@ describe("getRxAvailability", () => {
     expect(result.isFull).toBe(false);
   });
 
+  it("compte un véhicule dont time est une PLAGE '09:00-10:00' (format réel en base)", async () => {
+    mockedPrisma.rxCapacity.findUnique.mockResolvedValue({ capacity: 5 });
+    mockedPrisma.vehicleTypeConfig.findMany.mockResolvedValue([]);
+    mockedPrisma.accreditation.findMany.mockResolvedValue([
+      {
+        status: "ATTENTE",
+        currentZone: "LA_BOCCA",
+        extension: null,
+        vehicles: [{ vehicleType: "VL", size: "VL", time: SLOT }],
+      },
+    ]);
+
+    const result = await getRxAvailability(BASE_KEY);
+
+    expect(result.confirmedUsed).toBe(1);
+    expect(result.totalUsed).toBe(1);
+    expect(result.remaining).toBe(4);
+  });
+
+  it("compte aussi un véhicule dont time est '09:00' (heure début seule, rétrocompat)", async () => {
+    mockedPrisma.rxCapacity.findUnique.mockResolvedValue({ capacity: 5 });
+    mockedPrisma.vehicleTypeConfig.findMany.mockResolvedValue([]);
+    mockedPrisma.accreditation.findMany.mockResolvedValue([
+      {
+        status: "ATTENTE",
+        currentZone: "LA_BOCCA",
+        extension: null,
+        vehicles: [{ vehicleType: "VL", size: "VL", time: "09:00" }],
+      },
+    ]);
+
+    const result = await getRxAvailability(BASE_KEY);
+
+    expect(result.totalUsed).toBe(1);
+  });
+
+  it("exclut un véhicule dont le créneau ne correspond pas (autre plage)", async () => {
+    mockedPrisma.rxCapacity.findUnique.mockResolvedValue({ capacity: 5 });
+    mockedPrisma.vehicleTypeConfig.findMany.mockResolvedValue([]);
+    mockedPrisma.accreditation.findMany.mockResolvedValue([
+      {
+        status: "ATTENTE",
+        currentZone: "LA_BOCCA",
+        extension: null,
+        vehicles: [{ vehicleType: "VL", size: "VL", time: "11:00-12:00" }],
+      },
+    ]);
+
+    const result = await getRxAvailability(BASE_KEY);
+
+    expect(result.totalUsed).toBe(0);
+  });
+
   it("compte les accréditations consommatrices avec la bonne zone (currentZone)", async () => {
     mockedPrisma.rxCapacity.findUnique.mockResolvedValue({ capacity: 10 });
     mockedPrisma.vehicleTypeConfig.findMany.mockResolvedValue([]);
@@ -132,21 +190,21 @@ describe("getRxAvailability", () => {
         status: "NOUVEAU",
         currentZone: "LA_BOCCA",
         extension: null,
-        vehicles: [{ vehicleType: "VL", size: "VL" }],
+        vehicles: [{ vehicleType: "VL", size: "VL", time: SLOT }],
       },
       // Exclu : zone différente
       {
         status: "ATTENTE",
         currentZone: "PALM_BEACH",
         extension: null,
-        vehicles: [{ vehicleType: "VL", size: "VL" }],
+        vehicles: [{ vehicleType: "VL", size: "VL", time: SLOT }],
       },
       // Match : ATTENTE, bonne zone
       {
         status: "ATTENTE",
         currentZone: "LA_BOCCA",
         extension: null,
-        vehicles: [{ vehicleType: "VL", size: "VL" }],
+        vehicles: [{ vehicleType: "VL", size: "VL", time: SLOT }],
       },
     ]);
 
@@ -167,13 +225,13 @@ describe("getRxAvailability", () => {
         status: "NOUVEAU",
         currentZone: null,
         extension: { suggestedZone: "LA_BOCCA" },
-        vehicles: [{ vehicleType: "VL", size: "VL" }],
+        vehicles: [{ vehicleType: "VL", size: "VL", time: SLOT }],
       },
       {
         status: "NOUVEAU",
         currentZone: null,
         extension: { suggestedZone: "PALM_BEACH" }, // zone différente
-        vehicles: [{ vehicleType: "VL", size: "VL" }],
+        vehicles: [{ vehicleType: "VL", size: "VL", time: SLOT }],
       },
     ]);
 
@@ -191,13 +249,13 @@ describe("getRxAvailability", () => {
         status: "ENTREE",
         currentZone: "LA_BOCCA",
         extension: null,
-        vehicles: [{ vehicleType: "Porteur", size: "Porteur" }], // HEAVY
+        vehicles: [{ vehicleType: "Porteur", size: "Porteur", time: SLOT }], // HEAVY
       },
       {
         status: "ENTREE",
         currentZone: "LA_BOCCA",
         extension: null,
-        vehicles: [{ vehicleType: "VL", size: "VL" }], // LIGHT
+        vehicles: [{ vehicleType: "VL", size: "VL", time: SLOT }], // LIGHT
       },
     ]);
 
@@ -215,13 +273,13 @@ describe("getRxAvailability", () => {
         status: "ATTENTE",
         currentZone: "LA_BOCCA",
         extension: null,
-        vehicles: [{ vehicleType: "Semi-remorque", size: "Semi-remorque" }],
+        vehicles: [{ vehicleType: "Semi-remorque", size: "Semi-remorque", time: SLOT }],
       },
       {
         status: "ATTENTE",
         currentZone: "LA_BOCCA",
         extension: null,
-        vehicles: [{ vehicleType: "VL", size: "VL" }], // LIGHT, exclu
+        vehicles: [{ vehicleType: "VL", size: "VL", time: SLOT }], // LIGHT, exclu
       },
     ]);
 
@@ -240,13 +298,13 @@ describe("getRxAvailability", () => {
         status: "ATTENTE",
         currentZone: "LA_BOCCA",
         extension: null,
-        vehicles: [{ vehicleType: "VL", size: "VL" }],
+        vehicles: [{ vehicleType: "VL", size: "VL", time: SLOT }],
       },
       {
         status: "ATTENTE",
         currentZone: "LA_BOCCA",
         extension: null,
-        vehicles: [{ vehicleType: "VL", size: "VL" }],
+        vehicles: [{ vehicleType: "VL", size: "VL", time: SLOT }],
       },
     ]);
 
@@ -264,13 +322,168 @@ describe("getRxAvailability", () => {
         status: "NOUVEAU",
         currentZone: null,
         extension: null, // pas de suggestedZone non plus → zone effective null → exclu
-        vehicles: [{ vehicleType: "VL", size: "VL" }],
+        vehicles: [{ vehicleType: "VL", size: "VL", time: SLOT }],
       },
     ]);
 
     const result = await getRxAvailability(BASE_KEY);
 
     expect(result.provisionalUsed).toBe(0);
+    expect(result.totalUsed).toBe(0);
+  });
+
+  it("REFUS / SORTIE / ABSENT ne sont jamais chargés (statut hors consommateurs)", async () => {
+    // Le filtre prisma exclut déjà ces statuts ; on vérifie qu'un jeu vide
+    // (aucune accréd consommatrice renvoyée) donne bien totalUsed=0.
+    mockedPrisma.rxCapacity.findUnique.mockResolvedValue({ capacity: 4 });
+    mockedPrisma.vehicleTypeConfig.findMany.mockResolvedValue([]);
+    mockedPrisma.accreditation.findMany.mockResolvedValue([]);
+
+    const result = await getRxAvailability(BASE_KEY);
+
+    // Le where prisma doit filtrer sur les statuts consommateurs uniquement.
+    const call = mockedPrisma.accreditation.findMany.mock.calls[0][0];
+    expect(call.where.status.in).toEqual(["NOUVEAU", "ATTENTE", "ENTREE"]);
+    expect(result.totalUsed).toBe(0);
+  });
+});
+
+// ── getRxAvailability — DEMONTAGE ──────────────────────────────────────────
+
+const DEMONTAGE_KEY: RxCapacityKey = {
+  organizationId: "org-1",
+  eventId: "event-1",
+  zone: "LA_BOCCA",
+  date: "2026-09-13",
+  startTime: "20:00",
+  endTime: "21:00",
+  vehicleFamily: "HEAVY",
+  phase: "DEMONTAGE",
+};
+
+// Config véhicule minimale : "Porteur" HEAVY (pdfCode C), "VL" LIGHT (pdfCode A).
+// Aucune zone de routage explicite → suggestZone retombe sur LA_BOCCA.
+const DEMONTAGE_VT = [
+  { code: "Porteur", label: "Porteur", pdfCode: "C", vehicleFamily: undefined,
+    rxPalmBeachAtCanto: false, rxZoneCanto: null, rxZoneVieuxPort: null },
+  { code: "VL", label: "VL", pdfCode: "A", vehicleFamily: undefined,
+    rxPalmBeachAtCanto: false, rxZoneCanto: null, rxZoneVieuxPort: null },
+];
+
+describe("getRxAvailability — DEMONTAGE", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("compte une reprise via extension.vehicleContext (repDate/repTime/repVehicleType)", async () => {
+    mockedPrisma.rxCapacity.findUnique.mockResolvedValue({ capacity: 3 });
+    mockedPrisma.vehicleTypeConfig.findMany.mockResolvedValue(DEMONTAGE_VT);
+    mockedPrisma.accreditation.findMany.mockResolvedValue([
+      {
+        status: "ATTENTE",
+        extension: {
+          exhibitor: { sector: "VIEUX PORT — JETEE" },
+          vehicleContext: {
+            repDate: "2026-09-13",
+            repTime: "20:00-21:00",
+            repVehicleType: "Porteur", // HEAVY → LA_BOCCA
+          },
+        },
+        // Le véhicule (montage) porte un gabarit LIGHT différent : ne doit pas
+        // être utilisé pour le démontage.
+        vehicles: [{ vehicleType: "VL", size: "VL" }],
+      },
+    ]);
+
+    const result = await getRxAvailability(DEMONTAGE_KEY);
+
+    expect(result.hasQuota).toBe(true);
+    expect(result.confirmedUsed).toBe(1);
+    expect(result.totalUsed).toBe(1);
+    expect(result.remaining).toBe(2);
+  });
+
+  it("utilise repVehicleType (HEAVY) et non vehicleType montage (LIGHT)", async () => {
+    // Clé LIGHT : la reprise est HEAVY (Porteur) → ne doit PAS compter,
+    // ce qui prouve que repVehicleType prime sur le véhicule de montage.
+    mockedPrisma.rxCapacity.findUnique.mockResolvedValue({ capacity: 3 });
+    mockedPrisma.vehicleTypeConfig.findMany.mockResolvedValue(DEMONTAGE_VT);
+    mockedPrisma.accreditation.findMany.mockResolvedValue([
+      {
+        status: "ATTENTE",
+        extension: {
+          exhibitor: { sector: "VIEUX PORT — JETEE" },
+          vehicleContext: {
+            repDate: "2026-09-13",
+            repTime: "20:00-21:00",
+            repVehicleType: "Porteur", // HEAVY
+          },
+        },
+        vehicles: [{ vehicleType: "VL", size: "VL" }], // LIGHT montage
+      },
+    ]);
+
+    const resultLight = await getRxAvailability({ ...DEMONTAGE_KEY, vehicleFamily: "LIGHT" });
+    expect(resultLight.totalUsed).toBe(0);
+  });
+
+  it("fallback sur le véhicule de montage si repVehicleType absent", async () => {
+    mockedPrisma.rxCapacity.findUnique.mockResolvedValue({ capacity: 3 });
+    mockedPrisma.vehicleTypeConfig.findMany.mockResolvedValue(DEMONTAGE_VT);
+    mockedPrisma.accreditation.findMany.mockResolvedValue([
+      {
+        status: "NOUVEAU",
+        extension: {
+          exhibitor: { sector: "VIEUX PORT — JETEE" },
+          vehicleContext: {
+            repDate: "2026-09-13",
+            repTime: "20:00-21:00",
+            repVehicleType: null, // absent → fallback vehicle
+          },
+        },
+        vehicles: [{ vehicleType: "Porteur", size: "Porteur" }], // HEAVY
+      },
+    ]);
+
+    const result = await getRxAvailability(DEMONTAGE_KEY);
+    expect(result.provisionalUsed).toBe(1);
+    expect(result.totalUsed).toBe(1);
+  });
+
+  it("exclut une reprise sur une autre date", async () => {
+    mockedPrisma.rxCapacity.findUnique.mockResolvedValue({ capacity: 3 });
+    mockedPrisma.vehicleTypeConfig.findMany.mockResolvedValue(DEMONTAGE_VT);
+    mockedPrisma.accreditation.findMany.mockResolvedValue([
+      {
+        status: "ATTENTE",
+        extension: {
+          exhibitor: { sector: "VIEUX PORT — JETEE" },
+          vehicleContext: {
+            repDate: "2026-09-14", // autre jour
+            repTime: "20:00-21:00",
+            repVehicleType: "Porteur",
+          },
+        },
+        vehicles: [{ vehicleType: "Porteur", size: "Porteur" }],
+      },
+    ]);
+
+    const result = await getRxAvailability(DEMONTAGE_KEY);
+    expect(result.totalUsed).toBe(0);
+  });
+
+  it("ignore les accréditations sans vehicleContext", async () => {
+    mockedPrisma.rxCapacity.findUnique.mockResolvedValue({ capacity: 3 });
+    mockedPrisma.vehicleTypeConfig.findMany.mockResolvedValue(DEMONTAGE_VT);
+    mockedPrisma.accreditation.findMany.mockResolvedValue([
+      {
+        status: "ATTENTE",
+        extension: { exhibitor: { sector: "VIEUX PORT — JETEE" } }, // pas de vehicleContext
+        vehicles: [{ vehicleType: "Porteur", size: "Porteur" }],
+      },
+    ]);
+
+    const result = await getRxAvailability(DEMONTAGE_KEY);
     expect(result.totalUsed).toBe(0);
   });
 });

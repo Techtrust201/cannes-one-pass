@@ -1,9 +1,9 @@
 "use client";
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { Truck, Box, ShieldCheck, BarChart3 } from "lucide-react";
+import { Truck, Box, ShieldCheck, BarChart3, Gauge } from "lucide-react";
 
-export type VehiclesTab = "providers" | "types" | "permanents" | "stats";
+export type VehiclesTab = "providers" | "types" | "permanents" | "stats" | "capacities";
 
 interface VehiclesTabsProps {
   active: VehiclesTab;
@@ -21,6 +21,7 @@ const TABS: TabDef[] = [
   { id: "types", label: "Types de véhicule", icon: Box },
   { id: "stats", label: "Comptage", icon: BarChart3 },
   { id: "permanents", label: "Accès permanents", icon: ShieldCheck, badge: "Bientôt" },
+  { id: "capacities", label: "Capacités RX", icon: Gauge },
 ];
 
 export default function VehiclesTabs({ active }: VehiclesTabsProps) {

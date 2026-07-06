@@ -11,12 +11,14 @@ import VehiclesTabs, {
 import UnloadingProvidersSection from "@/components/logisticien/vehicles/UnloadingProvidersSection";
 import PermanentsPlaceholder from "@/components/logisticien/vehicles/PermanentsPlaceholder";
 import CountingSection from "@/components/logisticien/vehicles/CountingSection";
+import RxCapacitiesSection from "@/components/logisticien/vehicles/RxCapacitiesSection";
 
 const VALID_TABS = new Set<VehiclesTab>([
   "providers",
   "types",
   "stats",
   "permanents",
+  "capacities",
 ]);
 
 function FluxVehiculesPageContent() {
@@ -67,6 +69,7 @@ function FluxVehiculesPageContent() {
         {tab === "types" && <VehicleTypesSection canWrite={canWrite} />}
         {tab === "stats" && <CountingSection />}
         {tab === "permanents" && <PermanentsPlaceholder />}
+        {tab === "capacities" && <RxCapacitiesSection canWrite={canWrite} />}
       </div>
     </div>
   );

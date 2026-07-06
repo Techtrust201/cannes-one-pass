@@ -1,0 +1,24 @@
+organizationId,eventId,zone,date,startTime,endTime,vehicleFamily,phase,capacity
+# Remplacez organizationId et eventId par les valeurs réelles de votre base.
+# Obtenez-les via : SELECT id FROM "Organization" WHERE slug='rx';
+#                   SELECT id FROM "Event" WHERE slug LIKE 'cyf%' LIMIT 5;
+#
+# Zones valides (codes ZoneConfig) : LA_BOCCA, PALM_BEACH, VEILLE_VILLE, ...
+# vehicleFamily : LIGHT (VL/fourgons) ou HEAVY (porteur, semi-remorque)
+# phase         : MONTAGE ou DEMONTAGE
+# capacity      : entier > 0
+#
+# ─── Lignes exemples valides ────────────────────────────────────────────────
+org_rx_001,evt_cyf26_001,LA_BOCCA,2026-05-13,07:00,09:00,LIGHT,MONTAGE,10
+org_rx_001,evt_cyf26_001,LA_BOCCA,2026-05-13,09:00,11:00,LIGHT,MONTAGE,10
+org_rx_001,evt_cyf26_001,LA_BOCCA,2026-05-13,11:00,13:00,LIGHT,MONTAGE,8
+org_rx_001,evt_cyf26_001,LA_BOCCA,2026-05-13,07:00,09:00,HEAVY,MONTAGE,4
+org_rx_001,evt_cyf26_001,LA_BOCCA,2026-05-13,09:00,11:00,HEAVY,MONTAGE,4
+org_rx_001,evt_cyf26_001,PALM_BEACH,2026-05-13,07:00,10:00,LIGHT,MONTAGE,15
+org_rx_001,evt_cyf26_001,PALM_BEACH,2026-05-13,10:00,13:00,LIGHT,MONTAGE,15
+org_rx_001,evt_cyf26_001,PALM_BEACH,2026-05-13,07:00,10:00,HEAVY,MONTAGE,6
+org_rx_001,evt_cyf26_001,LA_BOCCA,2026-05-24,07:00,09:00,LIGHT,DEMONTAGE,10
+org_rx_001,evt_cyf26_001,LA_BOCCA,2026-05-24,09:00,11:00,LIGHT,DEMONTAGE,10
+org_rx_001,evt_cyf26_001,LA_BOCCA,2026-05-24,07:00,09:00,HEAVY,DEMONTAGE,5
+org_rx_001,evt_cyf26_001,PALM_BEACH,2026-05-24,08:00,12:00,LIGHT,DEMONTAGE,12
+org_rx_001,evt_cyf26_001,PALM_BEACH,2026-05-24,08:00,12:00,HEAVY,DEMONTAGE,4

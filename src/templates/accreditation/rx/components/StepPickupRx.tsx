@@ -22,12 +22,7 @@ import {
   formatDateLocalized,
   getSkipT,
 } from "../i18n";
-import { suggestZone } from "@/lib/rx-zone-rules";
-import {
-  resolveVehicleFamilyFromConfig,
-  resolveVehicleFamilyFromText,
-} from "@/lib/vehicle-family";
-import { RxSlotBadge } from "./RxSlotBadge";
+import { RxSlotBadgeGroup, computeRxSlotParts, type RxSlotEntry } from "./RxSlotBadge";
 import type { StepProps } from "../../types";
 import type { RxFormData, RxCategorySelection } from "../types";
 
@@ -59,7 +54,6 @@ export function StepPickupRx({
   update,
   onValidityChange,
   orgSlug,
-  organizationId,
 }: StepProps<RxFormData>) {
   const { t, lang } = useTranslation();
   const { stepOne, stepTwo } = data;
@@ -370,28 +364,24 @@ export function StepPickupRx({
                             </option>
                           ))}
                         </select>
-                        {(() => {
-                          const firstVType = selected.vehicles[0]?.vehicleType ?? "";
-                          if (!selected.repTime || !firstVType) return null;
-                          const [st, et] = selected.repTime.split("-");
-                          const matched = vehicleTypes.find((vt) => vt.code === firstVType || vt.code === firstVType.toUpperCase());
-                          const vf = resolveVehicleFamilyFromConfig(matched) ?? resolveVehicleFamilyFromText(firstVType);
-                          const palmBeachCodes = new Set(vehicleTypes.filter((vt) => vt.rxPalmBeachAtCanto).map((vt) => vt.code));
-                          const zone = suggestZone(firstVType, stepOne.exhibitorSector, palmBeachCodes);
-                          if (!zone || !vf) return null;
-                          return (
-                            <RxSlotBadge params={{
-                              organizationId,
-                              eventId: stepOne.eventId || undefined,
-                              zone,
-                              date: selected.repDate,
-                              startTime: st,
-                              endTime: et,
-                              vehicleFamily: vf,
-                              phase: "DEMONTAGE",
-                            }} />
-                          );
-                        })()}
+                        {selected.repTime && (
+                          <RxSlotBadgeGroup
+                            orgSlug={orgSlug}
+                            eventSlug={stepOne.event}
+                            date={selected.repDate}
+                            slot={selected.repTime}
+                            phase="DEMONTAGE"
+                            entries={selected.vehicles
+                              .map((v) =>
+                                computeRxSlotParts(
+                                  v.vehicleType ?? "",
+                                  stepOne.exhibitorSector,
+                                  vehicleTypes
+                                )
+                              )
+                              .filter((e): e is RxSlotEntry => e !== null)}
+                          />
+                        )}
                       </div>
                     </div>
 
@@ -625,28 +615,31 @@ export function StepPickupRx({
                       </option>
                     ))}
                   </select>
-                  {(() => {
-                    const firstVType = cat.vehicles[0]?.vehicleType ?? "";
-                    if (!cat.repTime || !firstVType) return null;
-                    const [st, et] = cat.repTime.split("-");
-                    const matched = vehicleTypes.find((vt) => vt.code === firstVType || vt.code === firstVType.toUpperCase());
-                    const vf = resolveVehicleFamilyFromConfig(matched) ?? resolveVehicleFamilyFromText(firstVType);
-                    const palmBeachCodes = new Set(vehicleTypes.filter((vt) => vt.rxPalmBeachAtCanto).map((vt) => vt.code));
-                    const zone = suggestZone(firstVType, stepOne.exhibitorSector, palmBeachCodes);
-                    if (!zone || !vf) return null;
-                    return (
-                      <RxSlotBadge params={{
-                        organizationId,
-                        eventId: stepOne.eventId || undefined,
-                        zone,
-                        date: cat.repDate,
-                        startTime: st,
-                        endTime: et,
-                        vehicleFamily: vf,
-                        phase: "DEMONTAGE",
-                      }} />
-                    );
-                  })()}
+                  {cat.repTime && (
+                    <RxSlotBadgeGroup
+                      orgSlug={orgSlug}
+                      eventSlug={stepOne.event}
+                      date={cat.repDate}
+                      slot={cat.repTime}
+                      phase="DEMONTAGE"
+                      entries={cat.vehicles
+                        .map((v) => {
+                          // Véhicule de reprise réel : repVehicleType si le
+                          // véhicule de reprise diffère de la livraison, sinon
+                          // le gabarit de montage.
+                          const repType =
+                            v.repSameAsDelivery === false
+                              ? v.repVehicleType ?? v.vehicleType ?? ""
+                              : v.vehicleType ?? "";
+                          return computeRxSlotParts(
+                            repType,
+                            stepOne.exhibitorSector,
+                            vehicleTypes
+                          );
+                        })
+                        .filter((e): e is RxSlotEntry => e !== null)}
+                    />
+                  )}
                 </div>
               </div>
 

@@ -427,17 +427,19 @@ export async function POST(req: NextRequest) {
         ])
       );
     }
-    const resolveVehicleZone = (v: Record<string, unknown>): string | null => {
+    const resolveZoneForType = (vehicleTypeCode: string): string | null => {
       if (!rxPalmBeachCodes) {
         return (extensionPayload?.suggestedZone as string | undefined) ?? null;
       }
       return suggestZone(
-        (v.vehicleType as string) ?? "",
+        vehicleTypeCode ?? "",
         exhibitorSector,
         rxPalmBeachCodes,
         rxZoneRouting
       );
     };
+    const resolveVehicleZone = (v: Record<string, unknown>): string | null =>
+      resolveZoneForType((v.vehicleType as string) ?? "");
 
     // ── RX : vérification des quotas de capacité (avant tout write) ──────────
     // Bloque la création (409) si un créneau montage ou démontage est complet
@@ -451,62 +453,69 @@ export async function POST(req: NextRequest) {
       };
 
       for (const v of vehiclesArr) {
-        const vt = (v.vehicleType as string) ?? "";
-        const vf = resolveVehicleFamily(vt);
-        const zone = resolveVehicleZone(v);
-        if (!zone) continue;
-
-        // Créneau MONTAGE
+        // ── Créneau MONTAGE : gabarit de livraison ──────────────────────────
+        const montageVt = (v.vehicleType as string) ?? "";
         const livDate = (v.date as string) ?? "";
         const livSlot = (v.time as string) ?? "";
-        if (livDate && livSlot && livSlot.includes("-")) {
-          const [livStart, livEnd] = livSlot.split("-");
-          const montageKey: RxCapacityKey = {
-            organizationId,
-            eventId: eventRecord.id,
-            zone,
-            date: livDate,
-            startTime: livStart,
-            endTime: livEnd,
-            vehicleFamily: vf,
-            phase: "MONTAGE",
-          };
-          const montage = await getRxAvailability(montageKey);
-          if (montage.hasQuota && montage.isFull) {
-            return Response.json(
-              {
-                error: `Créneau de montage complet : ${zone} le ${livDate} de ${livStart} à ${livEnd} (${vf})`,
-                code: "RX_QUOTA_FULL",
-              },
-              { status: 409 }
-            );
+        if (montageVt && livDate && livSlot && livSlot.includes("-")) {
+          const montageZone = resolveZoneForType(montageVt);
+          if (montageZone) {
+            const [livStart, livEnd] = livSlot.split("-");
+            const montageFamily = resolveVehicleFamily(montageVt);
+            const montage = await getRxAvailability({
+              organizationId,
+              eventId: eventRecord.id,
+              zone: montageZone,
+              date: livDate,
+              startTime: livStart,
+              endTime: livEnd,
+              vehicleFamily: montageFamily,
+              phase: "MONTAGE",
+            } satisfies RxCapacityKey);
+            if (montage.hasQuota && montage.isFull) {
+              return Response.json(
+                {
+                  error: `Créneau de montage complet : ${montageZone} le ${livDate} de ${livStart} à ${livEnd} (${montageFamily})`,
+                  code: "RX_QUOTA_FULL",
+                },
+                { status: 409 }
+              );
+            }
           }
         }
 
-        // Créneau DÉMONTAGE
+        // ── Créneau DÉMONTAGE : véhicule de reprise réel ────────────────────
+        // `mapPayload` renseigne déjà `repVehicleType` avec le bon gabarit
+        // (identique au montage si reprise « même véhicule », gabarit distinct
+        // sinon). On retombe sur `vehicleType` par sécurité si absent. La zone
+        // ET la famille sont recalculées pour CE véhicule de reprise.
+        const repVt = ((v.repVehicleType as string) || montageVt) ?? "";
         const repDate = (v.repDate as string) ?? "";
         const repSlot = (v.repTime as string) ?? "";
-        if (repDate && repSlot && repSlot.includes("-")) {
-          const [repStart, repEnd] = repSlot.split("-");
-          const demontageKey: RxCapacityKey = {
-            organizationId,
-            eventId: eventRecord.id,
-            zone,
-            date: repDate,
-            startTime: repStart,
-            endTime: repEnd,
-            vehicleFamily: vf,
-            phase: "DEMONTAGE",
-          };
-          const demontage = await getRxAvailability(demontageKey);
-          if (demontage.hasQuota && demontage.isFull) {
-            return Response.json(
-              {
-                error: `Créneau de démontage complet : ${zone} le ${repDate} de ${repStart} à ${repEnd} (${vf})`,
-                code: "RX_QUOTA_FULL",
-              },
-              { status: 409 }
-            );
+        if (repVt && repDate && repSlot && repSlot.includes("-")) {
+          const repZone = resolveZoneForType(repVt);
+          if (repZone) {
+            const [repStart, repEnd] = repSlot.split("-");
+            const repFamily = resolveVehicleFamily(repVt);
+            const demontage = await getRxAvailability({
+              organizationId,
+              eventId: eventRecord.id,
+              zone: repZone,
+              date: repDate,
+              startTime: repStart,
+              endTime: repEnd,
+              vehicleFamily: repFamily,
+              phase: "DEMONTAGE",
+            } satisfies RxCapacityKey);
+            if (demontage.hasQuota && demontage.isFull) {
+              return Response.json(
+                {
+                  error: `Créneau de démontage complet : ${repZone} le ${repDate} de ${repStart} à ${repEnd} (${repFamily})`,
+                  code: "RX_QUOTA_FULL",
+                },
+                { status: 409 }
+              );
+            }
           }
         }
       }

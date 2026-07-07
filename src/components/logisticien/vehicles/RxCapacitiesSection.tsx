@@ -128,7 +128,7 @@ export default function RxCapacitiesSection({
     setLoading(true);
     setLoadError("");
     try {
-      const res = await fetch(withEspaceQuery("/api/rx/capacities", espace));
+      const res = await fetch(withEspaceQuery("/api/capacities", espace));
       if (res.ok) {
         const data: ApiResponse = await res.json();
         setQuotas(data.quotas);
@@ -193,7 +193,7 @@ export default function RxCapacitiesSection({
     setAdding(true);
     setAddError("");
     try {
-      const res = await fetch(withEspaceQuery("/api/rx/capacities", espace), {
+      const res = await fetch(withEspaceQuery("/api/capacities", espace), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -240,7 +240,7 @@ export default function RxCapacitiesSection({
     setSaving(true);
     setEditError("");
     try {
-      const res = await fetch(withEspaceQuery("/api/rx/capacities", espace), {
+      const res = await fetch(withEspaceQuery("/api/capacities", espace), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: editingId, capacity: cap }),
@@ -272,7 +272,7 @@ export default function RxCapacitiesSection({
     setActionError("");
     setDeletingId(q.id);
     try {
-      const res = await fetch(withEspaceQuery("/api/rx/capacities", espace), {
+      const res = await fetch(withEspaceQuery("/api/capacities", espace), {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: q.id }),

@@ -43,7 +43,11 @@ function FluxVehiculesPageContent() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-4xl mx-auto">
+      <div
+        className={`mx-auto ${
+          tab === "capacities" ? "max-w-7xl" : "max-w-4xl"
+        }`}
+      >
         <header className="mb-6">
           <div className="flex items-center gap-3 min-w-0">
             <div className="p-2.5 bg-[#4F587E] rounded-xl text-white shrink-0">

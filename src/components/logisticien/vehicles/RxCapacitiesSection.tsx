@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Gauge,
   RefreshCw,
@@ -9,19 +9,22 @@ import {
   X,
   Loader2,
   Pencil,
+  Trash2,
 } from "lucide-react";
 import { useEspaceSlug } from "@/hooks/useEspaceSlug";
 import { withEspaceQuery } from "@/lib/url";
+import { formatVehicleDate } from "@/lib/date-utils";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-interface RxQuota {
+interface Quota {
   id: number;
   organizationId: string;
   eventId: string;
   eventName: string;
   eventSlug: string;
   zone: string;
+  zoneLabel: string;
   date: string;
   startTime: string;
   endTime: string;
@@ -38,9 +41,15 @@ interface EventOption {
   slug: string;
 }
 
+interface ZoneOption {
+  code: string;
+  label: string;
+}
+
 interface ApiResponse {
-  quotas: RxQuota[];
+  quotas: Quota[];
   events: EventOption[];
+  zones: ZoneOption[];
 }
 
 interface RxCapacitiesSectionProps {
@@ -49,14 +58,8 @@ interface RxCapacitiesSectionProps {
 
 // ── Constantes form ───────────────────────────────────────────────────────────
 
-const ZONES = ["LA_BOCCA", "PALM_BEACH"] as const;
 const FAMILIES = ["LIGHT", "HEAVY"] as const;
 const PHASES = ["MONTAGE", "DEMONTAGE"] as const;
-
-const ZONE_LABELS: Record<string, string> = {
-  LA_BOCCA: "La Bocca",
-  PALM_BEACH: "Palm Beach",
-};
 
 const FAMILY_LABELS: Record<string, string> = {
   LIGHT: "Léger",
@@ -68,10 +71,18 @@ const PHASE_LABELS: Record<string, string> = {
   DEMONTAGE: "Démontage",
 };
 
+const TIME_RE = /^\d{2}:\d{2}$/;
+
+/** "HH:MM" → minutes depuis minuit (comparaison horaire fiable). */
+function timeToMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + m;
+}
+
 function emptyForm() {
   return {
     eventId: "",
-    zone: "LA_BOCCA" as string,
+    zone: "" as string,
     date: "",
     startTime: "",
     endTime: "",
@@ -88,10 +99,12 @@ export default function RxCapacitiesSection({
 }: RxCapacitiesSectionProps) {
   const espace = useEspaceSlug();
 
-  const [quotas, setQuotas] = useState<RxQuota[]>([]);
+  const [quotas, setQuotas] = useState<Quota[]>([]);
   const [events, setEvents] = useState<EventOption[]>([]);
+  const [zones, setZones] = useState<ZoneOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [actionError, setActionError] = useState("");
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [form, setForm] = useState(emptyForm());
@@ -103,6 +116,13 @@ export default function RxCapacitiesSection({
   const [editCapacity, setEditCapacity] = useState("");
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState("");
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  // Ref pour le live léger : ne pas écraser une édition en cours au refresh.
+  const editingIdRef = useRef<number | null>(null);
+  useEffect(() => {
+    editingIdRef.current = editingId;
+  }, [editingId]);
 
   const fetchQuotas = useCallback(async () => {
     setLoading(true);
@@ -113,6 +133,7 @@ export default function RxCapacitiesSection({
         const data: ApiResponse = await res.json();
         setQuotas(data.quotas);
         setEvents(data.events);
+        setZones(data.zones ?? []);
       } else {
         setLoadError("Impossible de charger les quotas.");
       }
@@ -127,6 +148,45 @@ export default function RxCapacitiesSection({
     fetchQuotas();
   }, [fetchQuotas]);
 
+  // ── Live léger : refresh au retour focus / visible / online ──────────────────
+  // Aucun polling. On ne fetch pas si l'onglet est caché ou si une édition est
+  // en cours (pour ne pas écraser la saisie de l'utilisateur).
+  useEffect(() => {
+    const maybeRefresh = () => {
+      if (document.hidden) return;
+      if (editingIdRef.current !== null) return;
+      fetchQuotas();
+    };
+    const onVisibility = () => {
+      if (!document.hidden) maybeRefresh();
+    };
+    window.addEventListener("focus", maybeRefresh);
+    window.addEventListener("online", maybeRefresh);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("focus", maybeRefresh);
+      window.removeEventListener("online", maybeRefresh);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [fetchQuotas]);
+
+  // ── Zones asynchrones : garantir une zone valide sélectionnée ────────────────
+  useEffect(() => {
+    if (zones.length === 0) return;
+    setForm((f) => {
+      if (f.zone && zones.some((z) => z.code === f.zone)) return f;
+      return { ...f, zone: zones[0].code };
+    });
+  }, [zones]);
+
+  const noZones = zones.length === 0;
+  const timeRangeValid =
+    TIME_RE.test(form.startTime) &&
+    TIME_RE.test(form.endTime) &&
+    timeToMinutes(form.endTime) > timeToMinutes(form.startTime);
+  const timeRangeShown =
+    !!form.startTime && !!form.endTime && !timeRangeValid;
+
   // ── Ajout / upsert ──────────────────────────────────────────────────────────
 
   const handleAdd = async () => {
@@ -138,7 +198,7 @@ export default function RxCapacitiesSection({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
-          capacity: Math.round(Number(form.capacity)),
+          capacity: Number(form.capacity),
         }),
       });
       if (res.ok) {
@@ -158,7 +218,7 @@ export default function RxCapacitiesSection({
 
   // ── Édition inline capacity ─────────────────────────────────────────────────
 
-  const startEdit = (q: RxQuota) => {
+  const startEdit = (q: Quota) => {
     setEditingId(q.id);
     setEditCapacity(String(q.capacity));
     setEditError("");
@@ -172,8 +232,8 @@ export default function RxCapacitiesSection({
 
   const saveEdit = async () => {
     if (editingId === null) return;
-    const cap = Math.round(Number(editCapacity));
-    if (!Number.isFinite(cap) || cap < 1) {
+    const cap = Number(editCapacity);
+    if (!Number.isInteger(cap) || cap < 1) {
       setEditError("Entier >= 1 requis");
       return;
     }
@@ -186,7 +246,7 @@ export default function RxCapacitiesSection({
         body: JSON.stringify({ id: editingId, capacity: cap }),
       });
       if (res.ok) {
-        const updated: RxQuota = await res.json();
+        const updated: Quota = await res.json();
         setQuotas((prev) =>
           prev.map((q) => (q.id === updated.id ? updated : q))
         );
@@ -202,6 +262,35 @@ export default function RxCapacitiesSection({
     }
   };
 
+  // ── Suppression ──────────────────────────────────────────────────────────────
+
+  const handleDelete = async (q: Quota) => {
+    const ok = window.confirm(
+      "Supprimer ce quota ? Le créneau ne sera plus limité et ne bloquera plus les demandes."
+    );
+    if (!ok) return;
+    setActionError("");
+    setDeletingId(q.id);
+    try {
+      const res = await fetch(withEspaceQuery("/api/rx/capacities", espace), {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: q.id }),
+      });
+      if (res.ok) {
+        // Refresh complet pour recalculer remaining/isFull proprement.
+        fetchQuotas();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setActionError(err.error || "Suppression impossible.");
+      }
+    } catch {
+      setActionError("Erreur réseau lors de la suppression.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   // ── Rendu ───────────────────────────────────────────────────────────────────
 
   return (
@@ -211,7 +300,9 @@ export default function RxCapacitiesSection({
         <div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 bg-[#4F587E] rounded-full" />
-            <h2 className="text-base font-bold text-gray-800">Capacités RX</h2>
+            <h2 className="text-base font-bold text-gray-800">
+              Capacités véhicules
+            </h2>
             {!loading && (
               <span className="text-xs text-gray-400 font-medium ml-1">
                 {quotas.length} quota{quotas.length > 1 ? "s" : ""}
@@ -221,6 +312,10 @@ export default function RxCapacitiesSection({
           <p className="text-xs text-gray-500 mt-0.5 ml-5">
             Gérer les places disponibles par zone, créneau, phase et type de
             véhicule.
+          </p>
+          <p className="text-[11px] text-gray-400 mt-1 ml-5">
+            Le calcul des capacités dépend des dates, créneaux et zones
+            renseignés sur les accréditations.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -250,6 +345,12 @@ export default function RxCapacitiesSection({
         </div>
       </div>
 
+      {actionError && (
+        <div className="mb-4 rounded-lg bg-red-50 border border-red-100 px-3 py-2 text-xs text-red-600">
+          {actionError}
+        </div>
+      )}
+
       {/* Formulaire ajout */}
       {showAddForm && canWrite && (
         <div className="mb-6 bg-white rounded-2xl border-2 border-dashed border-[#4F587E]/30 p-5 shadow-sm">
@@ -257,6 +358,13 @@ export default function RxCapacitiesSection({
             <PlusCircle size={16} className="text-[#4F587E]" />
             Ajouter / mettre à jour un quota
           </h3>
+
+          {noZones && (
+            <p className="mb-4 rounded-lg bg-amber-50 border border-amber-100 px-3 py-2 text-xs text-amber-700">
+              Aucune zone active n&apos;est configurée pour cet espace.
+            </p>
+          )}
+
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
             {/* Événement */}
             <div className="col-span-2 sm:col-span-4">
@@ -284,13 +392,18 @@ export default function RxCapacitiesSection({
               <select
                 value={form.zone}
                 onChange={(e) => setForm((f) => ({ ...f, zone: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#4F587E] focus:border-transparent"
+                disabled={noZones}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#4F587E] focus:border-transparent disabled:bg-gray-100 disabled:text-gray-400"
               >
-                {ZONES.map((z) => (
-                  <option key={z} value={z}>
-                    {ZONE_LABELS[z]}
-                  </option>
-                ))}
+                {noZones ? (
+                  <option value="">— Aucune zone —</option>
+                ) : (
+                  zones.map((z) => (
+                    <option key={z.code} value={z.code}>
+                      {z.label}
+                    </option>
+                  ))
+                )}
               </select>
             </div>
             {/* Phase */}
@@ -335,6 +448,7 @@ export default function RxCapacitiesSection({
               <input
                 type="number"
                 min={1}
+                step={1}
                 value={form.capacity}
                 onChange={(e) => setForm((f) => ({ ...f, capacity: e.target.value }))}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#4F587E] focus:border-transparent"
@@ -378,6 +492,12 @@ export default function RxCapacitiesSection({
             </div>
           </div>
 
+          {timeRangeShown && (
+            <p className="text-amber-600 text-xs mb-3">
+              L&apos;heure de fin doit être strictement après l&apos;heure de
+              début.
+            </p>
+          )}
           {addError && (
             <p className="text-red-500 text-xs mb-3">{addError}</p>
           )}
@@ -385,7 +505,14 @@ export default function RxCapacitiesSection({
           <div className="flex gap-2">
             <button
               onClick={handleAdd}
-              disabled={adding || !form.eventId || !form.date}
+              disabled={
+                adding ||
+                !form.eventId ||
+                !form.date ||
+                noZones ||
+                !form.zone ||
+                !timeRangeValid
+              }
               className="flex items-center gap-1.5 px-4 py-2.5 bg-[#4F587E] text-white rounded-lg text-sm font-semibold hover:bg-[#3B4252] transition disabled:opacity-50"
             >
               {adding ? (
@@ -425,7 +552,7 @@ export default function RxCapacitiesSection({
           <p className="text-xs text-gray-400 mt-1">
             {canWrite
               ? "Cliquez sur « Ajouter un quota » pour créer le premier créneau."
-              : "Aucun quota RX n'est configuré pour cet espace."}
+              : "Aucun quota n'est configuré pour cet espace."}
           </p>
         </div>
       ) : (
@@ -444,7 +571,7 @@ export default function RxCapacitiesSection({
                   <th className="text-right px-4 py-3 font-medium">Restant</th>
                   <th className="text-left px-4 py-3 font-medium">Statut</th>
                   {canWrite && (
-                    <th className="text-left px-4 py-3 font-medium">Actions</th>
+                    <th className="text-right px-4 py-3 font-medium">Actions</th>
                   )}
                 </tr>
               </thead>
@@ -462,10 +589,13 @@ export default function RxCapacitiesSection({
                         {q.eventName}
                       </td>
                       <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
-                        {ZONE_LABELS[q.zone] ?? q.zone}
+                        {q.zoneLabel ?? q.zone}
                       </td>
-                      <td className="px-4 py-3 text-gray-600 whitespace-nowrap font-mono text-xs">
-                        {q.date}
+                      <td
+                        className="px-4 py-3 text-gray-600 whitespace-nowrap text-xs"
+                        title={q.date}
+                      >
+                        {formatVehicleDate(q.date)}
                       </td>
                       <td className="px-4 py-3 text-gray-600 whitespace-nowrap font-mono text-xs">
                         {q.startTime}–{q.endTime}
@@ -500,6 +630,7 @@ export default function RxCapacitiesSection({
                             <input
                               type="number"
                               min={1}
+                              step={1}
                               value={editCapacity}
                               onChange={(e) => {
                                 setEditCapacity(e.target.value);
@@ -572,13 +703,27 @@ export default function RxCapacitiesSection({
                       {canWrite && (
                         <td className="px-4 py-3">
                           {!isEditing && (
-                            <button
-                              onClick={() => startEdit(q)}
-                              className="p-1.5 rounded-lg text-gray-400 hover:text-[#4F587E] hover:bg-gray-100 transition"
-                              title="Modifier la capacité"
-                            >
-                              <Pencil size={14} />
-                            </button>
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                onClick={() => startEdit(q)}
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-[#4F587E] hover:bg-gray-100 transition"
+                                title="Modifier la capacité"
+                              >
+                                <Pencil size={14} />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(q)}
+                                disabled={deletingId === q.id}
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition disabled:opacity-50"
+                                title="Supprimer le quota"
+                              >
+                                {deletingId === q.id ? (
+                                  <Loader2 size={14} className="animate-spin" />
+                                ) : (
+                                  <Trash2 size={14} />
+                                )}
+                              </button>
+                            </div>
                           )}
                         </td>
                       )}

@@ -21,7 +21,7 @@ const TABS: TabDef[] = [
   { id: "types", label: "Types de véhicule", icon: Box },
   { id: "stats", label: "Comptage", icon: BarChart3 },
   { id: "permanents", label: "Accès permanents", icon: ShieldCheck, badge: "Bientôt" },
-  { id: "capacities", label: "Capacités RX", icon: Gauge },
+  { id: "capacities", label: "Capacités", icon: Gauge },
 ];
 
 export default function VehiclesTabs({ active }: VehiclesTabsProps) {

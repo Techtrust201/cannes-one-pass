@@ -16,8 +16,14 @@ import {
   resolveVehicleFamilyFromText,
   type VehicleFamily,
 } from "@/lib/vehicle-family";
-import { getRxAvailability } from "@/lib/rx-capacity-service";
-import type { RxCapacityKey } from "@/lib/rx-capacity";
+import type { RxCapacityDb } from "@/lib/rx-capacity-service";
+import {
+  buildCapacityQuotaCandidates,
+  enforceCapacityQuotas,
+  CapacityQuotaError,
+  type QuotaCandidate,
+  type CandidateVehicleInput,
+} from "@/lib/capacity-quota-guard";
 import { normalizePlate } from "@/lib/plate-utils";
 import { isValidEmail } from "@/lib/email-sender";
 
@@ -381,27 +387,30 @@ export async function POST(req: NextRequest) {
     const vehiclesArr = vehicles as Array<Record<string, unknown>>;
     const splitPerVehicle = raw.splitPerVehicle === true && vehiclesArr.length > 0;
 
-    // RX uniquement : la zone de déchargement suggérée dépend du gabarit de
-    // CHAQUE véhicule (matrice gabarit × port). En mode split, on ne peut pas
-    // réutiliser la `suggestedZone` globale du payload (calculée sur le 1er
-    // véhicule). On charge donc les codes « Palm Beach au Port Canto » de
-    // l'organisation pour recalculer la zone par véhicule.
+    // ── Résolution générique zone / famille véhicule (toutes organisations) ─
+    // La table de routage RX (rxZoneCanto/rxZoneVieuxPort/rxPalmBeachAtCanto)
+    // vit sur VehicleTypeConfig pour TOUTES les organisations, mais elle n'est
+    // en pratique renseignée qu'en RX aujourd'hui. On ne l'utilise donc que si
+    // elle est réellement configurée pour cette organisation
+    // (`hasRxZoneConfig`) — sinon on retombe sur la résolution standard
+    // (currentZone / extension.suggestedZone). On ne force JAMAIS
+    // LA_BOCCA/PALM_BEACH pour une organisation qui n'a pas configuré ce
+    // routage : pas de zone déterminable ⇒ pas de candidate de quota.
     const exhibitorSector =
       extensionPayload && typeof extensionPayload.exhibitor === "object"
         ? String(
             (extensionPayload.exhibitor as Record<string, unknown>).sector ?? ""
           )
         : "";
-    let rxPalmBeachCodes: Set<string> | null = null;
+    let rxPalmBeachCodes: Set<string> = new Set();
     let rxZoneRouting: Map<string, RxZoneRouting> | undefined;
-    // Map code.toUpperCase() → VehicleFamily, pour la vérification des quotas.
-    let rxVtFamilyMap: Map<string, VehicleFamily> = new Map();
-    if (splitPerVehicle && organizationSlug === "rx" && exhibitorSector) {
+    // Map code.toUpperCase() → VehicleFamily — source de vérité unique pour
+    // la famille, réutilisée par le routage RX ET les quotas génériques.
+    let vtFamilyMap: Map<string, VehicleFamily> = new Map();
+    let hasRxZoneConfig = false;
+    if (organizationId && vehiclesArr.length > 0) {
       const vtConfigs = await prisma.vehicleTypeConfig.findMany({
-        where: {
-          organizationId: organizationId ?? undefined,
-          isActive: true,
-        },
+        where: { organizationId, isActive: true },
         select: {
           code: true,
           pdfCode: true,
@@ -411,13 +420,16 @@ export async function POST(req: NextRequest) {
           rxZoneVieuxPort: true,
         },
       });
+      hasRxZoneConfig = vtConfigs.some(
+        (c) => c.rxPalmBeachAtCanto || c.rxZoneCanto || c.rxZoneVieuxPort
+      );
       rxPalmBeachCodes = new Set(
         vtConfigs
           .filter((c) => c.rxPalmBeachAtCanto)
           .map((c) => c.code.toUpperCase())
       );
       rxZoneRouting = buildRxZoneRouting(vtConfigs);
-      rxVtFamilyMap = new Map(
+      vtFamilyMap = new Map(
         vtConfigs.map((c) => [
           c.code.toUpperCase(),
           resolveVehicleFamilyFromConfig({
@@ -428,158 +440,178 @@ export async function POST(req: NextRequest) {
       );
     }
     const resolveZoneForType = (vehicleTypeCode: string): string | null => {
-      if (!rxPalmBeachCodes) {
-        return (extensionPayload?.suggestedZone as string | undefined) ?? null;
+      if (hasRxZoneConfig && exhibitorSector) {
+        return suggestZone(
+          vehicleTypeCode ?? "",
+          exhibitorSector,
+          rxPalmBeachCodes,
+          rxZoneRouting
+        );
       }
-      return suggestZone(
-        vehicleTypeCode ?? "",
-        exhibitorSector,
-        rxPalmBeachCodes,
-        rxZoneRouting
+      return (
+        (currentZone as string | null) ??
+        (extensionPayload?.suggestedZone as string | undefined) ??
+        null
       );
     };
     const resolveVehicleZone = (v: Record<string, unknown>): string | null =>
       resolveZoneForType((v.vehicleType as string) ?? "");
+    const resolveVehicleFamily = (vehicleTypeCode: string): VehicleFamily => {
+      const key = (vehicleTypeCode ?? "").trim().toUpperCase();
+      return vtFamilyMap.get(key) ?? resolveVehicleFamilyFromText(vehicleTypeCode);
+    };
 
-    // ── RX : vérification des quotas de capacité (avant tout write) ──────────
-    // Bloque la création (409) si un créneau montage ou démontage est complet
-    // selon RxCapacity. Seules les lignes ayant hasQuota=true sont bloquantes :
-    // si aucun quota n'est configuré pour ce créneau, on laisse passer sans
-    // restriction (comportement read-only de cette phase).
-    if (splitPerVehicle && organizationSlug === "rx" && organizationId && eventRecord?.id) {
-      const resolveVehicleFamily = (vehicleTypeCode: string): VehicleFamily => {
-        const key = (vehicleTypeCode ?? "").trim().toUpperCase();
-        return rxVtFamilyMap.get(key) ?? resolveVehicleFamilyFromText(vehicleTypeCode);
-      };
-
-      for (const v of vehiclesArr) {
-        // ── Créneau MONTAGE : gabarit de livraison ──────────────────────────
-        const montageVt = (v.vehicleType as string) ?? "";
-        const livDate = (v.date as string) ?? "";
-        const livSlot = (v.time as string) ?? "";
-        if (montageVt && livDate && livSlot && livSlot.includes("-")) {
-          const montageZone = resolveZoneForType(montageVt);
-          if (montageZone) {
-            const [livStart, livEnd] = livSlot.split("-");
-            const montageFamily = resolveVehicleFamily(montageVt);
-            const montage = await getRxAvailability({
-              organizationId,
-              eventId: eventRecord.id,
-              zone: montageZone,
-              date: livDate,
-              startTime: livStart,
-              endTime: livEnd,
-              vehicleFamily: montageFamily,
-              phase: "MONTAGE",
-            } satisfies RxCapacityKey);
-            if (montage.hasQuota && montage.isFull) {
-              return Response.json(
-                {
-                  error: `Créneau de montage complet : ${montageZone} le ${livDate} de ${livStart} à ${livEnd} (${montageFamily})`,
-                  code: "RX_QUOTA_FULL",
-                },
-                { status: 409 }
-              );
-            }
-          }
-        }
-
-        // ── Créneau DÉMONTAGE : véhicule de reprise réel ────────────────────
-        // `mapPayload` renseigne déjà `repVehicleType` avec le bon gabarit
-        // (identique au montage si reprise « même véhicule », gabarit distinct
-        // sinon). On retombe sur `vehicleType` par sécurité si absent. La zone
-        // ET la famille sont recalculées pour CE véhicule de reprise.
-        const repVt = ((v.repVehicleType as string) || montageVt) ?? "";
-        const repDate = (v.repDate as string) ?? "";
-        const repSlot = (v.repTime as string) ?? "";
-        if (repVt && repDate && repSlot && repSlot.includes("-")) {
-          const repZone = resolveZoneForType(repVt);
-          if (repZone) {
-            const [repStart, repEnd] = repSlot.split("-");
-            const repFamily = resolveVehicleFamily(repVt);
-            const demontage = await getRxAvailability({
-              organizationId,
-              eventId: eventRecord.id,
-              zone: repZone,
-              date: repDate,
-              startTime: repStart,
-              endTime: repEnd,
-              vehicleFamily: repFamily,
-              phase: "DEMONTAGE",
-            } satisfies RxCapacityKey);
-            if (demontage.hasQuota && demontage.isFull) {
-              return Response.json(
-                {
-                  error: `Créneau de démontage complet : ${repZone} le ${repDate} de ${repStart} à ${repEnd} (${repFamily})`,
-                  code: "RX_QUOTA_FULL",
-                },
-                { status: 409 }
-              );
-            }
-          }
-        }
-      }
-    }
+    // ── Quotas de capacité : construction des candidates (toutes orgs) ─────
+    // Standard global (MONTAGE) : fonctionne pour toute organisation dès que
+    // vehicleType + date + time (plage) + zone sont déterminables. Optionnel
+    // (DEMONTAGE) : seulement si repDate/repTime/repVehicleType sont présents
+    // (RX aujourd'hui, mais pas imposé aux autres organisations).
+    // Le blocage réel (lock + recheck + comparaison remaining/requestedCount)
+    // se fait plus bas, DANS la transaction qui crée les accréditations — voir
+    // enforceCapacityQuotas. Aucune décision de blocage n'est prise ici :
+    // si aucun quota n'est configuré pour une candidate, elle ne bloque rien.
+    const quotaCandidates: QuotaCandidate[] =
+      organizationId && eventRecord?.id
+        ? buildCapacityQuotaCandidates({
+            organizationId,
+            eventId: eventRecord.id,
+            vehicles: vehiclesArr as CandidateVehicleInput[],
+            resolveZone: resolveZoneForType,
+            resolveFamily: resolveVehicleFamily,
+          })
+        : [];
 
     // Jeton public non devinable (QR de suivi du PDF « demande »), distinct de
     // l'id d'accès. Généré pour chaque accréditation créée.
     const { randomBytes } = await import("crypto");
     const genPublicToken = () => randomBytes(12).toString("base64url");
 
-    // ── Workflow RX : une accréditation par véhicule ───────────────────────
-    if (splitPerVehicle) {
-      const createdList = await prisma.$transaction(
-        vehiclesArr.map((v) =>
-          prisma.accreditation.create({
-            data: {
-              company,
-              stand,
-              unloading,
-              event,
-              publicToken: genPublicToken(),
-              eventId: eventRecord?.id ?? null,
-              organizationId: organizationId,
-              standId: standId,
-              // Extension partagée + contexte de la catégorie de CE véhicule.
-              extension: {
-                ...(extensionPayload ?? {}),
-                // Zone suggérée recalculée pour le gabarit de CE véhicule
-                // (RX) ; repli sur la valeur globale du payload sinon.
-                suggestedZone: resolveVehicleZone(v),
-                vehicleContext: {
-                  categoryId: (v.categoryId as string) ?? null,
-                  livDate: (v.date as string) ?? null,
-                  livTime: (v.time as string) ?? null,
-                  repDate: (v.repDate as string) ?? null,
-                  repTime: (v.repTime as string) ?? null,
-                  repSameAsDelivery: v.repSameAsDelivery !== false,
-                  repPlate: (v.repPlate as string | null | undefined) ?? null,
-                  repVehicleType: (v.repVehicleType as string) ?? null,
-                  repPhoneCode: (v.repPhoneCode as string) ?? null,
-                  repPhoneNumber: (v.repPhoneNumber as string) ?? null,
-                  interveningCompany: (v.interveningCompany as string) ?? null,
-                  repInterveningCompany: (v.repInterveningCompany as string) ?? null,
-                  repCity: (v.repCity as string) ?? null,
-                  repCountry: (v.repCountry as string) ?? null,
-                  repEstimatedKms:
-                    v.repEstimatedKms != null ? Number(v.repEstimatedKms) : null,
-                },
+    // ── Fabriques de création (RX split ou accréditation unique) ───────────
+    // Paramétrées par `db` (client Prisma global OU client de transaction
+    // interactive `tx`) pour pouvoir s'exécuter soit hors transaction
+    // (comportement historique inchangé, quand aucun quota candidate n'est
+    // calculable), soit DANS la transaction de garde anti-surbooking.
+    // Contenu des données IDENTIQUE à l'existant (email/PDF non modifiés).
+    const createSplitAccreditations = async (db: RxCapacityDb) => {
+      const createdList: { id: string }[] = [];
+      for (const v of vehiclesArr) {
+        const c = await db.accreditation.create({
+          data: {
+            company,
+            stand,
+            unloading,
+            event,
+            publicToken: genPublicToken(),
+            eventId: eventRecord?.id ?? null,
+            organizationId: organizationId,
+            standId: standId,
+            // Extension partagée + contexte de la catégorie de CE véhicule.
+            extension: {
+              ...(extensionPayload ?? {}),
+              // Zone suggérée recalculée pour le gabarit de CE véhicule
+              // (RX) ; repli sur la valeur globale du payload sinon.
+              suggestedZone: resolveVehicleZone(v),
+              vehicleContext: {
+                categoryId: (v.categoryId as string) ?? null,
+                livDate: (v.date as string) ?? null,
+                livTime: (v.time as string) ?? null,
+                repDate: (v.repDate as string) ?? null,
+                repTime: (v.repTime as string) ?? null,
+                repSameAsDelivery: v.repSameAsDelivery !== false,
+                repPlate: (v.repPlate as string | null | undefined) ?? null,
+                repVehicleType: (v.repVehicleType as string) ?? null,
+                repPhoneCode: (v.repPhoneCode as string) ?? null,
+                repPhoneNumber: (v.repPhoneNumber as string) ?? null,
+                interveningCompany: (v.interveningCompany as string) ?? null,
+                repInterveningCompany: (v.repInterveningCompany as string) ?? null,
+                repCity: (v.repCity as string) ?? null,
+                repCountry: (v.repCountry as string) ?? null,
+                repEstimatedKms:
+                  v.repEstimatedKms != null ? Number(v.repEstimatedKms) : null,
               },
-              message: message ?? "",
-              consent: consent ?? true,
-              language: language ?? "fr",
-              email: recipientEmail,
-              status,
-              currentZone: currentZone,
-              category,
-              categorySource,
-              vehicles: { create: [buildVehicleCreate(v)] },
-              ...zoneMovementCreate,
             },
-            select: { id: true },
-          })
-        )
-      );
+            message: message ?? "",
+            consent: consent ?? true,
+            language: language ?? "fr",
+            email: recipientEmail,
+            status,
+            currentZone: currentZone,
+            category,
+            categorySource,
+            vehicles: { create: [buildVehicleCreate(v)] },
+            ...zoneMovementCreate,
+          },
+          select: { id: true },
+        });
+        createdList.push(c);
+      }
+      return createdList;
+    };
+
+    const createSingleAccreditation = (db: RxCapacityDb) =>
+      db.accreditation.create({
+        data: {
+          company,
+          stand,
+          unloading,
+          event,
+          publicToken: genPublicToken(),
+          eventId: eventRecord?.id ?? null,
+          organizationId: organizationId,
+          standId: standId,
+          extension: extensionPayload === null ? undefined : (extensionPayload as object),
+          message: message ?? "",
+          consent: consent ?? true,
+          language: language ?? "fr",
+          email: recipientEmail,
+          status,
+          currentZone: currentZone,
+          category,
+          categorySource,
+          vehicles: { create: vehiclesArr.map(buildVehicleCreate) },
+          ...zoneMovementCreate,
+        },
+        include: { vehicles: true },
+      });
+
+    // ── Exécution : atomique (lock + recheck + create) si des quotas sont
+    // potentiellement concernés par cette demande, sinon comportement
+    // historique inchangé (aucune transaction supplémentaire). Le check +
+    // la création sont ATOMIQUES : aucune accréditation n'est créée si un
+    // quota est insuffisant, donc aucun email/token n'est jamais émis pour
+    // une création bloquée.
+    let createdList: { id: string }[] | null = null;
+    let created: Awaited<ReturnType<typeof createSingleAccreditation>> | null = null;
+    try {
+      if (quotaCandidates.length > 0) {
+        if (splitPerVehicle) {
+          createdList = await prisma.$transaction(async (tx) => {
+            await enforceCapacityQuotas(tx, quotaCandidates);
+            return createSplitAccreditations(tx);
+          });
+        } else {
+          created = await prisma.$transaction(async (tx) => {
+            await enforceCapacityQuotas(tx, quotaCandidates);
+            return createSingleAccreditation(tx);
+          });
+        }
+      } else if (splitPerVehicle) {
+        createdList = await createSplitAccreditations(prisma);
+      } else {
+        created = await createSingleAccreditation(prisma);
+      }
+    } catch (err) {
+      if (err instanceof CapacityQuotaError) {
+        return Response.json(
+          { error: err.message, code: err.code, details: err.details },
+          { status: 409 }
+        );
+      }
+      throw err;
+    }
+
+    // ── Workflow RX : une accréditation par véhicule ───────────────────────
+    if (createdList) {
       for (const c of createdList) {
         await addHistoryEntry(createCreatedEntry(c.id, currentUserId, actorSource));
       }
@@ -616,32 +648,8 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Chemin historique : une seule accréditation (Palais, etc.) ─────────
-    const created = await prisma.accreditation.create({
-      data: {
-        company,
-        stand,
-        unloading,
-        event,
-        publicToken: genPublicToken(),
-        eventId: eventRecord?.id ?? null,
-        organizationId: organizationId,
-        standId: standId,
-        extension: extensionPayload === null ? undefined : (extensionPayload as object),
-        message: message ?? "",
-        consent: consent ?? true,
-        language: language ?? "fr",
-        email: recipientEmail,
-        status,
-        currentZone: currentZone,
-        category,
-        categorySource,
-        vehicles: { create: vehiclesArr.map(buildVehicleCreate) },
-        ...zoneMovementCreate,
-      },
-      include: { vehicles: true },
-    });
     await addHistoryEntry(
-      createCreatedEntry(created.id, currentUserId, actorSource)
+      createCreatedEntry(created!.id, currentUserId, actorSource)
     );
     // Lot 2 : e-mail récap + QR à la création. Non bloquant (try/catch),
     // statut inchangé (reste NOUVEAU). Si pas d'email ou config manquante,
@@ -652,7 +660,7 @@ export async function POST(req: NextRequest) {
         "@/lib/accreditation-creation-email"
       );
       creationEmailOutcome = await sendAccreditationCreationEmail({
-        accreditationId: created.id,
+        accreditationId: created!.id,
         recipient: recipientEmail,
       });
     } catch (e) {
@@ -661,9 +669,9 @@ export async function POST(req: NextRequest) {
     }
     // Désérialisation unloading pour la réponse
     const safeCreated = {
-      ...created,
+      ...created!,
       emailOutcome: creationEmailOutcome,
-      vehicles: created.vehicles.map((v) => ({
+      vehicles: created!.vehicles.map((v) => ({
         ...v,
         unloading: Array.isArray(v.unloading)
           ? v.unloading
@@ -676,6 +684,12 @@ export async function POST(req: NextRequest) {
     };
     return Response.json(safeCreated, { status: 201 });
   } catch (err) {
+    if (err instanceof CapacityQuotaError) {
+      return Response.json(
+        { error: err.message, code: err.code, details: err.details },
+        { status: 409 }
+      );
+    }
     console.error(err);
     return new Response("Invalid payload", { status: 400 });
   }

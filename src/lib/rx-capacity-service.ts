@@ -38,6 +38,16 @@ export interface RxAvailabilityResult extends RxCapacityStats {
   hasQuota: boolean;
 }
 
+/**
+ * Client Prisma utilisable pour ce service : le client global `prisma` OU un
+ * client de transaction interactive (`tx` dans `prisma.$transaction(async
+ * (tx) => ...)`). Permet un recheck fiable de disponibilité DANS une
+ * transaction (anti-surbooking), sans dupliquer la logique de comptage.
+ */
+export type RxCapacityDb =
+  | typeof prisma
+  | Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
 // ── Constante « pas de quota » ─────────────────────────────────────────────
 
 const NO_QUOTA_RESULT: RxAvailabilityResult = {
@@ -117,12 +127,19 @@ function acceptedSlotValues(startTime: string, endTime: string): Set<string> {
  *
  * Source de vérité unique pour l'onglet Capacités RX, la route publique et le
  * blocage POST.
+ *
+ * `db` est optionnel (défaut : client Prisma global) et peut être un client
+ * de transaction interactive (`tx`) pour un recheck fiable dans la même
+ * transaction que le lock advisory et la création — voir
+ * `src/lib/capacity-quota-guard.ts`. Tous les appels existants sans `db`
+ * restent inchangés.
  */
 export async function getRxAvailability(
-  key: RxCapacityKey
+  key: RxCapacityKey,
+  db: RxCapacityDb = prisma
 ): Promise<RxAvailabilityResult> {
   // 1. Quota configuré pour ce créneau
-  const quota = await prisma.rxCapacity.findUnique({
+  const quota = await db.rxCapacity.findUnique({
     where: {
       organizationId_eventId_zone_date_startTime_endTime_vehicleFamily_phase: {
         organizationId: key.organizationId,
@@ -143,7 +160,7 @@ export async function getRxAvailability(
   }
 
   // 2. Types de véhicules de l'organisation (résolution famille + routage zone)
-  const dbVehicleTypeConfigs = await prisma.vehicleTypeConfig.findMany({
+  const dbVehicleTypeConfigs = await db.vehicleTypeConfig.findMany({
     where: { organizationId: key.organizationId, isActive: true },
     orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
   });
@@ -151,8 +168,8 @@ export async function getRxAvailability(
 
   const matchingStatuses =
     key.phase === "DEMONTAGE"
-      ? await countDemontageStatuses(key, vehicleTypes, dbVehicleTypeConfigs)
-      : await countMontageStatuses(key, vehicleTypes);
+      ? await countDemontageStatuses(key, vehicleTypes, dbVehicleTypeConfigs, db)
+      : await countMontageStatuses(key, vehicleTypes, db);
 
   const stats = computeCapacityStats(quota.capacity, matchingStatuses);
   return { hasQuota: true, ...stats };
@@ -166,12 +183,13 @@ export async function getRxAvailability(
  */
 async function countMontageStatuses(
   key: RxCapacityKey,
-  vehicleTypes: ReturnType<typeof mapDbVehicleType>[]
+  vehicleTypes: ReturnType<typeof mapDbVehicleType>[],
+  db: RxCapacityDb
 ): Promise<string[]> {
   const accepted = acceptedSlotValues(key.startTime, key.endTime);
 
   // Pré-filtre DB par date (le format d'heure varie → filtrage fin en JS).
-  const accreditations = await prisma.accreditation.findMany({
+  const accreditations = await db.accreditation.findMany({
     where: {
       organizationId: key.organizationId,
       eventId: key.eventId,
@@ -226,7 +244,8 @@ async function countDemontageStatuses(
     rxPalmBeachAtCanto?: boolean | null;
     rxZoneCanto?: string | null;
     rxZoneVieuxPort?: string | null;
-  }>
+  }>,
+  db: RxCapacityDb
 ): Promise<string[]> {
   const accepted = acceptedSlotValues(key.startTime, key.endTime);
 
@@ -240,7 +259,7 @@ async function countDemontageStatuses(
 
   // Le filtrage sur repDate/repTime porte sur un JSON (extension) → on charge
   // les accréditations consommatrices de l'event et on filtre en JS.
-  const accreditations = await prisma.accreditation.findMany({
+  const accreditations = await db.accreditation.findMany({
     where: {
       organizationId: key.organizationId,
       eventId: key.eventId,

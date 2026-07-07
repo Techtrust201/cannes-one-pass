@@ -487,3 +487,67 @@ describe("getRxAvailability — DEMONTAGE", () => {
     expect(result.totalUsed).toBe(0);
   });
 });
+
+// ── getRxAvailability — injection d'un client `db` (transaction-aware) ────
+//
+// Phase 3 : `getRxAvailability(key, db = prisma)` doit pouvoir être appelé
+// avec un client de transaction interactive (`tx`) pour un recheck fiable
+// DANS la transaction du garde-fou anti-surbooking. Les appels existants
+// sans `db` (voir describes précédents) doivent rester inchangés — c'est
+// vérifié par leur simple passage au vert avec le prisma global mocké.
+
+describe("getRxAvailability — client db injecté (transaction-aware)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  function makeFakeTxClient() {
+    return {
+      rxCapacity: { findUnique: vi.fn() },
+      vehicleTypeConfig: { findMany: vi.fn() },
+      accreditation: { findMany: vi.fn() },
+    };
+  }
+
+  it("utilise le client injecté plutôt que le prisma global quand `db` est fourni", async () => {
+    const tx = makeFakeTxClient();
+    tx.rxCapacity.findUnique.mockResolvedValue({ capacity: 5 });
+    tx.vehicleTypeConfig.findMany.mockResolvedValue([]);
+    tx.accreditation.findMany.mockResolvedValue([]);
+
+    const result = await getRxAvailability(BASE_KEY, tx as never);
+
+    expect(result.hasQuota).toBe(true);
+    expect(result.capacity).toBe(5);
+    expect(result.remaining).toBe(5);
+    // Le client tx a bien été utilisé...
+    expect(tx.rxCapacity.findUnique).toHaveBeenCalledTimes(1);
+    expect(tx.vehicleTypeConfig.findMany).toHaveBeenCalledTimes(1);
+    // ...et JAMAIS le prisma global mocké (preuve d'injection réelle).
+    expect(mockedPrisma.rxCapacity.findUnique).not.toHaveBeenCalled();
+    expect(mockedPrisma.vehicleTypeConfig.findMany).not.toHaveBeenCalled();
+  });
+
+  it("continue de fonctionner sans `db` fourni (rétrocompatibilité, utilise le prisma global)", async () => {
+    mockedPrisma.rxCapacity.findUnique.mockResolvedValue(null);
+    const result = await getRxAvailability(BASE_KEY);
+    expect(result.hasQuota).toBe(false);
+    expect(mockedPrisma.rxCapacity.findUnique).toHaveBeenCalledTimes(1);
+  });
+
+  it("thread le client injecté jusqu'au comptage DEMONTAGE (countDemontageStatuses)", async () => {
+    const tx = makeFakeTxClient();
+    tx.rxCapacity.findUnique.mockResolvedValue({ capacity: 3 });
+    tx.vehicleTypeConfig.findMany.mockResolvedValue([]);
+    tx.accreditation.findMany.mockResolvedValue([]);
+
+    const result = await getRxAvailability(
+      { ...BASE_KEY, phase: "DEMONTAGE" },
+      tx as never
+    );
+
+    expect(result.hasQuota).toBe(true);
+    expect(tx.accreditation.findMany).toHaveBeenCalledTimes(1);
+    expect(mockedPrisma.accreditation.findMany).not.toHaveBeenCalled();
+  });
+});

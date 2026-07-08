@@ -5,6 +5,10 @@ import { CheckCircle, AlertTriangle, Loader2, Download } from "lucide-react";
 import { formInputClass } from "@/lib/form-styles";
 import { formatPhoneNumber } from "@/lib/contact-utils";
 import { useTranslation } from "@/components/accreditation/TranslationProvider";
+import {
+  extractCapacityQuotaFullMessage,
+  getCapacityQuotaFullMessages,
+} from "@/lib/accreditation-save-error";
 import { PortalOverlay } from "@/components/ui/PortalOverlay";
 import { useUnloadingProviders } from "@/hooks/useUnloadingProviders";
 import { useVehicleTypes } from "@/hooks/useVehicleTypes";
@@ -221,10 +225,14 @@ export function StepManutentionRx({
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
+        const quotaMsg = extractCapacityQuotaFullMessage(
+          body,
+          getCapacityQuotaFullMessages(t)
+        );
         const detailMsg = Array.isArray(body?.details)
           ? body.details[0]?.message
           : undefined;
-        throw new Error(detailMsg || body?.error || "save error");
+        throw new Error(quotaMsg || detailMsg || body?.error || "save error");
       }
       const created = await res.json().catch(() => null);
       // L'API split renvoie { count, ids } ; fallback au nombre de véhicules.

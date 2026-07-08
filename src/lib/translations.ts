@@ -107,6 +107,10 @@ export interface T {
   alreadySavedNotice: string;
   saveError: string;
   pdfError: string;
+  /** 409 CAPACITY_QUOTA_FULL sans détails de créneau exploitables (repli). */
+  capacityQuotaFull?: string;
+  /** 409 CAPACITY_QUOTA_FULL avec créneau connu. Placeholders : {date} {startTime} {endTime}. */
+  capacityQuotaFullWithSlot?: string;
 
   // Need help (footer)
   needHelp: string;
@@ -217,6 +221,8 @@ const fr: T = {
   alreadySavedNotice: "Vous avez déjà enregistré votre demande. Elle doit être validée par un agent.",
   saveError: "Impossible d'enregistrer la demande",
   pdfError: "Impossible de télécharger le PDF",
+  capacityQuotaFull: "Ce créneau est complet. Merci de sélectionner un autre créneau.",
+  capacityQuotaFullWithSlot: "Le créneau du {date} de {startTime} à {endTime} est complet. Merci de sélectionner un autre créneau.",
   needHelp: "Besoin d'aide ?",
   requiredField: "Ce champ est obligatoire.",
   requiredFieldsSummary: "Veuillez renseigner les champs obligatoires suivants :",
@@ -305,6 +311,8 @@ const en: T = {
   alreadySavedNotice: "You have already saved your request. It must be validated by an agent.",
   saveError: "Unable to save the request",
   pdfError: "Unable to download the PDF",
+  capacityQuotaFull: "This time slot is full. Please select another time slot.",
+  capacityQuotaFullWithSlot: "The slot on {date} from {startTime} to {endTime} is full. Please select another time slot.",
   needHelp: "Need help?",
   requiredField: "This field is required.",
   requiredFieldsSummary: "Please fill in the following required fields:",
@@ -389,6 +397,8 @@ const de: T = {
   alreadySavedNotice: "Sie haben Ihren Antrag bereits gespeichert. Er muss von einem Agenten validiert werden.",
   saveError: "Antrag konnte nicht gespeichert werden",
   pdfError: "PDF konnte nicht heruntergeladen werden",
+  capacityQuotaFull: "Dieser Zeitslot ist ausgebucht. Bitte wählen Sie einen anderen Zeitslot.",
+  capacityQuotaFullWithSlot: "Der Zeitslot am {date} von {startTime} bis {endTime} ist ausgebucht. Bitte wählen Sie einen anderen Zeitslot.",
   needHelp: "Brauchen Sie Hilfe?",
   requiredField: "Dieses Feld ist erforderlich.",
   requiredFieldsSummary: "Bitte füllen Sie die folgenden Pflichtfelder aus:",
@@ -477,6 +487,8 @@ const es: T = {
   alreadySavedNotice: "Ya ha guardado su solicitud. Debe ser validada por un agente.",
   saveError: "No se pudo guardar la solicitud",
   pdfError: "No se pudo descargar el PDF",
+  capacityQuotaFull: "Este horario está completo. Seleccione otro horario.",
+  capacityQuotaFullWithSlot: "El horario del {date} de {startTime} a {endTime} está completo. Seleccione otro horario.",
   needHelp: "¿Necesita ayuda?",
   requiredField: "Este campo es obligatorio.",
   requiredFieldsSummary: "Por favor, complete los siguientes campos obligatorios:",
@@ -565,6 +577,8 @@ const pt: T = {
   alreadySavedNotice: "Já guardou o seu pedido. Deve ser validado por um agente.",
   saveError: "Não foi possível guardar o pedido",
   pdfError: "Não foi possível descarregar o PDF",
+  capacityQuotaFull: "Este horário está completo. Selecione outro horário.",
+  capacityQuotaFullWithSlot: "O horário de {date} das {startTime} às {endTime} está completo. Selecione outro horário.",
   needHelp: "Precisa de ajuda?",
   requiredField: "Este campo é obrigatório.",
   requiredFieldsSummary: "Por favor, preencha os seguintes campos obrigatórios:",
@@ -653,6 +667,8 @@ const it: T = {
   alreadySavedNotice: "Hai già salvato la tua richiesta. Deve essere convalidata da un agente.",
   saveError: "Impossibile salvare la richiesta",
   pdfError: "Impossibile scaricare il PDF",
+  capacityQuotaFull: "Questa fascia orario è al completo. Selezionare un'altra fascia orario.",
+  capacityQuotaFullWithSlot: "La fascia orario del {date} dalle {startTime} alle {endTime} è al completo. Selezionare un'altra fascia orario.",
   needHelp: "Hai bisogno di aiuto?",
   requiredField: "Questo campo è obbligatorio.",
   requiredFieldsSummary: "Si prega di compilare i seguenti campi obbligatori:",
@@ -741,6 +757,8 @@ const pl: T = {
   alreadySavedNotice: "Wniosek został już zapisany. Musi zostać zatwierdzony przez agenta.",
   saveError: "Nie udało się zapisać wniosku",
   pdfError: "Nie udało się pobrać PDF",
+  capacityQuotaFull: "Ten przedział czasowy jest pełny. Wybierz inny przedział czasowy.",
+  capacityQuotaFullWithSlot: "Przedział czasowy w dniu {date} od {startTime} do {endTime} jest pełny. Wybierz inny przedział czasowy.",
   needHelp: "Potrzebujesz pomocy?",
   requiredField: "To pole jest wymagane.",
   requiredFieldsSummary: "Proszę wypełnić następujące wymagane pola:",
@@ -829,6 +847,8 @@ const cs: T = {
   alreadySavedNotice: "Vaše žádost již byla uložena. Musí být ověřena agentem.",
   saveError: "Žádost se nepodařilo uložit",
   pdfError: "PDF se nepodařilo stáhnout",
+  capacityQuotaFull: "Tento časový úsek je plný. Zvolte prosím jiný časový úsek.",
+  capacityQuotaFullWithSlot: "Časový úsek dne {date} od {startTime} do {endTime} je plný. Zvolte prosím jiný časový úsek.",
   needHelp: "Potřebujete pomoc?",
   requiredField: "Toto pole je povinné.",
   requiredFieldsSummary: "Vyplňte prosím následující povinná pole:",
@@ -917,6 +937,8 @@ const lt: T = {
   alreadySavedNotice: "Jūsų prašymas jau buvo išsaugotas. Jis turi būti patvirtintas agento.",
   saveError: "Nepavyko išsaugoti prašymo",
   pdfError: "Nepavyko atsisiųsti PDF",
+  capacityQuotaFull: "Šis laiko tarpas yra pilnas. Pasirinkite kitą laiko tarpą.",
+  capacityQuotaFullWithSlot: "Laiko tarpas {date} nuo {startTime} iki {endTime} yra pilnas. Pasirinkite kitą laiko tarpą.",
   needHelp: "Reikia pagalbos?",
   requiredField: "Šis laukas yra privalomas.",
   requiredFieldsSummary: "Prašome užpildyti šiuos privalomus laukus:",
@@ -1005,6 +1027,8 @@ const tr: T = {
   alreadySavedNotice: "Talebiniz zaten kaydedildi. Bir ajan tarafından onaylanması gerekiyor.",
   saveError: "Talep kaydedilemedi",
   pdfError: "PDF indirilemedi",
+  capacityQuotaFull: "Bu zaman aralığı dolu. Lütfen başka bir zaman aralığı seçin.",
+  capacityQuotaFullWithSlot: "{date} tarihinde {startTime} - {endTime} arasındaki zaman aralığı dolu. Lütfen başka bir zaman aralığı seçin.",
   needHelp: "Yardıma mı ihtiyacınız var?",
   requiredField: "Bu alan zorunludur.",
   requiredFieldsSummary: "Lütfen aşağıdaki zorunlu alanları doldurun:",
@@ -1093,6 +1117,8 @@ const ru: T = {
   alreadySavedNotice: "Ваша заявка уже сохранена. Она должна быть подтверждена агентом.",
   saveError: "Не удалось сохранить заявку",
   pdfError: "Не удалось скачать PDF",
+  capacityQuotaFull: "Этот временной интервал заполнен. Пожалуйста, выберите другой интервал.",
+  capacityQuotaFullWithSlot: "Интервал {date} с {startTime} до {endTime} заполнен. Пожалуйста, выберите другой интервал.",
   needHelp: "Нужна помощь?",
   requiredField: "Это поле обязательно для заполнения.",
   requiredFieldsSummary: "Пожалуйста, заполните следующие обязательные поля:",

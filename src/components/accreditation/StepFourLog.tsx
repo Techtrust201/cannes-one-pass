@@ -17,6 +17,7 @@ import { useZones } from "@/hooks/useZones";
 import DuplicateAlert from "@/components/accreditation/DuplicateAlert";
 import { PortalOverlay } from "@/components/ui/PortalOverlay";
 import AccreditationRecap from "@/components/accreditation/AccreditationRecap";
+import { extractCapacityQuotaFullMessage } from "@/lib/accreditation-save-error";
 
 interface Props {
   data: {
@@ -571,11 +572,18 @@ export default function StepFourLog({
   );
 }
 
-/** Extrait un message d'erreur lisible d'une réponse API (JSON `error` ou texte). */
+/**
+ * Extrait un message d'erreur lisible d'une réponse API (JSON `error` ou texte).
+ * Cas particulier 409 CAPACITY_QUOTA_FULL : message dédié (jamais le body.error
+ * brut, jamais zone/vehicleFamily/remaining) — ce composant n'a pas d'i18n,
+ * le repli par défaut du helper (français) est donc utilisé directement.
+ */
 async function readError(res: Response): Promise<string> {
   try {
     const clone = res.clone();
     const json = await clone.json();
+    const quotaMsg = extractCapacityQuotaFullMessage(json);
+    if (quotaMsg) return quotaMsg;
     if (json?.error && typeof json.error === "string") return json.error;
   } catch {
     // pas de JSON exploitable

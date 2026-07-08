@@ -8,6 +8,10 @@ import DuplicateAlert from "@/components/accreditation/DuplicateAlert";
 import { useTranslation } from "@/components/accreditation/TranslationProvider";
 import { PortalOverlay } from "@/components/ui/PortalOverlay";
 import AccreditationRecap from "@/components/accreditation/AccreditationRecap";
+import {
+  extractCapacityQuotaFullMessageFromResponse,
+  getCapacityQuotaFullMessages,
+} from "@/lib/accreditation-save-error";
 
 type InfoKey = "alreadySaved" | "pdfError";
 
@@ -69,7 +73,13 @@ export default function StepFour({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...data, language: lang, status: "NOUVEAU" }),
       });
-      if (!saveRes.ok) throw new Error("save error");
+      if (!saveRes.ok) {
+        const quotaMsg = await extractCapacityQuotaFullMessageFromResponse(
+          saveRes,
+          getCapacityQuotaFullMessages(t)
+        );
+        throw new Error(quotaMsg ?? "save error");
+      }
       const created = await saveRes.json().catch(() => null);
       if (created?.id) setSavedId(String(created.id));
       setSuccess(true);
@@ -84,7 +94,7 @@ export default function StepFour({
       }, 1200);
     } catch (err) {
       console.error(err);
-      alert(t.saveError);
+      alert(err instanceof Error && err.message !== "save error" ? err.message : t.saveError);
     } finally {
       setLoading(false);
     }
@@ -149,12 +159,18 @@ export default function StepFour({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ...data, language: lang, status: "NOUVEAU" }),
         });
-        if (!saveRes.ok) throw new Error("save error");
+        if (!saveRes.ok) {
+          const quotaMsg = await extractCapacityQuotaFullMessageFromResponse(
+            saveRes,
+            getCapacityQuotaFullMessages(t)
+          );
+          throw new Error(quotaMsg ?? "save error");
+        }
         setHasSaved(true);
         onHasSavedChange(true);
       } catch (err) {
         console.error(err);
-        alert(t.saveError);
+        alert(err instanceof Error && err.message !== "save error" ? err.message : t.saveError);
         return;
       } finally {
         setLoading(false);

@@ -48,6 +48,7 @@ export function useVehicleTypes(includeInactive = false, espaceSlug?: string | n
             rxPalmBeachAtCanto: Boolean(item.rxPalmBeachAtCanto ?? false),
             rxZoneCanto: (item.rxZoneCanto as string | null) ?? null,
             rxZoneVieuxPort: (item.rxZoneVieuxPort as string | null) ?? null,
+            vehicleFamily: (item.vehicleFamily as VehicleTypeData["vehicleFamily"]) ?? null,
             displayLabels: parseVehicleTypeDbTranslations(item.displayLabels),
             sortOrder: Number(item.sortOrder ?? 0),
             isActive: Boolean(item.isActive ?? true),

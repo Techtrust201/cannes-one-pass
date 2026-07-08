@@ -62,8 +62,8 @@ const FAMILIES = ["LIGHT", "HEAVY"] as const;
 const PHASES = ["MONTAGE", "DEMONTAGE"] as const;
 
 const FAMILY_LABELS: Record<string, string> = {
-  LIGHT: "Léger",
-  HEAVY: "Lourd",
+  LIGHT: "Véhicules légers",
+  HEAVY: "Poids lourds",
 };
 
 const PHASE_LABELS: Record<string, string> = {
@@ -316,6 +316,10 @@ export default function RxCapacitiesSection({
           <p className="text-[11px] text-gray-400 mt-1 ml-5">
             Le calcul des capacités dépend des dates, créneaux et zones
             renseignés sur les accréditations.
+          </p>
+          <p className="text-[11px] text-gray-400 mt-1 ml-5">
+            Si aucun quota n&apos;est configuré pour un créneau, les demandes
+            restent libres comme avant.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -688,7 +692,19 @@ export default function RxCapacitiesSection({
 
                       {/* Statut */}
                       <td className="px-4 py-3">
-                        {q.isFull ? (
+                        {q.remaining < 0 ? (
+                          <div>
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700">
+                              Quota dépassé
+                            </span>
+                            <p className="text-[10px] text-red-600 mt-1 max-w-[220px] leading-snug">
+                              Quota déjà dépassé de {Math.abs(q.remaining)} véhicule
+                              {Math.abs(q.remaining) > 1 ? "s" : ""}. Les demandes
+                              existantes sont conservées, mais les nouvelles
+                              demandes seront bloquées.
+                            </p>
+                          </div>
+                        ) : q.isFull ? (
                           <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">
                             Complet
                           </span>

@@ -26,6 +26,7 @@ export function mapDbVehicleType(type: VehicleTypeConfig): VehicleTypeData {
     rxPalmBeachAtCanto: type.rxPalmBeachAtCanto,
     rxZoneCanto: (type as unknown as { rxZoneCanto?: string | null }).rxZoneCanto ?? null,
     rxZoneVieuxPort: (type as unknown as { rxZoneVieuxPort?: string | null }).rxZoneVieuxPort ?? null,
+    vehicleFamily: type.vehicleFamily ?? null,
     displayLabels: parseVehicleTypeDbTranslations(
       (type as unknown as { displayLabels?: unknown }).displayLabels
     ),

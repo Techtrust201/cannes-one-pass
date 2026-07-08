@@ -142,7 +142,26 @@ export async function POST(req: NextRequest) {
       rxZoneCanto,
       rxZoneVieuxPort,
       displayLabels,
+      vehicleFamily,
     } = body as Record<string, unknown>;
+
+    // Famille de capacité (quotas) : surcharge explicite optionnelle.
+    // "" / null / undefined = automatique (repli pdfCode, comportement actuel).
+    // Toute autre valeur que "", null, "LIGHT", "HEAVY" est refusée.
+    const normalizedVehicleFamily =
+      vehicleFamily === undefined || vehicleFamily === null || vehicleFamily === ""
+        ? null
+        : vehicleFamily;
+    if (
+      normalizedVehicleFamily !== null &&
+      normalizedVehicleFamily !== "LIGHT" &&
+      normalizedVehicleFamily !== "HEAVY"
+    ) {
+      return Response.json(
+        { error: "vehicleFamily invalide (LIGHT, HEAVY ou vide pour automatique)" },
+        { status: 400 }
+      );
+    }
 
     // Traductions d'affichage : on ne conserve que les langues supportées et
     // les valeurs non vides (le repli i18n/label gère les langues manquantes).
@@ -234,6 +253,7 @@ export async function POST(req: NextRequest) {
           pdfCode: typeof pdfCode === "string" ? pdfCode : "C",
           color: typeof color === "string" ? color : "gray",
           showTrailerPlate: Boolean(showTrailerPlate),
+          vehicleFamily: normalizedVehicleFamily as "LIGHT" | "HEAVY" | null,
           rxPalmBeachAtCanto: isRxOrg ? Boolean(rxPalmBeachAtCanto ?? false) : false,
           rxZoneCanto:
             isRxOrg && typeof rxZoneCanto === "string" && rxZoneCanto.trim()

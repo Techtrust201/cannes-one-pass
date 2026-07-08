@@ -5,6 +5,7 @@ import {
   parseVehicleTypeDbTranslations,
   type VehicleTypeDbTranslations,
 } from "@/lib/vehicle-type-i18n";
+import type { VehicleFamily } from "@/lib/vehicle-family";
 
 export interface VehicleTypeData {
   id: number;
@@ -23,6 +24,13 @@ export interface VehicleTypeData {
   rxZoneCanto: string | null;
   /** RX : code ZoneConfig cible au Vieux Port (table de routage). */
   rxZoneVieuxPort: string | null;
+  /**
+   * Surcharge explicite de la famille de capacité (quotas). `null`/absent =
+   * automatique, résolu depuis `pdfCode` par `resolveVehicleFamilyFromConfig`
+   * (@see src/lib/vehicle-family.ts). Ne jamais forcer une valeur par défaut
+   * ici : cela casserait le repli automatique des gabarits existants.
+   */
+  vehicleFamily?: VehicleFamily | null;
   /** Traductions d'affichage configurées en back-office (par langue). */
   displayLabels?: VehicleTypeDbTranslations;
   sortOrder: number;
@@ -86,6 +94,7 @@ function normalizeVehicleType(raw: unknown): VehicleTypeData {
     rxPalmBeachAtCanto: Boolean(item.rxPalmBeachAtCanto ?? false),
     rxZoneCanto: (item.rxZoneCanto as string | null) ?? null,
     rxZoneVieuxPort: (item.rxZoneVieuxPort as string | null) ?? null,
+    vehicleFamily: (item.vehicleFamily as VehicleFamily | null) ?? null,
     displayLabels: parseVehicleTypeDbTranslations(item.displayLabels),
     sortOrder: Number(item.sortOrder ?? 0),
     isActive: Boolean(item.isActive ?? true),

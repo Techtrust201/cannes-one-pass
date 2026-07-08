@@ -45,6 +45,17 @@ function googleMapsUrl(lat: number, lng: number): string {
   return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
 }
 
+/**
+ * Libellés métier du code PDF (affichage uniquement — la valeur technique
+ * A/B/C/D stockée en base et utilisée dans les documents reste inchangée).
+ */
+const PDF_CODE_LABELS: Record<string, string> = {
+  A: "A — Véhicule léger / VL",
+  B: "B — Utilitaire / Fourgon",
+  C: "C — Porteur",
+  D: "D — Semi-remorque / Poids lourd",
+};
+
 type TranslationFields = Record<string, string>;
 
 /** Ne conserve que les langues supportées avec une valeur non vide. */
@@ -134,6 +145,9 @@ const EMPTY_FORM = {
   tonnageMaxi: "",
   co2Coefficient: "0.22",
   pdfCode: "C",
+  // "" = automatique (repli pdfCode) : ne jamais forcer LIGHT/HEAVY par défaut,
+  // sous peine de casser le classement automatique des gabarits existants.
+  vehicleFamily: "",
   color: "gray",
   showTrailerPlate: false,
   rxPalmBeachAtCanto: false,
@@ -220,6 +234,7 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
           tonnageMaxi: nums.values.tonnageMaxi,
           co2Coefficient: nums.values.co2Coefficient,
           pdfCode: createForm.pdfCode,
+          vehicleFamily: createForm.vehicleFamily || null,
           color: createForm.color,
           showTrailerPlate: createForm.showTrailerPlate,
           rxPalmBeachAtCanto: createForm.rxPalmBeachAtCanto,
@@ -261,6 +276,7 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
       tonnageMaxi: String(type.tonnageMaxi),
       co2Coefficient: String(type.co2Coefficient),
       pdfCode: type.pdfCode,
+      vehicleFamily: type.vehicleFamily ?? "",
       color: type.color,
       showTrailerPlate: type.showTrailerPlate,
       rxPalmBeachAtCanto: type.rxPalmBeachAtCanto,
@@ -307,6 +323,7 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
           tonnageMaxi: nums.values.tonnageMaxi,
           co2Coefficient: nums.values.co2Coefficient,
           pdfCode: String(editForm.pdfCode),
+          vehicleFamily: editForm.vehicleFamily ? String(editForm.vehicleFamily) : null,
           color: String(editForm.color),
           showTrailerPlate: Boolean(editForm.showTrailerPlate),
           rxPalmBeachAtCanto: Boolean(editForm.rxPalmBeachAtCanto),
@@ -685,9 +702,27 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
                 className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
               >
                 {["A", "B", "C", "D"].map((v) => (
-                  <option key={v} value={v}>{v}</option>
+                  <option key={v} value={v}>{PDF_CODE_LABELS[v]}</option>
                 ))}
               </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="text-xs font-semibold text-gray-500 uppercase">
+                Famille de capacité (quotas)
+              </label>
+              <select
+                value={String(form.vehicleFamily ?? "")}
+                onChange={(e) => setForm({ vehicleFamily: e.target.value })}
+                className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+              >
+                <option value="">Automatique (déduit du code PDF)</option>
+                <option value="LIGHT">Véhicule léger</option>
+                <option value="HEAVY">Poids lourd</option>
+              </select>
+              <p className="text-[10px] text-gray-400 mt-1">
+                Utilisée pour les quotas de capacité (onglet Capacités).
+                « Automatique » conserve le classement actuel déduit du code PDF.
+              </p>
             </div>
           </div>
           <p className="flex items-start gap-1.5 text-[10px] text-gray-500">

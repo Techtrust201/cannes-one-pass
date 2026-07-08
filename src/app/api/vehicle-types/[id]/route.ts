@@ -123,6 +123,26 @@ export async function PATCH(
       );
     }
     if (body.pdfCode !== undefined) updates.pdfCode = String(body.pdfCode);
+    // Famille de capacité (quotas) : surcharge explicite optionnelle.
+    // "" / null = remise en automatique (repli pdfCode). Autre valeur que
+    // "", null, "LIGHT", "HEAVY" refusée.
+    if (body.vehicleFamily !== undefined) {
+      const normalizedVehicleFamily =
+        body.vehicleFamily === null || body.vehicleFamily === ""
+          ? null
+          : body.vehicleFamily;
+      if (
+        normalizedVehicleFamily !== null &&
+        normalizedVehicleFamily !== "LIGHT" &&
+        normalizedVehicleFamily !== "HEAVY"
+      ) {
+        return Response.json(
+          { error: "vehicleFamily invalide (LIGHT, HEAVY ou vide pour automatique)" },
+          { status: 400 }
+        );
+      }
+      updates.vehicleFamily = normalizedVehicleFamily;
+    }
     if (body.color !== undefined) updates.color = String(body.color);
     if (body.showTrailerPlate !== undefined) updates.showTrailerPlate = Boolean(body.showTrailerPlate);
     // Champs de routage spécifiques à RX : refusés pour les autres organisations

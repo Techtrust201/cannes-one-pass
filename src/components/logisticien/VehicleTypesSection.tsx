@@ -741,10 +741,10 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
           )}
         </section>
 
-        {/* ── Section : Routage & zone d'attente (RX) ──────────────────── */}
+        {/* ── Section : Parcage automatique (RX) ───────────────────────── */}
         {espace === "rx" && (
           <section className="space-y-3">
-            {sectionTitle(<MapPin size={14} />, "Routage & zone d'attente")}
+            {sectionTitle(<MapPin size={14} />, "Parcage automatique")}
             <div className="grid gap-3 sm:grid-cols-2 rounded-lg border border-blue-100 bg-blue-50/40 p-3">
               <div>
                 <label className="text-xs font-semibold text-gray-500 uppercase">
@@ -791,24 +791,26 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
                 Autoriser Palm Beach au Port Canto (repli si zones non renseignées)
               </label>
               <p className="sm:col-span-2 text-[10px] text-gray-400">
-                Zone de déchargement vers laquelle ce gabarit est dirigé selon le
-                port de l&apos;exposant. « Repli automatique » conserve l&apos;ancienne
-                règle. Pour ajouter une aire de rétention, créez-la d&apos;abord dans{" "}
-                <strong>Zones</strong> : elle apparaîtra ici. Sans impact sur le flux Palais.
+                Ce réglage détermine vers quel parcage le véhicule sera
+                automatiquement orienté selon le port de l&apos;exposant. Les zones
+                proposées viennent de l&apos;onglet <strong>Zones</strong>. Si aucune
+                zone spécifique n&apos;est renseignée, « Repli automatique » conserve le
+                comportement actuel. Réglage <strong>RX uniquement</strong> — aucun
+                impact sur le flux Palais.
               </p>
             </div>
             <p className="flex items-start gap-1.5 text-[10px] text-gray-500">
               <Info size={12} className="shrink-0 mt-0.5 text-gray-400" />
-              Le routage détermine la <strong>zone d&apos;attente</strong> affichée
-              dans le PDF chauffeur (nom, GPS, lien Google Maps). Astuce métier :
-              les <strong>15 m³ et 20 m³ sont des utilitaires volume</strong>, pas
-              des porteurs — ils suivent le routage utilitaire.
+              Le parcage choisi est affiché dans le PDF chauffeur (nom, GPS, lien
+              Google Maps). Astuce : les <strong>15 m³ et 20 m³</strong> sont des
+              utilitaires volume, pas des porteurs — ils suivent le parcage
+              utilitaire.
             </p>
             {isEditing && (
               <p className="flex items-start gap-1.5 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                 <AlertTriangle size={13} className="shrink-0 mt-0.5" />
-                Modifier le routage change la <strong>zone d&apos;attente</strong>
-                {" "}suggérée et affichée dans le PDF des prochaines demandes.
+                Modifier le parcage automatique change le parcage suggéré et affiché
+                dans le PDF des prochaines demandes.
               </p>
             )}
           </section>
@@ -879,29 +881,30 @@ export default function VehicleTypesSection({ canWrite }: VehicleTypesSectionPro
         <div className="mb-6 rounded-xl border border-blue-200 bg-blue-50/60 p-4 text-sm text-blue-900">
           <div className="flex items-center gap-2 font-semibold">
             <MapPin size={16} className="shrink-0" />
-            Affectation automatique des aires de rétention
+            Parcage automatique
           </div>
           <p className="mt-2 text-blue-800/90 leading-relaxed">
-            À la demande d&apos;accréditation, chaque véhicule se voit suggérer
-            une aire de rétention selon son <strong>gabarit</strong> et le
+            À la demande d&apos;accréditation, chaque véhicule est orienté
+            automatiquement vers un parcage selon son <strong>gabarit</strong> et le
             <strong> port de l&apos;exposant</strong> (Port Canto ou Vieux Port,
-            déduit automatiquement du secteur). Vous définissez vous-même cette
-            table de routage, gabarit par gabarit.
+            déduit automatiquement du secteur). Vous configurez ce parcage
+            automatique gabarit par gabarit.
           </p>
           <p className="mt-2 text-blue-800/90 leading-relaxed">
             <strong>Pour configurer :</strong> via « Nouveau type » ou
-            l&apos;édition d&apos;un type, renseignez les deux menus
-            <em> « Exposant au Port Canto → »</em> et
-            <em> « Exposant au Vieux Port → »</em> avec la zone de déchargement
-            cible. Exemple : un VL au Port Canto → <strong>Palm Beach</strong> ;
-            un semi-remorque → <strong>La Bocca</strong>. « Repli automatique »
-            conserve l&apos;ancienne règle.
+            l&apos;édition d&apos;un type, section <em>Parcage automatique</em>,
+            renseignez les deux menus <em>« Exposant au Port Canto → »</em> et
+            <em> « Exposant au Vieux Port → »</em>. Exemple : un VL au Port Canto
+            → <strong>Palm Beach</strong> ; un semi-remorque → <strong>La Bocca</strong>.
+            « Repli automatique » conserve le comportement actuel si aucune zone
+            spécifique n&apos;est renseignée.
           </p>
           <p className="mt-2 text-blue-800/90 leading-relaxed">
-            <strong>Ajouter une aire de rétention :</strong> créez-la dans la page
-            <strong> Zones</strong> (ex. « Port Canto » comme destination finale).
-            Elle apparaîtra aussitôt dans les menus ci-dessus. La suggestion reste
-            modifiable manuellement à la validation back-office.
+            <strong>Ajouter un parcage :</strong> créez-le dans la page
+            <strong> Zones</strong> (une aire de rétention ou zone de déchargement).
+            Il apparaîtra aussitôt dans les menus ci-dessus. Réglage RX uniquement
+            — aucun impact sur le flux Palais. La suggestion reste modifiable
+            manuellement à la validation back-office.
           </p>
         </div>
       )}

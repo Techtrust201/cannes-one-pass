@@ -130,6 +130,11 @@ export function canAccessEvent(accessibleEventIds: AccessibleIds, eventId: strin
   return accessibleEventIds.includes(eventId);
 }
 
+// Re-export du garde d'accès organisation (fonction pure déplacée dans
+// `./org-access` pour être testable sans charger prisma/auth). Les appelants
+// peuvent continuer à l'importer depuis `@/lib/auth-helpers`.
+export { canAccessOrganization } from "./org-access";
+
 /**
  * Retourne la liste des eventIds auxquels l'utilisateur a accès.
  * - Un SUPER_ADMIN a accès à tout → "ALL".

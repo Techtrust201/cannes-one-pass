@@ -2,9 +2,12 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { headers } from "next/headers";
+import { notFound, redirect } from "next/navigation";
 import { ChevronLeft, Store } from "lucide-react";
 import prisma, { withRetry } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+import { getAccessibleOrganizationIds } from "@/lib/auth-helpers";
 import type { Accreditation } from "@/types";
 import {
   mapDbVehicleType,
@@ -40,17 +43,46 @@ export default async function StandDetailPage(props: {
   const paramsObj = await props.searchParams;
   const espace = paramsObj.espace?.trim() || null;
 
+  // Contrôle d'accès serveur (Phase 0 — corrige l'IDOR) : la protection ne doit
+  // pas reposer uniquement sur le layout client. On exige une session valide et
+  // un utilisateur actif, puis on ne charge le stand que s'il appartient à une
+  // organisation accessible. Tout stand hors périmètre renvoie notFound() afin
+  // de ne jamais révéler l'existence d'un stand d'une autre organisation.
+  const hdrs = await headers();
+  const session = await auth.api.getSession({ headers: hdrs });
+  if (!session?.user?.id) redirect("/login");
+
+  const currentUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { isActive: true },
+  });
+  if (!currentUser || !currentUser.isActive) redirect("/login");
+
+  const accessibleOrgIds = await getAccessibleOrganizationIds(session.user.id);
+
+  const standInclude = {
+    accreditations: {
+      where: { isArchived: false },
+      include: { vehicles: true },
+      orderBy: { createdAt: "desc" as const },
+    },
+  };
+
+  // Cloisonnement multi-tenant dans la requête Prisma : un stand hors périmètre
+  // (id + organizationId) n'est jamais chargé avec ses accréditations.
   const stand = await withRetry(() =>
-    prisma.stand.findUnique({
-      where: { id },
-      include: {
-        accreditations: {
-          where: { isArchived: false },
-          include: { vehicles: true },
-          orderBy: { createdAt: "desc" },
-        },
-      },
-    })
+    accessibleOrgIds === "ALL"
+      ? prisma.stand.findUnique({
+          where: { id },
+          include: standInclude,
+        })
+      : prisma.stand.findFirst({
+          where: {
+            id,
+            organizationId: { in: accessibleOrgIds },
+          },
+          include: standInclude,
+        })
   );
   if (!stand) return notFound();
 

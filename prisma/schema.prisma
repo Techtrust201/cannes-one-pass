@@ -129,6 +129,58 @@ enum CountryRegion {
 }
 
 // ============================================================
+// ENUMS - Import generalise & referentiel emplacements/planning
+// ============================================================
+
+// Type d'emplacement rattache a un exposant (une societe peut en avoir
+// plusieurs, potentiellement dans des ports/secteurs differents).
+enum LocationType {
+  TERRE
+  FLOT
+  STAND
+}
+
+// Mode de planning logistique par evenement (lecture DB vs fallback).
+// DISABLED   = comportement historique de l'organisation.
+// TRANSITION = planning DB prioritaire regle par regle, fallback si absent.
+// STRICT     = planning DB obligatoire, absence de regle = blocage public.
+enum LogisticsPlanningMode {
+  DISABLED
+  TRANSITION
+  STRICT
+}
+
+// Portee d'une regle de planning logistique (generique RX + Palais).
+// EVENT  = regle au niveau evenement entier (ex: Palais, montage global).
+// PORT   = regle au niveau port.
+// SECTOR = regle au niveau secteur (ex: RX POWER).
+// SPACE  = regle au niveau espace logistique.
+enum LogisticsPlanningScope {
+  EVENT
+  PORT
+  SECTOR
+  SPACE
+}
+
+// Profil d'import du Centre d'import generalise.
+enum ImportProfile {
+  REFERENTIAL
+  PLANNING
+  ACCREDITATIONS
+  ZONES
+  VEHICLE_TYPES
+  CAPACITIES
+}
+
+// Statut d'un lot d'import (le dry-run n'ecrit rien ; ImportBatch est cree
+// au commit, hors de la transaction metier, pour survivre a un rollback).
+enum ImportStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+// ============================================================
 // MODÈLES Better Auth
 // ============================================================
 
@@ -159,6 +211,9 @@ model User {
 
   // Tickets de support
   supportTicketReplies SupportTicketReply[]
+
+  // Lots d'import declenches par cet utilisateur (SetNull si l'utilisateur est supprime)
+  importBatches ImportBatch[]
 
   @@map("user")
 }
@@ -245,9 +300,9 @@ model Organization {
   updatedAt    DateTime @updatedAt
 
   // Configuration multi-template du formulaire d'accréditation
-  formTemplate             String  @default("palais") // "palais" | "rx" | …
-  accreditationCodePrefix  String? // ex: "YC2026" pour produire YC2026-00001
-  supportEmail             String? // Adresse "from" pour les emails sortants des tickets
+  formTemplate            String  @default("palais") // "palais" | "rx" | …
+  accreditationCodePrefix String? // ex: "YC2026" pour produire YC2026-00001
+  supportEmail            String? // Adresse "from" pour les emails sortants des tickets
 
   // Expéditeur des e-mails automatiques par organisation (Lot 2 — réglage).
   // emailFromAddress doit appartenir à un domaine autorisé/vérifié (allowlist
@@ -267,6 +322,8 @@ model Organization {
   supportTickets     SupportTicket[]
   stands             Stand[]
   rxCapacities       RxCapacity[]
+  logisticsPlannings LogisticsPlanning[]
+  importBatches      ImportBatch[]
 
   @@index([isActive])
 }
@@ -330,18 +387,24 @@ model Event {
   isActive       Boolean @default(false)
   isArchived     Boolean @default(false)
 
+  // Mode de lecture du planning logistique en base (voir LogisticsPlanningMode).
+  // DISABLED par defaut = aucun changement de comportement pour les events existants.
+  logisticsPlanningMode LogisticsPlanningMode @default(DISABLED)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id])
 
-  accreditations Accreditation[]
-  userGrants     UserEvent[]
-  exhibitors     Exhibitor[]
-  supportTickets SupportTicket[]
-  stands         Stand[]
-  rxCapacities   RxCapacity[]
+  accreditations    Accreditation[]
+  userGrants        UserEvent[]
+  exhibitors        Exhibitor[]
+  supportTickets    SupportTicket[]
+  stands            Stand[]
+  rxCapacities      RxCapacity[]
+  logisticsPlanning LogisticsPlanning[]
+  importBatches     ImportBatch[]
 
   @@index([isArchived, startDate])
   @@index([organizationId])
@@ -353,16 +416,16 @@ model Event {
 // ============================================================
 
 model Stand {
-  id             String        @id @default(uuid())
+  id             String          @id @default(uuid())
   organizationId String
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   eventId        String?
-  eventRef       Event?        @relation(fields: [eventId], references: [id])
+  eventRef       Event?          @relation(fields: [eventId], references: [id])
   number         String // libellé stand (ex: "PALAIS 110")
   sector         String?
   zone           String?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
   accreditations Accreditation[]
 
   @@unique([organizationId, eventId, number])
@@ -407,8 +470,20 @@ model Accreditation {
   publicCode     String?       @unique // Identifiant public formaté (ex: YC2026-00001), généré côté serveur
 
   // Niveau « Stand » : centralise les accréditations d'un même stand (RX).
-  standId String?
-  standRef Stand? @relation(fields: [standId], references: [id])
+  standId  String?
+  standRef Stand?  @relation(fields: [standId], references: [id])
+
+  // Rattachement au referentiel exposant/emplacement (import generalise).
+  // FK en SetNull pour ne jamais casser une accreditation historique si le
+  // referentiel evolue. `locationSnapshot` fige les donnees d'affichage
+  // (nom, code, port, secteur, espace, categorie, phase, date/creneau) —
+  // son remplissage sera implemente en Phase 2/4, pas maintenant.
+  exhibitorId         String?
+  exhibitor           Exhibitor?         @relation(fields: [exhibitorId], references: [id], onDelete: SetNull)
+  exhibitorLocationId String?
+  exhibitorLocation   ExhibitorLocation? @relation(fields: [exhibitorLocationId], references: [id], onDelete: SetNull)
+  locationLabel       String? // Libelle d'emplacement fige pour affichage rapide
+  locationSnapshot    Json? // Snapshot historique complet de l'emplacement
 
   vehicles      Vehicle[]
   emailHistory  AccreditationEmailHistory[]
@@ -420,6 +495,8 @@ model Accreditation {
   @@index([eventId])
   @@index([organizationId])
   @@index([standId])
+  @@index([exhibitorId])
+  @@index([exhibitorLocationId])
   // Accélère le chargement back-office (liste filtrée par espace/statut, tri
   // par date) — requêtes les plus fréquentes du dashboard logisticien.
   @@index([organizationId, isArchived, status])
@@ -491,11 +568,11 @@ model ZoneMovement {
   // - batchId : corrélation entre la sortie auto et l'entrée agent d'une même
   //   action de scan (les deux mouvements partagent le même batchId).
   // - scanType / scannedValue : contexte du scan (qr|plate + valeur scannée).
-  autoGenerated   Boolean       @default(false)
-  reason          String?
-  batchId         String?
-  scanType        String?
-  scannedValue    String?
+  autoGenerated Boolean @default(false)
+  reason        String?
+  batchId       String?
+  scanType      String?
+  scannedValue  String?
 
   @@index([accreditationId])
   @@index([batchId])
@@ -611,34 +688,34 @@ model UnloadingProvider {
 }
 
 model VehicleTypeConfig {
-  id               Int      @id @default(autoincrement())
-  code             String
-  label            String
-  gabarit          String
-  tonnageMini      Float
-  tonnageMoyen     Float
-  tonnageMaxi      Float
-  co2Coefficient   Float
-  pdfCode          String   @default("C")
-  color            String   @default("gray")
-  showTrailerPlate Boolean  @default(false)
+  id                 Int      @id @default(autoincrement())
+  code               String
+  label              String
+  gabarit            String
+  tonnageMini        Float
+  tonnageMoyen       Float
+  tonnageMaxi        Float
+  co2Coefficient     Float
+  pdfCode            String   @default("C")
+  color              String   @default("gray")
+  showTrailerPlate   Boolean  @default(false)
   /// RX (legacy) : si true, suggestion zone Palm Beach au Port Canto. Repli si
   /// rxZoneCanto/rxZoneVieuxPort ne sont pas renseignés.
-  rxPalmBeachAtCanto Boolean @default(false)
+  rxPalmBeachAtCanto Boolean  @default(false)
   /// RX : code ZoneConfig cible quand l'exposant est au Port Canto (table de
   /// routage configurable gabarit × port). Null = repli sur rxPalmBeachAtCanto.
-  rxZoneCanto      String?
+  rxZoneCanto        String?
   /// RX : code ZoneConfig cible quand l'exposant est au Vieux Port. Null = repli.
-  rxZoneVieuxPort  String?
+  rxZoneVieuxPort    String?
   /// Traductions d'affichage configurables par l'admin, indexées par code
   /// langue (ex. { "en": "Refrigerated truck", "pt": "Camião frigorífico" }).
   /// Priorité la plus haute du resolver d'affichage, devant l'i18n standard.
   /// Null/absent → repli sur i18n standard (codes connus) puis label BDD.
-  displayLabels    Json?
-  sortOrder        Int      @default(0)
-  isActive         Boolean  @default(true)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  displayLabels      Json?
+  sortOrder          Int      @default(0)
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   // Surcharge explicite de la famille RX (LIGHT/HEAVY).
   // Prioritaire sur pdfCode dans le helper vehicle-family.
@@ -654,23 +731,23 @@ model VehicleTypeConfig {
 }
 
 model ZoneConfig {
-  id                 Int      @id @default(autoincrement())
+  id                 Int     @id @default(autoincrement())
   zone               String // Identifiant de la zone (ex: "LA_BOCCA") — unique par org
   label              String // Nom d'affichage (ex: "La Bocca")
   address            String // Adresse complète
   latitude           Float // Latitude GPS
   longitude          Float // Longitude GPS
-  isFinalDestination Boolean  @default(false) // Destination finale (Palais)
-  color              String   @default("gray") // Couleur associée (ex: "orange", "green", "blue", "purple")
-  isActive           Boolean  @default(true)
+  isFinalDestination Boolean @default(false) // Destination finale (Palais)
+  color              String  @default("gray") // Couleur associée (ex: "orange", "green", "blue", "purple")
+  isActive           Boolean @default(true)
 
   // Lot 3 — Lecteur de plaque par zone (version simple, sans intégration ANPR).
   readerName   String? // Nom du lecteur (ex: "Lecteur entrée La Bocca")
   readerUrl    String? // Lien/URL du lecteur (http/https uniquement, validé côté serveur)
   readerActive Boolean @default(false) // Lecteur actif/affiché dans le scanner
 
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id])
@@ -684,22 +761,64 @@ model ZoneConfig {
 // ============================================================
 
 model Exhibitor {
-  id             String   @id @default(uuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  eventId        String
-  eventRef       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  name           String // Raison sociale exposant
-  stand          String // Numéro de stand (ex: "PALAIS 110")
-  sector         String? // Secteur/zone logique (ex: "VIEUX PORT — JETEE")
-  zone           String? // Zone d'auto-déduction côté template (ex: "PAN", "JETEE", "PALAIS", "QML")
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                String       @id @default(uuid())
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  eventId           String
+  eventRef          Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name              String // Raison sociale exposant
+  // Nom normalise (uppercase, sans accents/espaces superflus) pour recherche
+  // fiable. Ajoute NULLABLE en Phase 1 (table deja remplie) ; backfill Phase 1B ;
+  // rendu obligatoire ensuite.
+  nameNormalized    String?
+  // Reference externe eventuelle fournie par l'organisation source (ex: RX).
+  externalReference String?
+  // Legacy : numero de stand. OBLIGATOIRE en Phase 1/1B ; le referentiel
+  // multi-emplacements vit desormais dans ExhibitorLocation. Deviendra
+  // nullable seulement en Phase 1C (apres validation de la transition).
+  stand             String // Numéro de stand (ex: "PALAIS 110")
+  sector            String? // Secteur/zone logique (ex: "VIEUX PORT — JETEE")
+  zone              String? // Zone d'auto-déduction côté template (ex: "PAN", "JETEE", "PALAIS", "QML")
+  isActive          Boolean      @default(true)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  // Emplacements rattaches (TERRE / FLOT / STAND) — une societe peut en avoir
+  // plusieurs dans des ports/secteurs differents.
+  locations      ExhibitorLocation[]
+  accreditations Accreditation[]
 
   @@index([organizationId])
   @@index([eventId])
   @@index([eventId, isActive])
+  @@index([eventId, nameNormalized])
+}
+
+// ============================================================
+// EMPLACEMENTS EXPOSANT — Terre / Flot / Stand rattaches a une societe
+// ============================================================
+
+model ExhibitorLocation {
+  id             String       @id @default(uuid())
+  exhibitorId    String
+  exhibitor      Exhibitor    @relation(fields: [exhibitorId], references: [id], onDelete: Cascade)
+  type           LocationType
+  code           String // Libelle affiche, ex "JETEE 001"
+  codeNormalized String // Uppercase, sans espaces — pour matching fiable
+  portCode       String? // Ex "VIEUX PORT", "PORT CANTO", "PALAIS"
+  sectorCode     String? // Ex "JETEE", "PAN", "POWER"
+  logisticSpace  String? // Espace logistique cible (resolution planning)
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  accreditations Accreditation[]
+
+  @@unique([exhibitorId, type, codeNormalized])
+  @@index([exhibitorId])
+  @@index([codeNormalized])
+  @@index([sectorCode])
+  @@index([logisticSpace])
 }
 
 // ============================================================
@@ -731,14 +850,14 @@ model SupportTicket {
 }
 
 model SupportTicketReply {
-  id           String   @id @default(uuid())
+  id           String        @id @default(uuid())
   ticketId     String
   ticket       SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   authorUserId String
-  author       User     @relation(fields: [authorUserId], references: [id], onDelete: Cascade)
-  body         String   @db.Text
-  sentByEmail  Boolean  @default(false)
-  createdAt    DateTime @default(now())
+  author       User          @relation(fields: [authorUserId], references: [id], onDelete: Cascade)
+  body         String        @db.Text
+  sentByEmail  Boolean       @default(false)
+  createdAt    DateTime      @default(now())
 
   @@index([ticketId, createdAt])
   @@index([authorUserId])
@@ -756,35 +875,116 @@ model SupportTicketReply {
 // Le calcul du remaining est fait à la volée côté API (pas de colonne dénormalisée).
 //
 model RxCapacity {
-  id             Int           @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
   organizationId String
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  eventId        String
-  event          Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   // Clé logique du créneau (format texte pour rester cohérent avec
   // Vehicle.date / Vehicle.time et le planning RX existant).
-  zone           String        // Code ZoneConfig (ex: "LA_BOCCA")
-  date           String        // YYYY-MM-DD
-  startTime      String        // HH:MM
-  endTime        String        // HH:MM
+  zone      String // Code ZoneConfig (ex: "LA_BOCCA")
+  date      String // YYYY-MM-DD
+  startTime String // HH:MM
+  endTime   String // HH:MM
 
-  vehicleFamily  VehicleFamily // LIGHT | HEAVY
-  phase          RxPhase       // MONTAGE | DEMONTAGE
+  vehicleFamily VehicleFamily // LIGHT | HEAVY
+  phase         RxPhase // MONTAGE | DEMONTAGE
 
-  capacity       Int           // Places totales autorisées sur ce créneau
+  capacity Int // Places totales autorisées sur ce créneau
 
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Garantit l'unicité de la clé métier — un upsert suffit pour créer ou modifier.
   @@unique([organizationId, eventId, zone, date, startTime, endTime, vehicleFamily, phase])
-
   // Index composite pour les requêtes de comptage remaining (filtre fréquent :
   // org + event + zone + date, puis family + phase discriminent le créneau).
   @@index([organizationId, eventId, zone, date])
-
   @@map("rx_capacity")
+}
+
+// ============================================================
+// PLANNING LOGISTIQUE — Dates/creneaux montage-demontage par jour
+// ============================================================
+//
+// Une ligne PAR JOUR (les plages Excel multi-jours sont decoupees au parsing).
+// Generique RX + Palais : la portee canonique est scope + scopeKey.
+// Les champs portCode/sectorCode/spaceCode sont optionnels (null pour une
+// regle EVENT entiere, ex: Palais montage global sans port/secteur).
+//
+model LogisticsPlanning {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  eventId        String
+  event          Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  scope    LogisticsPlanningScope
+  scopeKey String // Cle canonique : "EVENT", "PORT:PORT_CANTO", "SECTOR:PORT_CANTO:POWER", "SPACE:POWER"
+
+  portCode     String? // Nullable : absent pour une regle EVENT (Palais)
+  sectorCode   String? // Nullable : absent pour une regle EVENT ou PORT
+  spaceCode    String? // Nullable : absent pour une regle EVENT
+  categoryCode String  @default("ALL") // "ALL" = toutes categories ; ex RX: "BATEAU_TERRE"
+
+  phase RxPhase // MONTAGE | DEMONTAGE
+
+  date      String // YYYY-MM-DD (une ligne par jour)
+  startTime String // HH:MM
+  endTime   String // HH:MM
+
+  isActive Boolean @default(true)
+  source   String? // Provenance (ex: import, manuel)
+
+  importBatchId String?
+  importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, eventId, scopeKey, categoryCode, phase, date, startTime, endTime])
+  @@index([organizationId, eventId, scope, scopeKey])
+  @@index([organizationId, eventId, phase, date])
+  @@index([importBatchId])
+}
+
+// ============================================================
+// LOTS D'IMPORT — Tracabilite du Centre d'import generalise
+// ============================================================
+//
+// Cree au commit (hors de la transaction metier) : un import ayant echoue
+// reste en base avec status FAILED. Le dry-run n'ecrit rien.
+//
+model ImportBatch {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  eventId        String?
+  event          Event?       @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  userId         String? // Nullable car FK en SetNull
+  user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  sourceProfile  ImportProfile
+  fileName       String
+  fileHashSha256 String // Identifie precisement un reimport du meme fichier
+  status         ImportStatus  @default(PROCESSING)
+
+  created     Int @default(0)
+  updated     Int @default(0)
+  unchanged   Int @default(0)
+  deactivated Int @default(0)
+  errorCount  Int @default(0)
+
+  summary     Json? // Resume detaille (compteurs, erreurs par ligne, etc.)
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  planningRows LogisticsPlanning[]
+
+  @@index([organizationId, eventId, sourceProfile, fileHashSha256])
+  @@index([eventId])
+  @@index([userId])
 }

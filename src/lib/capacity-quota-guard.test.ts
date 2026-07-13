@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   buildCapacityQuotaCandidates,
   lockKeyForCandidate,
+  quotaCandidateKey,
   enforceCapacityQuotas,
   CapacityQuotaError,
   type CandidateVehicleInput,
@@ -169,6 +170,53 @@ describe("buildCapacityQuotaCandidates", () => {
     });
     expect(candidates).toHaveLength(2);
     expect(candidates.every((c) => c.requestedCount === 1)).toBe(true);
+  });
+});
+
+// ── quotaCandidateKey (Phase 4B-2 : clé publique, source unique) ──────────
+
+describe("quotaCandidateKey", () => {
+  const KEY: RxCapacityKey = {
+    organizationId: ORG,
+    eventId: EVENT,
+    zone: "LA_BOCCA",
+    date: "2026-05-13",
+    startTime: "08:00",
+    endTime: "09:00",
+    vehicleFamily: "LIGHT",
+    phase: "MONTAGE",
+  };
+
+  it("deux candidates identiques ont la même clé", () => {
+    expect(quotaCandidateKey(KEY)).toBe(quotaCandidateKey({ ...KEY }));
+  });
+
+  it("MONTAGE et DEMONTAGE ont des clés différentes", () => {
+    expect(quotaCandidateKey(KEY)).not.toBe(
+      quotaCandidateKey({ ...KEY, phase: "DEMONTAGE" })
+    );
+  });
+
+  it("LIGHT et HEAVY ont des clés différentes", () => {
+    expect(quotaCandidateKey(KEY)).not.toBe(
+      quotaCandidateKey({ ...KEY, vehicleFamily: "HEAVY" })
+    );
+  });
+
+  it("deux créneaux différents ne fusionnent pas (startTime/endTime distincts)", () => {
+    expect(quotaCandidateKey(KEY)).not.toBe(
+      quotaCandidateKey({ ...KEY, startTime: "09:00", endTime: "10:00" })
+    );
+  });
+
+  it("dérive des mêmes champs que lockKeyForCandidate (une seule source de vérité, format distinct)", () => {
+    // Les deux clés diffèrent en FORMAT (prefixe + séparateur) mais reflètent
+    // exactement la même identité logique : une modification d'un champ
+    // impacte les deux, une clé stable pour l'autre ne change aucune des deux.
+    const other: RxCapacityKey = { ...KEY, zone: "PALM_BEACH" };
+    expect(quotaCandidateKey(KEY) === quotaCandidateKey(other)).toBe(
+      lockKeyForCandidate(KEY) === lockKeyForCandidate(other)
+    );
   });
 });
 

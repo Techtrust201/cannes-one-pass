@@ -68,7 +68,13 @@ function parseSlot(
   return { start, end };
 }
 
-function candidateKeyString(key: RxCapacityKey): string {
+/**
+ * Champs identifiants une candidate de quota, dans un ordre stable. Source
+ * UNIQUE de vérité pour toute dérivation de clé (regroupement en mémoire,
+ * clé de verrou, agrégation de lot Phase 4B-2) : ne jamais dupliquer cette
+ * liste de champs ailleurs.
+ */
+function candidateKeyParts(key: RxCapacityKey): string[] {
   return [
     key.organizationId,
     key.eventId,
@@ -78,7 +84,18 @@ function candidateKeyString(key: RxCapacityKey): string {
     key.endTime,
     key.vehicleFamily,
     key.phase,
-  ].join("::");
+  ];
+}
+
+/**
+ * Clé logique PUBLIQUE et stable identifiant une candidate de quota (même
+ * organisation/événement/zone/date/créneau/famille/phase → même clé).
+ * Utilisée pour regrouper des candidates en mémoire (ex: agrégation d'un lot
+ * d'import) — DIFFÉRENTE du format de `lockKeyForCandidate` (verrou DB), qui
+ * reste inchangé pour ne pas modifier le comportement concurrentiel actuel.
+ */
+export function quotaCandidateKey(key: RxCapacityKey): string {
+  return candidateKeyParts(key).join("::");
 }
 
 /**
@@ -104,7 +121,7 @@ export function buildCapacityQuotaCandidates(
   const byKey = new Map<string, QuotaCandidate>();
 
   const addCandidate = (key: RxCapacityKey) => {
-    const k = candidateKeyString(key);
+    const k = quotaCandidateKey(key);
     const existing = byKey.get(k);
     if (existing) {
       existing.requestedCount += 1;
@@ -158,9 +175,15 @@ export function buildCapacityQuotaCandidates(
 
 // ── Lock key ──────────────────────────────────────────────────────────────
 
-/** Clé de lock stable et déterministe pour une candidate donnée. */
+/**
+ * Clé de lock stable et déterministe pour une candidate donnée. Dérivée des
+ * MÊMES champs que `quotaCandidateKey` (`candidateKeyParts`), avec un
+ * prefixe et un séparateur `:` distincts — format PRÉSERVÉ à l'identique de
+ * l'implémentation historique pour ne jamais changer le comportement
+ * concurrentiel actuel (advisory locks déjà en production).
+ */
 export function lockKeyForCandidate(key: RxCapacityKey): string {
-  return `capacity-quota:${key.organizationId}:${key.eventId}:${key.zone}:${key.date}:${key.startTime}:${key.endTime}:${key.vehicleFamily}:${key.phase}`;
+  return `capacity-quota:${candidateKeyParts(key).join(":")}`;
 }
 
 // ── Erreur contrôlée ────────────────────────────────────────────────────────

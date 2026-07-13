@@ -52,7 +52,7 @@ export { CapacityQuotaError };
 /** Client Prisma utilisable en dehors ou dans une transaction interactive. */
 export type AccreditationDb = RxCapacityDb;
 
-export interface AccreditationServiceContext {
+interface AccreditationServiceContextBase {
   currentUserId?: string;
   currentUserRole?: "SUPER_ADMIN" | "ADMIN" | "USER";
   /**
@@ -65,9 +65,10 @@ export interface AccreditationServiceContext {
   /**
    * Phase 4A : références référentiel à figer sur la nouvelle accréditation.
    * Renseigné UNIQUEMENT par l'appelant serveur à partir d'une source déjà
-   * contrôlée en accès (ex: accréditation parente d'une duplication) —
-   * jamais lu depuis le payload client `command`, pour éviter qu'un client
-   * injecte un `exhibitorId`/`exhibitorLocationId` arbitraire.
+   * contrôlée en accès (ex: accréditation parente d'une duplication, ou
+   * résolution référentiel d'un import) — jamais lu depuis le payload client
+   * `command`, pour éviter qu'un client injecte un
+   * `exhibitorId`/`exhibitorLocationId` arbitraire.
    */
   referential?: {
     exhibitorId?: string | null;
@@ -77,10 +78,45 @@ export interface AccreditationServiceContext {
   };
 }
 
+/** Contexte standard (formulaire public, back-office, duplication) — comportement inchangé. */
+interface AccreditationServiceContextStandard extends AccreditationServiceContextBase {
+  channel?: undefined;
+  importMode?: undefined;
+}
+
+/**
+ * Phase 4B-2 : contexte d'import CSV/XLSX. `channel` + `importMode` pilotent
+ * EXCLUSIVEMENT la politique de création (statut + `actorSource`) — jamais
+ * de champ générique `statusOverride`/`actorSourceOverride` qui laisserait
+ * un appelant imposer une valeur arbitraire. La politique reste déduite par
+ * le moteur lui-même (voir `resolveCreationPolicy`) :
+ *  - `importMode: "PENDING"`   → status NOUVEAU   + actorSource CSV_IMPORT ;
+ *  - `importMode: "VALIDATED"` → status ATTENTE   + actorSource CSV_IMPORT.
+ */
+interface AccreditationServiceContextCsvImport extends AccreditationServiceContextBase {
+  channel: "CSV_IMPORT";
+  importMode: "PENDING" | "VALIDATED";
+}
+
+/**
+ * Union discriminée sûre : un appelant ne peut PAS fournir `importMode` sans
+ * `channel: "CSV_IMPORT"` (et inversement) au niveau du typage. Une
+ * validation défensive au runtime (`validateCreationContext`) couvre en plus
+ * les appelants non typés (JSON désérialisé, etc.) — voir `INVALID_CREATION_CONTEXT`.
+ */
+export type AccreditationServiceContext =
+  | AccreditationServiceContextStandard
+  | AccreditationServiceContextCsvImport;
+
 /** Payload brut — mêmes champs que le body historique de POST /api/accreditations. */
 export type AccreditationCommand = Record<string, unknown>;
 
-type CategorySource = "PUBLIC_FORM" | "LOGISTICIEN" | "SUPER_ADMIN" | "AUTO_DEDUCTION";
+type CategorySource =
+  | "PUBLIC_FORM"
+  | "LOGISTICIEN"
+  | "SUPER_ADMIN"
+  | "AUTO_DEDUCTION"
+  | "CSV_IMPORT";
 
 export interface AccreditationServiceError {
   ok: false;
@@ -195,6 +231,61 @@ function buildCreatedHistoryEntry(
 }
 
 /**
+ * Validation défensive du contexte de création, AU RUNTIME — en complément
+ * du typage (utile pour tout appelant non strictement typé, ex: valeurs
+ * désérialisées). Un contexte incohérent est une erreur contrôlée
+ * `INVALID_CREATION_CONTEXT`, jamais une résolution silencieuse par défaut.
+ */
+function validateCreationContext(
+  context: AccreditationServiceContext
+): AccreditationServiceError | null {
+  const channel = (context as { channel?: unknown }).channel;
+  const importMode = (context as { importMode?: unknown }).importMode;
+
+  // Contexte standard : ni channel ni importMode.
+  if (channel === undefined && importMode === undefined) return null;
+
+  if (channel !== "CSV_IMPORT") {
+    return {
+      ok: false,
+      status: 400,
+      error: `Contexte de création invalide : channel "${String(channel)}" non reconnu (attendu "CSV_IMPORT" ou absent).`,
+      code: "INVALID_CREATION_CONTEXT",
+    };
+  }
+  if (importMode !== "PENDING" && importMode !== "VALIDATED") {
+    return {
+      ok: false,
+      status: 400,
+      error: `Contexte de création invalide : importMode manquant ou non reconnu pour channel "CSV_IMPORT" (attendu "PENDING" ou "VALIDATED").`,
+      code: "INVALID_CREATION_CONTEXT",
+    };
+  }
+  return null;
+}
+
+/**
+ * Déduit la politique de création (statut + actorSource) EXCLUSIVEMENT
+ * depuis le contexte serveur — jamais depuis le payload client `command`.
+ *  - Contexte CSV_IMPORT : actorSource = CSV_IMPORT, statut selon importMode.
+ *  - Contexte standard (inchangé) : actorSource déduit de l'utilisateur
+ *    connecté, statut ATTENTE pour une création interne, NOUVEAU sinon.
+ */
+function resolveCreationPolicy(
+  context: AccreditationServiceContext
+): { status: "NOUVEAU" | "ATTENTE"; actorSource: ActorSource } {
+  if (context.channel === "CSV_IMPORT") {
+    return {
+      status: context.importMode === "VALIDATED" ? "ATTENTE" : "NOUVEAU",
+      actorSource: "CSV_IMPORT",
+    };
+  }
+  const actorSource = inferActorSource(context.currentUserId, context.currentUserRole);
+  const isInternalCreation = actorSource === "LOGISTICIEN" || actorSource === "SUPER_ADMIN";
+  return { status: isInternalCreation ? "ATTENTE" : "NOUVEAU", actorSource };
+}
+
+/**
  * Validations + résolutions en lecture, sans écriture DB : template/Zod,
  * organisation/événement, catégorie, zone/famille véhicule, quota candidates.
  */
@@ -202,7 +293,10 @@ export async function previewAccreditation(
   command: AccreditationCommand,
   context: AccreditationServiceContext
 ): Promise<PreviewAccreditationResult> {
-  const { currentUserId, currentUserRole, referential, duplicateSourceAccreditationId } = context;
+  const contextError = validateCreationContext(context);
+  if (contextError) return contextError;
+
+  const { referential, duplicateSourceAccreditationId } = context;
   const raw = command;
   const { company, stand, unloading, event, message, consent, vehicles, language } = raw;
 
@@ -271,17 +365,26 @@ export async function previewAccreditation(
     organizationId = eventRecord.organizationId;
   }
 
-  // Catégorie : fournie explicitement par le client (override manuel) ou
-  // déduite automatiquement depuis stand + zone.
+  // Politique de création (statut + actorSource) déduite EXCLUSIVEMENT du
+  // contexte serveur — jamais depuis `raw.status`/`raw.actorSource`, même si
+  // ces propriétés sont présentes dans le payload brut du client (ignorées).
+  const { status, actorSource } = resolveCreationPolicy(context);
+
+  // Catégorie : fournie explicitement (override manuel) ou déduite
+  // automatiquement depuis stand + zone. `categorySource` reflète la même
+  // origine que `actorSource` (CSV_IMPORT inclus) — jamais forcé à
+  // LOGISTICIEN pour un import CSV.
   let category: EmplacementCategory | null = null;
   let categorySource: CategorySource | null = null;
   const rawCategory = (raw.category as string | undefined)?.trim().toLowerCase();
   if (rawCategory && CSV_TO_ENUM[rawCategory]) {
     category = CSV_TO_ENUM[rawCategory];
-    const inferred = inferActorSource(currentUserId, currentUserRole);
     categorySource =
-      inferred === "PUBLIC_FORM" || inferred === "LOGISTICIEN" || inferred === "SUPER_ADMIN"
-        ? inferred
+      actorSource === "CSV_IMPORT" ||
+      actorSource === "PUBLIC_FORM" ||
+      actorSource === "LOGISTICIEN" ||
+      actorSource === "SUPER_ADMIN"
+        ? actorSource
         : "LOGISTICIEN";
   } else {
     const derived = deriveCategory({ stand: stand as string | null, zone: currentZone });
@@ -321,13 +424,6 @@ export async function previewAccreditation(
     };
   }
   const recipientEmail = recipientEmailCandidate as string;
-
-  const actorSource = inferActorSource(currentUserId, currentUserRole);
-
-  // Statut administratif déterminé par le SERVEUR selon l'origine de la
-  // création — jamais d'après le `status` du payload client (sécurité).
-  const isInternalCreation = actorSource === "LOGISTICIEN" || actorSource === "SUPER_ADMIN";
-  const status: "NOUVEAU" | "ATTENTE" = isInternalCreation ? "ATTENTE" : "NOUVEAU";
 
   const vehiclesArr = vehicles as Array<Record<string, unknown>>;
   const splitPerVehicle = raw.splitPerVehicle === true && vehiclesArr.length > 0;

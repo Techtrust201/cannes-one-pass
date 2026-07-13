@@ -218,6 +218,164 @@ describe("previewAccreditation", () => {
   });
 });
 
+// ── previewAccreditation — contexte CSV_IMPORT (Phase 4B-2) ──────────────
+// Politique de création déduite EXCLUSIVEMENT du contexte serveur
+// (`channel`/`importMode`), jamais du payload client `command`.
+
+describe("previewAccreditation — politique de création CSV_IMPORT", () => {
+  it("1. création publique inchangée : contexte vide → NOUVEAU + PUBLIC_FORM", async () => {
+    const result = await previewAccreditation(baseCommand(), {});
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.status).toBe("NOUVEAU");
+      expect(result.actorSource).toBe("PUBLIC_FORM");
+    }
+  });
+
+  it("2. création logisticien inchangée : currentUserRole=ADMIN → ATTENTE + LOGISTICIEN", async () => {
+    const result = await previewAccreditation(baseCommand(), {
+      currentUserId: "u1",
+      currentUserRole: "ADMIN",
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.status).toBe("ATTENTE");
+      expect(result.actorSource).toBe("LOGISTICIEN");
+    }
+  });
+
+  it("3. création super-admin inchangée : currentUserRole=SUPER_ADMIN → ATTENTE + SUPER_ADMIN", async () => {
+    const result = await previewAccreditation(baseCommand(), {
+      currentUserId: "u1",
+      currentUserRole: "SUPER_ADMIN",
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.status).toBe("ATTENTE");
+      expect(result.actorSource).toBe("SUPER_ADMIN");
+    }
+  });
+
+  it("4. CSV_IMPORT + importMode=PENDING → NOUVEAU + CSV_IMPORT", async () => {
+    const result = await previewAccreditation(baseCommand(), {
+      channel: "CSV_IMPORT",
+      importMode: "PENDING",
+      currentUserId: "u1",
+      currentUserRole: "SUPER_ADMIN",
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.status).toBe("NOUVEAU");
+      expect(result.actorSource).toBe("CSV_IMPORT");
+    }
+  });
+
+  it("5. CSV_IMPORT + importMode=VALIDATED → ATTENTE + CSV_IMPORT", async () => {
+    const result = await previewAccreditation(baseCommand(), {
+      channel: "CSV_IMPORT",
+      importMode: "VALIDATED",
+      currentUserId: "u1",
+      currentUserRole: "SUPER_ADMIN",
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.status).toBe("ATTENTE");
+      expect(result.actorSource).toBe("CSV_IMPORT");
+    }
+  });
+
+  it("6. catégorie explicite fournie en CSV_IMPORT → categorySource=CSV_IMPORT (jamais forcé LOGISTICIEN)", async () => {
+    const result = await previewAccreditation(
+      baseCommand({ category: "bateau_flot" }),
+      { channel: "CSV_IMPORT", importMode: "PENDING" }
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.category).toBe("BATEAU_FLOT");
+      expect(result.categorySource).toBe("CSV_IMPORT");
+    }
+  });
+
+  it("7. catégorie auto-déduite en CSV_IMPORT (aucune catégorie fournie) → categorySource=AUTO_DEDUCTION", async () => {
+    const result = await previewAccreditation(
+      baseCommand({ category: undefined, stand: "JETEE-042" }),
+      { channel: "CSV_IMPORT", importMode: "PENDING" }
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.categorySource).toBe("AUTO_DEDUCTION");
+    }
+  });
+
+  it("8. status injecté dans le payload client est ignoré (toujours déduit du contexte serveur)", async () => {
+    const result = await previewAccreditation(
+      baseCommand({ status: "ATTENTE" }),
+      { channel: "CSV_IMPORT", importMode: "PENDING" }
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.status).toBe("NOUVEAU");
+    }
+  });
+
+  it("9. actorSource injecté dans le payload client est ignoré (toujours déduit du contexte serveur)", async () => {
+    const result = await previewAccreditation(
+      baseCommand({ actorSource: "SUPER_ADMIN" }),
+      { channel: "CSV_IMPORT", importMode: "VALIDATED" }
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.actorSource).toBe("CSV_IMPORT");
+    }
+  });
+
+  it("10. contexte CSV_IMPORT sans importMode → erreur contrôlée INVALID_CREATION_CONTEXT", async () => {
+    const result = await previewAccreditation(baseCommand(), {
+      channel: "CSV_IMPORT",
+    } as never);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(400);
+      expect(result.code).toBe("INVALID_CREATION_CONTEXT");
+    }
+  });
+
+  it("11. importMode fourni sans channel CSV_IMPORT → erreur contrôlée INVALID_CREATION_CONTEXT", async () => {
+    const result = await previewAccreditation(baseCommand(), {
+      importMode: "PENDING",
+    } as never);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(400);
+      expect(result.code).toBe("INVALID_CREATION_CONTEXT");
+    }
+  });
+
+  it("11b. channel inconnu (ni undefined ni CSV_IMPORT) → erreur contrôlée INVALID_CREATION_CONTEXT", async () => {
+    const result = await previewAccreditation(baseCommand(), {
+      channel: "SOME_OTHER_CHANNEL",
+    } as never);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.code).toBe("INVALID_CREATION_CONTEXT");
+    }
+  });
+
+  it("12. duplication existante (sans channel CSV) non régressée : statut/actorSource selon inferActorSource classique", async () => {
+    const result = await previewAccreditation(baseCommand(), {
+      currentUserId: "u1",
+      currentUserRole: "ADMIN",
+      duplicateSourceAccreditationId: "parent-42",
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.status).toBe("ATTENTE");
+      expect(result.actorSource).toBe("LOGISTICIEN");
+      expect(result.duplicateSourceAccreditationId).toBe("parent-42");
+    }
+  });
+});
+
 // ── createAccreditationInTransaction (orchestration, tx mockée) ──────────
 // NB : ces tests utilisent une transaction mockée — ce sont des tests
 // d'orchestration. Les vrais tests d'intégration de rollback PostgreSQL

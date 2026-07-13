@@ -15,8 +15,12 @@ export interface HistoryEntryData {
   actorSource?: ActorSource;
   /** Raison optionnelle du changement (ex: "Import CSV Yachting 2026") */
   changeReason?: string;
-  /** Diff riche { before, after } pour les updates complexes */
-  diff?: { before?: unknown; after?: unknown };
+  /**
+   * Métadonnées JSON riches : `{ before, after }` pour les updates complexes,
+   * ou toute autre forme structurée (ex: `{ channel, sourceAccreditationId }`
+   * pour une création par duplication — voir `createDuplicatedEntry`).
+   */
+  diff?: { before?: unknown; after?: unknown } | Record<string, unknown>;
 }
 
 // ─── Traductions lisibles ────────────────────────────────────────────
@@ -260,6 +264,30 @@ export function createCreatedEntry(
     userAgent:
       typeof window !== "undefined" ? window.navigator.userAgent : undefined,
     actorSource,
+  };
+}
+
+/**
+ * Entrée de création par duplication (Phase 4A) : réutilise l'action
+ * `CREATED` existante mais rend la provenance explicite dans la description,
+ * `changeReason` et `diff` (channel + id source) — sans nouvelle table.
+ */
+export function createDuplicatedEntry(
+  accreditationId: string,
+  sourceAccreditationId: string,
+  userId?: string,
+  actorSource?: ActorSource
+): HistoryEntryData {
+  return {
+    accreditationId,
+    action: "CREATED",
+    description: `Accréditation créée par duplication de l'accréditation ${sourceAccreditationId}`,
+    userId,
+    userAgent:
+      typeof window !== "undefined" ? window.navigator.userAgent : undefined,
+    actorSource,
+    changeReason: `Duplication de l'accréditation ${sourceAccreditationId}`,
+    diff: { channel: "DUPLICATION", sourceAccreditationId },
   };
 }
 

@@ -363,6 +363,97 @@ describe("createAccreditationInTransaction (orchestration)", () => {
     expect(ctx.repTime).toBe("10:00-11:00");
   });
 
+  it("figeage référentiel (Phase 4A) : exhibitorId/exhibitorLocationId/locationLabel/locationSnapshot proviennent UNIQUEMENT de context.referential (mode single)", async () => {
+    const preview = await previewAccreditation(baseCommand(), {
+      referential: {
+        exhibitorId: "exh-1",
+        exhibitorLocationId: "loc-1",
+        locationLabel: "PAN 023",
+        locationSnapshot: { portCode: "PORT_CANTO", sectorCode: "POWER" },
+      },
+    });
+    if (!preview.ok) throw new Error("preview should succeed");
+    expect(preview.exhibitorId).toBe("exh-1");
+    expect(preview.exhibitorLocationId).toBe("loc-1");
+    expect(preview.locationLabel).toBe("PAN 023");
+    expect(preview.locationSnapshot).toEqual({ portCode: "PORT_CANTO", sectorCode: "POWER" });
+
+    const tx = makeFakeTx();
+    await createAccreditationInTransaction(tx as never, preview, {});
+    const data = tx.accreditation.create.mock.calls[0]![0].data;
+    expect(data.exhibitorId).toBe("exh-1");
+    expect(data.exhibitorLocationId).toBe("loc-1");
+    expect(data.locationLabel).toBe("PAN 023");
+    expect(data.locationSnapshot).toEqual({ portCode: "PORT_CANTO", sectorCode: "POWER" });
+  });
+
+  it("figeage référentiel (Phase 4A) : ignore toute tentative d'injection via le payload client (raw.exhibitorId n'est jamais lu)", async () => {
+    const preview = await previewAccreditation(
+      baseCommand({ exhibitorId: "attacker-exhibitor", exhibitorLocationId: "attacker-loc" }),
+      {}
+    );
+    if (!preview.ok) throw new Error("preview should succeed");
+    expect(preview.exhibitorId).toBeNull();
+    expect(preview.exhibitorLocationId).toBeNull();
+  });
+
+  it("figeage référentiel (Phase 4A) : propagé aussi en mode split (par véhicule)", async () => {
+    const preview = await previewAccreditation(baseCommand({ splitPerVehicle: true }), {
+      referential: { exhibitorId: "exh-2", exhibitorLocationId: "loc-2", locationLabel: "FLOT 12" },
+    });
+    if (!preview.ok) throw new Error("preview should succeed");
+    const tx = makeFakeTx();
+    await createAccreditationInTransaction(tx as never, preview, {});
+    const data = tx.accreditation.create.mock.calls[0]![0].data;
+    expect(data.exhibitorId).toBe("exh-2");
+    expect(data.exhibitorLocationId).toBe("loc-2");
+    expect(data.locationLabel).toBe("FLOT 12");
+  });
+
+  it("traçabilité de duplication (Phase 4A) : historique CREATED avec changeReason + diff.sourceAccreditationId quand duplicateSourceAccreditationId est fourni par le contexte serveur", async () => {
+    const preview = await previewAccreditation(baseCommand(), {
+      currentUserId: "u1",
+      currentUserRole: "ADMIN",
+      duplicateSourceAccreditationId: "parent-42",
+    });
+    if (!preview.ok) throw new Error("preview should succeed");
+    const tx = makeFakeTx();
+
+    await createAccreditationInTransaction(tx as never, preview, {
+      currentUserId: "u1",
+      currentUserRole: "ADMIN",
+      duplicateSourceAccreditationId: "parent-42",
+    });
+
+    expect(writeHistoryDirect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accreditationId: "acc-1",
+        action: "CREATED",
+        actorSource: "LOGISTICIEN",
+        changeReason: expect.stringContaining("parent-42"),
+        diff: { channel: "DUPLICATION", sourceAccreditationId: "parent-42" },
+        description: expect.stringContaining("parent-42"),
+      }),
+      tx
+    );
+  });
+
+  it("sans duplicateSourceAccreditationId, l'historique reste une création générique (non-régression)", async () => {
+    const preview = await previewAccreditation(baseCommand(), {});
+    if (!preview.ok) throw new Error("preview should succeed");
+    const tx = makeFakeTx();
+
+    await createAccreditationInTransaction(tx as never, preview, {});
+
+    expect(writeHistoryDirect).toHaveBeenCalledWith(
+      expect.objectContaining({ accreditationId: "acc-1", description: "Accréditation créée" }),
+      tx
+    );
+    const call = (writeHistoryDirect as Mock).mock.calls[0]![0];
+    expect(call.changeReason).toBeUndefined();
+    expect(call.diff).toBeUndefined();
+  });
+
   it("propage une erreur d'écriture Stand : create Accreditation non appelé (rollback attendu)", async () => {
     const preview = await previewAccreditation(baseCommand(), {});
     if (!preview.ok) throw new Error("preview should succeed");

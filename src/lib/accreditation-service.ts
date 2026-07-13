@@ -22,7 +22,7 @@ import { randomBytes } from "crypto";
 import type { ActorSource, EmplacementCategory } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { writeHistoryDirect } from "@/lib/history-server";
-import { createCreatedEntry } from "@/lib/history";
+import { createCreatedEntry, createDuplicatedEntry, type HistoryEntryData } from "@/lib/history";
 import { getTemplate } from "@/templates/accreditation/registry";
 import { suggestZone, buildRxZoneRouting, type RxZoneRouting } from "@/lib/rx-zone-rules";
 import {
@@ -55,6 +55,26 @@ export type AccreditationDb = RxCapacityDb;
 export interface AccreditationServiceContext {
   currentUserId?: string;
   currentUserRole?: "SUPER_ADMIN" | "ADMIN" | "USER";
+  /**
+   * Phase 4A : id de l'accréditation source quand la création provient d'une
+   * duplication. Renseigné UNIQUEMENT par l'appelant serveur (jamais depuis
+   * le payload client) — trace la provenance dans l'historique de création
+   * sans créer de nouvelle table (réutilise `changeReason`/`diff`).
+   */
+  duplicateSourceAccreditationId?: string;
+  /**
+   * Phase 4A : références référentiel à figer sur la nouvelle accréditation.
+   * Renseigné UNIQUEMENT par l'appelant serveur à partir d'une source déjà
+   * contrôlée en accès (ex: accréditation parente d'une duplication) —
+   * jamais lu depuis le payload client `command`, pour éviter qu'un client
+   * injecte un `exhibitorId`/`exhibitorLocationId` arbitraire.
+   */
+  referential?: {
+    exhibitorId?: string | null;
+    exhibitorLocationId?: string | null;
+    locationLabel?: string | null;
+    locationSnapshot?: unknown;
+  };
 }
 
 /** Payload brut — mêmes champs que le body historique de POST /api/accreditations. */
@@ -104,6 +124,12 @@ type PreviewSuccess = {
   quotaCandidates: QuotaCandidate[];
   standSectorHint: string | null;
   resolveVehicleZone: (v: Record<string, unknown>) => string | null;
+  // Phase 4A : figés depuis `context` (jamais depuis le payload client).
+  exhibitorId: string | null;
+  exhibitorLocationId: string | null;
+  locationLabel: string | null;
+  locationSnapshot: unknown;
+  duplicateSourceAccreditationId: string | undefined;
 };
 
 type PreviewFailure = AccreditationServiceError & { ok: false };
@@ -150,6 +176,25 @@ function genPublicToken(): string {
 }
 
 /**
+ * Entrée d'historique de création : trace explicitement la provenance d'une
+ * duplication (id source, `changeReason`, `diff.channel`) plutôt qu'une
+ * simple "Accréditation créée" générique. Réutilise l'action `CREATED`
+ * existante et les colonnes `changeReason`/`diff` déjà présentes sur
+ * `AccreditationHistory` — aucune nouvelle table, aucune migration.
+ */
+function buildCreatedHistoryEntry(
+  accreditationId: string,
+  actorSource: ActorSource,
+  currentUserId: string | undefined,
+  duplicateSourceAccreditationId: string | undefined
+): HistoryEntryData {
+  if (duplicateSourceAccreditationId) {
+    return createDuplicatedEntry(accreditationId, duplicateSourceAccreditationId, currentUserId, actorSource);
+  }
+  return createCreatedEntry(accreditationId, currentUserId, actorSource);
+}
+
+/**
  * Validations + résolutions en lecture, sans écriture DB : template/Zod,
  * organisation/événement, catégorie, zone/famille véhicule, quota candidates.
  */
@@ -157,7 +202,7 @@ export async function previewAccreditation(
   command: AccreditationCommand,
   context: AccreditationServiceContext
 ): Promise<PreviewAccreditationResult> {
-  const { currentUserId, currentUserRole } = context;
+  const { currentUserId, currentUserRole, referential, duplicateSourceAccreditationId } = context;
   const raw = command;
   const { company, stand, unloading, event, message, consent, vehicles, language } = raw;
 
@@ -381,6 +426,11 @@ export async function previewAccreditation(
     quotaCandidates,
     standSectorHint,
     resolveVehicleZone,
+    exhibitorId: referential?.exhibitorId ?? null,
+    exhibitorLocationId: referential?.exhibitorLocationId ?? null,
+    locationLabel: referential?.locationLabel ?? null,
+    locationSnapshot: referential?.locationSnapshot ?? null,
+    duplicateSourceAccreditationId,
   };
 }
 
@@ -436,6 +486,11 @@ export async function createAccreditationInTransaction(
     quotaCandidates,
     standSectorHint,
     resolveVehicleZone,
+    exhibitorId,
+    exhibitorLocationId,
+    locationLabel,
+    locationSnapshot,
+    duplicateSourceAccreditationId,
   } = plan;
 
   // Résolution du Stand : upsert par (organizationId, eventId, number=stand),
@@ -511,13 +566,20 @@ export async function createAccreditationInTransaction(
           currentZone,
           category,
           categorySource,
+          exhibitorId,
+          exhibitorLocationId,
+          locationLabel,
+          locationSnapshot: locationSnapshot === null ? undefined : (locationSnapshot as object),
           vehicles: { create: [buildVehicleCreate(v)] },
           ...zoneMovementCreate,
         },
         select: { id: true },
       });
       createdList.push(c);
-      await writeHistoryDirect(createCreatedEntry(c.id, currentUserId, actorSource), tx);
+      await writeHistoryDirect(
+        buildCreatedHistoryEntry(c.id, actorSource, currentUserId, duplicateSourceAccreditationId),
+        tx
+      );
     }
     return { kind: "split", created: createdList };
   }
@@ -541,12 +603,19 @@ export async function createAccreditationInTransaction(
       currentZone,
       category,
       categorySource,
+      exhibitorId,
+      exhibitorLocationId,
+      locationLabel,
+      locationSnapshot: locationSnapshot === null ? undefined : (locationSnapshot as object),
       vehicles: { create: vehiclesArr.map(buildVehicleCreate) },
       ...zoneMovementCreate,
     },
     include: { vehicles: true },
   });
-  await writeHistoryDirect(createCreatedEntry(created.id, currentUserId, actorSource), tx);
+  await writeHistoryDirect(
+    buildCreatedHistoryEntry(created.id, actorSource, currentUserId, duplicateSourceAccreditationId),
+    tx
+  );
 
   return {
     kind: "single",

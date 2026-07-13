@@ -160,6 +160,16 @@ export function mapRxPayload(
       },
       contact,
       space: form.stepOne.space,
+      // Critères naturels uniquement (jamais l'ID interne) : le serveur
+      // résout lui-même exhibitorId/exhibitorLocationId dans son contexte
+      // organisation/événement. Absent si aucun emplacement n'a été résolu
+      // côté client (fonctionnement legacy inchangé dans ce cas).
+      location: form.stepOne.exhibitorLocationId
+        ? {
+            code: form.stepOne.locationLabel || null,
+            type: (form.stepOne.locationType || null) as "TERRE" | "FLOT" | "STAND" | null,
+          }
+        : undefined,
       categories: form.stepTwo.categories.map((cat) => ({
         ...cat,
         livDate: cat.livDate ?? "",

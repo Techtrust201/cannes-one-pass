@@ -56,6 +56,17 @@ export const rxExtensionSchema = z.object({
     phoneNumber: z.string().min(1),
   }),
   space: z.string().min(1),
+  // Phase 6 — critères naturels de l'emplacement référentiel choisi (jamais
+  // un identifiant interne). Optionnel : absent si aucun emplacement n'a
+  // encore été importé pour cet exposant. Le serveur revérifie et résout
+  // lui-même l'exhibitorId/exhibitorLocationId réels ; ces champs ne sont
+  // jamais utilisés comme source de vérité.
+  location: z
+    .object({
+      code: z.string().nullable().optional(),
+      type: z.enum(["TERRE", "FLOT", "STAND"]).nullable().optional(),
+    })
+    .optional(),
   categories: z
     .array(
       z.object({

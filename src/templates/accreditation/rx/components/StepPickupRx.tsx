@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { formInputCompactClass } from "@/lib/form-styles";
 import PhoneInput from "@/components/ui/PhoneInput";
@@ -11,11 +11,12 @@ import { useVehicleTypes } from "@/hooks/useVehicleTypes";
 import { useTranslation } from "@/components/accreditation/TranslationProvider";
 import {
   RX_SPACES,
-  findCategory,
   genSlots,
   formatSlot,
   isBateauTerreAllowed,
 } from "../config";
+import { applyPlanningOverrides, findCategoryIn } from "../planning-bridge";
+import { useRxPlanningOverrides } from "../use-planning-overrides";
 import {
   getLocalizedCategory,
   getLocalizedVehicleType,
@@ -61,7 +62,29 @@ export function StepPickupRx({
   const skipT = getSkipT(t);
 
   const skipMontage = !!stepTwo.skipMontage;
-  const currentSpace = RX_SPACES[stepOne.space] ?? null;
+  const currentSpaceRaw = RX_SPACES[stepOne.space] ?? null;
+
+  // Phase 6 — Fusion avec le planning DB (démontage), même principe que
+  // StepDeliveryRx : sans effet en mode DISABLED, ignoré si aucun
+  // emplacement référentiel n'a été résolu pour cet exposant.
+  const planningLocation = useMemo(
+    () =>
+      stepOne.exhibitorId && stepOne.exhibitorLocationId
+        ? { exhibitorId: stepOne.exhibitorId, exhibitorLocationId: stepOne.exhibitorLocationId }
+        : null,
+    [stepOne.exhibitorId, stepOne.exhibitorLocationId]
+  );
+  const demontageOverrides = useRxPlanningOverrides({
+    orgSlug,
+    eventSlug: stepOne.event,
+    location: planningLocation,
+    phase: "DEMONTAGE",
+    categoryIds: currentSpaceRaw?.categories.map((c) => c.id) ?? [],
+  });
+  const currentSpace = useMemo(
+    () => applyPlanningOverrides(currentSpaceRaw, demontageOverrides, "rep"),
+    [currentSpaceRaw, demontageOverrides]
+  );
 
   // ── Mutations communes ──────────────────────────────────────────────
   const patchReturn = (catId: string, patch: { repDate?: string; repTime?: string }) => {
@@ -551,7 +574,7 @@ export function StepPickupRx({
 
       <div className="space-y-3">
         {stepTwo.categories.map((cat) => {
-          const def = findCategory(stepOne.space, cat.categoryId);
+          const def = findCategoryIn(currentSpace, cat.categoryId);
           if (!def) return null;
           const localizedDef = getLocalizedCategory(def, t);
           const slots = cat.repDate ? genSlots(def.rep[cat.repDate] ?? "") : [];

@@ -16,6 +16,8 @@ import {
   formatSlot,
   isBateauTerreAllowed,
 } from "../config";
+import { applyPlanningOverrides } from "../planning-bridge";
+import { useRxPlanningOverrides } from "../use-planning-overrides";
 import {
   getLocalizedSpace,
   getLocalizedCategory,
@@ -49,10 +51,33 @@ export function StepDeliveryRx({
   const { types: vehicleTypes, loading: typesLoading } = useVehicleTypes(false, orgSlug);
 
   const needsPalaisChoice = stepOne.space === PALAIS_CHOICE || !stepOne.space;
-  const currentSpace = useMemo(() => {
+  const currentSpaceRaw = useMemo(() => {
     if (needsPalaisChoice) return null;
     return RX_SPACES[stepOne.space] ?? null;
   }, [needsPalaisChoice, stepOne.space]);
+
+  // Phase 6 — Fusion avec le planning DB (uniquement si un emplacement
+  // référentiel a été résolu). Sans effet en mode DISABLED (défaut sur tous
+  // les événements existants) : `/api/planning` renvoie alors `source: "NONE"`
+  // et `applyPlanningOverrides` conserve la donnée statique legacy intacte.
+  const planningLocation = useMemo(
+    () =>
+      stepOne.exhibitorId && stepOne.exhibitorLocationId
+        ? { exhibitorId: stepOne.exhibitorId, exhibitorLocationId: stepOne.exhibitorLocationId }
+        : null,
+    [stepOne.exhibitorId, stepOne.exhibitorLocationId]
+  );
+  const montageOverrides = useRxPlanningOverrides({
+    orgSlug,
+    eventSlug: stepOne.event,
+    location: planningLocation,
+    phase: "MONTAGE",
+    categoryIds: currentSpaceRaw?.categories.map((c) => c.id) ?? [],
+  });
+  const currentSpace = useMemo(
+    () => applyPlanningOverrides(currentSpaceRaw, montageOverrides, "liv"),
+    [currentSpaceRaw, montageOverrides]
+  );
 
   const skipT = getSkipT(t);
 

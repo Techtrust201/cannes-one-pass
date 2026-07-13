@@ -73,6 +73,20 @@ export interface RxFormData {
     exhibitorSector: string;
     /** Espace auto-déduit ou choisi (INTERIEUR_PALAIS, EXTERIEUR_PALAIS, QML, QSP, CANTO_POWER, …). */
     space: string;
+    /**
+     * Phase 6 — Emplacement référentiel (`ExhibitorLocation`) résolu pour cet
+     * exposant. Vide si aucun emplacement n'a encore été importé pour cet
+     * exposant (fonctionnement legacy inchangé dans ce cas : aucun blocage).
+     * Ces champs ne sont JAMAIS envoyés comme identifiant de confiance au
+     * serveur — seuls `locationLabel` (code naturel) et `locationType` sont
+     * transmis ; le serveur revérifie et résout lui-même l'ID réel.
+     */
+    exhibitorLocationId?: string;
+    locationLabel?: string;
+    locationType?: "TERRE" | "FLOT" | "STAND" | "";
+    portCode?: string;
+    sectorCode?: string;
+    logisticSpace?: string;
     contact: RxContactInfo;
   };
   stepTwo: {
@@ -109,6 +123,12 @@ export function getDefaultRxFormData(): RxFormData {
       exhibitorStand: "",
       exhibitorSector: "",
       space: "",
+      exhibitorLocationId: "",
+      locationLabel: "",
+      locationType: "",
+      portCode: "",
+      sectorCode: "",
+      logisticSpace: "",
       contact: {
         firstName: "",
         lastName: "",
@@ -141,6 +161,16 @@ export interface RxExtension {
   };
   contact: RxContactInfo;
   space: string;
+  /**
+   * Emplacement référentiel choisi (critères naturels uniquement — jamais
+   * l'ID interne). Absent si aucun emplacement n'a été importé pour cet
+   * exposant : le serveur ne rattachera alors aucun référentiel (comme
+   * aujourd'hui, sans blocage).
+   */
+  location?: {
+    code: string | null;
+    type: "TERRE" | "FLOT" | "STAND" | null;
+  };
   categories: RxCategorySelection[];
   scalesAssigned: boolean;
   manutentionProvider: string;

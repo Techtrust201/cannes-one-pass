@@ -42,6 +42,14 @@ export interface RxT {
     standNumber: string;
     selectToContinue: string;
     othersSector: string;
+    location: {
+      title: string;
+      chooseHint: string;
+      noneHint: string;
+      typeTerre: string;
+      typeFlot: string;
+      typeStand: string;
+    };
   };
   contact: {
     title: string;
@@ -284,6 +292,14 @@ const fr: RxT = {
     standNumber: "N° de stand",
     selectToContinue: "Sélectionnez votre exposant pour continuer.",
     othersSector: "Autres",
+    location: {
+      title: "Emplacement",
+      chooseHint: "Plusieurs emplacements sont associés à cette société. Sélectionnez le vôtre.",
+      noneHint: "Aucun emplacement référencé pour cette société pour le moment.",
+      typeTerre: "Terre",
+      typeFlot: "Flottant",
+      typeStand: "Stand",
+    },
   },
   contact: {
     title: "Contact du responsable",
@@ -508,6 +524,14 @@ const en: RxT = {
     standNumber: "Stand no.",
     selectToContinue: "Select your exhibitor to continue.",
     othersSector: "Others",
+    location: {
+      title: "Location",
+      chooseHint: "Several locations are associated with this company. Select yours.",
+      noneHint: "No location referenced for this company yet.",
+      typeTerre: "Land",
+      typeFlot: "Floating",
+      typeStand: "Booth",
+    },
   },
   contact: {
     title: "Lead contact",
@@ -713,6 +737,14 @@ const de: RxT = {
     standNumber: "Stand-Nr.",
     selectToContinue: "Wählen Sie Ihren Aussteller, um fortzufahren.",
     othersSector: "Andere",
+    location: {
+      title: "Standort",
+      chooseHint: "Mehrere Standorte sind diesem Unternehmen zugeordnet. Wählen Sie Ihren aus.",
+      noneHint: "Für dieses Unternehmen ist derzeit kein Standort referenziert.",
+      typeTerre: "Land",
+      typeFlot: "Schwimmend",
+      typeStand: "Stand",
+    },
   },
   contact: {
     title: "Verantwortlicher Kontakt",
@@ -895,6 +927,14 @@ const es: RxT = {
     standNumber: "N.º de stand",
     selectToContinue: "Seleccione su expositor para continuar.",
     othersSector: "Otros",
+    location: {
+      title: "Ubicación",
+      chooseHint: "Varias ubicaciones están asociadas a esta empresa. Seleccione la suya.",
+      noneHint: "Ninguna ubicación referenciada para esta empresa por el momento.",
+      typeTerre: "Tierra",
+      typeFlot: "Flotante",
+      typeStand: "Estand",
+    },
   },
   contact: {
     title: "Contacto del responsable",
@@ -1077,6 +1117,14 @@ const pt: RxT = {
     standNumber: "N.º de stand",
     selectToContinue: "Selecione o seu expositor para continuar.",
     othersSector: "Outros",
+    location: {
+      title: "Localização",
+      chooseHint: "Várias localizações estão associadas a esta empresa. Selecione a sua.",
+      noneHint: "Nenhuma localização referenciada para esta empresa por agora.",
+      typeTerre: "Terra",
+      typeFlot: "Flutuante",
+      typeStand: "Stand",
+    },
   },
   contact: {
     title: "Contacto do responsável",
@@ -1259,6 +1307,14 @@ const it: RxT = {
     standNumber: "N. stand",
     selectToContinue: "Seleziona il tuo espositore per continuare.",
     othersSector: "Altri",
+    location: {
+      title: "Posizione",
+      chooseHint: "Più posizioni sono associate a questa azienda. Seleziona la tua.",
+      noneHint: "Nessuna posizione al momento referenziata per questa azienda.",
+      typeTerre: "Terra",
+      typeFlot: "Flottante",
+      typeStand: "Stand",
+    },
   },
   contact: {
     title: "Contatto del responsabile",
@@ -1441,6 +1497,14 @@ const pl: RxT = {
     standNumber: "Nr stoiska",
     selectToContinue: "Wybierz swojego wystawcę, aby kontynuować.",
     othersSector: "Inne",
+    location: {
+      title: "Lokalizacja",
+      chooseHint: "Z tą firmą powiązanych jest kilka lokalizacji. Wybierz swoją.",
+      noneHint: "Brak lokalizacji przypisanej do tej firmy na razie.",
+      typeTerre: "Ląd",
+      typeFlot: "Pływająca",
+      typeStand: "Stoisko",
+    },
   },
   contact: {
     title: "Kontakt osoby odpowiedzialnej",
@@ -1623,6 +1687,14 @@ const cs: RxT = {
     standNumber: "Č. stánku",
     selectToContinue: "Vyberte svého vystavovatele pro pokračování.",
     othersSector: "Ostatní",
+    location: {
+      title: "Umístění",
+      chooseHint: "S touto společností je spojeno více umístění. Vyberte to své.",
+      noneHint: "Pro tuto společnost není zatím uvedeno žádné umístění.",
+      typeTerre: "Pevnina",
+      typeFlot: "Plovoucí",
+      typeStand: "Stánek",
+    },
   },
   contact: {
     title: "Kontakt odpovědné osoby",
@@ -1805,6 +1877,14 @@ const lt: RxT = {
     standNumber: "Stendo nr.",
     selectToContinue: "Pasirinkite savo dalyvį, kad galėtumėte tęsti.",
     othersSector: "Kiti",
+    location: {
+      title: "Vieta",
+      chooseHint: "Su šia įmone susijusios kelios vietos. Pasirinkite savo.",
+      noneHint: "Šiai įmonei kol kas nenurodyta jokia vieta.",
+      typeTerre: "Sausuma",
+      typeFlot: "Plūduriuojanti",
+      typeStand: "Stendas",
+    },
   },
   contact: {
     title: "Atsakingo asmens kontaktas",
@@ -1987,6 +2067,14 @@ const tr: RxT = {
     standNumber: "Stant no.",
     selectToContinue: "Devam etmek için katılımcınızı seçin.",
     othersSector: "Diğer",
+    location: {
+      title: "Konum",
+      chooseHint: "Bu şirketle ilişkili birden fazla konum var. Kendi konumunuzu seçin.",
+      noneHint: "Bu şirket için şu anda referans gösterilen bir konum yok.",
+      typeTerre: "Kara",
+      typeFlot: "Yüzer",
+      typeStand: "Stant",
+    },
   },
   contact: {
     title: "Sorumlu iletişim kişisi",
@@ -2169,6 +2257,14 @@ const ru: RxT = {
     standNumber: "№ стенда",
     selectToContinue: "Выберите вашего экспонента, чтобы продолжить.",
     othersSector: "Другие",
+    location: {
+      title: "Расположение",
+      chooseHint: "С этой компанией связано несколько объектов. Выберите свой.",
+      noneHint: "Для этой компании пока не указано ни одного объекта.",
+      typeTerre: "Суша",
+      typeFlot: "Плавучий",
+      typeStand: "Стенд",
+    },
   },
   contact: {
     title: "Контакт ответственного",

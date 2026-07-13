@@ -19,6 +19,21 @@ interface ExhibitorOption {
   zone: string | null;
 }
 
+interface LocationOption {
+  id: string;
+  type: "TERRE" | "FLOT" | "STAND";
+  code: string;
+  portCode: string | null;
+  sectorCode: string | null;
+  logisticSpace: string | null;
+}
+
+const LOCATION_TYPE_LABEL_KEY: Record<LocationOption["type"], "typeTerre" | "typeFlot" | "typeStand"> = {
+  TERRE: "typeTerre",
+  FLOT: "typeFlot",
+  STAND: "typeStand",
+};
+
 /**
  * Step 1 RX — Sélection de l'événement puis de l'exposant.
  *
@@ -44,6 +59,9 @@ export function StepExhibitorRx({
   const [exhibitors, setExhibitors] = useState<ExhibitorOption[]>([]);
   const [loadingExhibitors, setLoadingExhibitors] = useState(false);
   const [noEvents, setNoEvents] = useState(false);
+  const [locations, setLocations] = useState<LocationOption[]>([]);
+  const [loadingLocations, setLoadingLocations] = useState(false);
+  const [locationsFetchedForId, setLocationsFetchedForId] = useState<string | null>(null);
   const [query, setQuery] = useState(
     stepOne.exhibitorName
       ? `${stepOne.exhibitorName} · ${stepOne.exhibitorStand}`
@@ -81,6 +99,77 @@ export function StepExhibitorRx({
     stepThree: { manutentionProvider: "", scalesAcknowledged: false, consent: false },
   };
 
+  // Champs référentiel vides — utilisés à chaque changement d'exposant, pour
+  // ne jamais reporter l'emplacement d'un exposant précédent.
+  const EMPTY_LOCATION_FIELDS = {
+    exhibitorLocationId: "",
+    locationLabel: "",
+    locationType: "" as const,
+    portCode: "",
+    sectorCode: "",
+    logisticSpace: "",
+  };
+
+  // Phase 6 — Chargement des emplacements (`ExhibitorLocation`) de l'exposant
+  // sélectionné. Purement additif : si aucun emplacement n'a encore été
+  // importé pour cet exposant (fonctionnement legacy, avant cutover Phase 9),
+  // la liste reste vide et le formulaire continue de fonctionner exactement
+  // comme aujourd'hui (aucun blocage, aucun stand inventé).
+  useEffect(() => {
+    if (!stepOne.exhibitorId || !stepOne.event) {
+      setLocations([]);
+      setLocationsFetchedForId(null);
+      return;
+    }
+    let cancelled = false;
+    setLoadingLocations(true);
+    fetch(
+      `/api/exhibitors/${encodeURIComponent(stepOne.exhibitorId)}/locations?orgSlug=${encodeURIComponent(orgSlug)}&eventSlug=${encodeURIComponent(stepOne.event)}`
+    )
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d: LocationOption[]) => {
+        if (cancelled) return;
+        const list = Array.isArray(d) ? d : [];
+        setLocations(list);
+        setLocationsFetchedForId(stepOne.exhibitorId);
+        // Auto-sélection si un seul emplacement actif référencé.
+        if (list.length === 1 && !stepOne.exhibitorLocationId) {
+          const loc = list[0];
+          update({
+            stepOne: {
+              ...stepOne,
+              exhibitorLocationId: loc.id,
+              locationLabel: loc.code,
+              locationType: loc.type,
+              portCode: loc.portCode ?? "",
+              sectorCode: loc.sectorCode ?? "",
+              logisticSpace: loc.logisticSpace ?? "",
+            },
+          });
+        }
+      })
+      .catch(() => !cancelled && setLocations([]))
+      .finally(() => !cancelled && setLoadingLocations(false));
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orgSlug, stepOne.event, stepOne.exhibitorId]);
+
+  const selectLocation = (loc: LocationOption) => {
+    update({
+      stepOne: {
+        ...stepOne,
+        exhibitorLocationId: loc.id,
+        locationLabel: loc.code,
+        locationType: loc.type,
+        portCode: loc.portCode ?? "",
+        sectorCode: loc.sectorCode ?? "",
+        logisticSpace: loc.logisticSpace ?? "",
+      },
+    });
+  };
+
   // Changement d'événement via le carrousel : on réinitialise l'exposant
   // sélectionné (et l'aval) uniquement si un exposant était réellement choisi,
   // afin de ne pas perturber l'auto-sélection initiale ni la restauration d'un
@@ -100,6 +189,7 @@ export function StepExhibitorRx({
           exhibitorStand: "",
           exhibitorSector: "",
           space: "",
+          ...EMPTY_LOCATION_FIELDS,
         },
         ...RESET_DOWNSTREAM,
       });
@@ -118,6 +208,7 @@ export function StepExhibitorRx({
           exhibitorStand: "",
           exhibitorSector: "",
           space: "",
+          ...EMPTY_LOCATION_FIELDS,
         },
         ...RESET_DOWNSTREAM,
       });
@@ -132,6 +223,9 @@ export function StepExhibitorRx({
         exhibitorStand: ex.stand,
         exhibitorSector: ex.sector ?? "",
         space: derived.requiresUserChoice ? derived.space ?? "" : derived.space ?? "",
+        // Emplacement vidé : rechargé par l'effet ci-dessous pour ce nouvel
+        // exposant (auto-sélection ou choix explicite).
+        ...EMPTY_LOCATION_FIELDS,
       },
       ...RESET_DOWNSTREAM,
     });
@@ -166,7 +260,16 @@ export function StepExhibitorRx({
     return out;
   }, [exhibitors, query, stepOne.exhibitorId, t.rx.exhibitor.othersSector]);
 
-  const isValid = !!stepOne.event && !!stepOne.exhibitorId;
+  // Si plusieurs emplacements existent réellement pour cet exposant (donnée
+  // désambiguïsée requise), le choix devient obligatoire pour continuer. Si
+  // aucun emplacement n'est référencé (0), on ne bloque jamais : c'est le
+  // fonctionnement legacy actuel (avant import référentiel/cutover Phase 9).
+  const locationChoicePending =
+    locationsFetchedForId === stepOne.exhibitorId &&
+    locations.length > 1 &&
+    !stepOne.exhibitorLocationId;
+
+  const isValid = !!stepOne.event && !!stepOne.exhibitorId && !locationChoicePending;
   useEffect(() => {
     onValidityChange(isValid);
   }, [isValid, onValidityChange]);
@@ -299,6 +402,49 @@ export function StepExhibitorRx({
           </div>
         </div>
       )}
+
+      {/* Phase 6 — Choix de l'emplacement référentiel (additif, jamais
+          bloquant si aucune donnée n'existe encore). */}
+      {stepOne.exhibitorId && !loadingLocations && locations.length > 1 && (
+        <div className="space-y-2">
+          <label className={formLabelClass}>
+            {t.rx.exhibitor.location.title} <span className="text-red-500">*</span>
+          </label>
+          <p className="text-xs text-gray-500">{t.rx.exhibitor.location.chooseHint}</p>
+          <div className="space-y-1.5">
+            {locations.map((loc) => (
+              <button
+                type="button"
+                key={loc.id}
+                onClick={() => selectLocation(loc)}
+                className={cn(
+                  "w-full flex items-center justify-between gap-2 rounded-lg border-2 p-3 text-left transition",
+                  stepOne.exhibitorLocationId === loc.id
+                    ? "border-primary bg-primary/5"
+                    : "border-gray-200 hover:border-gray-300 bg-white"
+                )}
+              >
+                <span className="text-sm font-semibold text-gray-800">{loc.code}</span>
+                <span className="shrink-0 flex items-center gap-2 text-[11px] font-semibold text-gray-600">
+                  <span className="bg-gray-100 rounded-full px-2 py-0.5">
+                    {t.rx.exhibitor.location[LOCATION_TYPE_LABEL_KEY[loc.type]]}
+                  </span>
+                  {loc.portCode && (
+                    <span className="bg-gray-100 rounded-full px-2 py-0.5">{loc.portCode}</span>
+                  )}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {stepOne.exhibitorId &&
+        !loadingLocations &&
+        locationsFetchedForId === stepOne.exhibitorId &&
+        locations.length === 0 && (
+          <p className="text-xs text-gray-400 italic">{t.rx.exhibitor.location.noneHint}</p>
+        )}
 
       {!isValid && stepOne.event && (
         <p className="text-gray-400 text-xs text-center">

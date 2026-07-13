@@ -3,9 +3,15 @@ import { parse } from "csv-parse/sync";
 import prisma from "@/lib/prisma";
 import { requirePermission, getAccessibleEventIds } from "@/lib/auth-helpers";
 import { validateCsvRecords, type CsvRowError, type CsvValidRow } from "@/lib/csv-import";
-import { writeHistoryDirect } from "@/lib/history-server";
-import { CSV_TO_ENUM, deriveCategory } from "@/lib/category-rules";
 import { getDefaultVehicleTypesForScope } from "@/lib/vehicle-type-defaults";
+import {
+  previewAccreditation,
+  createAccreditationInTransaction,
+  type AccreditationCommand,
+  type AccreditationServiceContext,
+  type AccreditationDb,
+  type PreviewAccreditationResult,
+} from "@/lib/accreditation-service";
 
 function handleAuthError(error: unknown) {
   if (error instanceof Response)
@@ -19,7 +25,17 @@ function handleAuthError(error: unknown) {
 /**
  * POST /api/admin/accreditations/import
  *
- * Multipart : field "file" contient le CSV à importer.
+ * Route LEGACY (multi-événement par fichier, format historique — un
+ * `eventSlug` par ligne). Conservée comme ADAPTATEUR : cette route ne crée
+ * plus JAMAIS d'accréditation directement via Prisma. Chaque ligne passe par
+ * le MÊME moteur unique (`previewAccreditation` + `createAccreditationInTransaction`)
+ * que le formulaire public, le back-office, la duplication et le nouveau
+ * centre d'import (`/api/admin/import/accreditations`).
+ *
+ * Contrairement à la nouvelle route, aucun e-mail n'est envoyé ici — ce
+ * comportement (déjà celui de l'ancienne implémentation avant Phase 4B) est
+ * préservé pour ne pas changer le contrat observable de cette route legacy.
+ *
  * Query param "commit=true" pour appliquer réellement l'import (sinon dry-run).
  *
  * Réponse :
@@ -96,6 +112,12 @@ export async function POST(req: NextRequest) {
         });
   const slugToId = new Map(accessibleEvents.map((e) => [e.slug, e.id]));
   const accessibleSlugs = new Set(slugToId.keys());
+  // Organisation (slug) propriétaire de chaque event — jamais lue depuis le
+  // fichier : sert uniquement à sélectionner le bon template (Palais/RX)
+  // pour le moteur unique.
+  const orgSlugByEventSlug = new Map(
+    accessibleEvents.map((e) => [e.slug, e.organization?.slug ?? "palais"])
+  );
 
   // Codes de gabarits valides par organisation présente dans les events.
   const orgIds = Array.from(
@@ -169,12 +191,69 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Commit en transaction : toutes les accréditations ou aucune
+  // ── Moteur unique : preview HORS transaction (lectures), puis écriture
+  // dans UNE transaction partagée par toutes les lignes (comportement
+  // atomique inchangé : tout ou rien). Aucun `tx.accreditation.create` ici.
+  const plans: { row: CsvValidRow; preview: PreviewAccreditationResult; context: AccreditationServiceContext }[] = [];
+  for (const row of report.rows) {
+    const organizationSlug = orgSlugByEventSlug.get(row.eventSlug) ?? "palais";
+    const command: AccreditationCommand = {
+      organizationSlug,
+      company: row.company,
+      stand: row.stand,
+      unloading: row.unloading.length === 2 ? "lat+rear" : row.unloading[0],
+      event: row.eventSlug,
+      email: row.email,
+      consent: true,
+      category: row.category ?? undefined,
+      vehicles: [
+        {
+          plate: row.vehiclePlate,
+          size: row.vehicleSize,
+          phoneCode: row.phoneCode,
+          phoneNumber: row.phoneNumber,
+          date: row.date,
+          time: row.time,
+          city: row.city,
+          unloading: row.unloading,
+          vehicleType: row.vehicleSize,
+        },
+      ],
+    };
+    const context: AccreditationServiceContext = {
+      channel: "CSV_IMPORT",
+      importMode: "PENDING",
+      currentUserId,
+    };
+    const preview = await previewAccreditation(command, context);
+    plans.push({ row, preview, context });
+  }
+
+  const previewFailure = plans.find((p) => !p.preview.ok);
+  if (previewFailure && !previewFailure.preview.ok) {
+    return Response.json(
+      {
+        ok: false,
+        totalLines: report.totalLines,
+        errors: [
+          {
+            line: previewFailure.row.line,
+            column: "_row" as const,
+            reason: `${previewFailure.preview.code ?? "ENGINE_VALIDATION_ERROR"}: ${previewFailure.preview.error}`,
+          },
+        ],
+        preview: [],
+      },
+      { status: 422 }
+    );
+  }
+
   let imported = 0;
   try {
     await prisma.$transaction(async (tx) => {
-      for (const row of report.rows) {
-        await createAccreditationFromCsvRow(tx, row, slugToId, currentUserId!);
+      for (const plan of plans) {
+        if (!plan.preview.ok) continue; // deja garde par le controle ci-dessus
+        await createAccreditationInTransaction(tx as unknown as AccreditationDb, plan.preview, plan.context);
         imported++;
       }
     });
@@ -204,71 +283,4 @@ export async function POST(req: NextRequest) {
     imported,
     errors: [],
   });
-}
-
-async function createAccreditationFromCsvRow(
-  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
-  row: CsvValidRow,
-  slugToId: Map<string, string>,
-  userId: string
-) {
-  const eventId = slugToId.get(row.eventSlug)!;
-
-  // Catégorie : override CSV si fournie, sinon déduction auto, sinon null
-  let category = row.category ? CSV_TO_ENUM[row.category] ?? null : null;
-  let categorySource: "CSV_IMPORT" | "AUTO_DEDUCTION" | null = category
-    ? "CSV_IMPORT"
-    : null;
-  if (!category) {
-    const derived = deriveCategory({ stand: row.stand });
-    if (derived) {
-      category = derived;
-      categorySource = "AUTO_DEDUCTION";
-    }
-  }
-
-  const created = await tx.accreditation.create({
-    data: {
-      company: row.company,
-      stand: row.stand,
-      event: row.eventSlug,
-      eventId,
-      unloading: row.unloading.length === 2 ? "lat+rear" : row.unloading[0],
-      email: row.email,
-      status: "NOUVEAU",
-      consent: true,
-      category,
-      categorySource,
-      vehicles: {
-        create: [
-          {
-            plate: row.vehiclePlate,
-            size: row.vehicleSize,
-            phoneCode: row.phoneCode,
-            phoneNumber: row.phoneNumber,
-            date: row.date,
-            time: row.time,
-            city: row.city,
-            unloading: JSON.stringify(row.unloading),
-            vehicleType: row.vehicleSize,
-          },
-        ],
-      },
-    },
-  });
-
-  await writeHistoryDirect(
-    {
-      accreditationId: created.id,
-      action: "CREATED",
-      description: `Accréditation créée via import CSV (ligne ${row.line})`,
-      userId,
-      actorSource: "CSV_IMPORT",
-      changeReason: `Import CSV, ligne ${row.line}`,
-      diff: { after: { ...row } },
-    },
-    tx as unknown as typeof prisma
-  );
-
-  return created;
 }

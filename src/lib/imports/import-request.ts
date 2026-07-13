@@ -37,8 +37,20 @@ export interface ImportRequestContext {
 }
 
 /**
+ * Variante pour les profils dont le modele cible n'a PAS de `eventId`
+ * (Zones, Types de vehicules — Phase 5) : l'evenement reste optionnel, et
+ * n'est valide contre l'organisation QUE s'il est fourni.
+ */
+export interface ImportRequestContextOptionalEvent
+  extends Omit<ImportRequestContext, "eventId"> {
+  eventId: string | null;
+}
+
+/**
  * Parse et securise une requete d'import multipart.
- * Champs attendus : `file`, `organizationId`, `eventId`.
+ * Champs attendus : `file`, `organizationId`, `eventId` (obligatoire par
+ * defaut ; facultatif si `options.requireEvent === false`, pour les profils
+ * dont le modele cible n'a pas de `eventId` — ex: Zones, Types de vehicules).
  * Query : `commit=true` (defaut dry-run), `mode=FUSION|REPLACE` (defaut FUSION),
  * `format=canonical|rx` (defaut canonical).
  *
@@ -50,19 +62,30 @@ export interface ImportRequestContext {
 export async function parseImportRequest(
   req: NextRequest,
   feature: Feature
-): Promise<ImportRequestContext> {
+): Promise<ImportRequestContext>;
+export async function parseImportRequest(
+  req: NextRequest,
+  feature: Feature,
+  options: { requireEvent: false }
+): Promise<ImportRequestContextOptionalEvent>;
+export async function parseImportRequest(
+  req: NextRequest,
+  feature: Feature,
+  options?: { requireEvent?: boolean }
+): Promise<ImportRequestContext | ImportRequestContextOptionalEvent> {
+  const requireEvent = options?.requireEvent ?? true;
   const session = await requirePermission(req, feature, "write");
   const userId = session.user.id;
 
   const form = await req.formData();
   const file = form.get("file");
   const organizationId = String(form.get("organizationId") ?? "").trim();
-  const eventId = String(form.get("eventId") ?? "").trim();
+  const eventIdRaw = String(form.get("eventId") ?? "").trim();
 
   if (!organizationId) {
     throw new Response("Champ 'organizationId' manquant", { status: 400 });
   }
-  if (!eventId) {
+  if (requireEvent && !eventIdRaw) {
     throw new Response("Champ 'eventId' manquant", { status: 400 });
   }
   if (!(file instanceof File)) {
@@ -75,7 +98,11 @@ export async function parseImportRequest(
     throw new Response("Organisation hors de votre perimetre", { status: 403 });
   }
   // Coherence event <-> organisation (leve une Response 400 si incoherent).
-  await assertEventBelongsToOrg(eventId, organizationId);
+  // Si l'event est facultatif pour ce profil et absent, aucune validation
+  // n'est faite (rien a valider) — jamais de resolution silencieuse.
+  if (eventIdRaw) {
+    await assertEventBelongsToOrg(eventIdRaw, organizationId);
+  }
 
   // Gardes fichier (taille / MIME / vide).
   const guardErrors = checkUploadGuards({ size: file.size, type: file.type, name: file.name });
@@ -97,7 +124,7 @@ export async function parseImportRequest(
   return {
     userId,
     organizationId,
-    eventId,
+    eventId: requireEvent ? eventIdRaw : eventIdRaw || null,
     fileName: file.name,
     mimeType: file.type,
     fileBuffer,

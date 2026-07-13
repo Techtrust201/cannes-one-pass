@@ -1,0 +1,3 @@
+CODE,LABEL,ADDRESS,LATITUDE,LONGITUDE,IS FINAL DESTINATION,COLOR,IS ACTIVE,READER NAME,READER URL,READER ACTIVE
+LA_BOCCA,La Bocca,"12 Avenue de la Bocca, Cannes",43.5461,7.0128,false,orange,true,,,false
+PALAIS,Palais des Festivals,"1 Bd de la Croisette, Cannes",43.5497,7.0174,true,purple,true,Lecteur entree Palais,https://reader.exemple.test/palais,true

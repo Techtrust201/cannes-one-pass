@@ -4,21 +4,29 @@ Statut : ce document décrit la procédure **prévue** pour la Phase 9. Aucune
 étape de ce document n'a été exécutée. La Phase 9 ne sera engagée qu'après
 validation explicite et finale du porteur du projet, quoi qu'il arrive.
 
-⛔ **Interdiction explicite actuelle** : la Phase 9 est interdite tant que
-le lot serveur **6C-B** (validation planning + résolution référentielle
-hybride dans `accreditation-service.ts` — décisions D1/D2/D3, cf. audit
-Phase 6-7-8) n'est pas livré ET revu. Le lot 6C-A (client/formulaire) livré
-ne suffit pas : voir `docs/imports/PLANNING_RUNTIME.md` §5 pour l'état exact
-du rattachement référentiel serveur actuel (non conforme à D2/D3).
+✅ **Lots 6C-A (client/formulaire) et 6C-B (validation serveur — D1/D2/D3)
+livrés, testés et commités.** Les quatre canaux de création
+(public/back-office, duplication, import unifié, import legacy) passent
+exclusivement par le moteur unique avec référentiel revalidé (D2) et double
+revalidation planning preview + transaction (D3) — cf.
+`docs/imports/PLANNING_RUNTIME.md` §5.
+
+⛔ **La Phase 9 reste interdite** tant que la recette opérationnelle avec
+données réelles (import référentiel/planning réel en dry-run, bascule
+progressive `DISABLED` → `TRANSITION` → `STRICT` observée en conditions
+réelles) n'a pas été menée et validée par le porteur du projet, quoi qu'il
+arrive.
 
 ## 1. Pré-requis (doivent tous être vrais avant d'envisager le cutover)
 
-- [ ] Phases 0 à 8 committées et poussées, CI verte (typecheck, lint, tests,
-      build).
-- [ ] Lot 6C-A (client/formulaire) revu et committé.
-- [ ] Lot 6C-B (validation serveur — D1/D2/D3) implémenté, testé sur tous
-      les canaux (public, back-office, import, duplication) et committé.
-- [ ] `docs/rx/PRE_CUTOVER_ACCEPTANCE.md` entièrement rempli et validé.
+- [x] Phases 0 à 8 (code) committées et poussées, CI verte (typecheck, lint,
+      tests, build).
+- [x] Lot 6C-A (client/formulaire) revu et committé.
+- [x] Lot 6C-B (validation serveur — D1/D2/D3) implémenté, testé sur tous
+      les canaux (public, back-office, import unifié, import legacy,
+      duplication) et committé.
+- [ ] `docs/rx/PRE_CUTOVER_ACCEPTANCE.md` entièrement rempli et validé
+      (recette opérationnelle avec données réelles, hors périmètre code).
 - [ ] Sauvegarde Neon récente confirmée (export ou snapshot daté), en dehors
       de ce dépôt.
 - [ ] Credentials Neon/Supabase régénérés et à jour dans Vercel (suivi hors

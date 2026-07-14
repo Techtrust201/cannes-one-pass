@@ -31,6 +31,7 @@ import { sendAccreditationCreationEmail } from "@/lib/accreditation-creation-ema
 import {
   createAccreditationInTransaction,
   CapacityQuotaError,
+  RxServerValidationError,
   type AccreditationDb,
 } from "@/lib/accreditation-service";
 import {
@@ -80,7 +81,7 @@ export interface AccreditationsCommitSuccess {
 export interface AccreditationsCommitFailure {
   ok: false;
   batchId: string;
-  status: 409 | 500;
+  status: 400 | 409 | 503 | 500;
   code?: string;
   error: string;
   details?: unknown;
@@ -169,6 +170,25 @@ export async function commitAccreditationsBatch(
         ok: false,
         batchId: batch.id,
         status: 409,
+        code: err.code,
+        error: err.message,
+        details: err.details,
+      };
+    }
+    // Phase 6C-B-4 — revalidation référentiel/planning RX échouée AU COMMIT
+    // (drift depuis le preview : ex. emplacement désactivé, planning modifié
+    // entre-temps). Rollback complet déjà garanti (exception propagée hors de
+    // `$transaction`) ; code/statut structuré préservé (jamais un 500 générique
+    // pour une incohérence métier connue).
+    if (err instanceof RxServerValidationError) {
+      await failImportBatch(db, batch.id, {
+        errorCount: linePlans.length,
+        summary: { code: err.code, reason: err.message, details: err.details },
+      });
+      return {
+        ok: false,
+        batchId: batch.id,
+        status: err.status,
         code: err.code,
         error: err.message,
         details: err.details,

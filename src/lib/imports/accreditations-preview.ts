@@ -478,6 +478,18 @@ export async function previewAccreditationsBatch(
         ? buildRxCommand(row, ctx, resolution as ReferentialResolutionSuccess)
         : buildPalaisCommand(row, ctx, resolution);
 
+    // Phase 6C-B-4 — `referentialInput` (RX uniquement) : l'exposant/emplacement
+    // DÉJÀ résolu ci-dessus par `resolveRowReferential` (critères naturels du
+    // fichier — externalReference/nom/code, jamais un UUID désérialisé) est
+    // transmis comme INDICATION au moteur unique, qui le REVÉRIFIE intégralement
+    // (`resolveTrustedAccreditationReferential` : actif, même organisation/
+    // événement) — À LA FOIS ici (preview, `prisma`) ET À NOUVEAU au commit
+    // (transaction, `tx`, cf. `createAccreditationInTransaction`). Protège
+    // contre un exposant/emplacement désactivé entre le preview et le commit
+    // d'un gros lot (TOCTOU) sans dupliquer la résolution naturelle déjà
+    // effectuée par `resolveRowReferential` (spécifique aux fichiers d'import,
+    // qui ne transmettent jamais d'UUID — la mandat-obligation RX/Palais reste
+    // gérée exclusivement par `resolveRowReferential` ci-dessus, inchangée).
     const context: AccreditationServiceContext = {
       channel: "CSV_IMPORT",
       importMode: ctx.importMode,
@@ -491,6 +503,13 @@ export async function previewAccreditationsBatch(
             locationSnapshot: resolution.locationSnapshot,
           }
         : undefined,
+      referentialInput:
+        ctx.template === "rx" && resolution
+          ? {
+              exhibitorId: resolution.exhibitorId,
+              exhibitorLocationId: resolution.exhibitorLocationId,
+            }
+          : undefined,
     };
 
     const preview = await previewAccreditation(command, context);

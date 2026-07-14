@@ -2,10 +2,10 @@
 
 Statut : Phase 6 corrigée côté **client/formulaire** par le lot 6C-A
 (emplacement/espace effectifs, hook planning structuré, garde plages
-disjointes — voir section 4 et 7). **La revalidation planning côté serveur
-(`accreditation-service.ts`, D1/D2/D3) n'est PAS encore livrée (lot 6C-B) :
-tant qu'elle ne l'est pas, la Phase 6 n'est pas considérée comme terminée**
-(cf. `docs/rx/PRE_CUTOVER_ACCEPTANCE.md`). Ce document décrit le
+disjointes — voir section 4 et 7) **ET côté serveur** par le lot 6C-B
+(référentiel fiable D2 + double revalidation planning D3, branchés dans les
+quatre canaux de création — formulaire public/back-office, duplication,
+import unifié, import legacy — voir section 5). Ce document décrit le
 fonctionnement réel du pont entre le planning importé en base
 (`LogisticsPlanning`) et les formulaires publics RX (montage/démontage).
 Aucun comportement Palais n'est concerné par cette phase.
@@ -112,44 +112,71 @@ sont **jamais** traités de la même façon en `STRICT`.
   partir d'une erreur technique.
 - `DISABLED` → aucun appel réseau n'est émis (`loading=false` immédiatement).
 
-⚠️ Ce comportement ne concerne que l'**affichage** côté client. Voir
-section 5 : la création serveur (`POST /api/accreditations`) ne revalide pas
-encore le planning au moment du commit (lot 6C-B, non livré) — un incident
-réseau côté client en `TRANSITION` peut donc laisser l'utilisateur soumettre
-un créneau legacy sans qu'une revalidation serveur ne le confirme.
+⚠️ Ce comportement ne concerne que l'**affichage** côté client, une aide à la
+saisie — jamais une source de confiance. Voir section 5 : depuis le lot
+6C-B, la création serveur revalide intégralement le référentiel ET le
+planning au moment du commit, quel que soit ce que l'affichage client a pu
+montrer.
 
-## 5. Rattachement référentiel à la création (`POST /api/accreditations`)
+## 5. Référentiel et planning revalidés côté serveur (lot 6C-B)
 
-⚠️ **État actuel, non conforme aux décisions D2/D3 — en attente du lot
-6C-B.** Indépendamment de l'affichage des créneaux, la création publique RX
-tente de résoudre `exhibitorId`/`exhibitorLocationId`/`locationLabel`/
-`locationSnapshot` via `resolveReferential` (même moteur que l'import CSV et
-la duplication), à partir du **nom d'exposant** et du **code d'emplacement
-naturel** envoyés par le client.
+Depuis le lot 6C-B, **les quatre canaux de création** (formulaire
+public/back-office `POST /api/accreditations`, duplication
+`POST /api/accreditations/[id]/duplicate`, import unifié
+`POST /api/admin/import/accreditations`, import legacy
+`POST /api/admin/accreditations/import`) passent EXCLUSIVEMENT par le moteur
+unique `accreditation-service.ts` (`previewAccreditation` +
+`createAccreditationInTransaction`) — aucun canal n'écrit
+`accreditation.create` directement, aucune logique de validation dupliquée.
 
-- Échec de résolution (ambigu, introuvable) → `referential = undefined`,
-  la création se poursuit normalement (`exhibitorId`/`exhibitorLocationId`
-  restent `null`, comportement legacy).
-- Organisation ≠ `rx` (ex. Palais) → aucune tentative de résolution.
-- Toute erreur (Prisma, réseau) est absorbée : elle ne fait jamais échouer
-  la création de l'accréditation.
-- **Le lot 6C-B introduira** la résolution hybride décrite en D2 (UUID
-  client re-vérifiés côté serveur — organisation, événement, `isActive`,
-  relation emplacement→exposant — avec refus contrôlé en
-  `TRANSITION`/`STRICT` si l'UUID fourni est incohérent) ainsi que la
-  double revalidation planning décrite en D3 (`previewAccreditation` ET
-  `createAccreditationInTransaction`). Aucun de ces deux points n'est encore
-  implémenté à ce stade.
+- **D2 — Référentiel fiable** (`resolveTrustedAccreditationReferential`,
+  `src/lib/accreditation-referential.ts`) : tout `exhibitorId`/
+  `exhibitorLocationId` transmis (client ou canal serveur) n'est qu'une
+  INDICATION, systématiquement rechargée et revérifiée (organisation,
+  événement, `isActive`, relation emplacement→exposant). En
+  `TRANSITION`/`STRICT`, une incohérence (inactif, hors périmètre,
+  introuvable) est un refus contrôlé (409, messages anti-IDOR uniformes,
+  jamais de résolution silencieuse sur un tiers). En `DISABLED`, un
+  identifiant incohérent est ignoré (repli best-effort, y compris un
+  snapshot historique pour la duplication) — comportement legacy inchangé.
+- **D3 — Double revalidation planning** (`validateAccreditationPlanning`,
+  `src/lib/accreditation-planning-validation.ts`) : `extension.categories[]`
+  (jamais les `vehicles[]` racine, manipulables côté client) est validé
+  DEUX FOIS — une première fois au preview (lecture), une seconde fois DANS
+  la transaction de commit (avec le `logisticsPlanningMode` rechargé à cet
+  instant). Un planning modifié entre le preview et le commit (règle
+  supprimée, emplacement désactivé) fait échouer/rollback le commit — jamais
+  de création avec des données périmées.
+- **Quotas réalignés** : en `TRANSITION`/`STRICT`, les candidats de quota
+  sont calculés depuis la projection canonique `PlanningPhaseEntry`
+  (dérivée d'`extension.categories[]` validé), pas depuis les `vehicles[]`
+  racine.
+- **Erreurs structurées** : `RxServerValidationError` (400/409/503) et
+  `CapacityQuotaError` (409) conservent leur `code`/`status` jusqu'à la
+  réponse HTTP sur les quatre canaux — jamais un 500 générique pour une
+  incohérence métier déjà identifiée.
+- **Duplication** : en `DISABLED`, le snapshot référentiel de la source est
+  préservé (FK nulles autorisées, aucune rupture des accréditations
+  historiques) ; en `TRANSITION`/`STRICT`, l'exposant ET l'emplacement
+  ACTUELS du parent sont revalidés contre les règles ACTUELLES de
+  l'événement — jamais celles en vigueur à la création de la source.
+- **Import (unifié et legacy)** : le référentiel déjà résolu par le
+  résolveur naturel propre aux fichiers (`accreditations-referential-resolver.ts`,
+  jamais dupliqué) est transmis comme indication au moteur pour revalidation
+  — protection contre un exposant/emplacement désactivé entre le preview et
+  le commit d'un gros lot.
 
-## 6. Ce que le lot 6C-A (client/formulaire) ne fait PAS
+## 6. Ce que les lots 6C-A/6C-B ne font PAS
 
-- Ne modifie aucune donnée en base.
-- Ne bascule aucun `Event.logisticsPlanningMode` en production.
-- Ne supprime pas `planning-data.ts` (repli legacy toujours actif).
-- Ne modifie pas le formulaire Palais (aucun fichier
-  `templates/accreditation/palais/*` touché).
-- Ne touche pas à `accreditation-service.ts` ni à la validation planning
-  côté serveur (D1/D2/D3, lot 6C-B, non commencé).
+- Ne modifient aucune donnée en base au-delà des accréditations créées via
+  le moteur unique.
+- Ne basculent aucun `Event.logisticsPlanningMode` en production (opération
+  manuelle, hors périmètre).
+- Ne suppriment pas `planning-data.ts` (repli legacy toujours actif en
+  `DISABLED`/`TRANSITION`).
+- Ne modifient pas le formulaire Palais ni son moteur de validation (aucun
+  fichier `templates/accreditation/palais/*` touché ; `previewAccreditation`
+  ne déclenche la revalidation RX que pour `organizationSlug === "rx"`).
 
 ## 7. Garde plages horaires disjointes (`PLANNING_DISJOINT_RANGES`)
 

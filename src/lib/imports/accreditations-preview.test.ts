@@ -24,6 +24,10 @@ vi.mock("@/lib/prisma", () => {
     organization: { findUnique: vi.fn(), findFirst: vi.fn() },
     event: { findUnique: vi.fn() },
     vehicleTypeConfig: { findMany: vi.fn() },
+    // Phase 6C-B-4 : revalidation référentielle/planning RX (previewAccreditation).
+    exhibitor: { findUnique: vi.fn(), findMany: vi.fn() },
+    exhibitorLocation: { findUnique: vi.fn(), findMany: vi.fn() },
+    logisticsPlanning: { findMany: vi.fn() },
     $transaction: vi.fn(),
   };
   return { prisma: prismaMock, default: prismaMock };
@@ -58,6 +62,9 @@ type MockedPrisma = {
   organization: { findUnique: Mock; findFirst: Mock };
   event: { findUnique: Mock };
   vehicleTypeConfig: { findMany: Mock };
+  exhibitor: { findUnique: Mock; findMany: Mock };
+  exhibitorLocation: { findUnique: Mock; findMany: Mock };
+  logisticsPlanning: { findMany: Mock };
   $transaction: Mock;
 };
 const mockedPrisma = prisma as unknown as MockedPrisma;
@@ -96,11 +103,31 @@ function location(overrides: Partial<ResolverLocationRow> = {}): ResolverLocatio
   };
 }
 
-/** Db référentiel mocké — SEUL `findMany` existe : toute tentative d'écriture plante. */
+/**
+ * Db référentiel mocké (résolution naturelle propre à l'import) — SEUL
+ * `findMany` existe : toute tentative d'écriture plante.
+ *
+ * Phase 6C-B-4 : le moteur unique REVÉRIFIE ensuite l'exposant/emplacement
+ * ainsi résolu via `prisma.exhibitor/exhibitorLocation.findUnique(id)`
+ * (`referentialInput`, RX uniquement) — on rejoue donc le MÊME jeu de
+ * données sur `mockedPrisma` pour que cette revalidation retrouve exactement
+ * l'exposant/emplacement déjà résolu naturellement ci-dessus (jamais un
+ * second jeu de données divergent).
+ */
 function makeDb(
   exhibitors: ResolverExhibitorRow[],
   locations: ResolverLocationRow[] = []
 ): ReferentialResolverDb {
+  mockedPrisma.exhibitor.findUnique.mockImplementation(
+    async ({ where }: { where: { id: string } }) => {
+      const row = exhibitors.find((e) => e.id === where.id);
+      return row ? { ...row, isActive: true } : null;
+    }
+  );
+  mockedPrisma.exhibitorLocation.findUnique.mockImplementation(
+    async ({ where }: { where: { id: string } }) =>
+      locations.find((l) => l.id === where.id) ?? null
+  );
   return {
     exhibitor: { findMany: vi.fn().mockResolvedValue(exhibitors) },
     exhibitorLocation: { findMany: vi.fn().mockResolvedValue(locations) },
@@ -187,6 +214,7 @@ beforeEach(() => {
   mockedPrisma.organization.findFirst.mockResolvedValue(null);
   mockedPrisma.event.findUnique.mockResolvedValue({ id: EVENT_ID, organizationId: ORG_ID });
   mockedPrisma.vehicleTypeConfig.findMany.mockResolvedValue([]);
+  mockedPrisma.logisticsPlanning.findMany.mockResolvedValue([]);
 });
 
 describe("previewAccreditationsBatch — preview de lot (Phase 4B-2)", () => {
@@ -559,6 +587,95 @@ describe("previewAccreditationsBatch — preview de lot (Phase 4B-2)", () => {
     expect(() => JSON.stringify(result.public)).not.toThrow();
     const roundTrip = JSON.parse(JSON.stringify(result.public));
     expect(roundTrip.lines[0].status).toBe("NOUVEAU");
+  });
+
+  // ── Phase 6C-B-4 : référentiel/planning RX RÉELLEMENT revalidés par le
+  // moteur unique au preview (pas seulement fait confiance à la résolution
+  // naturelle propre à l'import) ─────────────────────────────────────────
+
+  it("25. TRANSITION : exposant devenu inactif entre résolution naturelle et revalidation moteur → ligne invalide (referentiel revalidé, pas de confiance aveugle)", async () => {
+    mockedPrisma.event.findUnique.mockResolvedValue({
+      id: EVENT_ID, organizationId: ORG_ID, logisticsPlanningMode: "TRANSITION",
+    });
+    const parseResult = parseAccreditationsTable(table([RX_HEADERS, rxRow()]), { template: "rx" });
+    const db = makeDb([exhibitor()], [location()]);
+    // La revalidation moteur (indépendante du fixture `db` de résolution
+    // naturelle ci-dessus) découvre un exposant désormais inactif.
+    mockedPrisma.exhibitor.findUnique.mockResolvedValueOnce({ ...exhibitor(), isActive: false });
+
+    const result = await previewAccreditationsBatch(db, parseResult, rxCtx(), noQuotaReader());
+
+    expect(result.public.lines[0]!.valid).toBe(false);
+    expect(result.public.lines[0]!.errors[0]!.reason).toContain("EXHIBITOR_NOT_FOUND");
+    expect(result.public.ok).toBe(false);
+  });
+
+  it("26. TRANSITION : emplacement hors périmètre lors de la revalidation moteur → ligne invalide (409)", async () => {
+    mockedPrisma.event.findUnique.mockResolvedValue({
+      id: EVENT_ID, organizationId: ORG_ID, logisticsPlanningMode: "TRANSITION",
+    });
+    const parseResult = parseAccreditationsTable(table([RX_HEADERS, rxRow()]), { template: "rx" });
+    const db = makeDb([exhibitor()], [location()]);
+    mockedPrisma.exhibitorLocation.findUnique.mockResolvedValueOnce({
+      ...location(),
+      exhibitorId: "exh-other",
+    });
+
+    const result = await previewAccreditationsBatch(db, parseResult, rxCtx(), noQuotaReader());
+
+    expect(result.public.lines[0]!.valid).toBe(false);
+    expect(result.public.lines[0]!.errors[0]!.reason).toContain("LOCATION_EXHIBITOR_MISMATCH");
+  });
+
+  it("27. STRICT : planning actuel absent pour la catégorie de la ligne → ligne invalide (revalidation planning, pas de confiance à la source)", async () => {
+    mockedPrisma.event.findUnique.mockResolvedValue({
+      id: EVENT_ID, organizationId: ORG_ID, logisticsPlanningMode: "STRICT",
+    });
+    const parseResult = parseAccreditationsTable(
+      table([RX_HEADERS, rxRow({ categoryId: "stand-tente", space: "EXTERIEUR_PALAIS" })]),
+      { template: "rx" }
+    );
+    const db = makeDb([exhibitor()], [location({ logisticSpace: "EXTERIEUR_PALAIS" })]);
+    mockedPrisma.logisticsPlanning.findMany.mockResolvedValue([]); // aucune règle DB : STRICT n'accepte aucun repli
+
+    const result = await previewAccreditationsBatch(db, parseResult, rxCtx(), noQuotaReader());
+
+    expect(result.public.lines[0]!.valid).toBe(false);
+    expect(result.public.lines[0]!.errors[0]!.reason).toContain("PLANNING_NOT_FOUND");
+  });
+
+  it("28. TRANSITION : référentiel et planning valides → ligne acceptée, quotas calculés depuis la projection canonique extension.categories[]", async () => {
+    mockedPrisma.event.findUnique.mockResolvedValue({
+      id: EVENT_ID, organizationId: ORG_ID, logisticsPlanningMode: "TRANSITION",
+    });
+    mockedPrisma.vehicleTypeConfig.findMany.mockResolvedValue([
+      { code: "VL", pdfCode: "A", vehicleFamily: "LIGHT", rxPalmBeachAtCanto: false, rxZoneCanto: null, rxZoneVieuxPort: "LA_BOCCA" },
+    ]);
+    mockedPrisma.logisticsPlanning.findMany.mockResolvedValue([
+      { scope: "SPACE", scopeKey: "SPACE:EXTERIEUR_PALAIS", categoryCode: "TERRE", phase: "MONTAGE", date: "2026-09-06", startTime: "08:00", endTime: "09:00" },
+      { scope: "SPACE", scopeKey: "SPACE:EXTERIEUR_PALAIS", categoryCode: "TERRE", phase: "DEMONTAGE", date: "2026-09-14", startTime: "08:00", endTime: "09:00" },
+    ]);
+    const parseResult = parseAccreditationsTable(
+      table([
+        RX_HEADERS,
+        rxRow({
+          categoryId: "stand-tente",
+          space: "EXTERIEUR_PALAIS",
+          livDate: "2026-09-06",
+          livTime: "08:00-09:00",
+          repDate: "2026-09-14",
+          repTime: "08:00-09:00",
+        }),
+      ]),
+      { template: "rx" }
+    );
+    const db = makeDb([exhibitor()], [location({ logisticSpace: "EXTERIEUR_PALAIS" })]);
+
+    const result = await previewAccreditationsBatch(db, parseResult, rxCtx(), noQuotaReader());
+
+    expect(result.public.lines[0]!.valid).toBe(true);
+    expect(result.public.lines[0]!.errors).toEqual([]);
+    expect(result.public.lines[0]!.quotaCandidates.length).toBeGreaterThan(0);
   });
 
   it("24. aucune donnée client (colonnes informatives ORGANIZATION/EVENT) n'influence le contexte serveur", async () => {

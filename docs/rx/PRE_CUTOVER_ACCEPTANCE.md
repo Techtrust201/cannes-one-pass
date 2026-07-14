@@ -5,14 +5,16 @@ Ce document liste les critères vérifiables avant d'envisager la Phase 9
 existant dans le dépôt — cette checklist n'est pas déclarative, elle est
 adossée à la suite `vitest`.
 
-⚠️ **Phases 6/7/8 NON acceptées à ce stade.** Le lot 6C-A (corrections
-client/formulaire : emplacement/espace effectifs, hook planning structuré,
-garde plages disjointes, purge, documentation) a été livré et est en attente
-de revue humaine du diff avant commit. Le lot 6C-B (validation planning +
-résolution référentielle hybride côté serveur, décisions D1/D2/D3) n'a **pas
-été commencé**. La section 3 ci-dessous reflète l'état réel du code, pas un
-objectif atteint — ne pas cocher les cases avant la livraison ET la revue du
-lot 6C-B.
+✅ **Phase 6 (client 6C-A + serveur 6C-B) livrée et testée.** Le lot 6C-A
+(corrections client/formulaire : emplacement/espace effectifs, hook planning
+structuré, garde plages disjointes, purge, documentation) et le lot 6C-B
+(validation planning + résolution référentielle hybride côté serveur,
+décisions D1/D2/D3, branchés dans les quatre canaux de création) sont
+livrés, testés (`npx vitest run` complet vert) et commités. Les Phases 7/8
+restent à valider opérationnellement (recette avec données réelles) avant
+d'envisager la Phase 9 (cutover réel, toujours non exécutée). Les cases
+ci-dessous reflètent l'état réel du code — chaque ligne renvoie vers un test
+automatisé existant.
 
 Pour rejouer l'ensemble : `npx vitest run` (suite complète) et
 `npm run build` (build de production).
@@ -84,15 +86,23 @@ Pour rejouer l'ensemble : `npx vitest run` (suite complète) et
       RX statique, ignore les résolutions non-DB, retire une catégorie en
       cas d'erreur STRICT.
       → `src/templates/accreditation/rx/planning-bridge.test.ts`
-- [ ] ⛔ **NON livré (lot 6C-B)** — Résolution référentielle hybride
-      serveur (D2) et double revalidation planning preview +
-      transaction (D3) dans `accreditation-service.ts`. L'état actuel
-      (résolution naturelle uniquement, erreurs absorbées, aucun ID client
-      re-vérifié) est documenté dans `docs/imports/PLANNING_RUNTIME.md` §5
-      et ne doit PAS être considéré comme acceptable pour `TRANSITION`/
-      `STRICT` en production.
-      → à couvrir par de nouveaux tests lors du lot 6C-B (aucun test
-        existant ne couvre D1/D2/D3 à ce jour).
+- [ ] ✅ **Livré (lot 6C-B)** — Résolution référentielle hybride serveur
+      (D2, `resolveTrustedAccreditationReferential`) et double revalidation
+      planning preview + transaction (D3, `validateAccreditationPlanning`)
+      branchées dans `accreditation-service.ts` pour les QUATRE canaux de
+      création (public/back-office, duplication, import unifié, import
+      legacy) — aucun `accreditation.create` hors du moteur (vérifié par
+      recherche exhaustive). Comportement documenté dans
+      `docs/imports/PLANNING_RUNTIME.md` §5.
+      → `src/lib/accreditation-referential.test.ts`,
+        `src/lib/accreditation-planning-validation.test.ts`,
+        `src/lib/accreditation-service.test.ts` (moteur RX + intégration
+        route réelle),
+        `src/app/api/accreditations/route.test.ts`,
+        `src/app/api/accreditations/[id]/duplicate/route.test.ts`,
+        `src/lib/imports/accreditations-preview.test.ts`,
+        `src/lib/imports/accreditations-commit.test.ts`,
+        `src/app/api/admin/accreditations/import/route.test.ts`
 
 ## 4. Purge d'organisation (Phase 7)
 
@@ -123,9 +133,11 @@ Pour rejouer l'ensemble : `npx vitest run` (suite complète) et
 - [ ] Aucun fichier sous `src/templates/accreditation/palais/` modifié
       pendant les Phases 6-7-8 (vérifiable via `git diff --stat` sur les
       commits de ces phases).
-- [ ] `resolvePublicReferential` n'est jamais appelé pour
-      `organizationSlug !== "rx"`.
-      → `src/app/api/accreditations/route.test.ts`
+- [ ] La revalidation référentielle/planning RX (`resolveRxServerContext`)
+      n'est déclenchée que pour `organizationSlug === "rx"` ; Palais utilise
+      `context.referential` tel quel, comportement legacy inchangé.
+      → `src/app/api/accreditations/route.test.ts`,
+        `src/lib/accreditation-service.test.ts`
 - [ ] `Event.logisticsPlanningMode` par défaut reste `DISABLED` : aucune
       migration de cette phase ne change une valeur existante (migration
       Phase 1 uniquement additive, aucune nouvelle migration dans les

@@ -261,6 +261,24 @@ describe("commitAccreditationsBatch — orchestration complete", () => {
     expect(order).toEqual(["start", "tx", "fail"]);
   });
 
+  it("Phase 6C-B-4 : revalidation référentiel/planning RX échouée AU COMMIT (RxServerValidationError) -> code/statut structuré préservé, rollback, aucun e-mail", async () => {
+    const { RxServerValidationError } = await vi.importActual<
+      typeof import("@/lib/accreditation-service")
+    >("@/lib/accreditation-service");
+    createAccreditationInTransaction.mockRejectedValueOnce(
+      new RxServerValidationError(409, "Emplacement introuvable pour cet exposant dans ce contexte.", "LOCATION_NOT_FOUND")
+    );
+    const { db } = makeDb();
+    const res = await commitAccreditationsBatch(db, [makePlan(1)], CTX);
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.status).toBe(409);
+      expect(res.code).toBe("LOCATION_NOT_FOUND");
+    }
+    expect(sendEmail).not.toHaveBeenCalled();
+    expect(order).toEqual(["start", "tx", "fail"]);
+  });
+
   it("garde defensive : un plan invalide transmis au commit -> FAILED immediat, aucune $transaction", async () => {
     const { db, $transaction } = makeDb();
     const invalid = { ...makePlan(1), preview: { ok: false } } as InternalAccreditationLinePlan;

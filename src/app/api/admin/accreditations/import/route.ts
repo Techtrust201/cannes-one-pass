@@ -7,6 +7,8 @@ import { getDefaultVehicleTypesForScope } from "@/lib/vehicle-type-defaults";
 import {
   previewAccreditation,
   createAccreditationInTransaction,
+  CapacityQuotaError,
+  RxServerValidationError,
   type AccreditationCommand,
   type AccreditationServiceContext,
   type AccreditationDb,
@@ -258,6 +260,38 @@ export async function POST(req: NextRequest) {
       }
     });
   } catch (err) {
+    // Phase 6C-B-5 : `CapacityQuotaError`/`RxServerValidationError` (mêmes
+    // erreurs structurées que les 3 autres canaux — public, duplication,
+    // import unifié) préservent leur code/statut, jamais un 500 générique
+    // pour une incohérence métier déjà identifiée par le moteur unique.
+    if (err instanceof CapacityQuotaError) {
+      return Response.json(
+        {
+          ok: false,
+          totalLines: report.totalLines,
+          errors: [{ line: 0, column: "_row" as const, reason: `${err.code}: ${err.message}` }],
+          preview: [],
+        },
+        { status: 409 }
+      );
+    }
+    if (err instanceof RxServerValidationError) {
+      return Response.json(
+        {
+          ok: false,
+          totalLines: report.totalLines,
+          errors: [
+            {
+              line: 0,
+              column: "_row" as const,
+              reason: `${err.code ?? "RX_VALIDATION_ERROR"}: ${err.message}`,
+            },
+          ],
+          preview: [],
+        },
+        { status: err.status }
+      );
+    }
     console.error("CSV import transaction failed:", err);
     return Response.json(
       {

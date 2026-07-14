@@ -15,10 +15,26 @@ vi.mock("@/lib/prisma", () => {
   return { prisma: prismaMock, default: prismaMock };
 });
 
-vi.mock("@/lib/accreditation-service", () => ({
-  previewAccreditation: vi.fn(),
-  createAccreditationInTransaction: vi.fn(),
+// Le registre de templates importe des composants JSX (`.tsx`) que le
+// pipeline Vitest/Rolldown ne peut pas parser comme module Node pur. Mock
+// minimal (jamais appelé : `previewAccreditation` est lui-même mocké
+// ci-dessous) pour permettre le chargement transitif de `accreditation-service.ts`
+// via `vi.importActual` (nécessaire pour récupérer les VRAIES classes
+// `CapacityQuotaError`/`RxServerValidationError`).
+vi.mock("@/templates/accreditation/registry", () => ({
+  getTemplate: () => ({ slug: "test", schema: { safeParse: vi.fn() } }),
 }));
+
+vi.mock("@/lib/accreditation-service", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/accreditation-service")>(
+    "@/lib/accreditation-service"
+  );
+  return {
+    ...actual,
+    previewAccreditation: vi.fn(),
+    createAccreditationInTransaction: vi.fn(),
+  };
+});
 
 import { POST } from "./route";
 import * as auth from "@/lib/auth-helpers";
@@ -106,6 +122,29 @@ describe("POST /api/admin/accreditations/import — adaptateur moteur unique (Ph
     const body = await res.json();
     expect(res.status).toBe(500);
     expect(body.ok).toBe(false);
+  });
+
+  it("Phase 6C-B-5 : CapacityQuotaError dans la transaction -> 409 structuré (jamais un 500 générique)", async () => {
+    createAccreditationInTransaction.mockRejectedValue(
+      new engine.CapacityQuotaError({
+        phase: "MONTAGE", zone: "LA_BOCCA", date: "2026-09-04", startTime: "08:00", endTime: "09:00",
+        vehicleFamily: "LIGHT", remaining: 0, requestedCount: 1,
+      })
+    );
+    const res = await POST(makeReq({ content: VALID_CSV, search: "?commit=true" }));
+    const body = await res.json();
+    expect(res.status).toBe(409);
+    expect(body.errors[0].reason).toContain("CAPACITY_QUOTA_FULL");
+  });
+
+  it("Phase 6C-B-5 : RxServerValidationError dans la transaction -> code/statut structuré préservé (jamais un 500 générique)", async () => {
+    createAccreditationInTransaction.mockRejectedValue(
+      new engine.RxServerValidationError(409, "Emplacement introuvable pour cet exposant dans ce contexte.", "LOCATION_NOT_FOUND")
+    );
+    const res = await POST(makeReq({ content: VALID_CSV, search: "?commit=true" }));
+    const body = await res.json();
+    expect(res.status).toBe(409);
+    expect(body.errors[0].reason).toContain("LOCATION_NOT_FOUND");
   });
 
   it("non authentifie -> 401", async () => {

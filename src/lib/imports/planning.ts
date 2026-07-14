@@ -31,6 +31,7 @@ import {
 } from "./csv";
 import { normalizeOptionalCode } from "./normalization";
 import { normalizeLegacyPortCode, normalizeLegacySectorCode } from "./legacy-sector";
+import { mergeDailyRanges } from "@/lib/logistics-planning";
 
 export type PlanningScopeCode = "EVENT" | "PORT" | "SECTOR" | "SPACE";
 export type PhaseCode = "MONTAGE" | "DEMONTAGE";
@@ -312,6 +313,32 @@ export function parsePlanningTable(table: ParsedTable): PlanningParseResult {
       });
     }
   });
+
+  // Phase 6C-A (F7) — Détection des plages disjointes pour une même clé
+  // (scope + catégorie + phase + jour). Même règle que le moteur runtime
+  // (`mergeDailyRanges`, partagée) : fusion si chevauchement/contact, erreur
+  // bloquante sinon — jamais de `min(start)-max(end)` artificiel dans un
+  // trou. Bloque le commit (ajouté à `errors`), aucune écriture n'a lieu ici.
+  const byGroup = new Map<string, PlanningRow[]>();
+  for (const r of rows) {
+    const key = `${r.scopeKey}|${r.categoryCode}|${r.phase}|${r.date}`;
+    const list = byGroup.get(key);
+    if (list) list.push(r);
+    else byGroup.set(key, [r]);
+  }
+  for (const [, group] of byGroup) {
+    if (group.length < 2) continue;
+    const merged = mergeDailyRanges(group.map((r) => ({ start: r.startTime, end: r.endTime })));
+    if (!merged.ok) {
+      const lines = group.map((r) => r.sourceLine).sort((a, b) => a - b);
+      errors.push({
+        line: lines[0]!,
+        column: "_row",
+        value: merged.conflicts.join(", "),
+        reason: `PLANNING_DISJOINT_RANGES : plages horaires disjointes pour ${group[0]!.scopeKey} / ${group[0]!.categoryCode} / ${group[0]!.phase} / ${group[0]!.date} (lignes ${lines.join(", ")}) : ${merged.conflicts.join(", ")}. Fusion impossible sans créer un créneau artificiel.`,
+      });
+    }
+  }
 
   return { rows, errors, warnings: [], totalRows: records.length };
 }

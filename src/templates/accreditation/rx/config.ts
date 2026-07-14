@@ -114,14 +114,172 @@ export const PALAIS_CHOICE = "PALAIS_CHOICE";
  * Pour tout autre secteur, la catégorie est masquée même si l'espace la
  * contient (les bateaux à terre en auto-déchargement choisissent « Stand sous
  * tente / Espace nu devant bateau »).
+ *
+ * Accepte deux formats équivalents :
+ *   - le secteur legacy brut de l'exposant (ex. "PORT CANTO — POWER") ;
+ *   - le secteur effectif référentiel (ex. "PORT_CANTO POWER" ou juste le
+ *     `sectorCode` canonique "POWER" / "PALAIS_EXT") — cf.
+ *     `resolveEffectiveRxSector`.
  */
 export function isBateauTerreAllowed(sector: string): boolean {
   const s = (sector ?? "").toUpperCase();
+  if (s === "POWER" || s === "PALAIS_EXT") return true;
   const cantoPower = s.includes("CANTO") && s.includes("POWER");
   const palaisExt =
     s.includes("PALAIS") &&
     (s.includes("EXT") || s.includes("EXTÉRIEUR") || s.includes("EXTERIEUR"));
   return cantoPower || palaisExt;
+}
+
+/**
+ * Mapping `ExhibitorLocation.sectorCode` canonique → clé `RX_SPACES`.
+ *
+ * Aligné EXACTEMENT sur `resolveLogisticSpace()` de
+ * `src/lib/imports/legacy-sector.ts` (même table métier des deux côtés :
+ * import référentiel et formulaire). Ne jamais faire diverger ces deux
+ * tables sans les faire évoluer ensemble.
+ */
+const SECTOR_CODE_TO_SPACE: Record<string, string> = {
+  PALAIS_EXT: "EXTERIEUR_PALAIS",
+  PALAIS_INT_NU: "INTERIEUR_PALAIS",
+  PALAIS_INT_EQUIPE: "INTERIEUR_PALAIS",
+  POWER: "POWER",
+  SAIL: "SAIL",
+  SAIL_MULTICOQUE: "SAIL",
+  SAIL_MONOCOQUE: "SAIL",
+  BROKER: "BROKER",
+  TENDERS: "TENDERS",
+  PANTIERO: "PANTIERO",
+  JETEE: "JETEE",
+  QML: "QML",
+  QSP: "QSP",
+  SYE: "SYE",
+};
+
+export type RxPlanningModeLike = "DISABLED" | "TRANSITION" | "STRICT" | undefined;
+
+export type EffectiveRxSpaceSource =
+  | "LOCATION_SPACE"
+  | "LOCATION_SECTOR_DERIVED"
+  | "LEGACY_SECTOR"
+  | "LEGACY_SECTOR_MANUAL_PALAIS"
+  | "UNRESOLVED";
+
+export interface EffectiveRxSpaceResult {
+  space: string | null;
+  requiresUserChoice: boolean;
+  source: EffectiveRxSpaceSource;
+}
+
+export interface ResolveEffectiveRxSpaceInput {
+  /** `ExhibitorLocation.logisticSpace` de l'emplacement résolu (Phase 6). */
+  logisticSpace?: string | null;
+  /** `ExhibitorLocation.sectorCode` de l'emplacement résolu (Phase 6). */
+  sectorCode?: string | null;
+  /** Secteur legacy figé sur l'exposant (`Exhibitor.sector`, texte libre). */
+  exhibitorSector?: string | null;
+  /**
+   * Choix manuel Intérieur/Extérieur Palais déjà fait par l'utilisateur à
+   * l'étape Livraison (`stepOne.space`), pertinent UNIQUEMENT lorsque la
+   * dérivation legacy est ambiguë (`PALAIS_CHOICE`). Une donnée
+   * référentielle réelle (étapes 1/2) reste toujours prioritaire et rend ce
+   * choix manuel obsolète (plus besoin de demander, la donnée le sait).
+   */
+  manualPalaisChoice?: string | null;
+  /**
+   * Mode planning de l'événement. Le repli legacy (étape 3, texte libre sur
+   * l'exposant) n'est autorisé qu'en `DISABLED`/`TRANSITION` — jamais en
+   * `STRICT`, où l'emplacement référentiel est obligatoire (cf. D1).
+   */
+  planningMode?: RxPlanningModeLike;
+}
+
+/**
+ * Résout l'espace logistique RX réellement applicable, en respectant une
+ * priorité stricte (Phase 6C-A / F1) :
+ *
+ *   1. `logisticSpace` de l'emplacement référentiel, si c'est une clé
+ *      `RX_SPACES` connue (donnée la plus fiable — résolue et vérifiée
+ *      côté serveur au chargement de l'emplacement) ;
+ *   2. dérivation depuis le `sectorCode` canonique de l'emplacement (table
+ *      `SECTOR_CODE_TO_SPACE`, alignée sur l'import référentiel) — utile si
+ *      `logisticSpace` n'a pas pu être renseigné à l'import ;
+ *   3. repli sur le secteur legacy brut de l'exposant
+ *      (`deriveSpaceFromSector`), UNIQUEMENT si `planningMode !== "STRICT"`.
+ *      Si ce repli est ambigu (`PALAIS_CHOICE`) et qu'un choix manuel a déjà
+ *      été fait, on l'applique directement ;
+ *   4. non résolu explicite (`space: null`) — jamais de clé inventée.
+ */
+export function resolveEffectiveRxSpace(
+  input: ResolveEffectiveRxSpaceInput
+): EffectiveRxSpaceResult {
+  const rawSpace = (input.logisticSpace ?? "").trim();
+  if (rawSpace && RX_SPACES[rawSpace]) {
+    return { space: rawSpace, requiresUserChoice: false, source: "LOCATION_SPACE" };
+  }
+
+  const sectorCode = (input.sectorCode ?? "").trim().toUpperCase();
+  if (sectorCode && SECTOR_CODE_TO_SPACE[sectorCode]) {
+    return {
+      space: SECTOR_CODE_TO_SPACE[sectorCode],
+      requiresUserChoice: false,
+      source: "LOCATION_SECTOR_DERIVED",
+    };
+  }
+
+  if (input.planningMode !== "STRICT") {
+    const legacy = deriveSpaceFromSector(input.exhibitorSector ?? "");
+    if (legacy.requiresUserChoice) {
+      const manual = (input.manualPalaisChoice ?? "").trim();
+      if (manual === "INTERIEUR_PALAIS" || manual === "EXTERIEUR_PALAIS") {
+        return { space: manual, requiresUserChoice: false, source: "LEGACY_SECTOR_MANUAL_PALAIS" };
+      }
+      return { space: legacy.space, requiresUserChoice: true, source: "LEGACY_SECTOR" };
+    }
+    if (legacy.space) {
+      return { space: legacy.space, requiresUserChoice: false, source: "LEGACY_SECTOR" };
+    }
+  }
+
+  return { space: null, requiresUserChoice: false, source: "UNRESOLVED" };
+}
+
+export type EffectiveRxSectorSource = "LOCATION_SECTOR" | "LEGACY_EXHIBITOR_SECTOR" | "NONE";
+
+export interface EffectiveRxSectorResult {
+  /**
+   * Texte utilisable par les règles historiques à base de mots-clés
+   * (`isBateauTerreAllowed`, `suggestZone`/`portFromSector`,
+   * `computeRxSlotParts`). Reconstruit sous la forme `"{portCode}
+   * {sectorCode}"` quand un emplacement référentiel est résolu (les codes
+   * canoniques contiennent déjà les mots-clés attendus : "PORT_CANTO"
+   * contient "CANTO", "PALAIS_EXT" contient "EXT") ; sinon repli sur le
+   * secteur legacy brut de l'exposant (comportement historique inchangé).
+   */
+  sector: string;
+  source: EffectiveRxSectorSource;
+}
+
+/**
+ * Résout le secteur RX réellement applicable (Phase 6C-A), avec priorité :
+ *   1. `sectorCode` (+ `portCode`) de l'emplacement référentiel résolu ;
+ *   2. secteur legacy brut de l'exposant.
+ */
+export function resolveEffectiveRxSector(input: {
+  portCode?: string | null;
+  sectorCode?: string | null;
+  exhibitorSector?: string | null;
+}): EffectiveRxSectorResult {
+  const portCode = (input.portCode ?? "").trim();
+  const sectorCode = (input.sectorCode ?? "").trim();
+  if (sectorCode) {
+    return { sector: `${portCode} ${sectorCode}`.trim(), source: "LOCATION_SECTOR" };
+  }
+  const legacy = (input.exhibitorSector ?? "").trim();
+  if (legacy) {
+    return { sector: legacy, source: "LEGACY_EXHIBITOR_SECTOR" };
+  }
+  return { sector: "", source: "NONE" };
 }
 
 /**

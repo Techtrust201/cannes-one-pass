@@ -154,3 +154,57 @@ describe("parsePlanningCsv — erreurs", () => {
     expect(res.errors[0].reason).toContain("Date de debut invalide");
   });
 });
+
+describe("parsePlanningCsv — plages disjointes (F7)", () => {
+  it("fusionne deux lignes qui se chevauchent le même jour (aucune erreur)", () => {
+    const csv =
+      "SCOPE,PORT,SECTOR,PHASE,DATE,START TIME,END TIME\n" +
+      "SECTOR,PORT CANTO,POWER,MONTAGE,2026-09-04,08:00,12:00\n" +
+      "SECTOR,PORT CANTO,POWER,MONTAGE,2026-09-04,11:00,15:00\n";
+    const res = parsePlanningCsv(csv);
+    expect(res.rows).toHaveLength(2);
+    expect(res.errors).toEqual([]);
+  });
+
+  it("fusionne deux lignes qui se touchent exactement (aucune erreur)", () => {
+    const csv =
+      "SCOPE,PORT,SECTOR,PHASE,DATE,START TIME,END TIME\n" +
+      "SECTOR,PORT CANTO,POWER,MONTAGE,2026-09-04,08:00,12:00\n" +
+      "SECTOR,PORT CANTO,POWER,MONTAGE,2026-09-04,12:00,16:00\n";
+    const res = parsePlanningCsv(csv);
+    expect(res.rows).toHaveLength(2);
+    expect(res.errors).toEqual([]);
+  });
+
+  it("refuse deux lignes réellement disjointes pour la même clé (erreur bloquante, aucune écriture)", () => {
+    const csv =
+      "SCOPE,PORT,SECTOR,PHASE,DATE,START TIME,END TIME\n" +
+      "SECTOR,PORT CANTO,POWER,MONTAGE,2026-09-04,08:00,10:00\n" +
+      "SECTOR,PORT CANTO,POWER,MONTAGE,2026-09-04,14:00,16:00\n";
+    const res = parsePlanningCsv(csv);
+    expect(res.errors.some((e) => e.reason.includes("PLANNING_DISJOINT_RANGES"))).toBe(true);
+  });
+
+  it("plages disjointes détectées même quand issues d'un étalement de plage de dates (DATE_START/DATE_END)", () => {
+    const csv =
+      "SCOPE,PORT,SECTOR,PHASE,DATE START,DATE END,START TIME,END TIME\n" +
+      "SECTOR,PORT CANTO,POWER,MONTAGE,2026-09-04,2026-09-05,08:00,10:00\n" +
+      "SECTOR,PORT CANTO,POWER,MONTAGE,2026-09-04,2026-09-04,14:00,16:00\n";
+    const res = parsePlanningCsv(csv);
+    // 2026-09-04 : deux plages disjointes (08-10 et 14-16) -> erreur.
+    // 2026-09-05 : une seule plage (08-10, issue de l'étalement) -> pas d'erreur pour ce jour.
+    const disjoint = res.errors.filter((e) => e.reason.includes("PLANNING_DISJOINT_RANGES"));
+    expect(disjoint).toHaveLength(1);
+    expect(disjoint[0].reason).toContain("2026-09-04");
+  });
+
+  it("ne bloque pas des plages identiques sur des jours différents (pas de conflit inter-jours)", () => {
+    const csv =
+      "SCOPE,PHASE,DATE,START TIME,END TIME\n" +
+      "EVENT,MONTAGE,2026-09-04,08:00,12:00\n" +
+      "EVENT,MONTAGE,2026-09-05,14:00,16:00\n";
+    const res = parsePlanningCsv(csv);
+    expect(res.errors).toEqual([]);
+    expect(res.rows).toHaveLength(2);
+  });
+});

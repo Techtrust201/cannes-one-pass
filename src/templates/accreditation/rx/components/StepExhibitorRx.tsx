@@ -70,23 +70,30 @@ export function StepExhibitorRx({
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLDivElement | null>(null);
 
-  // Chargement des exposants de l'event courant.
+  // Chargement des exposants de l'event courant. `AbortController` : une
+  // réponse d'un event/orgSlug précédent ne peut jamais écraser la sélection
+  // actuelle si l'utilisateur change rapidement d'événement.
   useEffect(() => {
     if (!stepOne.event) {
       setExhibitors([]);
       return;
     }
-    let cancelled = false;
+    const ctrl = new AbortController();
     setLoadingExhibitors(true);
     fetch(
-      `/api/exhibitors?orgSlug=${encodeURIComponent(orgSlug)}&eventSlug=${encodeURIComponent(stepOne.event)}`
+      `/api/exhibitors?orgSlug=${encodeURIComponent(orgSlug)}&eventSlug=${encodeURIComponent(stepOne.event)}`,
+      { signal: ctrl.signal }
     )
       .then((r) => (r.ok ? r.json() : []))
-      .then((d) => !cancelled && setExhibitors(Array.isArray(d) ? d : []))
-      .catch(() => !cancelled && setExhibitors([]))
-      .finally(() => !cancelled && setLoadingExhibitors(false));
+      .then((d) => setExhibitors(Array.isArray(d) ? d : []))
+      .catch((err) => {
+        if (err?.name !== "AbortError") setExhibitors([]);
+      })
+      .finally(() => {
+        if (!ctrl.signal.aborted) setLoadingExhibitors(false);
+      });
     return () => {
-      cancelled = true;
+      ctrl.abort();
     };
   }, [orgSlug, stepOne.event]);
 
@@ -110,29 +117,39 @@ export function StepExhibitorRx({
     logisticSpace: "",
   };
 
+  // TRANSITION/STRICT : l'emplacement référentiel devient obligatoire (D1).
+  // DISABLED : facultatif, résolution best-effort (comportement historique).
+  const requiresLocation =
+    stepOne.logisticsPlanningMode === "TRANSITION" || stepOne.logisticsPlanningMode === "STRICT";
+
   // Phase 6 — Chargement des emplacements (`ExhibitorLocation`) de l'exposant
-  // sélectionné. Purement additif : si aucun emplacement n'a encore été
-  // importé pour cet exposant (fonctionnement legacy, avant cutover Phase 9),
-  // la liste reste vide et le formulaire continue de fonctionner exactement
-  // comme aujourd'hui (aucun blocage, aucun stand inventé).
+  // sélectionné. Purement additif en DISABLED : si aucun emplacement n'a
+  // encore été importé pour cet exposant, la liste reste vide et le
+  // formulaire continue de fonctionner exactement comme aujourd'hui (aucun
+  // blocage, aucun stand inventé). En TRANSITION/STRICT, zéro emplacement
+  // bloque désormais la progression (cf. `isValid`).
+  // `AbortController` : la réponse d'un exposant précédent ne peut jamais
+  // écraser la sélection actuelle (changement d'exposant rapide).
   useEffect(() => {
     if (!stepOne.exhibitorId || !stepOne.event) {
       setLocations([]);
       setLocationsFetchedForId(null);
       return;
     }
-    let cancelled = false;
+    const ctrl = new AbortController();
     setLoadingLocations(true);
     fetch(
-      `/api/exhibitors/${encodeURIComponent(stepOne.exhibitorId)}/locations?orgSlug=${encodeURIComponent(orgSlug)}&eventSlug=${encodeURIComponent(stepOne.event)}`
+      `/api/exhibitors/${encodeURIComponent(stepOne.exhibitorId)}/locations?orgSlug=${encodeURIComponent(orgSlug)}&eventSlug=${encodeURIComponent(stepOne.event)}`,
+      { signal: ctrl.signal }
     )
       .then((r) => (r.ok ? r.json() : []))
       .then((d: LocationOption[]) => {
-        if (cancelled) return;
         const list = Array.isArray(d) ? d : [];
         setLocations(list);
         setLocationsFetchedForId(stepOne.exhibitorId);
-        // Auto-sélection si un seul emplacement actif référencé.
+        // Auto-sélection si un seul emplacement actif référencé. Le reset
+        // aval a déjà eu lieu au changement d'exposant (`selectExhibitor`) :
+        // aucune donnée supplémentaire à vider ici.
         if (list.length === 1 && !stepOne.exhibitorLocationId) {
           const loc = list[0];
           update({
@@ -148,15 +165,25 @@ export function StepExhibitorRx({
           });
         }
       })
-      .catch(() => !cancelled && setLocations([]))
-      .finally(() => !cancelled && setLoadingLocations(false));
+      .catch((err) => {
+        if (err?.name !== "AbortError") setLocations([]);
+      })
+      .finally(() => {
+        if (!ctrl.signal.aborted) setLoadingLocations(false);
+      });
     return () => {
-      cancelled = true;
+      ctrl.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orgSlug, stepOne.event, stepOne.exhibitorId]);
 
+  // Sélection (manuelle ou ré-application) d'un emplacement. Un changement
+  // RÉEL d'emplacement doit vider toutes les données aval déjà saisies
+  // (catégories/dates/créneaux/véhicules), car elles ont pu être validées
+  // contre le planning d'un AUTRE emplacement (F2). Recliquer exactement sur
+  // l'emplacement déjà sélectionné ne réinitialise rien.
   const selectLocation = (loc: LocationOption) => {
+    if (loc.id === stepOne.exhibitorLocationId) return;
     update({
       stepOne: {
         ...stepOne,
@@ -166,7 +193,13 @@ export function StepExhibitorRx({
         portCode: loc.portCode ?? "",
         sectorCode: loc.sectorCode ?? "",
         logisticSpace: loc.logisticSpace ?? "",
+        // Un éventuel choix manuel Intérieur/Extérieur Palais (legacy,
+        // ambigu) devient obsolète dès qu'un vrai emplacement est choisi :
+        // `resolveEffectiveRxSpace` retrouvera l'espace exact via
+        // `logisticSpace`/`sectorCode`, sans avoir besoin de redemander.
+        space: "",
       },
+      ...RESET_DOWNSTREAM,
     });
   };
 
@@ -184,6 +217,7 @@ export function StepExhibitorRx({
           ...stepOne,
           event: ev.key,
           eventId: ev.id,
+          logisticsPlanningMode: ev.logisticsPlanningMode,
           exhibitorId: "",
           exhibitorName: "",
           exhibitorStand: "",
@@ -194,7 +228,14 @@ export function StepExhibitorRx({
         ...RESET_DOWNSTREAM,
       });
     } else {
-      update({ stepOne: { ...stepOne, event: ev.key, eventId: ev.id } });
+      update({
+        stepOne: {
+          ...stepOne,
+          event: ev.key,
+          eventId: ev.id,
+          logisticsPlanningMode: ev.logisticsPlanningMode,
+        },
+      });
     }
   };
 
@@ -260,16 +301,24 @@ export function StepExhibitorRx({
     return out;
   }, [exhibitors, query, stepOne.exhibitorId, t.rx.exhibitor.othersSector]);
 
-  // Si plusieurs emplacements existent réellement pour cet exposant (donnée
-  // désambiguïsée requise), le choix devient obligatoire pour continuer. Si
-  // aucun emplacement n'est référencé (0), on ne bloque jamais : c'est le
-  // fonctionnement legacy actuel (avant import référentiel/cutover Phase 9).
-  const locationChoicePending =
-    locationsFetchedForId === stepOne.exhibitorId &&
-    locations.length > 1 &&
-    !stepOne.exhibitorLocationId;
+  const locationsResolved = locationsFetchedForId === stepOne.exhibitorId && !loadingLocations;
 
-  const isValid = !!stepOne.event && !!stepOne.exhibitorId && !locationChoicePending;
+  // Si plusieurs emplacements existent réellement pour cet exposant (donnée
+  // désambiguïsée requise), le choix devient obligatoire pour continuer,
+  // quel que soit le mode. Si aucun emplacement n'est référencé (0), le
+  // blocage dépend du mode (D1) : jamais en DISABLED (fonctionnement legacy
+  // inchangé), toujours en TRANSITION/STRICT (référentiel obligatoire).
+  const locationChoicePending =
+    locationsResolved && locations.length > 1 && !stepOne.exhibitorLocationId;
+  const locationRequiredButMissing =
+    requiresLocation && locationsResolved && !stepOne.exhibitorLocationId;
+
+  const isValid =
+    !!stepOne.event &&
+    !!stepOne.exhibitorId &&
+    !loadingLocations &&
+    !locationChoicePending &&
+    !locationRequiredButMissing;
   useEffect(() => {
     onValidityChange(isValid);
   }, [isValid, onValidityChange]);
@@ -405,7 +454,7 @@ export function StepExhibitorRx({
 
       {/* Phase 6 — Choix de l'emplacement référentiel (additif, jamais
           bloquant si aucune donnée n'existe encore). */}
-      {stepOne.exhibitorId && !loadingLocations && locations.length > 1 && (
+      {stepOne.exhibitorId && locationsResolved && locations.length > 1 && (
         <div className="space-y-2">
           <label className={formLabelClass}>
             {t.rx.exhibitor.location.title} <span className="text-red-500">*</span>
@@ -439,12 +488,19 @@ export function StepExhibitorRx({
         </div>
       )}
 
-      {stepOne.exhibitorId &&
-        !loadingLocations &&
-        locationsFetchedForId === stepOne.exhibitorId &&
-        locations.length === 0 && (
-          <p className="text-xs text-gray-400 italic">{t.rx.exhibitor.location.noneHint}</p>
-        )}
+      {stepOne.exhibitorId && locationsResolved && locations.length === 0 && (
+        <p
+          className={
+            requiresLocation
+              ? "text-xs text-red-700 bg-red-50 border border-red-200 rounded-md p-2.5"
+              : "text-xs text-gray-400 italic"
+          }
+        >
+          {requiresLocation
+            ? t.rx.exhibitor.location.requiredHint
+            : t.rx.exhibitor.location.noneHint}
+        </p>
+      )}
 
       {!isValid && stepOne.event && (
         <p className="text-gray-400 text-xs text-center">

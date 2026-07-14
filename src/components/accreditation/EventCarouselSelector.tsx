@@ -13,13 +13,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { ImageIcon } from "lucide-react";
 import { useTranslation } from "@/components/accreditation/TranslationProvider";
+import { mapEventOptionFromApi } from "./event-carousel-mapper";
+import type { EventOption } from "./event-carousel-mapper";
 
-export interface EventOption {
-  key: string;
-  label: string;
-  logo: string;
-  id: string;
-}
+export type { EventOption };
 
 interface Props {
   /**
@@ -64,14 +61,7 @@ function useActiveEvents(orgSlug: string): { events: EventOption[]; loading: boo
       .then((data) => {
         if (cancelled) return;
         if (Array.isArray(data) && data.length > 0) {
-          setEvents(
-            data.map((e: { id: string; slug: string; name: string; logo: string | null }) => ({
-              id: e.id,
-              key: e.slug,
-              label: e.name,
-              logo: e.logo || `/api/events/${e.id}/logo`,
-            }))
-          );
+          setEvents(data.map(mapEventOptionFromApi));
         } else {
           setEvents([]);
         }

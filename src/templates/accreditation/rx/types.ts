@@ -87,6 +87,15 @@ export interface RxFormData {
     portCode?: string;
     sectorCode?: string;
     logisticSpace?: string;
+    /**
+     * Phase 6C-A — Mode planning de l'événement sélectionné
+     * (`Event.logisticsPlanningMode`), reçu une seule fois à la sélection de
+     * l'événement (`EventCarouselSelector`). Pilote le caractère obligatoire
+     * de l'emplacement référentiel et le comportement du hook planning.
+     * Valeur sûre par défaut pour les brouillons anciens : "DISABLED"
+     * (comportement historique inchangé).
+     */
+    logisticsPlanningMode?: "DISABLED" | "TRANSITION" | "STRICT";
     contact: RxContactInfo;
   };
   stepTwo: {
@@ -129,6 +138,7 @@ export function getDefaultRxFormData(): RxFormData {
       portCode: "",
       sectorCode: "",
       logisticSpace: "",
+      logisticsPlanningMode: "DISABLED",
       contact: {
         firstName: "",
         lastName: "",

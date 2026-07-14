@@ -142,6 +142,71 @@ describe("resolvePlanning — priorité de portée", () => {
   });
 });
 
+describe("resolvePlanning — plages disjointes (F7)", () => {
+  const location = { portCode: "PORT_CANTO", sectorCode: "POWER", logisticSpace: "POWER" };
+
+  it("fusionne deux plages qui se chevauchent le même jour", () => {
+    const rows = [
+      row({ scope: "SPACE", scopeKey: "SPACE:POWER", startTime: "08:00", endTime: "12:00" }),
+      row({ scope: "SPACE", scopeKey: "SPACE:POWER", startTime: "11:00", endTime: "15:00" }),
+    ];
+    const res = resolvePlanning({ mode: "STRICT", phase: "MONTAGE", location, rows });
+    expect(res.error).toBeNull();
+    expect(res.slots).toEqual({ "2026-09-13": "08:00-15:00" });
+  });
+
+  it("fusionne deux plages qui se touchent exactement (fin = début suivant)", () => {
+    const rows = [
+      row({ scope: "SPACE", scopeKey: "SPACE:POWER", startTime: "08:00", endTime: "12:00" }),
+      row({ scope: "SPACE", scopeKey: "SPACE:POWER", startTime: "12:00", endTime: "16:00" }),
+    ];
+    const res = resolvePlanning({ mode: "STRICT", phase: "MONTAGE", location, rows });
+    expect(res.error).toBeNull();
+    expect(res.slots).toEqual({ "2026-09-13": "08:00-16:00" });
+  });
+
+  it("refuse deux plages réellement disjointes (jamais de min-max artificiel dans le trou)", () => {
+    const rows = [
+      row({ scope: "SPACE", scopeKey: "SPACE:POWER", startTime: "08:00", endTime: "10:00" }),
+      row({ scope: "SPACE", scopeKey: "SPACE:POWER", startTime: "14:00", endTime: "16:00" }),
+    ];
+    const res = resolvePlanning({ mode: "STRICT", phase: "MONTAGE", location, rows });
+    expect(res.source).toBe("NONE");
+    expect(res.slots).toEqual({});
+    expect(res.error?.code).toBe("PLANNING_DISJOINT_RANGES");
+    expect(res.error?.conflicts).toEqual([
+      { date: "2026-09-13", ranges: ["08:00-10:00", "14:00-16:00"] },
+    ]);
+  });
+
+  it("ne retombe jamais sur le fallback legacy en TRANSITION pour des plages disjointes (donnée corrompue, pas règle absente)", () => {
+    const rows = [
+      row({ scope: "SPACE", scopeKey: "SPACE:POWER", startTime: "08:00", endTime: "10:00" }),
+      row({ scope: "SPACE", scopeKey: "SPACE:POWER", startTime: "14:00", endTime: "16:00" }),
+    ];
+    const res = resolvePlanning({
+      mode: "TRANSITION",
+      phase: "MONTAGE",
+      location,
+      rows,
+      fallback: { source: "LEGACY", slots: { "2026-09-13": "00:00-23:59" } },
+    });
+    expect(res.source).toBe("NONE");
+    expect(res.error?.code).toBe("PLANNING_DISJOINT_RANGES");
+  });
+
+  it("ne cascade pas vers un scope moins prioritaire quand le scope choisi a des plages disjointes", () => {
+    const rows = [
+      row({ scope: "SPACE", scopeKey: "SPACE:POWER", startTime: "08:00", endTime: "10:00" }),
+      row({ scope: "SPACE", scopeKey: "SPACE:POWER", startTime: "14:00", endTime: "16:00" }),
+      row({ scope: "EVENT", scopeKey: "EVENT", startTime: "06:00", endTime: "23:00" }),
+    ];
+    const res = resolvePlanning({ mode: "STRICT", phase: "MONTAGE", location, rows });
+    expect(res.scope).toBeNull();
+    expect(res.error?.code).toBe("PLANNING_DISJOINT_RANGES");
+  });
+});
+
 describe("resolvePlanning — mode DISABLED", () => {
   it("ignore totalement les lignes DB même si elles existent", () => {
     const rows = [row({ scope: "SPACE", scopeKey: "SPACE:POWER" })];

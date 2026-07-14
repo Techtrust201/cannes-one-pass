@@ -6,7 +6,12 @@ import prisma, { withRetry } from "@/lib/prisma";
  *
  * Renvoie les `ExhibitorLocation` actives de l'exposant `:id`, utilisées par
  * le Step "Exposant" RX pour proposer un choix d'emplacement (auto-sélection
- * si une seule, choix obligatoire si plusieurs, erreur explicite si aucune).
+ * si une seule, choix obligatoire si plusieurs). Cette route reste
+ * volontairement permissive (liste vide possible) : c'est le FORMULAIRE
+ * (`StepExhibitorRx.tsx`, Phase 6C-A) qui décide, selon
+ * `Event.logisticsPlanningMode`, si une liste vide est bloquante
+ * (`TRANSITION`/`STRICT`, message traduit) ou seulement informative
+ * (`DISABLED`, comportement historique — jamais d'erreur ici).
  *
  * Sécurité : l'exposant doit appartenir à l'organisation ET à l'événement
  * fournis (anti-IDOR) ; sinon liste vide (pas d'énumération discrète).

@@ -11,12 +11,13 @@ import { useVehicleTypes } from "@/hooks/useVehicleTypes";
 import { useTranslation } from "@/components/accreditation/TranslationProvider";
 import {
   RX_SPACES,
-  PALAIS_CHOICE,
   genSlots,
   formatSlot,
   isBateauTerreAllowed,
+  resolveEffectiveRxSpace,
+  resolveEffectiveRxSector,
 } from "../config";
-import { applyPlanningOverrides } from "../planning-bridge";
+import { applyPlanningOverrides, categoryHasBlockingPlanningError } from "../planning-bridge";
 import { useRxPlanningOverrides } from "../use-planning-overrides";
 import {
   getLocalizedSpace,
@@ -25,6 +26,7 @@ import {
   formatDateLocalized,
   getSkipT,
   getBateauTerreT,
+  getPlanningErrorT,
 } from "../i18n";
 import { RxSlotBadgeGroup, computeRxSlotParts, type RxSlotEntry } from "./RxSlotBadge";
 import type { StepProps } from "../../types";
@@ -50,11 +52,43 @@ export function StepDeliveryRx({
   const { stepOne, stepTwo } = data;
   const { types: vehicleTypes, loading: typesLoading } = useVehicleTypes(false, orgSlug);
 
-  const needsPalaisChoice = stepOne.space === PALAIS_CHOICE || !stepOne.space;
+  // Phase 6C-A (F1) — Espace effectif : priorité au référentiel réel de
+  // l'emplacement (`logisticSpace`/`sectorCode`) sur le secteur legacy figé
+  // de l'exposant, avec repli legacy interdit en STRICT (cf. D1/D4,
+  // `resolveEffectiveRxSpace`). `stepOne.space` ne porte plus que le choix
+  // manuel Intérieur/Extérieur Palais lorsque la dérivation legacy est
+  // ambiguë et qu'aucun emplacement référentiel n'est résolu.
+  const effectiveSpace = useMemo(
+    () =>
+      resolveEffectiveRxSpace({
+        logisticSpace: stepOne.logisticSpace,
+        sectorCode: stepOne.sectorCode,
+        exhibitorSector: stepOne.exhibitorSector,
+        manualPalaisChoice: stepOne.space,
+        planningMode: stepOne.logisticsPlanningMode,
+      }),
+    [
+      stepOne.logisticSpace,
+      stepOne.sectorCode,
+      stepOne.exhibitorSector,
+      stepOne.space,
+      stepOne.logisticsPlanningMode,
+    ]
+  );
+  const effectiveSector = useMemo(
+    () =>
+      resolveEffectiveRxSector({
+        portCode: stepOne.portCode,
+        sectorCode: stepOne.sectorCode,
+        exhibitorSector: stepOne.exhibitorSector,
+      }).sector,
+    [stepOne.portCode, stepOne.sectorCode, stepOne.exhibitorSector]
+  );
+  const needsPalaisChoice = effectiveSpace.requiresUserChoice;
   const currentSpaceRaw = useMemo(() => {
-    if (needsPalaisChoice) return null;
-    return RX_SPACES[stepOne.space] ?? null;
-  }, [needsPalaisChoice, stepOne.space]);
+    if (needsPalaisChoice || !effectiveSpace.space) return null;
+    return RX_SPACES[effectiveSpace.space] ?? null;
+  }, [needsPalaisChoice, effectiveSpace.space]);
 
   // Phase 6 — Fusion avec le planning DB (uniquement si un emplacement
   // référentiel a été résolu). Sans effet en mode DISABLED (défaut sur tous
@@ -67,12 +101,17 @@ export function StepDeliveryRx({
         : null,
     [stepOne.exhibitorId, stepOne.exhibitorLocationId]
   );
-  const montageOverrides = useRxPlanningOverrides({
+  const planningMode = stepOne.logisticsPlanningMode ?? "DISABLED";
+  const {
+    overrides: montageOverrides,
+    loading: planningLoading,
+  } = useRxPlanningOverrides({
     orgSlug,
     eventSlug: stepOne.event,
     location: planningLocation,
     phase: "MONTAGE",
     categoryIds: currentSpaceRaw?.categories.map((c) => c.id) ?? [],
+    mode: planningMode,
   });
   const currentSpace = useMemo(
     () => applyPlanningOverrides(currentSpaceRaw, montageOverrides, "liv"),
@@ -80,6 +119,32 @@ export function StepDeliveryRx({
   );
 
   const skipT = getSkipT(t);
+  const planningErrorT = getPlanningErrorT(t);
+
+  // Phase 6C-A (F6) — STRICT uniquement : si une catégorie déjà sélectionnée
+  // devient en erreur (règle absente confirmée par le serveur, ou échec
+  // HTTP/réseau), sa date/son créneau précédemment choisis ne sont plus
+  // fiables : on les vide plutôt que de laisser une valeur invalide traîner
+  // jusqu'à la soumission.
+  useEffect(() => {
+    if (planningMode !== "STRICT") return;
+    const needsClear = stepTwo.categories.some(
+      (c) =>
+        (c.livDate || c.livTime) && categoryHasBlockingPlanningError(montageOverrides, c.categoryId)
+    );
+    if (!needsClear) return;
+    update({
+      stepTwo: {
+        ...stepTwo,
+        categories: stepTwo.categories.map((c) =>
+          categoryHasBlockingPlanningError(montageOverrides, c.categoryId)
+            ? { ...c, livDate: "", livTime: "" }
+            : c
+        ),
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [montageOverrides, planningMode]);
 
   const setPalaisChoice = (choice: "INTERIEUR_PALAIS" | "EXTERIEUR_PALAIS") => {
     // Les catégories diffèrent entre Intérieur et Extérieur Palais : on
@@ -204,7 +269,15 @@ export function StepDeliveryRx({
     });
   };
 
+  // STRICT : la validation est désactivée pendant le chargement du planning
+  // DB, et bloquée si une catégorie sélectionnée n'est pas résolue (F6).
+  const strictBlocking =
+    planningMode === "STRICT" &&
+    (planningLoading ||
+      stepTwo.categories.some((c) => categoryHasBlockingPlanningError(montageOverrides, c.categoryId)));
+
   const isValid =
+    !strictBlocking &&
     !!currentSpace &&
     stepTwo.categories.length > 0 &&
     stepTwo.categories.every(
@@ -262,12 +335,15 @@ export function StepDeliveryRx({
   const localizedSpace = getLocalizedSpace(currentSpace!, t);
   const bateauTerreT = getBateauTerreT(t);
 
-  // Catégories affichées au montage : uniquement celles ayant des plages de
-  // livraison, et « Bateaux à terre » seulement si le secteur l'autorise
+  // Catégories affichées au montage : celles ayant des plages de livraison,
+  // OU en erreur de résolution planning (F4/F6 — ne jamais faire disparaître
+  // silencieusement une catégorie bloquée, afficher un message explicite à
+  // la place), et « Bateaux à terre » seulement si le secteur l'autorise
   // (Canto POWER / Vieux Port PALAIS ext).
   const visibleCategories = currentSpace!.categories.filter((cat) => {
-    if (Object.keys(cat.liv).length === 0) return false;
-    if (cat.id === "bateau-terre" && !isBateauTerreAllowed(stepOne.exhibitorSector)) {
+    const blocked = categoryHasBlockingPlanningError(montageOverrides, cat.id);
+    if (Object.keys(cat.liv).length === 0 && !blocked) return false;
+    if (cat.id === "bateau-terre" && !isBateauTerreAllowed(effectiveSector)) {
       return false;
     }
     return true;
@@ -308,6 +384,7 @@ export function StepDeliveryRx({
           const selected = stepTwo.categories.find((c) => c.categoryId === cat.id);
           const slots = selected?.livDate ? genSlots(cat.liv[selected.livDate] ?? "") : [];
           const localizedCat = getLocalizedCategory(cat, t);
+          const blocked = categoryHasBlockingPlanningError(montageOverrides, cat.id);
           return (
             <div
               key={cat.id}
@@ -330,7 +407,15 @@ export function StepDeliveryRx({
                 </div>
               </label>
 
-              {selected && (
+              {selected && blocked && (
+                <div className="mt-3 pl-6">
+                  <p className="text-xs bg-red-50 border border-red-200 rounded-md p-2.5 text-red-800">
+                    {planningErrorT.unavailable}
+                  </p>
+                </div>
+              )}
+
+              {selected && !blocked && (
                 <div className="mt-3 pl-6 space-y-3">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
@@ -384,7 +469,7 @@ export function StepDeliveryRx({
                             .map((v) =>
                               computeRxSlotParts(
                                 v.vehicleType ?? "",
-                                stepOne.exhibitorSector,
+                                effectiveSector,
                                 vehicleTypes
                               )
                             )

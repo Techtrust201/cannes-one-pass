@@ -1,6 +1,6 @@
 import type { CreateAccreditationPayload } from "../types";
 import type { RxFormData } from "./types";
-import { findCategory } from "./config";
+import { findCategory, resolveEffectiveRxSpace, resolveEffectiveRxSector } from "./config";
 import { sanitizeLocalPhoneNumber } from "@/lib/phone-input-utils";
 import { suggestZone, type RxZoneRouting } from "@/lib/rx-zone-rules";
 
@@ -81,6 +81,23 @@ export function mapRxPayload(
   const contact = normalizeContact(form.stepOne.contact);
   const vehicles: CreateAccreditationPayload["vehicles"] = [];
 
+  // Phase 6C-A (F1) — Espace/secteur effectifs : même priorité que les
+  // étapes Livraison/Reprise (référentiel réel > secteur legacy figé sur
+  // l'exposant). Calculés une seule fois ici pour rester cohérents avec ce
+  // qui a réellement été affiché/validé à l'utilisateur.
+  const effectiveSpace = resolveEffectiveRxSpace({
+    logisticSpace: form.stepOne.logisticSpace,
+    sectorCode: form.stepOne.sectorCode,
+    exhibitorSector: form.stepOne.exhibitorSector,
+    manualPalaisChoice: form.stepOne.space,
+    planningMode: form.stepOne.logisticsPlanningMode,
+  }).space;
+  const effectiveSector = resolveEffectiveRxSector({
+    portCode: form.stepOne.portCode,
+    sectorCode: form.stepOne.sectorCode,
+    exhibitorSector: form.stepOne.exhibitorSector,
+  }).sector;
+
   for (const cat of form.stepTwo.categories) {
     for (const v of cat.vehicles) {
       const rep = resolveRepFields(v, contact);
@@ -117,16 +134,16 @@ export function mapRxPayload(
   // Détecte si au moins une catégorie cochée déclenche la manutention Scales
   // automatique (matrice espace × catégorie dans config.ts).
   const scalesAssigned = form.stepTwo.categories.some(
-    (c) => findCategory(form.stepOne.space, c.categoryId)?.scales === true
+    (c) => findCategory(effectiveSpace ?? "", c.categoryId)?.scales === true
   );
 
   // Zone de déchargement suggérée (pré-assignation back-office) : déduite du
-  // gabarit du 1er véhicule et du port de l'exposant. Le logisticien pourra
-  // la modifier à la validation.
+  // gabarit du 1er véhicule et du port effectif de l'exposant. Le
+  // logisticien pourra la modifier à la validation.
   const firstVehicleType = form.stepTwo.categories[0]?.vehicles[0]?.vehicleType;
   const suggestedZone = suggestZone(
     firstVehicleType,
-    form.stepOne.exhibitorSector,
+    effectiveSector,
     options?.palmBeachAtCantoCodes,
     options?.zoneRouting
   );
@@ -159,7 +176,11 @@ export function mapRxPayload(
         sector: form.stepOne.exhibitorSector,
       },
       contact,
-      space: form.stepOne.space,
+      // Espace effectif réellement utilisé pour proposer les catégories
+      // (référentiel réel si résolu, sinon secteur legacy) — jamais la
+      // valeur brute `stepOne.space`, qui ne porte plus que le choix manuel
+      // Intérieur/Extérieur Palais dans le cas ambigu (cf. F1/D4).
+      space: effectiveSpace ?? "",
       // Critères naturels uniquement (jamais l'ID interne) : le serveur
       // résout lui-même exhibitorId/exhibitorLocationId dans son contexte
       // organisation/événement. Absent si aucun emplacement n'a été résolu

@@ -4,10 +4,20 @@ Statut : ce document décrit la procédure **prévue** pour la Phase 9. Aucune
 étape de ce document n'a été exécutée. La Phase 9 ne sera engagée qu'après
 validation explicite et finale du porteur du projet, quoi qu'il arrive.
 
+⛔ **Interdiction explicite actuelle** : la Phase 9 est interdite tant que
+le lot serveur **6C-B** (validation planning + résolution référentielle
+hybride dans `accreditation-service.ts` — décisions D1/D2/D3, cf. audit
+Phase 6-7-8) n'est pas livré ET revu. Le lot 6C-A (client/formulaire) livré
+ne suffit pas : voir `docs/imports/PLANNING_RUNTIME.md` §5 pour l'état exact
+du rattachement référentiel serveur actuel (non conforme à D2/D3).
+
 ## 1. Pré-requis (doivent tous être vrais avant d'envisager le cutover)
 
 - [ ] Phases 0 à 8 committées et poussées, CI verte (typecheck, lint, tests,
       build).
+- [ ] Lot 6C-A (client/formulaire) revu et committé.
+- [ ] Lot 6C-B (validation serveur — D1/D2/D3) implémenté, testé sur tous
+      les canaux (public, back-office, import, duplication) et committé.
 - [ ] `docs/rx/PRE_CUTOVER_ACCEPTANCE.md` entièrement rempli et validé.
 - [ ] Sauvegarde Neon récente confirmée (export ou snapshot daté), en dehors
       de ce dépôt.

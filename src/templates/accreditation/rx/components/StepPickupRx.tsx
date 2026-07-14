@@ -14,14 +14,17 @@ import {
   genSlots,
   formatSlot,
   isBateauTerreAllowed,
+  resolveEffectiveRxSpace,
+  resolveEffectiveRxSector,
 } from "../config";
-import { applyPlanningOverrides, findCategoryIn } from "../planning-bridge";
+import { applyPlanningOverrides, findCategoryIn, categoryHasBlockingPlanningError } from "../planning-bridge";
 import { useRxPlanningOverrides } from "../use-planning-overrides";
 import {
   getLocalizedCategory,
   getLocalizedVehicleType,
   formatDateLocalized,
   getSkipT,
+  getPlanningErrorT,
 } from "../i18n";
 import { RxSlotBadgeGroup, computeRxSlotParts, type RxSlotEntry } from "./RxSlotBadge";
 import type { StepProps } from "../../types";
@@ -62,7 +65,37 @@ export function StepPickupRx({
   const skipT = getSkipT(t);
 
   const skipMontage = !!stepTwo.skipMontage;
-  const currentSpaceRaw = RX_SPACES[stepOne.space] ?? null;
+
+  // Phase 6C-A (F1) — Espace/secteur effectifs : même priorité que
+  // StepDeliveryRx (référentiel réel > secteur legacy), cf.
+  // `resolveEffectiveRxSpace`/`resolveEffectiveRxSector`.
+  const effectiveSpace = useMemo(
+    () =>
+      resolveEffectiveRxSpace({
+        logisticSpace: stepOne.logisticSpace,
+        sectorCode: stepOne.sectorCode,
+        exhibitorSector: stepOne.exhibitorSector,
+        manualPalaisChoice: stepOne.space,
+        planningMode: stepOne.logisticsPlanningMode,
+      }),
+    [
+      stepOne.logisticSpace,
+      stepOne.sectorCode,
+      stepOne.exhibitorSector,
+      stepOne.space,
+      stepOne.logisticsPlanningMode,
+    ]
+  );
+  const effectiveSector = useMemo(
+    () =>
+      resolveEffectiveRxSector({
+        portCode: stepOne.portCode,
+        sectorCode: stepOne.sectorCode,
+        exhibitorSector: stepOne.exhibitorSector,
+      }).sector,
+    [stepOne.portCode, stepOne.sectorCode, stepOne.exhibitorSector]
+  );
+  const currentSpaceRaw = effectiveSpace.space ? RX_SPACES[effectiveSpace.space] ?? null : null;
 
   // Phase 6 — Fusion avec le planning DB (démontage), même principe que
   // StepDeliveryRx : sans effet en mode DISABLED, ignoré si aucun
@@ -74,17 +107,45 @@ export function StepPickupRx({
         : null,
     [stepOne.exhibitorId, stepOne.exhibitorLocationId]
   );
-  const demontageOverrides = useRxPlanningOverrides({
+  const planningMode = stepOne.logisticsPlanningMode ?? "DISABLED";
+  const {
+    overrides: demontageOverrides,
+    loading: planningLoading,
+  } = useRxPlanningOverrides({
     orgSlug,
     eventSlug: stepOne.event,
     location: planningLocation,
     phase: "DEMONTAGE",
     categoryIds: currentSpaceRaw?.categories.map((c) => c.id) ?? [],
+    mode: planningMode,
   });
   const currentSpace = useMemo(
     () => applyPlanningOverrides(currentSpaceRaw, demontageOverrides, "rep"),
     [currentSpaceRaw, demontageOverrides]
   );
+  const planningErrorT = getPlanningErrorT(t);
+
+  // Phase 6C-A (F6) — STRICT uniquement : une catégorie devenue en erreur ne
+  // doit pas conserver une date/un créneau de reprise obsolète.
+  useEffect(() => {
+    if (planningMode !== "STRICT") return;
+    const needsClear = stepTwo.categories.some(
+      (c) =>
+        (c.repDate || c.repTime) && categoryHasBlockingPlanningError(demontageOverrides, c.categoryId)
+    );
+    if (!needsClear) return;
+    update({
+      stepTwo: {
+        ...stepTwo,
+        categories: stepTwo.categories.map((c) =>
+          categoryHasBlockingPlanningError(demontageOverrides, c.categoryId)
+            ? { ...c, repDate: "", repTime: "" }
+            : c
+        ),
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demontageOverrides, planningMode]);
 
   // ── Mutations communes ──────────────────────────────────────────────
   const patchReturn = (catId: string, patch: { repDate?: string; repTime?: string }) => {
@@ -260,21 +321,32 @@ export function StepPickupRx({
       );
     });
 
-  const isValid = skipMontage
-    ? // Mode sélection : ≥1 catégorie, date + créneau + véhicule (gabarit).
-      stepTwo.categories.length > 0 &&
-      stepTwo.categories.every(
-        (c) =>
-          c.repDate &&
-          c.repTime &&
-          c.vehicles.length > 0 &&
-          c.vehicles.every((v) => v.vehicleType)
-      )
-    : // Mode normal : catégories héritées du montage, reprise renseignée.
-      stepTwo.categories.length > 0 &&
-      stepTwo.categories.every(
-        (c) => c.repDate && c.repTime && repVehicleValid(c)
-      );
+  // STRICT : la validation est désactivée pendant le chargement du planning
+  // DB, et bloquée si une catégorie sélectionnée/héritée n'est pas résolue (F6).
+  const strictBlocking =
+    planningMode === "STRICT" &&
+    (planningLoading ||
+      stepTwo.categories.some((c) =>
+        categoryHasBlockingPlanningError(demontageOverrides, c.categoryId)
+      ));
+
+  const isValid =
+    !strictBlocking &&
+    (skipMontage
+      ? // Mode sélection : ≥1 catégorie, date + créneau + véhicule (gabarit).
+        stepTwo.categories.length > 0 &&
+        stepTwo.categories.every(
+          (c) =>
+            c.repDate &&
+            c.repTime &&
+            c.vehicles.length > 0 &&
+            c.vehicles.every((v) => v.vehicleType)
+        )
+      : // Mode normal : catégories héritées du montage, reprise renseignée.
+        stepTwo.categories.length > 0 &&
+        stepTwo.categories.every(
+          (c) => c.repDate && c.repTime && repVehicleValid(c)
+        ));
 
   useEffect(() => {
     onValidityChange(isValid);
@@ -313,10 +385,11 @@ export function StepPickupRx({
         <div className="space-y-3">
           {(currentSpace?.categories ?? [])
             .filter((cat) => {
-              if (Object.keys(cat.rep).length === 0) return false;
+              const blocked = categoryHasBlockingPlanningError(demontageOverrides, cat.id);
+              if (Object.keys(cat.rep).length === 0 && !blocked) return false;
               if (
                 cat.id === "bateau-terre" &&
-                !isBateauTerreAllowed(stepOne.exhibitorSector)
+                !isBateauTerreAllowed(effectiveSector)
               ) {
                 return false;
               }
@@ -326,6 +399,7 @@ export function StepPickupRx({
             const selected = stepTwo.categories.find((c) => c.categoryId === cat.id);
             const slots = selected?.repDate ? genSlots(cat.rep[selected.repDate] ?? "") : [];
             const localizedCat = getLocalizedCategory(cat, t);
+            const blocked = categoryHasBlockingPlanningError(demontageOverrides, cat.id);
             return (
               <div
                 key={cat.id}
@@ -344,7 +418,15 @@ export function StepPickupRx({
                   <span className="font-semibold text-gray-800">{localizedCat.name}</span>
                 </label>
 
-                {selected && (
+                {selected && blocked && (
+                  <div className="mt-3 pl-6">
+                    <p className="text-xs bg-red-50 border border-red-200 rounded-md p-2.5 text-red-800">
+                      {planningErrorT.unavailable}
+                    </p>
+                  </div>
+                )}
+
+                {selected && !blocked && (
                   <div className="mt-3 pl-6 space-y-3">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
@@ -398,7 +480,7 @@ export function StepPickupRx({
                               .map((v) =>
                                 computeRxSlotParts(
                                   v.vehicleType ?? "",
-                                  stepOne.exhibitorSector,
+                                  effectiveSector,
                                   vehicleTypes
                                 )
                               )
@@ -578,6 +660,7 @@ export function StepPickupRx({
           if (!def) return null;
           const localizedDef = getLocalizedCategory(def, t);
           const slots = cat.repDate ? genSlots(def.rep[cat.repDate] ?? "") : [];
+          const blocked = categoryHasBlockingPlanningError(demontageOverrides, cat.categoryId);
           return (
             <div key={cat.categoryId} className="border rounded-lg p-3 bg-white">
               <div className="flex items-center gap-2 mb-2">
@@ -592,6 +675,15 @@ export function StepPickupRx({
                   {localizedDef.name}
                 </span>
               </div>
+
+              {blocked && (
+                <p className="text-xs bg-red-50 border border-red-200 rounded-md p-2.5 text-red-800 mb-3">
+                  {planningErrorT.unavailable}
+                </p>
+              )}
+
+              {!blocked && (
+                <>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                 <div>
                   <label className="text-xs font-semibold text-gray-700 block mb-1">
@@ -656,7 +748,7 @@ export function StepPickupRx({
                               : v.vehicleType ?? "";
                           return computeRxSlotParts(
                             repType,
-                            stepOne.exhibitorSector,
+                            effectiveSector,
                             vehicleTypes
                           );
                         })
@@ -801,6 +893,8 @@ export function StepPickupRx({
                   );
                 })}
               </div>
+                </>
+              )}
             </div>
           );
         })}

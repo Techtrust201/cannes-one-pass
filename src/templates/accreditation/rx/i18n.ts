@@ -91,6 +91,17 @@ export function getBateauTerreT(t: T): typeof BATEAU_TERRE_FR {
   return { ...BATEAU_TERRE_FR, ...(t.rx.bateauTerre ?? {}) };
 }
 
+/** Repli français : message affiché quand le planning DB d'une catégorie est en erreur (STRICT). */
+const PLANNING_ERROR_FR = {
+  unavailable:
+    "Le planning de cette catégorie est momentanément indisponible. Merci de réessayer dans quelques instants ou de contacter l'organisateur si le problème persiste.",
+};
+
+/** Message d'indisponibilité planning (Phase 6C-A, F4/F6) avec repli FR. */
+export function getPlanningErrorT(t: T): typeof PLANNING_ERROR_FR {
+  return { ...PLANNING_ERROR_FR, ...(t.rx.planningError ?? {}) };
+}
+
 /** Libellés « Autre » prestataire (étape 5) avec repli FR. */
 export function getOtherProviderT(t: T): {
   otherProvider: string;

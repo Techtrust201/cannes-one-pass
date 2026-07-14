@@ -1,30 +1,107 @@
 "use client";
 
 /**
- * Hook client — Phase 6.
+ * Hook client — Phase 6 / 6C-A (F3/F4).
  *
  * Interroge `GET /api/planning` pour chaque catégorie d'un espace RX, pour
- * une phase donnée (MONTAGE ou DEMONTAGE), et renvoie une map
- * `categoryId -> PlanningResolution`.
+ * une phase donnée (MONTAGE ou DEMONTAGE), et renvoie un état structuré
+ * distinguant explicitement les situations suivantes :
  *
- * Comportement garanti :
- *   - si aucun emplacement n'est résolu (`location` null), ne fait AUCUN
- *     appel réseau et renvoie `{}` (aucune fusion possible) ;
- *   - une réponse `source !== "DB"` (LEGACY/EVENT_FALLBACK/NONE) est quand
- *     même renvoyée dans la map : c'est `applyPlanningOverrides` qui décide
- *     de l'ignorer (garde la donnée statique locale) — cf. planning-bridge.ts.
- *   - une erreur réseau/HTTP pour une catégorie ne bloque jamais les autres :
- *     elle est simplement absente de la map (traitée comme "pas d'override").
+ *   - DISABLED            : aucun appel réseau, `loading=false`, planning
+ *                           legacy inchangé (comportement historique) ;
+ *   - chargement          : `loading=true` pendant que les requêtes sont
+ *                           en vol ;
+ *   - résolution DB       : `overrides[catId]` contient la résolution
+ *                           (`source: "DB"`), appliquée par
+ *                           `applyPlanningOverrides` (planning-bridge.ts) ;
+ *   - règle absente        : PLANNING_NOT_FOUND (ou autre erreur) confirmée
+ *                           par le serveur ;
+ *   - erreur HTTP/réseau   : la requête elle-même a échoué (jamais confondue
+ *                           avec une absence de règle confirmée par le
+ *                           serveur) ;
+ *   - requête annulée      : ignorée silencieusement (AbortController),
+ *                           ne met jamais à jour un état devenu obsolète.
+ *
+ * La décision par catégorie (quoi mettre dans `overrides`/`errorsByCategory`
+ * selon le mode) est déléguée à `buildPlanningOverridesFromOutcomes`
+ * (planning-bridge.ts), fonction PURE testable sans React : ce hook ne fait
+ * que le fetch + la gestion d'état/annulation.
  */
 import { useEffect, useState } from "react";
-import type { PlanningResolution, PlanningPhase } from "@/lib/logistics-planning";
+import type { PlanningResolution, PlanningPhase, PlanningMode } from "@/lib/logistics-planning";
 import type { RxCategoryId } from "./planning-data";
-import { RX_CATEGORY_TO_DB_CODE } from "./planning-bridge";
-import type { CategoryPlanningOverrides } from "./planning-bridge";
+import { RX_CATEGORY_TO_DB_CODE, buildPlanningOverridesFromOutcomes } from "./planning-bridge";
+import type {
+  CategoryPlanningOverrides,
+  CategoryFetchErrors,
+  CategoryFetchOutcome,
+} from "./planning-bridge";
 
 export interface PlanningOverrideLocation {
   exhibitorId: string;
   exhibitorLocationId: string;
+}
+
+export interface UseRxPlanningOverridesResult {
+  /** Résolutions DB à fusionner dans l'espace statique (cf. `applyPlanningOverrides`). */
+  overrides: CategoryPlanningOverrides;
+  /** `true` pendant que des requêtes sont en vol pour les paramètres courants. */
+  loading: boolean;
+  /** Détail par catégorie des erreurs (règle absente en STRICT, HTTP, réseau). */
+  errorsByCategory: CategoryFetchErrors;
+  /** `true` si au moins une catégorie a une erreur (STRICT bloquant ou TRANSITION warning). */
+  hasFetchError: boolean;
+  /** Mode transmis en paramètre, renvoyé pour simplifier la consommation côté étape. */
+  mode: PlanningMode;
+}
+
+const EMPTY_RESULT_FOR: (mode: PlanningMode) => UseRxPlanningOverridesResult = (mode) => ({
+  overrides: {},
+  loading: false,
+  errorsByCategory: {},
+  hasFetchError: false,
+  mode,
+});
+
+/**
+ * Exportée pour permettre un test unitaire ciblé (mock de `global.fetch`)
+ * sans dépendre d'un environnement DOM/`@testing-library/react` — ce projet
+ * exécute ses tests avec l'environnement Vitest `node`. La logique de
+ * décision par mode reste, elle, entièrement dans `buildPlanningOverridesFromOutcomes`
+ * (déjà pure et testée indépendamment).
+ */
+export async function fetchOneCategory(
+  catId: string,
+  categoryCode: string,
+  qs: URLSearchParams,
+  signal: AbortSignal
+): Promise<CategoryFetchOutcome> {
+  try {
+    const res = await fetch(`/api/planning?${qs.toString()}`, { signal });
+    if (!res.ok) {
+      return { catId, resolution: null, fetchError: { kind: "HTTP", message: `HTTP ${res.status}` } };
+    }
+    const body = await res.json();
+    if (!body?.ok || !body.resolution) {
+      return {
+        catId,
+        resolution: null,
+        fetchError: { kind: "HTTP", message: "Réponse invalide du serveur." },
+      };
+    }
+    const resolution = body.resolution as PlanningResolution;
+    if (resolution.error) {
+      return { catId, resolution, fetchError: { kind: "NOT_FOUND", message: resolution.error.message } };
+    }
+    return { catId, resolution, fetchError: null };
+  } catch (err) {
+    if ((err as { name?: string })?.name === "AbortError") return "ABORTED";
+    return {
+      catId,
+      resolution: null,
+      fetchError: { kind: "NETWORK", message: err instanceof Error ? err.message : "Erreur réseau." },
+    };
+  }
 }
 
 export function useRxPlanningOverrides(params: {
@@ -33,25 +110,32 @@ export function useRxPlanningOverrides(params: {
   location: PlanningOverrideLocation | null;
   phase: PlanningPhase;
   categoryIds: string[];
-}): CategoryPlanningOverrides {
-  const { orgSlug, eventSlug, location, phase } = params;
+  mode: PlanningMode;
+}): UseRxPlanningOverridesResult {
+  const { orgSlug, eventSlug, location, phase, mode } = params;
   // Clé stable pour éviter de re-fetcher à chaque render pour un tableau
   // recréé avec le même contenu.
   const categoryIdsKey = params.categoryIds.join(",");
-  const [overrides, setOverrides] = useState<CategoryPlanningOverrides>({});
+  const [result, setResult] = useState<UseRxPlanningOverridesResult>(EMPTY_RESULT_FOR(mode));
 
   useEffect(() => {
+    // DISABLED : aucun appel réseau, jamais — comportement historique garanti.
+    if (mode === "DISABLED") {
+      setResult(EMPTY_RESULT_FOR(mode));
+      return;
+    }
     if (!location || !eventSlug || !categoryIdsKey) {
-      setOverrides({});
+      setResult(EMPTY_RESULT_FOR(mode));
       return;
     }
     const categoryIds = categoryIdsKey.split(",").filter(Boolean);
-    let cancelled = false;
+    const ctrl = new AbortController();
+    setResult((prev) => ({ ...prev, loading: true, mode }));
 
     Promise.all(
-      categoryIds.map(async (catId) => {
+      categoryIds.map((catId) => {
         const categoryCode = RX_CATEGORY_TO_DB_CODE[catId as RxCategoryId];
-        if (!categoryCode) return null;
+        if (!categoryCode) return Promise.resolve(null as CategoryFetchOutcome);
         const qs = new URLSearchParams({
           orgSlug,
           eventSlug,
@@ -60,29 +144,22 @@ export function useRxPlanningOverrides(params: {
           exhibitorLocationId: location.exhibitorLocationId,
           categoryCode,
         });
-        try {
-          const res = await fetch(`/api/planning?${qs.toString()}`);
-          if (!res.ok) return null;
-          const body = await res.json();
-          if (!body?.ok || !body.resolution) return null;
-          return [catId, body.resolution as PlanningResolution] as const;
-        } catch {
-          return null;
-        }
+        return fetchOneCategory(catId, categoryCode, qs, ctrl.signal);
       })
-    ).then((entries) => {
-      if (cancelled) return;
-      const next: CategoryPlanningOverrides = {};
-      for (const entry of entries) {
-        if (entry) next[entry[0]] = entry[1];
-      }
-      setOverrides(next);
+    ).then((outcomes) => {
+      if (ctrl.signal.aborted) return;
+      const { overrides, errorsByCategory, hasFetchError } = buildPlanningOverridesFromOutcomes(
+        outcomes,
+        mode,
+        phase
+      );
+      setResult({ overrides, loading: false, errorsByCategory, hasFetchError, mode });
     });
 
     return () => {
-      cancelled = true;
+      ctrl.abort();
     };
-  }, [orgSlug, eventSlug, phase, location, categoryIdsKey]);
+  }, [orgSlug, eventSlug, phase, location, categoryIdsKey, mode]);
 
-  return overrides;
+  return result;
 }

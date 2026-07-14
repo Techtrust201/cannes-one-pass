@@ -48,7 +48,18 @@ const adapter = new PrismaPg({ connectionString });
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const prisma = new PrismaClient({ adapter }) as any;
 
-async function main() {
+/**
+ * Erreur contrôlée signalant qu'un message explicatif a déjà été affiché via
+ * `console.error` avant l'arrêt : le handler `.catch()` final ne doit alors
+ * PAS ré-afficher l'erreur brute (juste positionner le code de sortie).
+ * Aucun `process.exit()` n'est appelé ici : on laisse la promesse rejeter
+ * pour que `.finally()` puisse fermer la connexion Prisma avant l'arrêt
+ * réel du process (cf. F10 — un `process.exit()` immédiat empêcherait le
+ * `finally` de s'exécuter).
+ */
+class PurgeCliError extends Error {}
+
+async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
 
   console.log("🧹 === PURGE D'ORGANISATION (Phase 7) ===\n");
@@ -56,7 +67,7 @@ async function main() {
   if (!args.orgId) {
     console.error("❌ --org-id=<uuid> est obligatoire (même pour le dry-run).");
     console.error("   Usage : npx tsx scripts/purge-organization.ts --org-id=<uuid> --org-slug=rx");
-    process.exit(1);
+    throw new PurgeCliError("--org-id manquant");
   }
 
   const organization = await prisma.organization.findUnique({
@@ -66,7 +77,7 @@ async function main() {
 
   if (!organization) {
     console.error(`❌ Organisation introuvable pour l'UUID fourni.`);
-    process.exit(1);
+    throw new PurgeCliError("organisation introuvable");
   }
 
   console.log(`📌 Organisation résolue : slug="${organization.slug}" (id=${organization.id})\n`);
@@ -82,7 +93,6 @@ async function main() {
     console.log(
       "   Pour exécuter réellement, relire les protections requises en tête de ce fichier."
     );
-    await prisma.$disconnect();
     return;
   }
 
@@ -96,8 +106,7 @@ async function main() {
   if (!guard.ok) {
     console.error(`\n❌ Suppression refusée [${guard.code}] : ${guard.reason}`);
     console.error("   Aucune transaction n'a été ouverte. Aucune donnée n'a été modifiée.");
-    await prisma.$disconnect();
-    process.exit(1);
+    throw new PurgeCliError(`guard refusé [${guard.code}]`);
   }
 
   console.log("\n🔴 SUPPRESSION RÉELLE — ouverture d'une transaction unique...");
@@ -121,9 +130,15 @@ async function main() {
 
 main()
   .catch((error) => {
-    console.error("❌ Erreur:", error);
-    process.exit(1);
+    // Une `PurgeCliError` a déjà été expliquée via `console.error` plus haut
+    // (message métier ciblé) : on ne ré-affiche que les erreurs inattendues.
+    if (!(error instanceof PurgeCliError)) {
+      console.error("❌ Erreur inattendue:", error);
+    }
+    process.exitCode = 1;
   })
   .finally(async () => {
+    // Point de sortie UNIQUE pour la connexion Prisma, quel que soit le
+    // chemin (succès, dry-run, garde refusée, erreur) — cf. F10.
     await prisma.$disconnect();
   });

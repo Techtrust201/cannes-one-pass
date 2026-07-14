@@ -81,9 +81,17 @@ export interface PlanningResolutionRule {
   dates: string[];
 }
 
+/** Une plage `"HH:MM-HH:MM"` en conflit, pour un jour donné (F7). */
+export interface PlanningDisjointRangeConflict {
+  date: string;
+  ranges: string[];
+}
+
 export interface PlanningResolutionError {
-  code: "PLANNING_NOT_FOUND";
+  code: "PLANNING_NOT_FOUND" | "PLANNING_DISJOINT_RANGES";
   message: string;
+  /** Détail structuré des plages en conflit — uniquement pour `PLANNING_DISJOINT_RANGES`. */
+  conflicts?: PlanningDisjointRangeConflict[];
 }
 
 export type PlanningResolutionSource = "DB" | "LEGACY" | "EVENT_FALLBACK" | "NONE";
@@ -133,25 +141,70 @@ export function buildScopeCandidates(
   return candidates;
 }
 
-/** Agrège des lignes quotidiennes en une map `date -> "HH:MM-HH:MM"` (union la plus large par jour). */
-function toSlotsMap(rows: PlanningRuleRow[]): Record<string, string> {
-  const byDate = new Map<string, { start: string; end: string }>();
-  for (const row of rows) {
-    const current = byDate.get(row.date);
-    if (!current) {
-      byDate.set(row.date, { start: row.startTime, end: row.endTime });
+export type DailyRangeMergeResult =
+  | { ok: true; start: string; end: string }
+  | { ok: false; conflicts: string[] };
+
+/**
+ * Fusionne les plages `"HH:MM"`/`"HH:MM"` d'un même jour (F7).
+ *
+ * Seules les plages qui se chevauchent ou se touchent (`start <= end` de la
+ * plage précédemment fusionnée) sont fusionnées. Si, après fusion, au moins
+ * deux groupes disjoints subsistent, on ne choisit JAMAIS un
+ * `min(start)-max(end)` arbitraire qui inventerait un créneau dans le trou :
+ * on retourne les plages en conflit (`"HH:MM-HH:MM"`) pour que l'appelant
+ * produise une erreur structurée (`PLANNING_DISJOINT_RANGES`).
+ *
+ * Fonction pure, partagée entre le moteur runtime (ce module) et le preview
+ * d'import (`src/lib/imports/planning.ts`), pour garantir un comportement
+ * identique aux deux endroits.
+ */
+export function mergeDailyRanges(
+  ranges: Array<{ start: string; end: string }>
+): DailyRangeMergeResult {
+  const sorted = [...ranges].sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0));
+  const merged: Array<{ start: string; end: string }> = [];
+  for (const r of sorted) {
+    const last = merged[merged.length - 1];
+    if (last && r.start <= last.end) {
+      if (r.end > last.end) last.end = r.end;
     } else {
-      byDate.set(row.date, {
-        start: row.startTime < current.start ? row.startTime : current.start,
-        end: row.endTime > current.end ? row.endTime : current.end,
-      });
+      merged.push({ ...r });
     }
   }
-  const out: Record<string, string> = {};
-  for (const [date, { start, end }] of byDate) {
-    out[date] = `${start}-${end}`;
+  if (merged.length > 1) {
+    return { ok: false, conflicts: merged.map((m) => `${m.start}-${m.end}`) };
   }
-  return out;
+  return { ok: true, start: merged[0]!.start, end: merged[0]!.end };
+}
+
+type SlotsMapResult =
+  | { ok: true; slots: Record<string, string> }
+  | { ok: false; conflicts: PlanningDisjointRangeConflict[] };
+
+/** Agrège des lignes quotidiennes en une map `date -> "HH:MM-HH:MM"` (F7), via `mergeDailyRanges`. */
+function toSlotsMap(rows: PlanningRuleRow[]): SlotsMapResult {
+  const byDate = new Map<string, Array<{ start: string; end: string }>>();
+  for (const row of rows) {
+    const list = byDate.get(row.date);
+    if (list) list.push({ start: row.startTime, end: row.endTime });
+    else byDate.set(row.date, [{ start: row.startTime, end: row.endTime }]);
+  }
+
+  const slots: Record<string, string> = {};
+  const conflicts: PlanningDisjointRangeConflict[] = [];
+
+  for (const [date, ranges] of byDate) {
+    const result = mergeDailyRanges(ranges);
+    if (!result.ok) {
+      conflicts.push({ date, ranges: result.conflicts });
+      continue;
+    }
+    slots[date] = `${result.start}-${result.end}`;
+  }
+
+  if (conflicts.length > 0) return { ok: false, conflicts };
+  return { ok: true, slots };
 }
 
 function emptyResolution(
@@ -169,6 +222,18 @@ function notFoundError(phase: PlanningPhase, categoryCode: string): PlanningReso
   return {
     code: "PLANNING_NOT_FOUND",
     message: `Aucune règle de planning trouvée pour la phase ${phase} / catégorie ${categoryCode}.`,
+  };
+}
+
+function disjointRangesError(
+  phase: PlanningPhase,
+  categoryCode: string,
+  conflicts: PlanningDisjointRangeConflict[]
+): PlanningResolutionError {
+  return {
+    code: "PLANNING_DISJOINT_RANGES",
+    message: `Plages horaires disjointes en base pour la phase ${phase} / catégorie ${categoryCode} : impossible de les fusionner sans créer un créneau artificiel.`,
+    conflicts,
   };
 }
 
@@ -222,6 +287,26 @@ export function resolvePlanning(params: ResolvePlanningParams): PlanningResoluti
 
     const resolvedCategoryCode = chosen[0]!.categoryCode;
     const dates = Array.from(new Set(chosen.map((r) => r.date))).sort();
+
+    // Plages disjointes détectées pour ce scope+catégorie : erreur terminale
+    // et mode-indépendante (même en TRANSITION). Il s'agit d'un problème de
+    // qualité de donnée (règle corrompue), pas d'une règle absente : le
+    // fallback legacy — prévu pour couvrir une ABSENCE de règle — ne doit
+    // jamais masquer silencieusement ce cas (cf. D1). On ne cascade pas non
+    // plus vers un scope moins prioritaire, ce qui risquerait de choisir une
+    // règle moins spécifique sans que personne ne corrige la donnée source.
+    const mapResult = toSlotsMap(chosen);
+    if (!mapResult.ok) {
+      return emptyResolution(
+        mode,
+        phase,
+        resolvedCategoryCode,
+        "NONE",
+        {},
+        disjointRangesError(phase, resolvedCategoryCode, mapResult.conflicts)
+      );
+    }
+
     return {
       source: "DB",
       mode,
@@ -229,7 +314,7 @@ export function resolvePlanning(params: ResolvePlanningParams): PlanningResoluti
       categoryCode: resolvedCategoryCode,
       scope: candidate.scope,
       scopeKey: candidate.scopeKey,
-      slots: toSlotsMap(chosen),
+      slots: mapResult.slots,
       rule: {
         scope: candidate.scope,
         scopeKey: candidate.scopeKey,

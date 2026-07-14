@@ -18,7 +18,12 @@ import { useZones } from "@/hooks/useZones";
 import { mapRxPayload } from "../mapPayload";
 import { rxPayloadSchema } from "../schema";
 import { countRxLogicalVehicles } from "../count-vehicles";
-import { RX_MANUTENTION_PROVIDERS, findCategory } from "../config";
+import {
+  RX_MANUTENTION_PROVIDERS,
+  findCategory,
+  resolveEffectiveRxSpace,
+  resolveEffectiveRxSector,
+} from "../config";
 import { getSkipT, getOtherProviderT, getRxFlowT } from "../i18n";
 import type { ZodIssue } from "zod";
 import type { StepProps } from "../../types";
@@ -69,6 +74,42 @@ export function StepManutentionRx({
     [vehicleTypes]
   );
   const { getLabel: getZoneLabel } = useZones();
+
+  // Phase 6C-A (F1, correction ciblée) — Espace/secteur effectifs : même
+  // priorité que StepDeliveryRx/StepPickupRx (référentiel réel de
+  // l'ExhibitorLocation résolue > secteur legacy figé sur l'exposant, repli
+  // legacy interdit en STRICT). Avant cette correction, `scalesRequired` et
+  // l'aperçu de zones utilisaient encore `stepOne.space`/`exhibitorSector`
+  // directement : `selectLocation` (StepExhibitorRx) vide `stepOne.space`
+  // dès qu'un emplacement référentiel est résolu, ce qui masquait à tort la
+  // notice/l'acquittement Scales alors que `mapPayload` calculait déjà
+  // correctement `scalesAssigned` via ces mêmes résolveurs.
+  const effectiveSpace = useMemo(
+    () =>
+      resolveEffectiveRxSpace({
+        logisticSpace: stepOne.logisticSpace,
+        sectorCode: stepOne.sectorCode,
+        exhibitorSector: stepOne.exhibitorSector,
+        manualPalaisChoice: stepOne.space,
+        planningMode: stepOne.logisticsPlanningMode,
+      }),
+    [
+      stepOne.logisticSpace,
+      stepOne.sectorCode,
+      stepOne.exhibitorSector,
+      stepOne.space,
+      stepOne.logisticsPlanningMode,
+    ]
+  );
+  const effectiveSector = useMemo(
+    () =>
+      resolveEffectiveRxSector({
+        portCode: stepOne.portCode,
+        sectorCode: stepOne.sectorCode,
+        exhibitorSector: stepOne.exhibitorSector,
+      }).sector,
+    [stepOne.portCode, stepOne.sectorCode, stepOne.exhibitorSector]
+  );
   const skipT = getSkipT(t);
   const otherT = getOtherProviderT(t);
   const flowMode = mode === "logisticien" ? "logisticien" : "public";
@@ -103,9 +144,9 @@ export function StepManutentionRx({
   const scalesRequired = useMemo(
     () =>
       stepTwo.categories.some(
-        (c) => findCategory(stepOne.space, c.categoryId)?.scales === true
+        (c) => findCategory(effectiveSpace.space ?? "", c.categoryId)?.scales === true
       ),
-    [stepOne.space, stepTwo.categories]
+    [effectiveSpace.space, stepTwo.categories]
   );
 
   // Si « Autre » prestataire est sélectionné, le champ libre est obligatoire.
@@ -315,7 +356,7 @@ export function StepManutentionRx({
           if (!code) continue;
           const zone = suggestZone(
             code,
-            stepOne.exhibitorSector,
+            effectiveSector,
             palmBeachAtCantoCodes,
             zoneRouting
           );
@@ -343,7 +384,7 @@ export function StepManutentionRx({
     stepTwo.categories,
     stepTwo.skipMontage,
     stepTwo.skipDemontage,
-    stepOne.exhibitorSector,
+    effectiveSector,
     palmBeachAtCantoCodes,
     zoneRouting,
     getVehicleLabel,

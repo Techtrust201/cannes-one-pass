@@ -20,7 +20,7 @@
 
 import type { DateTimeSlots, RxCategoryId } from "./planning-data";
 import type { RxSpaceDef, RxCategory } from "./config";
-import type { PlanningResolution } from "@/lib/logistics-planning";
+import type { PlanningPhase, PlanningMode, PlanningResolution } from "@/lib/logistics-planning";
 
 /**
  * Correspondance entre l'identifiant de catégorie legacy (kebab-case, utilisé
@@ -79,4 +79,116 @@ export function applyPlanningOverrides(
 export function findCategoryIn(space: RxSpaceDef | null, categoryId: string): RxCategory | null {
   if (!space) return null;
   return space.categories.find((c) => c.id === categoryId) ?? null;
+}
+
+/**
+ * Phase 6C-A (F5/F6) — Indique si une catégorie a reçu une résolution en
+ * erreur (règle absente confirmée par le serveur ou échec HTTP/réseau en
+ * STRICT, cf. `useRxPlanningOverrides`). Utilisé par les étapes
+ * Livraison/Reprise pour désactiver la validation et afficher un message
+ * traduit tant que la catégorie sélectionnée n'est pas résolue — jamais pour
+ * la faire disparaître silencieusement.
+ */
+export function categoryHasBlockingPlanningError(
+  overrides: CategoryPlanningOverrides,
+  categoryId: string
+): boolean {
+  return Boolean(overrides[categoryId]?.error);
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Phase 6C-A — Décision pure par catégorie, extraite de
+// `useRxPlanningOverrides` pour rester testable sans dépendance React.
+// ────────────────────────────────────────────────────────────────────────
+
+export type CategoryFetchErrorKind = "NOT_FOUND" | "HTTP" | "NETWORK";
+
+export interface CategoryFetchError {
+  kind: CategoryFetchErrorKind;
+  message: string;
+}
+
+export type CategoryFetchErrors = Partial<Record<string, CategoryFetchError>>;
+
+/** Résultat brut d'une tentative de résolution réseau pour une catégorie (ou `null` si le code DB est inconnu, ou `"ABORTED"` si la requête a été annulée). */
+export type CategoryFetchOutcome =
+  | {
+      catId: string;
+      resolution: PlanningResolution | null;
+      fetchError: CategoryFetchError | null;
+    }
+  | null
+  | "ABORTED";
+
+export interface BuildPlanningOverridesResult {
+  overrides: CategoryPlanningOverrides;
+  errorsByCategory: CategoryFetchErrors;
+  hasFetchError: boolean;
+}
+
+/** Résolution synthétique construite pour un échec HTTP/réseau local (jamais renvoyée par le serveur). */
+function syntheticErrorResolution(phase: PlanningPhase, message: string): PlanningResolution {
+  return {
+    source: "NONE",
+    mode: "STRICT",
+    phase,
+    categoryCode: "",
+    scope: null,
+    scopeKey: null,
+    slots: {},
+    rule: null,
+    error: { code: "PLANNING_NOT_FOUND", message },
+  };
+}
+
+/**
+ * Construit `overrides`/`errorsByCategory`/`hasFetchError` à partir des
+ * résultats bruts de résolution par catégorie (Phase 6C-A / F3).
+ *
+ * Comportement par mode (D1), STRICTEMENT symétrique à `resolvePlanning` :
+ *   - `TRANSITION` : une règle absente confirmée par le serveur retombe
+ *     silencieusement sur le legacy (rien inséré dans `overrides`) ; une
+ *     erreur HTTP/réseau retombe aussi sur le legacy, mais avec un warning
+ *     non bloquant (`hasFetchError=true`, pas d'entrée `overrides`) ;
+ *   - `STRICT` : dans TOUS les cas d'erreur (règle absente confirmée OU
+ *     échec HTTP/réseau local), la catégorie reçoit une résolution en
+ *     erreur dans `overrides` — `applyPlanningOverrides` vide alors ses
+ *     créneaux plutôt que de conserver silencieusement le legacy.
+ *
+ * Fonction pure : aucune dépendance React, aucun accès réseau.
+ */
+export function buildPlanningOverridesFromOutcomes(
+  outcomes: CategoryFetchOutcome[],
+  mode: PlanningMode,
+  phase: PlanningPhase
+): BuildPlanningOverridesResult {
+  const overrides: CategoryPlanningOverrides = {};
+  const errorsByCategory: CategoryFetchErrors = {};
+  let hasFetchError = false;
+
+  for (const entry of outcomes) {
+    if (!entry || entry === "ABORTED") continue;
+    const { catId, resolution, fetchError } = entry;
+
+    if (resolution && !resolution.error) {
+      if (resolution.source === "DB") overrides[catId] = resolution;
+      continue;
+    }
+
+    if (mode === "STRICT") {
+      hasFetchError = true;
+      if (fetchError) errorsByCategory[catId] = fetchError;
+      overrides[catId] =
+        resolution ?? syntheticErrorResolution(phase, fetchError?.message ?? "Erreur de résolution.");
+    } else {
+      if (fetchError && fetchError.kind !== "NOT_FOUND") {
+        hasFetchError = true;
+        errorsByCategory[catId] = fetchError;
+      }
+      // TRANSITION : ne jamais insérer dans `overrides` — `applyPlanningOverrides`
+      // conserve alors la donnée statique locale (legacy) intacte.
+    }
+  }
+
+  return { overrides, errorsByCategory, hasFetchError };
 }

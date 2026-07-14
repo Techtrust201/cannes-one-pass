@@ -46,6 +46,8 @@ export interface RxT {
       title: string;
       chooseHint: string;
       noneHint: string;
+      /** Phase 6C-A — TRANSITION/STRICT : aucun emplacement référencé, bloquant (D1). */
+      requiredHint: string;
       typeTerre: string;
       typeFlot: string;
       typeStand: string;
@@ -173,6 +175,15 @@ export interface RxT {
     loadingEvent?: string;
   };
   /**
+   * Phase 6C-A (F4/F6) — Message affiché à la place du sélecteur date/créneau
+   * quand le planning DB d'une catégorie est en erreur en mode STRICT (règle
+   * absente confirmée par le serveur, ou échec HTTP/réseau). Optionnel :
+   * repli français via `getPlanningErrorT`, comme `skip`/`bateauTerre`.
+   */
+  planningError?: {
+    unavailable: string;
+  };
+  /**
    * Libellés liés au skip montage/démontage (étapes 3/4) et aux bannières de
    * réactivation. Optionnel dans l'interface : un helper (`getSkipT`) fournit
    * un repli français pour les langues non encore traduites — le typage reste
@@ -296,6 +307,8 @@ const fr: RxT = {
       title: "Emplacement",
       chooseHint: "Plusieurs emplacements sont associés à cette société. Sélectionnez le vôtre.",
       noneHint: "Aucun emplacement référencé pour cette société pour le moment.",
+      requiredHint:
+        "Emplacement obligatoire : aucun emplacement n'est encore référencé pour cette société. Merci de contacter l'organisateur avant de continuer.",
       typeTerre: "Terre",
       typeFlot: "Flottant",
       typeStand: "Stand",
@@ -441,6 +454,10 @@ const fr: RxT = {
     pageSubtitle:
       "Saisie directe par l'équipe logistique — accréditation validée à la création",
   },
+  planningError: {
+    unavailable:
+      "Le planning de cette catégorie est momentanément indisponible. Merci de réessayer dans quelques instants ou de contacter l'organisateur si le problème persiste.",
+  },
   skip: {
     montageLabel: "Je souhaite une accréditation uniquement pour le démontage",
     demontageLabel: "Je ne souhaite pas d'accréditation pour le démontage",
@@ -528,6 +545,8 @@ const en: RxT = {
       title: "Location",
       chooseHint: "Several locations are associated with this company. Select yours.",
       noneHint: "No location referenced for this company yet.",
+      requiredHint:
+        "Location required: no location is referenced for this company yet. Please contact the organizer before continuing.",
       typeTerre: "Land",
       typeFlot: "Floating",
       typeStand: "Booth",
@@ -741,6 +760,8 @@ const de: RxT = {
       title: "Standort",
       chooseHint: "Mehrere Standorte sind diesem Unternehmen zugeordnet. Wählen Sie Ihren aus.",
       noneHint: "Für dieses Unternehmen ist derzeit kein Standort referenziert.",
+      requiredHint:
+        "Standort erforderlich: Für dieses Unternehmen ist noch kein Standort referenziert. Bitte wenden Sie sich vor dem Fortfahren an den Veranstalter.",
       typeTerre: "Land",
       typeFlot: "Schwimmend",
       typeStand: "Stand",
@@ -931,6 +952,8 @@ const es: RxT = {
       title: "Ubicación",
       chooseHint: "Varias ubicaciones están asociadas a esta empresa. Seleccione la suya.",
       noneHint: "Ninguna ubicación referenciada para esta empresa por el momento.",
+      requiredHint:
+        "Ubicación obligatoria: aún no hay ninguna ubicación referenciada para esta empresa. Por favor, contacte con el organizador antes de continuar.",
       typeTerre: "Tierra",
       typeFlot: "Flotante",
       typeStand: "Estand",
@@ -1121,6 +1144,8 @@ const pt: RxT = {
       title: "Localização",
       chooseHint: "Várias localizações estão associadas a esta empresa. Selecione a sua.",
       noneHint: "Nenhuma localização referenciada para esta empresa por agora.",
+      requiredHint:
+        "Localização obrigatória: ainda não há nenhuma localização referenciada para esta empresa. Contacte o organizador antes de continuar.",
       typeTerre: "Terra",
       typeFlot: "Flutuante",
       typeStand: "Stand",
@@ -1311,6 +1336,8 @@ const it: RxT = {
       title: "Posizione",
       chooseHint: "Più posizioni sono associate a questa azienda. Seleziona la tua.",
       noneHint: "Nessuna posizione al momento referenziata per questa azienda.",
+      requiredHint:
+        "Posizione obbligatoria: nessuna posizione è ancora referenziata per questa azienda. Contattare l'organizzatore prima di continuare.",
       typeTerre: "Terra",
       typeFlot: "Flottante",
       typeStand: "Stand",
@@ -1501,6 +1528,8 @@ const pl: RxT = {
       title: "Lokalizacja",
       chooseHint: "Z tą firmą powiązanych jest kilka lokalizacji. Wybierz swoją.",
       noneHint: "Brak lokalizacji przypisanej do tej firmy na razie.",
+      requiredHint:
+        "Lokalizacja wymagana: dla tej firmy nie przypisano jeszcze żadnej lokalizacji. Skontaktuj się z organizatorem przed dalszym działaniem.",
       typeTerre: "Ląd",
       typeFlot: "Pływająca",
       typeStand: "Stoisko",
@@ -1691,6 +1720,8 @@ const cs: RxT = {
       title: "Umístění",
       chooseHint: "S touto společností je spojeno více umístění. Vyberte to své.",
       noneHint: "Pro tuto společnost není zatím uvedeno žádné umístění.",
+      requiredHint:
+        "Umístění je povinné: pro tuto společnost ještě není uvedeno žádné umístění. Před pokračováním kontaktujte organizátora.",
       typeTerre: "Pevnina",
       typeFlot: "Plovoucí",
       typeStand: "Stánek",
@@ -1881,6 +1912,8 @@ const lt: RxT = {
       title: "Vieta",
       chooseHint: "Su šia įmone susijusios kelios vietos. Pasirinkite savo.",
       noneHint: "Šiai įmonei kol kas nenurodyta jokia vieta.",
+      requiredHint:
+        "Vieta būtina: šiai įmonei kol kas nepriskirta jokia vieta. Prieš tęsdami susisiekite su organizatoriumi.",
       typeTerre: "Sausuma",
       typeFlot: "Plūduriuojanti",
       typeStand: "Stendas",
@@ -2071,6 +2104,8 @@ const tr: RxT = {
       title: "Konum",
       chooseHint: "Bu şirketle ilişkili birden fazla konum var. Kendi konumunuzu seçin.",
       noneHint: "Bu şirket için şu anda referans gösterilen bir konum yok.",
+      requiredHint:
+        "Konum gerekli: bu şirket için henüz referans gösterilen bir konum yok. Devam etmeden önce organizatörle iletişime geçin.",
       typeTerre: "Kara",
       typeFlot: "Yüzer",
       typeStand: "Stant",
@@ -2261,6 +2296,8 @@ const ru: RxT = {
       title: "Расположение",
       chooseHint: "С этой компанией связано несколько объектов. Выберите свой.",
       noneHint: "Для этой компании пока не указано ни одного объекта.",
+      requiredHint:
+        "Требуется указание объекта: для этой компании пока не указано ни одного объекта. Пожалуйста, свяжитесь с организатором, прежде чем продолжить.",
       typeTerre: "Суша",
       typeFlot: "Плавучий",
       typeStand: "Стенд",

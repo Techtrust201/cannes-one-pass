@@ -23,13 +23,18 @@ function rxContext(mode: PlanningValidationContext["logisticsPlanningMode"]): Pl
   return { organizationId: "org-rx", eventId: "event-rx", organizationSlug: "rx", logisticsPlanningMode: mode };
 }
 
+/**
+ * `livTime`/`repTime` transportent la PLAGE COMPLÈTE `"HH:MM-HH:MM"` choisie
+ * dans le menu (peuplée côté client par `genSlots`), jamais une simple heure
+ * de départ — cf. `StepDeliveryRx`/`StepPickupRx` (`slot={selected.livTime}`).
+ */
 function category(overrides: Partial<PlanningValidationCategoryInput> = {}): PlanningValidationCategoryInput {
   return {
     categoryId: "stand-tente",
     livDate: "2026-09-06",
-    livTime: "08:00",
+    livTime: "08:00-09:00",
     repDate: "2026-09-14",
-    repTime: "08:00",
+    repTime: "08:00-09:00",
     vehicles: [{ vehicleType: "C", plate: "AB-123-CD" }],
     ...overrides,
   };
@@ -95,7 +100,7 @@ describe("validateAccreditationPlanning — validation planning RX (Phase 6C-B-1
       DEMONTAGE: [dbRow({ phase: "DEMONTAGE", date: "2026-09-14", startTime: "08:00", endTime: "09:00" })],
     });
     const res = await run(db, rxContext("TRANSITION"), {
-      categories: [category({ livTime: "10:00", repTime: "08:00" })],
+      categories: [category({ livTime: "10:00-11:00", repTime: "08:00-09:00" })],
     });
     expect(res.ok).toBe(true);
     if (res.ok) {
@@ -117,7 +122,7 @@ describe("validateAccreditationPlanning — validation planning RX (Phase 6C-B-1
   it("4. TRANSITION règle absente + legacy valide → succès (repli planning-data.ts)", async () => {
     const db = makeDb({ MONTAGE: [], DEMONTAGE: [] });
     const res = await run(db, rxContext("TRANSITION"), {
-      categories: [category({ livDate: "2026-09-06", livTime: "08:00", repDate: "2026-09-14", repTime: "08:00" })],
+      categories: [category({ livDate: "2026-09-06", livTime: "08:00-09:00", repDate: "2026-09-14", repTime: "08:00-09:00" })],
     });
     expect(res).toMatchObject({ ok: true, skipped: false });
   });
@@ -125,7 +130,7 @@ describe("validateAccreditationPlanning — validation planning RX (Phase 6C-B-1
   it("5. TRANSITION règle absente + legacy date invalide → 400 PLANNING_DATE_INVALID", async () => {
     const db = makeDb({ MONTAGE: [], DEMONTAGE: [] });
     const res = await run(db, rxContext("TRANSITION"), {
-      categories: [category({ livDate: "2026-09-01", livTime: "08:00", repDate: "", repTime: "" })],
+      categories: [category({ livDate: "2026-09-01", livTime: "08:00-09:00", repDate: "", repTime: "" })],
       skipDemontage: true,
     });
     expect(res).toMatchObject({ ok: false, status: 400, code: "PLANNING_DATE_INVALID" });
@@ -134,7 +139,7 @@ describe("validateAccreditationPlanning — validation planning RX (Phase 6C-B-1
   it("6. TRANSITION règle absente + legacy heure invalide → 400 PLANNING_SLOT_INVALID", async () => {
     const db = makeDb({ MONTAGE: [] });
     const res = await run(db, rxContext("TRANSITION"), {
-      categories: [category({ livDate: "2026-09-06", livTime: "08:30" })],
+      categories: [category({ livDate: "2026-09-06", livTime: "08:30-09:30" })],
       skipDemontage: true,
     });
     expect(res).toMatchObject({ ok: false, status: 400, code: "PLANNING_SLOT_INVALID" });
@@ -155,7 +160,7 @@ describe("validateAccreditationPlanning — validation planning RX (Phase 6C-B-1
       DEMONTAGE: [dbRow({ phase: "DEMONTAGE", date: "2026-09-14", startTime: "08:00", endTime: "09:00" })],
     });
     const res = await run(db, rxContext("STRICT"), {
-      categories: [category({ livTime: "10:00", repTime: "08:00" })],
+      categories: [category({ livTime: "10:00-11:00", repTime: "08:00-09:00" })],
     });
     expect(res).toMatchObject({ ok: true, skipped: false });
   });
@@ -163,7 +168,7 @@ describe("validateAccreditationPlanning — validation planning RX (Phase 6C-B-1
   it("9. STRICT règle absente → 409 PLANNING_NOT_FOUND (aucun fallback legacy)", async () => {
     const db = makeDb({ MONTAGE: [] });
     const res = await run(db, rxContext("STRICT"), {
-      categories: [category({ livDate: "2026-09-06", livTime: "08:00" })],
+      categories: [category({ livDate: "2026-09-06", livTime: "08:00-09:00" })],
       skipDemontage: true,
     });
     expect(res).toMatchObject({ ok: false, status: 409, code: "PLANNING_NOT_FOUND" });
@@ -172,16 +177,16 @@ describe("validateAccreditationPlanning — validation planning RX (Phase 6C-B-1
   it("10. STRICT date falsifiée → 400 PLANNING_DATE_INVALID (date hors des lignes DB résolues)", async () => {
     const db = makeDb({ MONTAGE: [dbRow({ date: "2026-09-06" })] });
     const res = await run(db, rxContext("STRICT"), {
-      categories: [category({ livDate: "2026-09-07", livTime: "10:00" })],
+      categories: [category({ livDate: "2026-09-07", livTime: "10:00-11:00" })],
       skipDemontage: true,
     });
     expect(res).toMatchObject({ ok: false, status: 400, code: "PLANNING_DATE_INVALID" });
   });
 
-  it("11. STRICT créneau falsifié → 400 PLANNING_SLOT_INVALID (heure hors genSlots)", async () => {
+  it("11. STRICT créneau falsifié → 400 PLANNING_SLOT_INVALID (créneau mal aligné, absent de genSlots)", async () => {
     const db = makeDb({ MONTAGE: [dbRow({ date: "2026-09-06", startTime: "10:00", endTime: "11:00" })] });
     const res = await run(db, rxContext("STRICT"), {
-      categories: [category({ livDate: "2026-09-06", livTime: "10:30" })],
+      categories: [category({ livDate: "2026-09-06", livTime: "10:30-11:30" })],
       skipDemontage: true,
     });
     expect(res).toMatchObject({ ok: false, status: 400, code: "PLANNING_SLOT_INVALID" });
@@ -213,7 +218,7 @@ describe("validateAccreditationPlanning — validation planning RX (Phase 6C-B-1
   it("14. skipMontage → seules des entrées DEMONTAGE sont produites/validées", async () => {
     const db = makeDb({ DEMONTAGE: [] });
     const res = await run(db, rxContext("TRANSITION"), {
-      categories: [category({ livDate: "", livTime: "", repDate: "2026-09-14", repTime: "08:00" })],
+      categories: [category({ livDate: "", livTime: "", repDate: "2026-09-14", repTime: "08:00-09:00" })],
       skipMontage: true,
     });
     expect(res.ok).toBe(true);
@@ -230,7 +235,7 @@ describe("validateAccreditationPlanning — validation planning RX (Phase 6C-B-1
   it("15. skipDemontage → seules des entrées MONTAGE sont produites/validées", async () => {
     const db = makeDb({ MONTAGE: [] });
     const res = await run(db, rxContext("TRANSITION"), {
-      categories: [category({ livDate: "2026-09-06", livTime: "08:00", repDate: "", repTime: "" })],
+      categories: [category({ livDate: "2026-09-06", livTime: "08:00-09:00", repDate: "", repTime: "" })],
       skipDemontage: true,
     });
     expect(res.ok).toBe(true);
@@ -305,9 +310,9 @@ describe("validateAccreditationPlanning — validation planning RX (Phase 6C-B-1
         category({
           categoryId: "bateau-terre",
           livDate: "2026-09-04",
-          livTime: "18:00",
+          livTime: "18:00-19:00",
           repDate: "2026-09-14",
-          repTime: "17:00",
+          repTime: "17:00-18:00",
         }),
       ],
     });
@@ -341,15 +346,15 @@ describe("validateAccreditationPlanning — validation planning RX (Phase 6C-B-1
   it("22. MONTAGE valide + DEMONTAGE invalide → l'ensemble de la validation échoue", async () => {
     const db = makeDb({ MONTAGE: [], DEMONTAGE: [] });
     const res = await run(db, rxContext("TRANSITION"), {
-      categories: [category({ livDate: "2026-09-06", livTime: "08:00", repDate: "2026-09-14", repTime: "09:30" })],
+      categories: [category({ livDate: "2026-09-06", livTime: "08:00-09:00", repDate: "2026-09-14", repTime: "09:30-10:30" })],
     });
     expect(res).toMatchObject({ ok: false, status: 400, code: "PLANNING_SLOT_INVALID", details: { phase: "DEMONTAGE" } });
   });
 
-  it("23. heure dans la plage textuelle mais absente de genSlots → refus strict (pas de comparaison start<=t<=end)", async () => {
+  it("23. créneau non aligné (dans la plage numérique mais absent de genSlots) → refus strict (pas de comparaison start<=t<=end)", async () => {
     const db = makeDb({ MONTAGE: [dbRow({ date: "2026-09-06", startTime: "08:00", endTime: "12:00" })] });
     const res = await run(db, rxContext("STRICT"), {
-      categories: [category({ livDate: "2026-09-06", livTime: "09:15" })],
+      categories: [category({ livDate: "2026-09-06", livTime: "09:30-10:30" })],
       skipDemontage: true,
     });
     expect(res).toMatchObject({ ok: false, status: 400, code: "PLANNING_SLOT_INVALID" });

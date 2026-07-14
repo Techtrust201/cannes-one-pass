@@ -14,6 +14,10 @@ vi.mock("@/lib/prisma", () => {
     event: { findUnique: vi.fn() },
     vehicleTypeConfig: { findMany: vi.fn() },
     user: { findUnique: vi.fn() },
+    // Phase 6C-B-2 : référentiel fiable + planning RX (previewAccreditation).
+    exhibitor: { findUnique: vi.fn(), findMany: vi.fn() },
+    exhibitorLocation: { findUnique: vi.fn(), findMany: vi.fn() },
+    logisticsPlanning: { findMany: vi.fn() },
     $transaction: vi.fn(),
   };
   return { prisma: prismaMock, default: prismaMock };
@@ -67,6 +71,9 @@ type MockedPrisma = {
   event: { findUnique: Mock };
   vehicleTypeConfig: { findMany: Mock };
   user: { findUnique: Mock };
+  exhibitor: { findUnique: Mock; findMany: Mock };
+  exhibitorLocation: { findUnique: Mock; findMany: Mock };
+  logisticsPlanning: { findMany: Mock };
   $transaction: Mock;
 };
 const mockedPrisma = prisma as unknown as MockedPrisma;
@@ -86,7 +93,12 @@ function baseCommand(overrides: AccreditationCommand = {}): AccreditationCommand
   };
 }
 
-/** Faux client transactionnel : chaque appel crée des vi.fn() neufs (aucun leak). */
+/**
+ * Faux client transactionnel : chaque appel crée des vi.fn() neufs (aucun
+ * leak). `event.findUnique` par défaut DISABLED (Phase 6C-B-2 : rechargement
+ * fiable dans `createAccreditationInTransaction`, RX uniquement) — un test
+ * RX TRANSITION/STRICT doit surcharger ce mock explicitement.
+ */
 function makeFakeTx(overrides: Record<string, unknown> = {}) {
   return {
     stand: {
@@ -97,6 +109,12 @@ function makeFakeTx(overrides: Record<string, unknown> = {}) {
     accreditation: {
       create: vi.fn().mockResolvedValue({ id: "acc-1", vehicles: [] }),
     },
+    event: {
+      findUnique: vi.fn().mockResolvedValue({ logisticsPlanningMode: "DISABLED" }),
+    },
+    exhibitor: { findUnique: vi.fn(), findMany: vi.fn() },
+    exhibitorLocation: { findUnique: vi.fn(), findMany: vi.fn() },
+    logisticsPlanning: { findMany: vi.fn() },
     ...overrides,
   };
 }
@@ -898,5 +916,513 @@ describe("POST /api/accreditations — parité HTTP event/organisation", () => {
     expect(res.status).toBe(409);
     const body = await res.json();
     expect(body.code).toBe("CAPACITY_QUOTA_FULL");
+  });
+});
+
+// ── Phase 6C-B-2 : référentiel fiable + planning serveur RX ────────────────
+// Utilise les VRAIS `resolveTrustedAccreditationReferential` /
+// `validateAccreditationPlanning` / `resolvePlanning` (aucun mock de ces
+// modules) : ces tests prouvent l'intégration réelle dans le moteur, pas une
+// simple délégation simulée. Seul `prisma`/`tx` (structurel) est mocké.
+
+const RX_EXHIBITOR_ROW = {
+  id: "exh-1",
+  name: "Sunseeker",
+  nameNormalized: "SUNSEEKER",
+  externalReference: null,
+  organizationId: "org-1",
+  eventId: "event-1",
+  isActive: true,
+};
+const RX_LOCATION_ROW = {
+  id: "loc-1",
+  exhibitorId: "exh-1",
+  type: "TERRE",
+  code: "PAN 023",
+  codeNormalized: "PAN023",
+  portCode: "PORT_CANTO",
+  sectorCode: "POWER",
+  logisticSpace: "EXTERIEUR_PALAIS",
+  isActive: true,
+};
+const RX_REFERENTIAL_INPUT = {
+  exhibitorName: "Sunseeker",
+  locationCode: "PAN 023",
+  locationType: "TERRE" as const,
+};
+
+function rxExtension(overrides: Record<string, unknown> = {}) {
+  return {
+    exhibitor: { name: "Sunseeker" },
+    location: { code: "PAN 023", type: "TERRE" },
+    categories: [
+      {
+        categoryId: "stand-tente",
+        livDate: "2026-09-06",
+        livTime: "08:00-09:00",
+        repDate: "2026-09-14",
+        repTime: "08:00-09:00",
+        vehicles: [{ vehicleType: "VL", plate: "AB-123-CD" }],
+      },
+    ],
+    ...overrides,
+  };
+}
+
+function rxCommand(overrides: AccreditationCommand = {}): AccreditationCommand {
+  return baseCommand({
+    organizationSlug: "rx",
+    currentZone: "LA_BOCCA",
+    extension: rxExtension(),
+    vehicles: [
+      {
+        plate: "AB-123-CD", size: "L", phoneCode: "+33", phoneNumber: "600000000",
+        date: "2026-09-06", time: "08:00-09:00", city: "Cannes", unloading: "quai", vehicleType: "VL",
+      },
+    ],
+    ...overrides,
+  });
+}
+
+function mockRxEvent(mode: "DISABLED" | "TRANSITION" | "STRICT") {
+  mockedPrisma.event.findUnique.mockResolvedValue({
+    id: "event-1", organizationId: "org-1", logisticsPlanningMode: mode,
+  });
+}
+
+function mockValidReferential() {
+  mockedPrisma.exhibitor.findMany.mockResolvedValue([RX_EXHIBITOR_ROW]);
+  mockedPrisma.exhibitorLocation.findMany.mockResolvedValue([RX_LOCATION_ROW]);
+}
+
+/** Faux `tx` RX complet (référentiel valide, aucune règle DB → repli legacy). */
+function makeFakeRxTx(mode: "DISABLED" | "TRANSITION" | "STRICT", planningRows: unknown[] = []) {
+  return makeFakeTx({
+    event: { findUnique: vi.fn().mockResolvedValue({ logisticsPlanningMode: mode }) },
+    exhibitor: { findUnique: vi.fn(), findMany: vi.fn().mockResolvedValue([RX_EXHIBITOR_ROW]) },
+    exhibitorLocation: { findUnique: vi.fn(), findMany: vi.fn().mockResolvedValue([RX_LOCATION_ROW]) },
+    logisticsPlanning: { findMany: vi.fn().mockResolvedValue(planningRows) },
+  });
+}
+
+describe("Phase 6C-B-2 — moteur RX (référentiel + planning serveur, double validation)", () => {
+  it("Palais n'appelle aucun validator (aucune lecture exhibitor/exhibitorLocation/logisticsPlanning)", async () => {
+    const result = await previewAccreditation(baseCommand(), {});
+    expect(result.ok).toBe(true);
+    expect(mockedPrisma.exhibitor.findMany).not.toHaveBeenCalled();
+    expect(mockedPrisma.exhibitor.findUnique).not.toHaveBeenCalled();
+    expect(mockedPrisma.logisticsPlanning.findMany).not.toHaveBeenCalled();
+  });
+
+  it("RX DISABLED : comportement historique inchangé — best-effort non bloquant, aucune lecture planning", async () => {
+    mockRxEvent("DISABLED");
+    mockedPrisma.exhibitor.findMany.mockResolvedValue([]); // exposant introuvable
+    const result = await previewAccreditation(rxCommand(), { referentialInput: { exhibitorName: "Inconnu" } });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.exhibitorId).toBeNull();
+      expect(result.rxPhaseEntries).toEqual([]);
+    }
+    expect(mockedPrisma.logisticsPlanning.findMany).not.toHaveBeenCalled();
+  });
+
+  it("RX TRANSITION : aucune indication référentielle → refusé 400 EXHIBITOR_REQUIRED, aucune lecture planning", async () => {
+    mockRxEvent("TRANSITION");
+    const result = await previewAccreditation(rxCommand(), { referentialInput: {} });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(400);
+      expect(result.code).toBe("EXHIBITOR_REQUIRED");
+    }
+    expect(mockedPrisma.logisticsPlanning.findMany).not.toHaveBeenCalled();
+  });
+
+  it("RX STRICT : aucune indication référentielle → refusé 400 EXHIBITOR_REQUIRED", async () => {
+    mockRxEvent("STRICT");
+    const result = await previewAccreditation(rxCommand(), { referentialInput: {} });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("EXHIBITOR_REQUIRED");
+  });
+
+  it("preview appelle les deux validateurs (référentiel PUIS planning) via prisma, jamais via un snapshot client", async () => {
+    mockRxEvent("TRANSITION");
+    mockValidReferential();
+    mockedPrisma.logisticsPlanning.findMany.mockResolvedValue([]);
+
+    const result = await previewAccreditation(rxCommand(), { referentialInput: RX_REFERENTIAL_INPUT });
+    expect(result.ok).toBe(true);
+    expect(mockedPrisma.exhibitor.findMany).toHaveBeenCalledTimes(1);
+    expect(mockedPrisma.logisticsPlanning.findMany).toHaveBeenCalled();
+    if (result.ok) {
+      // Résolu depuis la DB (exh-1), jamais depuis un éventuel id client.
+      expect(result.exhibitorId).toBe("exh-1");
+      expect(result.exhibitorLocationId).toBe("loc-1");
+      expect(result.rxPhaseEntries.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("transaction rappelle les deux validateurs via tx (jamais via prisma)", async () => {
+    mockRxEvent("TRANSITION");
+    mockValidReferential();
+    mockedPrisma.logisticsPlanning.findMany.mockResolvedValue([]);
+    const preview = await previewAccreditation(rxCommand(), { referentialInput: RX_REFERENTIAL_INPUT });
+    if (!preview.ok) throw new Error("preview should succeed");
+
+    const tx = makeFakeRxTx("TRANSITION");
+    await createAccreditationInTransaction(tx as never, preview, { referentialInput: RX_REFERENTIAL_INPUT });
+
+    expect(tx.event.findUnique).toHaveBeenCalledTimes(1);
+    expect(tx.exhibitor.findMany).toHaveBeenCalledTimes(1);
+    expect(tx.logisticsPlanning.findMany).toHaveBeenCalled();
+    // Le preview (prisma) n'est PAS rappelé pendant l'écriture.
+    expect(mockedPrisma.exhibitor.findMany).toHaveBeenCalledTimes(1);
+    expect(tx.accreditation.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("planning modifié après preview (règle DB supprimée, STRICT) → transaction refusée, aucune écriture", async () => {
+    mockRxEvent("STRICT");
+    mockValidReferential();
+    mockedPrisma.logisticsPlanning.findMany.mockResolvedValue([
+      { scope: "SPACE", scopeKey: "SPACE:EXTERIEUR_PALAIS", categoryCode: "TERRE", phase: "MONTAGE", date: "2026-09-06", startTime: "08:00", endTime: "09:00" },
+      { scope: "SPACE", scopeKey: "SPACE:EXTERIEUR_PALAIS", categoryCode: "TERRE", phase: "DEMONTAGE", date: "2026-09-14", startTime: "08:00", endTime: "09:00" },
+    ]);
+    const preview = await previewAccreditation(rxCommand(), { referentialInput: RX_REFERENTIAL_INPUT });
+    if (!preview.ok) throw new Error("preview should succeed");
+
+    // Règle DB supprimée entre preview et commit (ex: admin a fermé le créneau).
+    const tx = makeFakeRxTx("STRICT", []);
+
+    await expect(
+      createAccreditationInTransaction(tx as never, preview, { referentialInput: RX_REFERENTIAL_INPUT })
+    ).rejects.toMatchObject({ status: 409, code: "PLANNING_NOT_FOUND" });
+    expect(tx.accreditation.create).not.toHaveBeenCalled();
+  });
+
+  it("createAccreditation : rejet transactionnel → réponse structurée, rollback complet, aucun e-mail", async () => {
+    mockRxEvent("STRICT");
+    mockValidReferential();
+    mockedPrisma.logisticsPlanning.findMany.mockResolvedValue([
+      { scope: "SPACE", scopeKey: "SPACE:EXTERIEUR_PALAIS", categoryCode: "TERRE", phase: "MONTAGE", date: "2026-09-06", startTime: "08:00", endTime: "09:00" },
+      { scope: "SPACE", scopeKey: "SPACE:EXTERIEUR_PALAIS", categoryCode: "TERRE", phase: "DEMONTAGE", date: "2026-09-14", startTime: "08:00", endTime: "09:00" },
+    ]);
+    mockedPrisma.$transaction.mockImplementation(async (fn: (t: unknown) => unknown) =>
+      fn(makeFakeRxTx("STRICT", [])) // règle supprimée au commit
+    );
+
+    const result = await createAccreditation(rxCommand(), { referentialInput: RX_REFERENTIAL_INPUT });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(409);
+      expect(result.code).toBe("PLANNING_NOT_FOUND");
+    }
+    expect(sendAccreditationCreationEmail).not.toHaveBeenCalled();
+  });
+
+  it("erreur DB pendant la résolution référentiel → 503 propagé, sans fuite de détail Prisma", async () => {
+    mockRxEvent("TRANSITION");
+    mockedPrisma.exhibitor.findMany.mockRejectedValue(new Error("connection reset by peer"));
+    const result = await previewAccreditation(rxCommand(), { referentialInput: RX_REFERENTIAL_INPUT });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(503);
+      expect(result.error).not.toContain("connection reset");
+    }
+  });
+
+  it("status/actorSource restent déduits EXCLUSIVEMENT du contexte serveur, inchangés par la validation RX", async () => {
+    mockRxEvent("DISABLED");
+    mockedPrisma.exhibitor.findMany.mockResolvedValue([]);
+    const result = await previewAccreditation(rxCommand(), {
+      currentUserId: "u1",
+      currentUserRole: "SUPER_ADMIN",
+      referentialInput: { exhibitorName: "Sunseeker" },
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.status).toBe("ATTENTE");
+      expect(result.actorSource).toBe("SUPER_ADMIN");
+    }
+  });
+});
+
+// ── Phase 6C-B-2 : quotas alignés sur extension.categories[] (RX non-DISABLED) ─
+
+describe("Phase 6C-B-2 — quotas alignés sur extension.categories[] (RX non-DISABLED)", () => {
+  it("skipMontage=true → aucune candidate MONTAGE, même si le véhicule racine porte une date/heure falsifiée", async () => {
+    mockRxEvent("TRANSITION");
+    mockValidReferential();
+    mockedPrisma.logisticsPlanning.findMany.mockResolvedValue([]); // repli legacy
+
+    const result = await previewAccreditation(
+      rxCommand({
+        extension: rxExtension({
+          skipMontage: true,
+          categories: [
+            {
+              categoryId: "stand-tente",
+              livDate: "",
+              livTime: "",
+              repDate: "2026-09-14",
+              repTime: "08:00-09:00",
+              vehicles: [{ vehicleType: "VL", plate: "AB-123-CD" }],
+            },
+          ],
+        }),
+        // Véhicule racine falsifié : date/heure de montage arbitraires.
+        vehicles: [
+          { plate: "AB-123-CD", size: "L", phoneCode: "+33", phoneNumber: "1", date: "2099-01-01", time: "23:00-23:59", city: "Cannes", unloading: "quai", vehicleType: "VL" },
+        ],
+      }),
+      { referentialInput: RX_REFERENTIAL_INPUT }
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.quotaCandidates.filter((c) => c.key.phase === "MONTAGE")).toHaveLength(0);
+      const demontage = result.quotaCandidates.filter((c) => c.key.phase === "DEMONTAGE");
+      expect(demontage).toHaveLength(1);
+      expect(demontage[0]!.key.date).toBe("2026-09-14");
+      expect(demontage[0]!.key.date).not.toBe("2099-01-01");
+    }
+  });
+
+  it("skipDemontage=true → aucune candidate DEMONTAGE, même si le véhicule racine porte des champs rep* falsifiés", async () => {
+    mockRxEvent("TRANSITION");
+    mockValidReferential();
+    mockedPrisma.logisticsPlanning.findMany.mockResolvedValue([]);
+
+    const result = await previewAccreditation(
+      rxCommand({
+        extension: rxExtension({
+          skipDemontage: true,
+          categories: [
+            {
+              categoryId: "stand-tente",
+              livDate: "2026-09-06",
+              livTime: "08:00-09:00",
+              repDate: "",
+              repTime: "",
+              vehicles: [{ vehicleType: "VL", plate: "AB-123-CD" }],
+            },
+          ],
+        }),
+        vehicles: [
+          { plate: "AB-123-CD", size: "L", phoneCode: "+33", phoneNumber: "1", date: "2026-09-06", time: "08:00-09:00", city: "Cannes", unloading: "quai", vehicleType: "VL", repDate: "2099-01-01", repTime: "23:00-23:59", repVehicleType: "PORTEUR" },
+        ],
+      }),
+      { referentialInput: RX_REFERENTIAL_INPUT }
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.quotaCandidates.filter((c) => c.key.phase === "DEMONTAGE")).toHaveLength(0);
+      expect(result.quotaCandidates.filter((c) => c.key.phase === "MONTAGE")).toHaveLength(1);
+    }
+  });
+
+  it("reprise différente (repSameAsDelivery=false) : la candidate DEMONTAGE utilise le gabarit repVehicleType, pas celui du montage", async () => {
+    mockRxEvent("TRANSITION");
+    mockValidReferential();
+    mockedPrisma.logisticsPlanning.findMany.mockResolvedValue([]);
+
+    const result = await previewAccreditation(
+      rxCommand({
+        extension: rxExtension({
+          categories: [
+            {
+              categoryId: "stand-tente",
+              livDate: "2026-09-06",
+              livTime: "08:00-09:00",
+              repDate: "2026-09-14",
+              repTime: "08:00-09:00",
+              vehicles: [{ vehicleType: "VL", plate: "AB-123-CD", repSameAsDelivery: false, repVehicleType: "PORTEUR" }],
+            },
+          ],
+        }),
+      }),
+      { referentialInput: RX_REFERENTIAL_INPUT }
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const montage = result.quotaCandidates.find((c) => c.key.phase === "MONTAGE");
+      const demontage = result.quotaCandidates.find((c) => c.key.phase === "DEMONTAGE");
+      expect(montage?.key.vehicleFamily).toBe("LIGHT");
+      expect(demontage?.key.vehicleFamily).toBe("HEAVY");
+    }
+  });
+
+  it("extension.categories[] est la source de vérité : une date/heure racine divergente n'affecte jamais la candidate produite", async () => {
+    mockRxEvent("TRANSITION");
+    mockValidReferential();
+    mockedPrisma.logisticsPlanning.findMany.mockResolvedValue([]);
+
+    const result = await previewAccreditation(
+      rxCommand({
+        vehicles: [
+          { plate: "AB-123-CD", size: "L", phoneCode: "+33", phoneNumber: "1", date: "2030-06-01", time: "13:00-14:00", city: "Cannes", unloading: "quai", vehicleType: "VL" },
+        ],
+      }),
+      { referentialInput: RX_REFERENTIAL_INPUT }
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const montage = result.quotaCandidates.find((c) => c.key.phase === "MONTAGE");
+      expect(montage?.key.date).toBe("2026-09-06");
+      expect(montage?.key.startTime).toBe("08:00");
+      expect(montage?.key.date).not.toBe("2030-06-01");
+    }
+  });
+
+  it("quota complet (recheck transactionnel après preview) → CapacityQuotaError, rollback complet, aucune écriture", async () => {
+    mockRxEvent("TRANSITION");
+    mockValidReferential();
+    mockedPrisma.logisticsPlanning.findMany.mockResolvedValue([]);
+
+    const preview = await previewAccreditation(rxCommand(), { referentialInput: RX_REFERENTIAL_INPUT });
+    if (!preview.ok) throw new Error("preview should succeed");
+    expect(preview.quotaCandidates.length).toBeGreaterThan(0);
+
+    (enforceCapacityQuotas as Mock).mockRejectedValueOnce(
+      new CapacityQuotaError({
+        phase: "MONTAGE", zone: "LA_BOCCA", date: "2026-09-06", startTime: "08:00", endTime: "09:00",
+        vehicleFamily: "LIGHT", remaining: 0, requestedCount: 1,
+      })
+    );
+
+    const tx = makeFakeRxTx("TRANSITION", []);
+    await expect(
+      createAccreditationInTransaction(tx as never, preview, { referentialInput: RX_REFERENTIAL_INPUT })
+    ).rejects.toThrow(CapacityQuotaError);
+    expect(tx.accreditation.create).not.toHaveBeenCalled();
+  });
+});
+
+// ── Phase 6C-B-2 : intégration réelle route POST (référentiel non fiable — ─
+// jamais d'UUID client, cf. `buildRxReferentialInput`) — la route reste fine
+// et délègue au moteur ; ces tests exercent le VRAI `POST`, le VRAI moteur,
+// et seul `prisma` (structurel) est mocké : ils prouvent le comportement de
+// bout en bout, pas une simple délégation simulée.
+
+function rxReqBody(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    ...rxCommand(),
+    extension: {
+      ...rxExtension(),
+      exhibitor: { id: "client-supplied-uuid", name: "Sunseeker" },
+      location: { code: "PAN 023", type: "TERRE" },
+    },
+    ...overrides,
+  };
+}
+
+describe("Phase 6C-B-2 — POST /api/accreditations (intégration réelle route + moteur RX)", () => {
+  beforeEach(() => {
+    // Écriture transactionnelle réelle (moteur), route utilisant le VRAI
+    // `createAccreditationInTransaction` : seul `tx` (structurel) diffère
+    // de `prisma` (référentiel/planning RX rechargés fiablement dans `tx`).
+    mockedPrisma.$transaction.mockImplementation((fn: (t: unknown) => unknown) =>
+      fn(makeFakeRxTx("DISABLED"))
+    );
+  });
+
+  it("Palais non régressé : aucune lecture exhibitor/exhibitorLocation/logisticsPlanning, 201", async () => {
+    const res = await POST(makeReq(baseCommand()));
+    expect(res.status).toBe(201);
+    expect(mockedPrisma.exhibitor.findMany).not.toHaveBeenCalled();
+    expect(mockedPrisma.logisticsPlanning.findMany).not.toHaveBeenCalled();
+  });
+
+  it("DISABLED : un id exposant fourni par le client n'est jamais transmis au moteur ni utilisé (best-effort non bloquant)", async () => {
+    mockRxEvent("DISABLED");
+    mockedPrisma.exhibitor.findMany.mockResolvedValue([RX_EXHIBITOR_ROW]);
+    mockedPrisma.exhibitorLocation.findMany.mockResolvedValue([RX_LOCATION_ROW]);
+    mockedPrisma.$transaction.mockImplementation((fn: (t: unknown) => unknown) =>
+      fn(makeFakeRxTx("DISABLED"))
+    );
+
+    const res = await POST(makeReq(rxReqBody()));
+    expect(res.status).toBe(201);
+    // Résolution naturelle (nom/code), jamais l'UUID client "client-supplied-uuid".
+    expect(mockedPrisma.exhibitor.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("TRANSITION, aucune règle DB : repli legacy serveur validé (jamais de blocage), 201", async () => {
+    mockRxEvent("TRANSITION");
+    mockValidReferential();
+    mockedPrisma.logisticsPlanning.findMany.mockResolvedValue([]);
+    mockedPrisma.$transaction.mockImplementation((fn: (t: unknown) => unknown) =>
+      fn(makeFakeRxTx("TRANSITION", []))
+    );
+
+    const res = await POST(makeReq(rxReqBody()));
+    expect(res.status).toBe(201);
+  });
+
+  it("STRICT, date falsifiée hors planning : refusée 400 PLANNING_DATE_INVALID, aucune création", async () => {
+    mockRxEvent("STRICT");
+    mockValidReferential();
+    mockedPrisma.logisticsPlanning.findMany.mockResolvedValue([
+      { scope: "SPACE", scopeKey: "SPACE:EXTERIEUR_PALAIS", categoryCode: "TERRE", phase: "MONTAGE", date: "2026-09-06", startTime: "08:00", endTime: "09:00" },
+      { scope: "SPACE", scopeKey: "SPACE:EXTERIEUR_PALAIS", categoryCode: "TERRE", phase: "DEMONTAGE", date: "2026-09-14", startTime: "08:00", endTime: "09:00" },
+    ]);
+
+    const res = await POST(
+      makeReq(
+        rxReqBody({
+          extension: {
+            ...rxExtension({
+              categories: [
+                {
+                  categoryId: "stand-tente",
+                  livDate: "2099-01-01", // hors planning DB et hors legacy
+                  livTime: "08:00-09:00",
+                  repDate: "2026-09-14",
+                  repTime: "08:00-09:00",
+                  vehicles: [{ vehicleType: "VL", plate: "AB-123-CD" }],
+                },
+              ],
+            }),
+            exhibitor: { id: "client-supplied-uuid", name: "Sunseeker" },
+            location: { code: "PAN 023", type: "TERRE" },
+          },
+        })
+      )
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/hors planning/i);
+    expect(mockedPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("STRICT, créneau falsifié (hors grille genSlots) : refusée 400, aucune création", async () => {
+    mockRxEvent("STRICT");
+    mockValidReferential();
+    mockedPrisma.logisticsPlanning.findMany.mockResolvedValue([
+      { scope: "SPACE", scopeKey: "SPACE:EXTERIEUR_PALAIS", categoryCode: "TERRE", phase: "MONTAGE", date: "2026-09-06", startTime: "08:00", endTime: "09:00" },
+      { scope: "SPACE", scopeKey: "SPACE:EXTERIEUR_PALAIS", categoryCode: "TERRE", phase: "DEMONTAGE", date: "2026-09-14", startTime: "08:00", endTime: "09:00" },
+    ]);
+
+    const res = await POST(
+      makeReq(
+        rxReqBody({
+          extension: {
+            ...rxExtension({
+              categories: [
+                {
+                  categoryId: "stand-tente",
+                  livDate: "2026-09-06",
+                  livTime: "08:15-09:15", // créneau inventé, absent de genSlots
+                  repDate: "2026-09-14",
+                  repTime: "08:00-09:00",
+                  vehicles: [{ vehicleType: "VL", plate: "AB-123-CD" }],
+                },
+              ],
+            }),
+            exhibitor: { id: "client-supplied-uuid", name: "Sunseeker" },
+            location: { code: "PAN 023", type: "TERRE" },
+          },
+        })
+      )
+    );
+    expect(res.status).toBe(400);
+    expect(mockedPrisma.$transaction).not.toHaveBeenCalled();
   });
 });

@@ -7,6 +7,10 @@ import {
   createAccreditation,
   type AccreditationCommand,
 } from "@/lib/accreditation-service";
+import type {
+  TrustedReferentialInput,
+  ResolvedReferentialSnapshot,
+} from "@/lib/accreditation-referential";
 
 /**
  * POST /api/accreditations/[id]/duplicate
@@ -21,6 +25,24 @@ import {
  * d'enrichissement de `extension` (suggestedZone/vehicleContext recalculés
  * pour CE véhicule) déjà présent dans le moteur pour les créations
  * multi-véhicules — sans dupliquer cette logique ici.
+ *
+ * Phase 6C-B-3 — référentiel/planning RX de la duplication, DÉLÉGUÉS au
+ * moteur unique (`resolveRxServerContext`, jamais recopié ici) :
+ *  - `referentialInput` transmet l'exposant/emplacement DU PARENT comme
+ *    INDICATIONS (jamais une confiance directe) — le moteur les revérifie
+ *    intégralement, EXACTEMENT comme pour le formulaire public/back-office.
+ *    Les 4 champs `legacy*` (mêmes valeurs) couvrent le repli historique
+ *    best-effort en `DISABLED` uniquement (cf. `accreditation-referential.ts`) ;
+ *  - `DISABLED` : best-effort — un exposant/emplacement du parent devenu
+ *    inactif ne bloque jamais, FK nulles autorisées, `locationLabel`/
+ *    `locationSnapshot` du parent préservés à l'affichage même sans FK ;
+ *  - `TRANSITION`/`STRICT` : l'exposant ET l'emplacement ACTUELS du parent
+ *    sont revérifiés (actif, même organisation/événement) — un emplacement
+ *    devenu inactif/hors périmètre refuse la duplication (409). Le planning
+ *    (`extension.categories[]` recopié du parent) est revalidé contre les
+ *    règles ACTUELLES de l'événement, jamais celles en vigueur à la création
+ *    de la source (cf. `validateAccreditationPlanning`, appelé deux fois par
+ *    le moteur — preview puis transaction).
  */
 export async function POST(
   req: NextRequest,
@@ -93,22 +115,61 @@ export async function POST(
       vehicles: [v],
     };
 
+    // Phase 6C-B-3 — indications référentielles pour le moteur, sourcées
+    // UNIQUEMENT depuis `parent` (déjà validé par `assertAccreditationAccess`
+    // ci-dessus), jamais depuis le corps de la requête `v` :
+    //  - `exhibitorId`/`exhibitorLocationId` : l'exposant/emplacement du
+    //    parent est transmis comme INDICATION à revalider par le moteur
+    //    (`resolveTrustedAccreditationReferential`, appelé via
+    //    `referentialInput`) — jamais réutilisé aveuglément. En
+    //    `TRANSITION`/`STRICT`, un emplacement devenu inactif/hors périmètre
+    //    est refusé (409) : la nouvelle accréditation respecte les règles
+    //    ACTUELLES de l'événement, pas celles de la création de la source ;
+    //  - `legacyExhibitorId`/`legacyExhibitorLocationId`/`legacyLocationLabel`/
+    //    `legacyLocationSnapshot` : repli historique, utilisé UNIQUEMENT par
+    //    le moteur en `DISABLED` si la revérification échoue (FK nulles
+    //    autorisées, jamais bloquant) — préserve le snapshot de la source.
+    // Uniquement pertinent pour l'organisation RX ; sans effet pour le
+    // Palais (comportement historique `context.referential` inchangé).
+    const referentialInput: TrustedReferentialInput | undefined =
+      organizationSlug === "rx"
+        ? {
+            exhibitorId: parent.exhibitorId,
+            exhibitorLocationId: parent.exhibitorLocationId,
+            legacyExhibitorId: parent.exhibitorId,
+            legacyExhibitorLocationId: parent.exhibitorLocationId,
+            legacyLocationLabel: parent.locationLabel,
+            legacyLocationSnapshot:
+              (parent.locationSnapshot as ResolvedReferentialSnapshot | null) ?? null,
+          }
+        : undefined;
+
     const result = await createAccreditation(command, {
       currentUserId,
       currentUserRole,
-      // Références référentiel et provenance de duplication : sourcées
-      // UNIQUEMENT depuis `parent` (déjà validé par `assertAccreditationAccess`
-      // ci-dessus), jamais depuis le corps de la requête `v`.
+      // Provenance de duplication, sourcée UNIQUEMENT depuis `parent`.
       duplicateSourceAccreditationId: parent.id,
+      // Comportement historique Palais (non RX) : `context.referential`
+      // reste utilisé AS-IS par le moteur (aucune revalidation RX).
       referential: {
         exhibitorId: parent.exhibitorId,
         exhibitorLocationId: parent.exhibitorLocationId,
         locationLabel: parent.locationLabel,
         locationSnapshot: parent.locationSnapshot,
       },
+      referentialInput,
     });
 
     if (!result.ok) {
+      // Phase 6C-B-3 : 503 possible (référentiel/planning RX temporairement
+      // indisponible), en plus du 409 (incohérence référentiel/planning/quota)
+      // déjà géré — jamais de fuite de détail Prisma dans les deux cas.
+      if (result.status === 503) {
+        return Response.json(
+          { error: result.error, code: result.code, details: result.details },
+          { status: 503 }
+        );
+      }
       if (result.status === 409) {
         return Response.json(
           { error: result.error, code: result.code, details: result.details },

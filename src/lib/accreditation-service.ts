@@ -33,6 +33,7 @@ import {
 import type { RxCapacityDb } from "@/lib/rx-capacity-service";
 import {
   buildCapacityQuotaCandidates,
+  buildCapacityQuotaCandidatesFromPhaseEntries,
   enforceCapacityQuotas,
   CapacityQuotaError,
   type QuotaCandidate,
@@ -46,11 +47,51 @@ import {
   sendAccreditationCreationEmail,
   type CreationEmailOutcome,
 } from "@/lib/accreditation-creation-email";
+import {
+  resolveTrustedAccreditationReferential,
+  type TrustedReferentialInput,
+  type ResolvedReferential,
+  type AccreditationReferentialDb,
+} from "@/lib/accreditation-referential";
+import {
+  validateAccreditationPlanning,
+  type PlanningPhaseEntry,
+  type PlanningValidationCommand,
+  type PlanningValidationCategoryInput,
+  type AccreditationPlanningDb,
+} from "@/lib/accreditation-planning-validation";
+import type { PlanningMode } from "@/lib/logistics-planning";
+
+/** `db` satisfaisant à la fois le référentiel ET le planning — `prisma` ou `tx` (Phase 6C-B-2). */
+type AccreditationReferentialAndPlanningDb = AccreditationReferentialDb & AccreditationPlanningDb;
 
 export { CapacityQuotaError };
 
 /** Client Prisma utilisable en dehors ou dans une transaction interactive. */
 export type AccreditationDb = RxCapacityDb;
+
+/**
+ * Erreur contrôlée Phase 6C-B-2 : échec de la revalidation serveur fiable
+ * (référentiel et/ou planning RX) — jamais une exception Prisma brute. Levée
+ * UNIQUEMENT depuis `createAccreditationInTransaction` (source de vérité
+ * finale) : elle traverse `prisma.$transaction`, provoque un rollback complet
+ * (aucune écriture Accreditation/Vehicle/History), et est mappée par
+ * `createAccreditation` en réponse structurée 400/409/503 — jamais d'e-mail
+ * envoyé après un rollback.
+ */
+export class RxServerValidationError extends Error {
+  readonly status: 400 | 409 | 503;
+  readonly code?: string;
+  readonly details?: unknown;
+
+  constructor(status: 400 | 409 | 503, message: string, code?: string, details?: unknown) {
+    super(message);
+    this.name = "RxServerValidationError";
+    this.status = status;
+    this.code = code;
+    this.details = details;
+  }
+}
 
 interface AccreditationServiceContextBase {
   currentUserId?: string;
@@ -76,6 +117,28 @@ interface AccreditationServiceContextBase {
     locationLabel?: string | null;
     locationSnapshot?: unknown;
   };
+  /**
+   * Phase 6C-B-2 : indications référentielles NON FIABLES (UUID, nom,
+   * référence externe, code d'emplacement) — jamais utilisées directement.
+   * Le moteur les revérifie intégralement via
+   * `resolveTrustedAccreditationReferential`, EN LECTURE (`previewAccreditation`,
+   * avec `prisma`) PUIS À NOUVEAU EN ÉCRITURE (`createAccreditationInTransaction`,
+   * avec `tx` — source de vérité finale). Remplace, pour le formulaire
+   * public/back-office RX (même route `POST /api/accreditations`), l'ancienne
+   * résolution ad hoc historiquement effectuée dans la route elle-même.
+   *
+   * Uniquement pertinent quand la cible résolue est l'organisation RX — sans
+   * effet pour le Palais. Les champs `legacy*` de `TrustedReferentialInput`
+   * permettent, pour un canal serveur de confiance (duplication — 6C-B-3),
+   * de fournir un repli historique DISABLED sans jamais désérialiser cette
+   * donnée depuis un payload public.
+   *
+   * Si `referentialInput` est omis, le comportement historique
+   * `context.referential` (déjà résolu et FIGÉ par l'appelant serveur —
+   * duplication, import) reste inchangé et n'est PAS revalidé par ce
+   * mécanisme dans ce sous-lot.
+   */
+  referentialInput?: TrustedReferentialInput;
 }
 
 /** Contexte standard (formulaire public, back-office, duplication) — comportement inchangé. */
@@ -120,7 +183,8 @@ type CategorySource =
 
 export interface AccreditationServiceError {
   ok: false;
-  status: 400 | 409;
+  /** 503 : Phase 6C-B-2, validation référentiel/planning RX temporairement indisponible. */
+  status: 400 | 409 | 503;
   error: string;
   code?: string;
   details?: unknown;
@@ -139,6 +203,7 @@ export type AccreditationServiceResult =
 /** Résultat de `previewAccreditation` : plan prêt pour l'écriture, ou erreur de validation. */
 type PreviewSuccess = {
   ok: true;
+  organizationSlug: string;
   organizationId: string | null;
   eventId: string | null;
   event: string;
@@ -160,12 +225,23 @@ type PreviewSuccess = {
   quotaCandidates: QuotaCandidate[];
   standSectorHint: string | null;
   resolveVehicleZone: (v: Record<string, unknown>) => string | null;
+  resolveVehicleFamily: (vehicleTypeCode: string) => VehicleFamily;
   // Phase 4A : figés depuis `context` (jamais depuis le payload client).
+  // Phase 6C-B-2 : pour RX, ces 4 champs proviennent désormais de
+  // `resolveTrustedAccreditationReferential` quand `context.referentialInput`
+  // est fourni (au lieu de `context.referential` — voir `resolveRxServerContext`).
   exhibitorId: string | null;
   exhibitorLocationId: string | null;
   locationLabel: string | null;
   locationSnapshot: unknown;
   duplicateSourceAccreditationId: string | undefined;
+  /**
+   * Phase 6C-B-2 : projection canonique planning RX (`[]` pour Palais et RX
+   * DISABLED), produite par `validateAccreditationPlanning`. Source de
+   * vérité pour les quota candidates RX non-DISABLED — jamais `vehiclesArr`
+   * racine, potentiellement falsifiable.
+   */
+  rxPhaseEntries: PlanningPhaseEntry[];
 };
 
 type PreviewFailure = AccreditationServiceError & { ok: false };
@@ -283,6 +359,160 @@ function resolveCreationPolicy(
   const actorSource = inferActorSource(context.currentUserId, context.currentUserRole);
   const isInternalCreation = actorSource === "LOGISTICIEN" || actorSource === "SUPER_ADMIN";
   return { status: isInternalCreation ? "ATTENTE" : "NOUVEAU", actorSource };
+}
+
+/**
+ * Projette `extension.categories[]`/`extension.exhibitor`/`extension.space`
+ * (mêmes champs que le formulaire RX, cf. `mapPayload.ts`) vers
+ * `PlanningValidationCommand` — AUCUNE lecture DB ici, fonction pure. Ne mute
+ * jamais `extensionPayload`. Champs absents/mal typés → valeurs neutres
+ * (`null`/`[]`), jamais d'exception (la validation Zod amont garantit déjà
+ * la forme pour un template RX réel ; ce mapping reste défensif).
+ */
+function buildRxPlanningCommandFromExtension(
+  extensionPayload: Record<string, unknown> | null
+): PlanningValidationCommand {
+  const ext = extensionPayload ?? {};
+  const exhibitorObj =
+    ext.exhibitor && typeof ext.exhibitor === "object"
+      ? (ext.exhibitor as Record<string, unknown>)
+      : null;
+  const categoriesRaw = Array.isArray(ext.categories) ? ext.categories : [];
+
+  const categories: PlanningValidationCategoryInput[] = categoriesRaw.map((c) => {
+    const cat = (c ?? {}) as Record<string, unknown>;
+    const vehiclesRaw = Array.isArray(cat.vehicles) ? cat.vehicles : [];
+    return {
+      categoryId: String(cat.categoryId ?? ""),
+      livDate: (cat.livDate as string | undefined) ?? null,
+      livTime: (cat.livTime as string | undefined) ?? null,
+      repDate: (cat.repDate as string | undefined) ?? null,
+      repTime: (cat.repTime as string | undefined) ?? null,
+      vehicles: vehiclesRaw.map((v) => {
+        const vv = (v ?? {}) as Record<string, unknown>;
+        return {
+          vehicleType: (vv.vehicleType as string | undefined) ?? null,
+          plate: (vv.plate as string | null | undefined) ?? null,
+          repSameAsDelivery: vv.repSameAsDelivery !== false,
+          repVehicleType: (vv.repVehicleType as string | undefined) ?? null,
+          repPlate: (vv.repPlate as string | null | undefined) ?? null,
+        };
+      }),
+    };
+  });
+
+  return {
+    exhibitorSector: exhibitorObj ? ((exhibitorObj.sector as string | undefined) ?? null) : null,
+    manualPalaisChoice: (ext.space as string | undefined) ?? null,
+    skipMontage: ext.skipMontage === true,
+    skipDemontage: ext.skipDemontage === true,
+    categories,
+  };
+}
+
+/** Résultat interne de `resolveRxServerContext` — jamais exporté. */
+interface RxServerContext {
+  referential: ResolvedReferential | null;
+  phaseEntries: PlanningPhaseEntry[];
+}
+
+/**
+ * Orchestration Phase 6C-B-2 : appelle SANS DUPLICATION les deux services
+ * partagés (`resolveTrustedAccreditationReferential`,
+ * `validateAccreditationPlanning`), pour l'organisation RX uniquement.
+ * Appelée DEUX FOIS avec la même logique — `previewAccreditation` (lecture,
+ * `db = prisma`) PUIS `createAccreditationInTransaction` (écriture,
+ * `db = tx`, source de vérité finale) — jamais copiée entre les deux.
+ *
+ * Politique de résolution référentielle (ce sous-lot — public/back-office) :
+ *  - `referentialInput` fourni (formulaire public/back-office RX — TOUJOURS
+ *    renseigné par la route pour cette organisation, y compris vide) →
+ *    résolution fiable REVALIDÉE, quel que soit le mode. En `TRANSITION`/
+ *    `STRICT`, l'absence totale d'indication (aucun nom, aucun code) est
+ *    refusée (`EXHIBITOR_REQUIRED`/`LOCATION_REQUIRED`) — aucune confiance
+ *    au navigateur ;
+ *  - sinon (`legacyReferential` seul — canaux duplication/import non encore
+ *    migrés, 6C-B-3/4/5) → utilisé AS-IS, SANS appel DB supplémentaire
+ *    (comportement historique et performance inchangés jusqu'à leur propre
+ *    sous-lot, qui décidera explicitement des règles DISABLED-préservé vs
+ *    TRANSITION/STRICT-revalidé) ;
+ *  - sinon aucun référentiel (Palais, ou RX sans aucune indication d'aucune
+ *    sorte — legacy, jamais bloquant).
+ *
+ * La validation planning s'appuie sur le référentiel obtenu ci-dessus (son
+ * `locationSnapshot` porte déjà portCode/sectorCode/logisticSpace, quel que
+ * soit le canal d'origine) et est déléguée intégralement à
+ * `validateAccreditationPlanning`, qui court-circuite lui-même en DISABLED
+ * (aucune lecture planning) — jamais reproduit ici.
+ */
+async function resolveRxServerContext(
+  db: AccreditationReferentialAndPlanningDb,
+  params: {
+    organizationId: string;
+    eventId: string;
+    organizationSlug: string;
+    logisticsPlanningMode: PlanningMode;
+    extensionPayload: Record<string, unknown> | null;
+    referentialInput?: TrustedReferentialInput;
+    legacyReferential?: AccreditationServiceContextBase["referential"];
+  }
+): Promise<{ ok: true; result: RxServerContext } | AccreditationServiceError> {
+  const {
+    organizationId,
+    eventId,
+    organizationSlug,
+    logisticsPlanningMode: mode,
+    extensionPayload,
+    referentialInput,
+    legacyReferential,
+  } = params;
+
+  let referential: ResolvedReferential | null = null;
+
+  if (referentialInput) {
+    const referentialResult = await resolveTrustedAccreditationReferential(
+      db,
+      { organizationId, eventId, logisticsPlanningMode: mode },
+      referentialInput
+    );
+    if (!referentialResult.ok) {
+      return {
+        ok: false,
+        status: referentialResult.status,
+        error: referentialResult.message,
+        code: referentialResult.code,
+      };
+    }
+    referential = referentialResult.referential;
+  } else if (legacyReferential) {
+    referential = {
+      exhibitorId: legacyReferential.exhibitorId ?? null,
+      exhibitorLocationId: legacyReferential.exhibitorLocationId ?? null,
+      locationLabel: legacyReferential.locationLabel ?? null,
+      locationSnapshot:
+        (legacyReferential.locationSnapshot as ResolvedReferential["locationSnapshot"]) ?? null,
+    };
+  }
+
+  const snapshot = referential?.locationSnapshot;
+  const planningResult = await validateAccreditationPlanning(db, {
+    context: { organizationId, eventId, organizationSlug, logisticsPlanningMode: mode },
+    referential: {
+      location: snapshot
+        ? {
+            portCode: snapshot.portCode ?? null,
+            sectorCode: snapshot.sectorCode ?? null,
+            logisticSpace: snapshot.logisticSpace ?? null,
+          }
+        : null,
+    },
+    command: buildRxPlanningCommandFromExtension(extensionPayload),
+  });
+  if (!planningResult.ok) {
+    return { ok: false, status: planningResult.status, error: planningResult.message, code: planningResult.code };
+  }
+
+  return { ok: true, result: { referential, phaseEntries: planningResult.phaseEntries } };
 }
 
 /**
@@ -481,16 +711,52 @@ export async function previewAccreditation(
     return vtFamilyMap.get(key) ?? resolveVehicleFamilyFromText(vehicleTypeCode);
   };
 
-  // ── Quotas de capacité : construction des candidates (toutes orgs) ─────
+  // ── Phase 6C-B-2 : référentiel fiable + validation planning serveur ────
+  // RX uniquement (`organizationSlug === "rx"`) ; Palais et RX sans org/event
+  // résolus restent strictement inchangés (aucun appel, aucune lecture
+  // planning). `mode` par défaut "DISABLED" si absent (événement legacy sans
+  // valeur explicite — comportement identique à aujourd'hui).
+  let rxReferential: ResolvedReferential | null = null;
+  let rxPhaseEntries: PlanningPhaseEntry[] = [];
+  const logisticsPlanningMode = ((eventRecord as { logisticsPlanningMode?: PlanningMode } | null)
+    ?.logisticsPlanningMode ?? "DISABLED") as PlanningMode;
+  if (organizationSlug === "rx" && organizationId && eventRecord?.id) {
+    const ctxResult = await resolveRxServerContext(prisma, {
+      organizationId,
+      eventId: eventRecord.id,
+      organizationSlug,
+      logisticsPlanningMode,
+      extensionPayload,
+      referentialInput: context.referentialInput,
+      legacyReferential: referential,
+    });
+    if (!ctxResult.ok) return ctxResult;
+    rxReferential = ctxResult.result.referential;
+    rxPhaseEntries = ctxResult.result.phaseEntries;
+  }
+  const isRxNonDisabled = organizationSlug === "rx" && logisticsPlanningMode !== "DISABLED";
+
+  // ── Quotas de capacité : construction des candidates ────────────────────
+  // RX TRANSITION/STRICT : depuis la projection canonique `phaseEntries`
+  // (source de vérité `extension.categories[]`) — jamais `vehiclesArr`
+  // racine. Palais et RX DISABLED : comportement historique inchangé.
   const quotaCandidates: QuotaCandidate[] =
     organizationId && eventRecord?.id
-      ? buildCapacityQuotaCandidates({
-          organizationId,
-          eventId: eventRecord.id,
-          vehicles: vehiclesArr as CandidateVehicleInput[],
-          resolveZone: resolveZoneForType,
-          resolveFamily: resolveVehicleFamily,
-        })
+      ? isRxNonDisabled
+        ? buildCapacityQuotaCandidatesFromPhaseEntries({
+            organizationId,
+            eventId: eventRecord.id,
+            phaseEntries: rxPhaseEntries,
+            resolveZone: resolveZoneForType,
+            resolveFamily: resolveVehicleFamily,
+          })
+        : buildCapacityQuotaCandidates({
+            organizationId,
+            eventId: eventRecord.id,
+            vehicles: vehiclesArr as CandidateVehicleInput[],
+            resolveZone: resolveZoneForType,
+            resolveFamily: resolveVehicleFamily,
+          })
       : [];
 
   const standSectorHint =
@@ -499,8 +765,15 @@ export async function previewAccreditation(
         null
       : null;
 
+  // `rxReferential` (revalidé) prime pour RX quand `resolveRxServerContext` a
+  // été exécuté ci-dessus ; sinon comportement historique `context.referential`
+  // AS-IS (Palais, duplication/import non encore migrés — 6C-B-3/4/5).
+  const effectiveReferential =
+    organizationSlug === "rx" && organizationId && eventRecord?.id ? rxReferential : referential ?? null;
+
   return {
     ok: true,
+    organizationSlug,
     organizationId,
     eventId: eventRecord?.id ?? null,
     event: event as string,
@@ -522,11 +795,13 @@ export async function previewAccreditation(
     quotaCandidates,
     standSectorHint,
     resolveVehicleZone,
-    exhibitorId: referential?.exhibitorId ?? null,
-    exhibitorLocationId: referential?.exhibitorLocationId ?? null,
-    locationLabel: referential?.locationLabel ?? null,
-    locationSnapshot: referential?.locationSnapshot ?? null,
+    resolveVehicleFamily,
+    exhibitorId: effectiveReferential?.exhibitorId ?? null,
+    exhibitorLocationId: effectiveReferential?.exhibitorLocationId ?? null,
+    locationLabel: effectiveReferential?.locationLabel ?? null,
+    locationSnapshot: effectiveReferential?.locationSnapshot ?? null,
     duplicateSourceAccreditationId,
+    rxPhaseEntries,
   };
 }
 
@@ -561,6 +836,7 @@ export async function createAccreditationInTransaction(
 ): Promise<CreateAccreditationResult> {
   const { currentUserId } = context;
   const {
+    organizationSlug,
     organizationId,
     eventId,
     event,
@@ -579,15 +855,70 @@ export async function createAccreditationInTransaction(
     actorSource,
     vehiclesArr,
     splitPerVehicle,
-    quotaCandidates,
     standSectorHint,
     resolveVehicleZone,
-    exhibitorId,
-    exhibitorLocationId,
-    locationLabel,
-    locationSnapshot,
+    resolveVehicleFamily,
     duplicateSourceAccreditationId,
   } = plan;
+
+  // Phase 6C-B-2 — DOUBLE VALIDATION, source de vérité finale : ne JAMAIS
+  // réutiliser aveuglément `plan.exhibitorId`/`plan.quotaCandidates` (calculés
+  // au preview, potentiellement périmés) pour RX. On recharge l'événement/mode
+  // fiable DANS la transaction, puis on rappelle EXACTEMENT la même
+  // orchestration (`resolveRxServerContext`) qu'au preview, avec `tx` — si le
+  // planning ou le référentiel a changé entre preview et commit (ex: admin a
+  // fermé un créneau), l'écriture est refusée ICI, avant toute création
+  // (rollback complet, aucun e-mail).
+  let exhibitorId = plan.exhibitorId;
+  let exhibitorLocationId = plan.exhibitorLocationId;
+  let locationLabel = plan.locationLabel;
+  let locationSnapshot = plan.locationSnapshot;
+  let quotaCandidates = plan.quotaCandidates;
+
+  if (organizationSlug === "rx" && organizationId && eventId) {
+    const freshEvent = await tx.event.findUnique({
+      where: { id: eventId },
+      select: { logisticsPlanningMode: true },
+    });
+    const logisticsPlanningMode = (freshEvent?.logisticsPlanningMode ??
+      "DISABLED") as PlanningMode;
+
+    const ctxResult = await resolveRxServerContext(tx, {
+      organizationId,
+      eventId,
+      organizationSlug,
+      logisticsPlanningMode,
+      extensionPayload,
+      referentialInput: context.referentialInput,
+      legacyReferential: context.referential,
+    });
+    if (!ctxResult.ok) {
+      throw new RxServerValidationError(ctxResult.status, ctxResult.error, ctxResult.code, ctxResult.details);
+    }
+
+    const { referential: freshReferential, phaseEntries: freshPhaseEntries } = ctxResult.result;
+    exhibitorId = freshReferential?.exhibitorId ?? null;
+    exhibitorLocationId = freshReferential?.exhibitorLocationId ?? null;
+    locationLabel = freshReferential?.locationLabel ?? null;
+    locationSnapshot = freshReferential?.locationSnapshot ?? null;
+
+    quotaCandidates =
+      logisticsPlanningMode !== "DISABLED"
+        ? buildCapacityQuotaCandidatesFromPhaseEntries({
+            organizationId,
+            eventId,
+            phaseEntries: freshPhaseEntries,
+            resolveZone: (code) => resolveVehicleZone({ vehicleType: code }),
+            resolveFamily: resolveVehicleFamily,
+          })
+        : buildCapacityQuotaCandidates({
+            organizationId,
+            eventId,
+            vehicles: vehiclesArr as CandidateVehicleInput[],
+            resolveZone: (code) => resolveVehicleZone({ vehicleType: code }),
+            resolveFamily: resolveVehicleFamily,
+          });
+  }
 
   // Résolution du Stand : upsert par (organizationId, eventId, number=stand),
   // DANS la transaction. Toute erreur se propage et rollbacke l'ensemble
@@ -770,7 +1101,13 @@ export async function createAccreditation(
 ): Promise<AccreditationServiceResult> {
   const preview = await previewAccreditation(command, context);
   if (!preview.ok) {
-    return { ok: false, status: preview.status, error: preview.error, details: preview.details };
+    return {
+      ok: false,
+      status: preview.status,
+      error: preview.error,
+      code: preview.code,
+      details: preview.details,
+    };
   }
 
   let result: CreateAccreditationResult;
@@ -779,6 +1116,9 @@ export async function createAccreditation(
   } catch (err) {
     if (err instanceof CapacityQuotaError) {
       return { ok: false, status: 409, error: err.message, code: err.code, details: err.details };
+    }
+    if (err instanceof RxServerValidationError) {
+      return { ok: false, status: err.status, error: err.message, code: err.code, details: err.details };
     }
     throw err;
   }

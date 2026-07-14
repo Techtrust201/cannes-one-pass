@@ -198,9 +198,16 @@ function buildPhaseEntries(
   return entries;
 }
 
-/** Liste des heures de départ valides (`"HH:MM"`) produites par `genSlots` pour une plage `"HH:MM-HH:MM"`. */
-function validStartTimes(range: string): string[] {
-  return genSlots(range).map((slot) => slot.split("-")[0]!);
+/**
+ * Le formulaire RX transmet `livTime`/`repTime` comme la PLAGE COMPLÈTE
+ * `"HH:MM-HH:MM"` choisie dans le menu (peuplé côté client par ce même
+ * `genSlots`, cf. `StepDeliveryRx`/`StepPickupRx`) — jamais une simple heure
+ * de départ. La validation doit donc comparer la valeur transmise à la
+ * liste exacte des créneaux produits par `genSlots`, jamais une comparaison
+ * `start <= time <= end` qui accepterait un créneau inventé dans un trou.
+ */
+function isValidSlot(range: string, time: string): boolean {
+  return genSlots(range).includes(time);
 }
 
 /**
@@ -271,9 +278,10 @@ async function loadRowsForPhase(
  * Valide une combinaison (categoryId, phase) unique : résout la règle
  * (DB prioritaire, repli legacy `planning-data.ts` en TRANSITION,
  * obligatoire en STRICT — délégué intégralement à `resolvePlanning`), puis
- * vérifie que la date demandée existe et que l'heure est un départ de
- * créneau valide produit par `genSlots` (jamais une simple comparaison
- * `start <= time <= end`, qui accepterait une heure dans un trou).
+ * vérifie que la date demandée existe et que le créneau transmis
+ * (`"HH:MM-HH:MM"`) figure exactement dans la liste produite par `genSlots`
+ * (jamais une simple comparaison `start <= time <= end`, qui accepterait un
+ * créneau inventé dans un trou ou mal aligné sur la grille horaire).
  */
 async function validateCategoryPhase(
   db: AccreditationPlanningDb,
@@ -340,7 +348,7 @@ async function validateCategoryPhase(
     };
   }
 
-  if (!entry.time || !validStartTimes(range).includes(entry.time)) {
+  if (!entry.time || !isValidSlot(range, entry.time)) {
     return {
       ok: false,
       status: 400,

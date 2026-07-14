@@ -29,6 +29,10 @@ vi.mock("@/lib/prisma", () => {
     vehicleTypeConfig: { findMany: vi.fn() },
     user: { findUnique: vi.fn() },
     accreditation: { findUnique: vi.fn() },
+    // Phase 6C-B-3 : référentiel fiable + planning RX (previewAccreditation).
+    exhibitor: { findUnique: vi.fn(), findMany: vi.fn() },
+    exhibitorLocation: { findUnique: vi.fn(), findMany: vi.fn() },
+    logisticsPlanning: { findMany: vi.fn() },
     $transaction: vi.fn(),
   };
   return { prisma: prismaMock, default: prismaMock };
@@ -63,6 +67,7 @@ import { requirePermission, assertEventBelongsToOrg } from "@/lib/auth-helpers";
 import { assertAccreditationAccess } from "@/lib/rbac";
 import { writeHistoryDirect } from "@/lib/history-server";
 import { sendAccreditationCreationEmail } from "@/lib/accreditation-creation-email";
+import { enforceCapacityQuotas, CapacityQuotaError } from "@/lib/capacity-quota-guard";
 import { POST } from "./route";
 
 type MockedPrisma = {
@@ -71,10 +76,18 @@ type MockedPrisma = {
   vehicleTypeConfig: { findMany: Mock };
   user: { findUnique: Mock };
   accreditation: { findUnique: Mock };
+  exhibitor: { findUnique: Mock; findMany: Mock };
+  exhibitorLocation: { findUnique: Mock; findMany: Mock };
+  logisticsPlanning: { findMany: Mock };
   $transaction: Mock;
 };
 const mockedPrisma = prisma as unknown as MockedPrisma;
 
+/**
+ * `event.findUnique` par défaut DISABLED : Phase 6C-B-2, `resolveRxServerContext`
+ * recharge le mode fiable DANS la transaction (RX uniquement). Un test
+ * TRANSITION/STRICT doit surcharger ce mock via `overrides.event`.
+ */
 function makeFakeTx(overrides: Record<string, unknown> = {}) {
   return {
     stand: {
@@ -85,6 +98,12 @@ function makeFakeTx(overrides: Record<string, unknown> = {}) {
     accreditation: {
       create: vi.fn().mockResolvedValue({ id: "new-acc-1" }),
     },
+    event: {
+      findUnique: vi.fn().mockResolvedValue({ logisticsPlanningMode: "DISABLED" }),
+    },
+    exhibitor: { findUnique: vi.fn(), findMany: vi.fn() },
+    exhibitorLocation: { findUnique: vi.fn(), findMany: vi.fn() },
+    logisticsPlanning: { findMany: vi.fn() },
     ...overrides,
   };
 }
@@ -567,6 +586,210 @@ describe("POST /api/accreditations/[id]/duplicate — Phase 4A (adaptateur du mo
     expect(body.emailOutcome).toBe("sent");
     // Une seule création tentée : jamais de nouvelle tentative après l'échec du rechargement.
     expect(tx.accreditation.create).toHaveBeenCalledTimes(1);
+  });
+
+  // ── Phase 6C-B-3 : référentiel/planning RX revalidés (jamais recopiés ─
+  // aveuglément du parent) — utilise les VRAIS `resolveTrustedAccreditationReferential`
+  // / `validateAccreditationPlanning` (aucun mock de ces modules), seul
+  // `prisma`/`tx` (structurel) est mocké.
+
+  const RX_EXHIBITOR_ROW = {
+    id: "exh-1",
+    name: "Yacht Co",
+    nameNormalized: "YACHT CO",
+    externalReference: null,
+    organizationId: "org-rx",
+    eventId: "event-2",
+    isActive: true,
+  };
+  const RX_LOCATION_ROW = {
+    id: "loc-1",
+    exhibitorId: "exh-1",
+    type: "TERRE",
+    code: "PAN 023",
+    codeNormalized: "PAN023",
+    portCode: "PORT_CANTO",
+    sectorCode: "POWER",
+    logisticSpace: "EXTERIEUR_PALAIS",
+    isActive: true,
+  };
+  const rxParentWithReferential = {
+    ...rxParent,
+    exhibitorId: "exh-1",
+    exhibitorLocationId: "loc-1",
+    locationLabel: "PAN 023",
+    locationSnapshot: {
+      exhibitorName: "Yacht Co",
+      locationType: "TERRE",
+      locationCode: "PAN 023",
+      portCode: "PORT_CANTO",
+      sectorCode: "POWER",
+      logisticSpace: "EXTERIEUR_PALAIS",
+    },
+    extension: {
+      ...rxParent.extension,
+      suggestedZone: "LA_BOCCA",
+      categories: [
+        {
+          categoryId: "stand-tente",
+          livDate: "2026-09-06",
+          livTime: "08:00-09:00",
+          repDate: "2026-09-14",
+          repTime: "08:00-09:00",
+          vehicles: [{ vehicleType: "CAMION_20T", plate: null }],
+        },
+      ],
+    },
+  };
+  const rxVehicle = {
+    plate: null,
+    size: "",
+    phoneCode: "+33",
+    phoneNumber: "600000001",
+    date: "2026-09-06",
+    time: "08:00-09:00",
+    city: "",
+    unloading: ["rear"],
+    vehicleType: "CAMION_20T",
+  };
+
+  function mockRxEvent(mode: "DISABLED" | "TRANSITION" | "STRICT") {
+    mockedPrisma.event.findUnique.mockResolvedValue({
+      id: "event-2", organizationId: "org-rx", logisticsPlanningMode: mode,
+    });
+  }
+
+  function makeFakeRxTx(mode: "DISABLED" | "TRANSITION" | "STRICT", overrides: Record<string, unknown> = {}) {
+    return makeFakeTx({
+      event: { findUnique: vi.fn().mockResolvedValue({ logisticsPlanningMode: mode }) },
+      exhibitor: { findUnique: vi.fn().mockResolvedValue(RX_EXHIBITOR_ROW), findMany: vi.fn() },
+      exhibitorLocation: { findUnique: vi.fn().mockResolvedValue(RX_LOCATION_ROW), findMany: vi.fn() },
+      logisticsPlanning: { findMany: vi.fn().mockResolvedValue([]) },
+      ...overrides,
+    });
+  }
+
+  it("DISABLED : exposant/emplacement du parent devenu inactif → FK nulles, snapshot legacy préservé, aucune rupture (201)", async () => {
+    mockAccreditationLookup(rxParentWithReferential);
+    mockOrganization("org-rx", "rx");
+    mockRxEvent("DISABLED");
+    mockedPrisma.exhibitor.findUnique.mockResolvedValue({ ...RX_EXHIBITOR_ROW, isActive: false });
+    const tx = makeFakeRxTx("DISABLED", {
+      exhibitor: { findUnique: vi.fn().mockResolvedValue({ ...RX_EXHIBITOR_ROW, isActive: false }), findMany: vi.fn() },
+    });
+    mockedPrisma.$transaction.mockImplementation(async (fn: (t: unknown) => unknown) => fn(tx));
+
+    const res = await POST(makeReq(rxVehicle), makeProps("parent-2"));
+    expect(res.status).toBe(201);
+
+    const createArgs = tx.accreditation.create.mock.calls[0]![0].data;
+    expect(createArgs.exhibitorId).toBeNull();
+    expect(createArgs.exhibitorLocationId).toBeNull();
+    expect(createArgs.locationLabel).toBe("PAN 023");
+    expect(createArgs.locationSnapshot).toEqual(rxParentWithReferential.locationSnapshot);
+  });
+
+  it("TRANSITION : exposant/emplacement actifs revalidés depuis la DB (jamais recopiés aveuglément du parent), 201", async () => {
+    mockAccreditationLookup(rxParentWithReferential);
+    mockOrganization("org-rx", "rx");
+    mockRxEvent("TRANSITION");
+    mockedPrisma.exhibitor.findUnique.mockResolvedValue(RX_EXHIBITOR_ROW);
+    mockedPrisma.exhibitorLocation.findUnique.mockResolvedValue(RX_LOCATION_ROW);
+    mockedPrisma.logisticsPlanning.findMany.mockResolvedValue([]);
+    const tx = makeFakeRxTx("TRANSITION");
+    mockedPrisma.$transaction.mockImplementation(async (fn: (t: unknown) => unknown) => fn(tx));
+
+    const res = await POST(makeReq(rxVehicle), makeProps("parent-2"));
+    expect(res.status).toBe(201);
+    expect(mockedPrisma.exhibitor.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "exh-1" } })
+    );
+    const createArgs = tx.accreditation.create.mock.calls[0]![0].data;
+    expect(createArgs.exhibitorId).toBe("exh-1");
+    expect(createArgs.exhibitorLocationId).toBe("loc-1");
+  });
+
+  it("STRICT : emplacement devenu inactif → refusé 409, aucune création", async () => {
+    mockAccreditationLookup(rxParentWithReferential);
+    mockOrganization("org-rx", "rx");
+    mockRxEvent("STRICT");
+    mockedPrisma.exhibitor.findUnique.mockResolvedValue(RX_EXHIBITOR_ROW);
+    mockedPrisma.exhibitorLocation.findUnique.mockResolvedValue({ ...RX_LOCATION_ROW, isActive: false });
+
+    const res = await POST(makeReq(rxVehicle), makeProps("parent-2"));
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.code).toBe("LOCATION_NOT_FOUND");
+    expect(mockedPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("STRICT : emplacement absent (introuvable en base) → refusé 409, aucune création", async () => {
+    mockAccreditationLookup(rxParentWithReferential);
+    mockOrganization("org-rx", "rx");
+    mockRxEvent("STRICT");
+    mockedPrisma.exhibitor.findUnique.mockResolvedValue(RX_EXHIBITOR_ROW);
+    mockedPrisma.exhibitorLocation.findUnique.mockResolvedValue(null);
+
+    const res = await POST(makeReq(rxVehicle), makeProps("parent-2"));
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.code).toBe("LOCATION_NOT_FOUND");
+    expect(mockedPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("STRICT : emplacement hors périmètre (appartient à un autre exposant) → refusé 409, aucune création", async () => {
+    mockAccreditationLookup(rxParentWithReferential);
+    mockOrganization("org-rx", "rx");
+    mockRxEvent("STRICT");
+    mockedPrisma.exhibitor.findUnique.mockResolvedValue(RX_EXHIBITOR_ROW);
+    mockedPrisma.exhibitorLocation.findUnique.mockResolvedValue({
+      ...RX_LOCATION_ROW,
+      exhibitorId: "exh-other",
+    });
+
+    const res = await POST(makeReq(rxVehicle), makeProps("parent-2"));
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.code).toBe("LOCATION_EXHIBITOR_MISMATCH");
+    expect(mockedPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("STRICT : planning actuel absent pour la catégorie → refusé 409 (revalidation contre les règles ACTUELLES, pas celles de la source)", async () => {
+    mockAccreditationLookup(rxParentWithReferential);
+    mockOrganization("org-rx", "rx");
+    mockRxEvent("STRICT");
+    mockedPrisma.exhibitor.findUnique.mockResolvedValue(RX_EXHIBITOR_ROW);
+    mockedPrisma.exhibitorLocation.findUnique.mockResolvedValue(RX_LOCATION_ROW);
+    mockedPrisma.logisticsPlanning.findMany.mockResolvedValue([]); // aucune règle DB, STRICT n'accepte aucun repli legacy
+
+    const res = await POST(makeReq(rxVehicle), makeProps("parent-2"));
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.code).toBe("PLANNING_NOT_FOUND");
+    expect(mockedPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("TRANSITION : quota complet lors de la revalidation transactionnelle → 409 CAPACITY_QUOTA_FULL, rollback complet, aucun e-mail", async () => {
+    mockAccreditationLookup(rxParentWithReferential);
+    mockOrganization("org-rx", "rx");
+    mockRxEvent("TRANSITION");
+    mockedPrisma.exhibitor.findUnique.mockResolvedValue(RX_EXHIBITOR_ROW);
+    mockedPrisma.exhibitorLocation.findUnique.mockResolvedValue(RX_LOCATION_ROW);
+    mockedPrisma.logisticsPlanning.findMany.mockResolvedValue([]);
+    const tx = makeFakeRxTx("TRANSITION");
+    mockedPrisma.$transaction.mockImplementation(async (fn: (t: unknown) => unknown) => fn(tx));
+    (enforceCapacityQuotas as Mock).mockRejectedValueOnce(
+      new CapacityQuotaError({
+        phase: "MONTAGE", zone: "LA_BOCCA", date: "2026-09-06", startTime: "08:00", endTime: "09:00",
+        vehicleFamily: "LIGHT", remaining: 0, requestedCount: 1,
+      })
+    );
+
+    const res = await POST(makeReq(rxVehicle), makeProps("parent-2"));
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.code).toBe("CAPACITY_QUOTA_FULL");
+    expect(sendAccreditationCreationEmail).not.toHaveBeenCalled();
   });
 
   it("échec avant commit (validation) : vraie erreur HTTP 400, aucun faux succès", async () => {

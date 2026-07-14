@@ -10,10 +10,10 @@ import {
 import {
   createAccreditation,
   CapacityQuotaError,
+  RxServerValidationError,
   type AccreditationCommand,
-  type AccreditationServiceContext,
 } from "@/lib/accreditation-service";
-import { resolveReferential } from "@/lib/imports/accreditations-referential-resolver";
+import type { TrustedReferentialInput } from "@/lib/accreditation-referential";
 import type { LocationTypeCode } from "@/lib/imports/referential";
 
 export async function GET(request: NextRequest) {
@@ -123,27 +123,29 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * Phase 6 — Rattachement référentiel serveur pour la création publique RX.
+ * Phase 6C-B-2 — Indications référentielles NON FIABLES pour la création
+ * publique/back-office RX.
  *
- * Ne fait JAMAIS confiance à un identifiant fourni par le client : seuls le
- * nom de l'exposant (`extension.exhibitor.name`) et le code d'emplacement
- * naturel (`extension.location.code`) sont utilisés, exactement comme pour
- * l'import CSV (Phase 4B) et la duplication (Phase 4A), via le même
- * `resolveReferential` en lecture seule.
+ * Extraction PURE et SYNCHRONE, sans aucun accès DB : seuls le nom de
+ * l'exposant (`extension.exhibitor.name`) et le code d'emplacement naturel
+ * (`extension.location.code`/`type`) sont lus depuis le payload client —
+ * jamais un `exhibitorId`/`exhibitorLocationId` (même si présent dans
+ * `extension`, il est ignoré ici : ce ne sont que des indications, jamais
+ * une confiance directe).
  *
- * Comportement délibérément non bloquant : si la résolution échoue (exposant
- * non trouvé, ambigu, emplacement introuvable) ou si aucune donnée
- * référentiel n'existe encore pour cet exposant (avant import/cutover),
- * on renvoie simplement `undefined` — l'accréditation est créée exactement
- * comme aujourd'hui (`exhibitorId`/`exhibitorLocationId` restent `null`).
- * Le formulaire Palais n'est jamais concerné (réservé à `organizationSlug === "rx"`).
+ * La résolution effective (rechargement, revérification organisation/
+ * événement/activité, résolution naturelle, ambiguïté, anti-IDOR) est
+ * désormais intégralement déléguée au moteur unique
+ * (`resolveTrustedAccreditationReferential`, appelée par
+ * `resolveRxServerContext` dans `accreditation-service.ts`) — cette route
+ * ne fait plus AUCUNE résolution référentielle elle-même. Le formulaire
+ * Palais n'est jamais concerné (réservé à `organizationSlug === "rx"`).
  */
-async function resolvePublicReferential(
+function buildRxReferentialInput(
   command: AccreditationCommand
-): Promise<AccreditationServiceContext["referential"] | undefined> {
+): TrustedReferentialInput | undefined {
   const raw = command as unknown as {
     organizationSlug?: string;
-    event?: string;
     extension?: {
       exhibitor?: { name?: string };
       location?: { code?: string | null; type?: string | null };
@@ -152,51 +154,13 @@ async function resolvePublicReferential(
   const orgSlug = raw.organizationSlug?.trim().toLowerCase();
   if (orgSlug !== "rx") return undefined;
 
-  const exhibitorName = raw.extension?.exhibitor?.name?.trim();
-  const eventSlug = raw.event?.trim();
-  if (!exhibitorName || !eventSlug) return undefined;
-
-  try {
-    const org = await prisma.organization.findUnique({
-      where: { slug: orgSlug },
-      select: { id: true },
-    });
-    if (!org) return undefined;
-
-    const event = await prisma.event.findUnique({
-      where: { slug: eventSlug },
-      select: { id: true, organizationId: true },
-    });
-    if (!event || event.organizationId !== org.id) return undefined;
-
-    const location = raw.extension?.location;
-    const resolution = await resolveReferential(
-      prisma,
-      { organizationId: org.id, eventId: event.id },
-      {
-        name: exhibitorName,
-        locationCode: location?.code ?? null,
-        locationType: (location?.type as LocationTypeCode | null | undefined) ?? null,
-      }
-    );
-
-    if (!resolution.ok) {
-      console.warn(
-        `Résolution référentiel RX publique non concluante (${resolution.code}): ${resolution.message}`
-      );
-      return undefined;
-    }
-
-    return {
-      exhibitorId: resolution.exhibitorId,
-      exhibitorLocationId: resolution.exhibitorLocationId,
-      locationLabel: resolution.locationLabel,
-      locationSnapshot: resolution.locationSnapshot,
-    };
-  } catch (err) {
-    console.error("resolvePublicReferential error:", err);
-    return undefined;
-  }
+  const exhibitorName = raw.extension?.exhibitor?.name?.trim() ?? null;
+  const location = raw.extension?.location;
+  return {
+    exhibitorName,
+    locationCode: location?.code ?? null,
+    locationType: (location?.type as LocationTypeCode | null | undefined) ?? null,
+  };
 }
 
 export async function POST(req: NextRequest) {
@@ -220,22 +184,30 @@ export async function POST(req: NextRequest) {
 
     const command = (await req.json()) as AccreditationCommand;
 
-    // Phase 6 : rattachement référentiel serveur (RX uniquement, jamais
-    // bloquant — cf. `resolvePublicReferential`). Le Palais et les
-    // exposants RX sans référentiel importé ne sont pas affectés.
-    const referential = await resolvePublicReferential(command);
+    // Phase 6C-B-2 : indications référentielles NON FIABLES (RX uniquement)
+    // — la résolution/revalidation fiable vit désormais dans le moteur
+    // unique (`resolveRxServerContext`, appelé deux fois : preview puis
+    // transaction). Palais et back-office (même route, session détectée
+    // ci-dessus) suivent exactement le même chemin.
+    const referentialInput = buildRxReferentialInput(command);
 
     // Adaptateur HTTP pur : toute la logique métier (validation, résolution
-    // organisation/événement, quotas, écriture, e-mail post-commit) vit dans
-    // le moteur unique `accreditation-service.ts`, partagé avec le
-    // back-office, la duplication et l'import CSV (Phase 4).
+    // organisation/événement, référentiel, planning RX, quotas, écriture,
+    // e-mail post-commit) vit dans le moteur unique `accreditation-service.ts`,
+    // partagé avec le back-office, la duplication et l'import CSV (Phase 4).
     const result = await createAccreditation(command, {
       currentUserId,
       currentUserRole,
-      referential,
+      referentialInput,
     });
 
     if (!result.ok) {
+      if (result.status === 503) {
+        return Response.json(
+          { error: result.error, code: result.code, details: result.details },
+          { status: 503 }
+        );
+      }
       if (result.status === 409) {
         return Response.json(
           { error: result.error, code: result.code, details: result.details },
@@ -256,6 +228,12 @@ export async function POST(req: NextRequest) {
       return Response.json(
         { error: err.message, code: err.code, details: err.details },
         { status: 409 }
+      );
+    }
+    if (err instanceof RxServerValidationError) {
+      return Response.json(
+        { error: err.message, code: err.code, details: err.details },
+        { status: err.status }
       );
     }
     console.error(err);

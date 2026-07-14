@@ -15,17 +15,23 @@ vi.mock("@/lib/auth-helpers", () => ({
   getSession: vi.fn(async () => null),
 }));
 
-const createAccreditation = vi.fn<(...args: unknown[]) => Promise<{ ok: boolean; body: unknown }>>(
-  async () => ({ ok: true, body: { id: "acc-1" } })
-);
+const createAccreditation = vi.fn<
+  (...args: unknown[]) => Promise<{ ok: boolean; status?: number; body?: unknown; error?: string; code?: string; details?: unknown }>
+>(async () => ({ ok: true, body: { id: "acc-1" } }));
 vi.mock("@/lib/accreditation-service", () => ({
   createAccreditation: (...args: unknown[]) => createAccreditation(...args),
   CapacityQuotaError: class CapacityQuotaError extends Error {},
-}));
-
-const resolveReferential = vi.fn<(...args: unknown[]) => Promise<unknown>>();
-vi.mock("@/lib/imports/accreditations-referential-resolver", () => ({
-  resolveReferential: (...args: unknown[]) => resolveReferential(...args),
+  RxServerValidationError: class RxServerValidationError extends Error {
+    status: number;
+    code?: string;
+    details?: unknown;
+    constructor(status: number, message: string, code?: string, details?: unknown) {
+      super(message);
+      this.status = status;
+      this.code = code;
+      this.details = details;
+    }
+  },
 }));
 
 import prisma from "@/lib/prisma";
@@ -35,6 +41,8 @@ import { NextRequest } from "next/server";
 type MockedPrisma = {
   organization: { findUnique: Mock };
   event: { findUnique: Mock };
+  exhibitor: { findMany: Mock };
+  exhibitorLocation: { findMany: Mock };
 };
 const mockedPrisma = prisma as unknown as MockedPrisma;
 
@@ -62,85 +70,84 @@ beforeEach(() => {
   createAccreditation.mockResolvedValue({ ok: true, body: { id: "acc-1" } });
 });
 
-describe("POST /api/accreditations — rattachement référentiel (Phase 6)", () => {
-  it("Palais (organizationSlug != rx) : ne résout jamais de référentiel", async () => {
+describe("POST /api/accreditations — indications référentielles NON FIABLES (Phase 6C-B-2)", () => {
+  // La résolution/revalidation fiable a été déplacée dans le moteur unique
+  // (`resolveRxServerContext` dans `accreditation-service.ts`, mocké ici).
+  // Cette route ne fait plus AUCUN accès DB pour le référentiel : elle se
+  // limite à extraire des indications non fiables (`referentialInput`),
+  // jamais un `exhibitorId` client, jamais bloquant.
+
+  it("Palais (organizationSlug != rx) : aucune indication référentielle transmise", async () => {
     await POST(makeReq({ organizationSlug: "palais", event: "cannes26", company: "Acme" }));
-    expect(resolveReferential).not.toHaveBeenCalled();
     expect(createAccreditation).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ referential: undefined })
+      expect.objectContaining({ referentialInput: undefined })
     );
   });
 
-  it("RX sans nom exposant / event : ne résout aucun référentiel", async () => {
-    await POST(makeReq({ organizationSlug: "rx", event: "", extension: {} }));
-    expect(resolveReferential).not.toHaveBeenCalled();
-  });
-
-  it("RX avec résolution réussie : injecte exhibitorId/exhibitorLocationId/locationSnapshot dans le contexte, jamais l'ID client", async () => {
-    mockedPrisma.organization.findUnique.mockResolvedValue({ id: "org-1" });
-    mockedPrisma.event.findUnique.mockResolvedValue({ id: "evt-1", organizationId: "org-1" });
-    resolveReferential.mockResolvedValue({
-      ok: true,
-      exhibitorId: "real-exhibitor-id",
-      exhibitorLocationId: "real-location-id",
-      locationLabel: "PAN 023",
-      locationSnapshot: { exhibitorName: "Sunseeker", locationCode: "PAN 023" },
-    });
-
+  it("RX : extrait exhibitorName/locationCode/locationType, jamais l'ID exposant fourni par le client", async () => {
     await POST(makeReq(RX_COMMAND));
 
-    expect(resolveReferential).toHaveBeenCalledWith(
+    expect(createAccreditation).toHaveBeenCalledWith(
       expect.anything(),
-      { organizationId: "org-1", eventId: "evt-1" },
-      expect.objectContaining({ name: "Sunseeker", locationCode: "PAN 023", locationType: "TERRE" })
+      expect.objectContaining({
+        referentialInput: {
+          exhibitorName: "Sunseeker",
+          locationCode: "PAN 023",
+          locationType: "TERRE",
+        },
+      })
     );
-    const ctx = createAccreditation.mock.calls[0]?.[1] as { referential?: { exhibitorId?: string } };
-    expect(ctx.referential).toEqual({
-      exhibitorId: "real-exhibitor-id",
-      exhibitorLocationId: "real-location-id",
-      locationLabel: "PAN 023",
-      locationSnapshot: { exhibitorName: "Sunseeker", locationCode: "PAN 023" },
-    });
-    // L'ID fourni par le client n'est JAMAIS celui utilisé.
-    expect(ctx.referential?.exhibitorId).not.toBe("client-supplied-id");
+    const ctx = createAccreditation.mock.calls[0]?.[1] as {
+      referentialInput?: Record<string, unknown>;
+    };
+    expect(ctx.referentialInput).not.toHaveProperty("exhibitorId");
+    expect(JSON.stringify(ctx.referentialInput)).not.toContain("client-supplied-id");
   });
 
-  it("RX avec résolution en échec (introuvable/ambigu) : ne bloque pas, référentiel undefined", async () => {
-    mockedPrisma.organization.findUnique.mockResolvedValue({ id: "org-1" });
-    mockedPrisma.event.findUnique.mockResolvedValue({ id: "evt-1", organizationId: "org-1" });
-    resolveReferential.mockResolvedValue({
+  it("RX sans exposant/emplacement dans extension : indication non fiable construite avec des champs nuls (jamais undefined pour l'org RX)", async () => {
+    await POST(makeReq({ organizationSlug: "rx", event: "cyf26", extension: {} }));
+
+    expect(createAccreditation).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        referentialInput: { exhibitorName: null, locationCode: null, locationType: null },
+      })
+    );
+  });
+
+  it("aucun accès Prisma direct dans la route pour le référentiel (délégué au moteur)", async () => {
+    await POST(makeReq(RX_COMMAND));
+    expect(mockedPrisma.organization.findUnique).not.toHaveBeenCalled();
+    expect(mockedPrisma.event.findUnique).not.toHaveBeenCalled();
+    expect(mockedPrisma.exhibitor.findMany).not.toHaveBeenCalled();
+  });
+
+  it("mappe un échec moteur 503 (référentiel/planning RX indisponible) sans fuite de détail Prisma", async () => {
+    createAccreditation.mockResolvedValueOnce({
       ok: false,
-      code: "EXHIBITOR_AMBIGUOUS",
-      message: "Plusieurs exposants correspondent.",
+      status: 503,
+      error: "Service de validation du référentiel temporairement indisponible.",
+      code: "REFERENTIAL_VALIDATION_UNAVAILABLE",
     });
 
     const res = await POST(makeReq(RX_COMMAND));
-
-    expect(res.status).toBe(201);
-    const ctx = createAccreditation.mock.calls[0]?.[1] as { referential?: { exhibitorId?: string } };
-    expect(ctx.referential).toBeUndefined();
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.code).toBe("REFERENTIAL_VALIDATION_UNAVAILABLE");
   });
 
-  it("RX avec event hors organisation (anti-IDOR) : ne résout pas et ne bloque pas la création", async () => {
-    mockedPrisma.organization.findUnique.mockResolvedValue({ id: "org-1" });
-    mockedPrisma.event.findUnique.mockResolvedValue({ id: "evt-1", organizationId: "AUTRE_ORG" });
+  it("mappe un échec moteur 409 (planning/référentiel incohérent RX) avec code structuré", async () => {
+    createAccreditation.mockResolvedValueOnce({
+      ok: false,
+      status: 409,
+      error: "Emplacement introuvable pour cet exposant dans ce contexte.",
+      code: "LOCATION_NOT_FOUND",
+    });
 
     const res = await POST(makeReq(RX_COMMAND));
-
-    expect(resolveReferential).not.toHaveBeenCalled();
-    expect(res.status).toBe(201);
-    const ctx = createAccreditation.mock.calls[0]?.[1] as { referential?: { exhibitorId?: string } };
-    expect(ctx.referential).toBeUndefined();
-  });
-
-  it("une erreur Prisma pendant la résolution référentiel ne fait jamais échouer la création", async () => {
-    mockedPrisma.organization.findUnique.mockRejectedValue(new Error("DB down"));
-
-    const res = await POST(makeReq(RX_COMMAND));
-
-    expect(res.status).toBe(201);
-    const ctx = createAccreditation.mock.calls[0]?.[1] as { referential?: { exhibitorId?: string } };
-    expect(ctx.referential).toBeUndefined();
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.code).toBe("LOCATION_NOT_FOUND");
   });
 });

@@ -113,22 +113,38 @@ export function quotaCandidateKey(key: RxCapacityKey): string {
  * `requestedCount` est sommé, pour qu'une même demande avec 2 véhicules sur
  * le même créneau compte pour 2 (et non 1) face à un `remaining` restant.
  */
+/**
+ * Collecteur de candidates partagé (dédoublonnage par `quotaCandidateKey`,
+ * sommation de `requestedCount`) — SOURCE UNIQUE réutilisée par
+ * `buildCapacityQuotaCandidates` (vehicles racine, toutes organisations) ET
+ * `buildCapacityQuotaCandidatesFromPhaseEntries` (projection canonique RX
+ * `phaseEntries`, Phase 6C-B-2). Ne jamais dupliquer cette logique.
+ */
+function makeCandidateCollector() {
+  const byKey = new Map<string, QuotaCandidate>();
+  return {
+    add(key: RxCapacityKey) {
+      const k = quotaCandidateKey(key);
+      const existing = byKey.get(k);
+      if (existing) {
+        existing.requestedCount += 1;
+      } else {
+        byKey.set(k, { key, requestedCount: 1 });
+      }
+    },
+    values(): QuotaCandidate[] {
+      return Array.from(byKey.values());
+    },
+  };
+}
+
 export function buildCapacityQuotaCandidates(
   params: BuildCandidatesParams
 ): QuotaCandidate[] {
   const { organizationId, eventId, vehicles, resolveZone, resolveFamily } =
     params;
-  const byKey = new Map<string, QuotaCandidate>();
-
-  const addCandidate = (key: RxCapacityKey) => {
-    const k = quotaCandidateKey(key);
-    const existing = byKey.get(k);
-    if (existing) {
-      existing.requestedCount += 1;
-    } else {
-      byKey.set(k, { key, requestedCount: 1 });
-    }
-  };
+  const collector = makeCandidateCollector();
+  const addCandidate = collector.add;
 
   for (const v of vehicles) {
     // ── MONTAGE : standard, toutes organisations ────────────────────────
@@ -170,7 +186,71 @@ export function buildCapacityQuotaCandidates(
     }
   }
 
-  return Array.from(byKey.values());
+  return collector.values();
+}
+
+// ── Candidates depuis la projection canonique planning (Phase 6C-B-2) ──────
+
+/**
+ * Entrée minimale requise depuis `PlanningPhaseEntry`
+ * (`accreditation-planning-validation.ts`) pour construire une candidate de
+ * quota. Type structurel local (aucune dépendance à ce module, pour éviter
+ * tout cycle d'import) : `accreditation-service.ts` passe directement ses
+ * `PlanningPhaseEntry[]`, qui satisfont déjà cette forme.
+ */
+export interface PhaseEntryCandidateInput {
+  phase: RxCapacityKey["phase"];
+  /** Date "YYYY-MM-DD". */
+  date: string;
+  /** Créneau "HH:MM-HH:MM" (jamais une simple heure de départ). */
+  time: string;
+  vehicleType: string | null;
+}
+
+export interface BuildCandidatesFromPhaseEntriesParams {
+  organizationId: string;
+  eventId: string;
+  phaseEntries: PhaseEntryCandidateInput[];
+  resolveZone: (vehicleTypeCode: string) => string | null;
+  resolveFamily: (vehicleTypeCode: string) => RxCapacityKey["vehicleFamily"];
+}
+
+/**
+ * Construit les quota candidates depuis la projection canonique
+ * `phaseEntries` (source de vérité `extension.categories[]`, déjà validée
+ * par `validateAccreditationPlanning`) plutôt que depuis `vehicles` racine
+ * potentiellement falsifiable — RX `TRANSITION`/`STRICT` uniquement (Phase
+ * 6C-B-2). Respecte nativement `skipMontage`/`skipDemontage` : ce module ne
+ * reçoit ici QUE les entrées déjà filtrées par ces indicateurs (aucune
+ * fausse candidate MONTAGE quand `skipMontage=true`, puisqu'aucune entrée
+ * MONTAGE n'existe alors dans `phaseEntries`).
+ */
+export function buildCapacityQuotaCandidatesFromPhaseEntries(
+  params: BuildCandidatesFromPhaseEntriesParams
+): QuotaCandidate[] {
+  const { organizationId, eventId, phaseEntries, resolveZone, resolveFamily } =
+    params;
+  const collector = makeCandidateCollector();
+
+  for (const entry of phaseEntries) {
+    const vt = (entry.vehicleType ?? "").trim();
+    const slot = parseSlot(entry.time);
+    if (!vt || !entry.date || !slot) continue;
+    const zone = resolveZone(vt);
+    if (!zone) continue;
+    collector.add({
+      organizationId,
+      eventId,
+      zone,
+      date: entry.date,
+      startTime: slot.start,
+      endTime: slot.end,
+      vehicleFamily: resolveFamily(vt),
+      phase: entry.phase,
+    });
+  }
+
+  return collector.values();
 }
 
 // ── Lock key ──────────────────────────────────────────────────────────────

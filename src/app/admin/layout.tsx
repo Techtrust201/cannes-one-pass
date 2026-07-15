@@ -19,10 +19,17 @@ export default function AdminLayout({
 
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
   const canManageEspaces = hasPermission("GESTION_ESPACES", "write");
+  const canAccessImport =
+    hasPermission("GESTION_ESPACES", "read") ||
+    hasPermission("GESTION_DATES", "read") ||
+    hasPermission("FLUX_VEHICULES", "read");
   const isEspacesRoute = pathname?.startsWith("/admin/espaces") ?? false;
+  const isImportRoute = pathname?.startsWith("/admin/import") ?? false;
   const canAccessAdmin =
     user &&
-    (isSuperAdmin || (isEspacesRoute && canManageEspaces));
+    (isSuperAdmin ||
+      (isEspacesRoute && canManageEspaces) ||
+      (isImportRoute && canAccessImport));
 
   if (loading) {
     return (

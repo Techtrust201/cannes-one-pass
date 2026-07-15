@@ -287,6 +287,110 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
             )
           )}
 
+          {/* Bloc PARAMÉTRAGE RX — uniquement espace rx */}
+          {espace === "rx" &&
+            (hasPermission("GESTION_ESPACES", "read") ||
+              hasPermission("GESTION_DATES", "read") ||
+              hasPermission("FLUX_VEHICULES", "read") ||
+              isSuperAdmin) && (
+              collapsed ? (
+                <div className="space-y-1">
+                  {hasPermission("GESTION_ESPACES", "read") && (
+                    <Link
+                      href={withEspace("/logisticien/referentiel")}
+                      className="flex items-center justify-center p-2.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors"
+                      title="Exposants & emplacements"
+                      onClick={() => setSidebarOpen(false)}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-white">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </Link>
+                  )}
+                  {(hasPermission("GESTION_DATES", "read") ||
+                    hasPermission("FLUX_VEHICULES", "read")) && (
+                    <Link
+                      href={withEspace("/logisticien/planning")}
+                      className="flex items-center justify-center p-2.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors"
+                      title="Planning & quotas"
+                      onClick={() => setSidebarOpen(false)}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-white">
+                        <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </Link>
+                  )}
+                  <Link
+                    href={`/admin/import?org=rx&format=rx`}
+                    className="flex items-center justify-center p-2.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors"
+                    title="Centre d'import"
+                    onClick={() => setSidebarOpen(false)}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-white">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </Link>
+                </div>
+              ) : (
+                <details open className="group">
+                  <summary className="flex items-center justify-between cursor-pointer px-3 py-2.5 sm:py-2 bg-[#2C2F3F] rounded-lg text-xs font-semibold uppercase tracking-wide select-none">
+                    <span className="flex items-center gap-2">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-white">
+                        <path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      Paramétrage RX
+                    </span>
+                    <svg className="w-3 h-3 transition-transform group-open:rotate-180" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M6 8l4 4 4-4" />
+                    </svg>
+                  </summary>
+                  <ul className="mt-2 pl-3 space-y-1 text-sm">
+                    {hasPermission("GESTION_ESPACES", "read") && (
+                      <li>
+                        <Link
+                          href={withEspace("/logisticien/referentiel")}
+                          className="flex items-center gap-2.5 px-3 py-2.5 sm:py-2 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
+                          onClick={() => setSidebarOpen(false)}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-white shrink-0">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                          Exposants &amp; emplacements
+                        </Link>
+                      </li>
+                    )}
+                    {(hasPermission("GESTION_DATES", "read") ||
+                      hasPermission("FLUX_VEHICULES", "read")) && (
+                      <li>
+                        <Link
+                          href={withEspace("/logisticien/planning")}
+                          className="flex items-center gap-2.5 px-3 py-2.5 sm:py-2 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
+                          onClick={() => setSidebarOpen(false)}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-white shrink-0">
+                            <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                          Planning &amp; quotas
+                        </Link>
+                      </li>
+                    )}
+                    <li>
+                      <Link
+                        href={`/admin/import?org=rx&format=rx`}
+                        className="flex items-center gap-2.5 px-3 py-2.5 sm:py-2 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
+                        onClick={() => setSidebarOpen(false)}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-white shrink-0">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                        Centre d&apos;import
+                      </Link>
+                    </li>
+                  </ul>
+                </details>
+              )
+            )}
+
           {/* Bloc Tickets de support */}
           {hasPermission("TICKETS", "read") && (
             collapsed ? (

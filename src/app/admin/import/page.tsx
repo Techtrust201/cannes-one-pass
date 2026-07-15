@@ -1,107 +1,130 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Feature } from "@prisma/client";
 import {
   AlertTriangle,
   ArrowLeft,
+  Check,
   CheckCircle2,
+  ChevronRight,
   Download,
+  FileSpreadsheet,
   FileUp,
   History,
   Loader2,
+  RotateCcw,
   XCircle,
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 
-// ── Types ─────────────────────────────────────────────────────────────────
+type ProfileKey =
+  | "referential"
+  | "planning"
+  | "capacities"
+  | "accreditations"
+  | "zones"
+  | "vehicle-types";
+
+interface ProfileConfig {
+  key: ProfileKey;
+  label: string;
+  shortDescription: string;
+  recommendation?: string;
+  api: string;
+  requiresEvent: boolean;
+  supportsFormat?: boolean;
+  supportsImportMode?: boolean;
+  readFeatures: Feature[];
+}
+
+const PROFILES: ProfileConfig[] = [
+  {
+    key: "referential",
+    label: "Exposants & emplacements",
+    shortDescription: "Crée ou met à jour les exposants, stands et emplacements de l’événement.",
+    recommendation: "1. À importer en premier",
+    api: "/api/admin/import/referential",
+    requiresEvent: true,
+    supportsFormat: true,
+    readFeatures: ["GESTION_ESPACES"],
+  },
+  {
+    key: "planning",
+    label: "Planning",
+    shortDescription: "Ajoute les créneaux de montage et démontage par port, secteur ou zone.",
+    recommendation: "2. Après le référentiel",
+    api: "/api/admin/import/planning",
+    requiresEvent: true,
+    supportsFormat: true,
+    readFeatures: ["GESTION_DATES"],
+  },
+  {
+    key: "capacities",
+    label: "Capacités et quotas",
+    shortDescription: "Configure les quotas disponibles par zone, date, famille et phase.",
+    recommendation: "3. Après le planning",
+    api: "/api/admin/import/capacities",
+    requiresEvent: true,
+    readFeatures: ["FLUX_VEHICULES"],
+  },
+  {
+    key: "accreditations",
+    label: "Accréditations",
+    shortDescription: "Crée des demandes préremplies en appliquant les contrôles métier habituels.",
+    recommendation: "4. Après le référentiel et les quotas",
+    api: "/api/admin/import/accreditations",
+    requiresEvent: true,
+    supportsImportMode: true,
+    readFeatures: ["LISTE", "GESTION_ESPACES"],
+  },
+  {
+    key: "zones",
+    label: "Zones",
+    shortDescription: "Met à jour les zones logistiques, leurs couleurs et paramètres de contrôle.",
+    api: "/api/admin/import/zones",
+    requiresEvent: false,
+    readFeatures: ["GESTION_ZONES"],
+  },
+  {
+    key: "vehicle-types",
+    label: "Types de véhicules",
+    shortDescription: "Gère les gabarits, tonnages, familles et données environnementales.",
+    api: "/api/admin/import/vehicle-types",
+    requiresEvent: false,
+    readFeatures: ["FLUX_VEHICULES"],
+  },
+];
+
+const PROFILE_LABELS: Record<string, string> = Object.fromEntries(
+  PROFILES.map((profile) => [profile.key.toUpperCase().replace("-", "_"), profile.label])
+);
+
+const STEPS = [
+  "Choisir le type",
+  "Événement",
+  "Déposer le fichier",
+  "Aperçu dry-run",
+  "Corriger les erreurs",
+  "Confirmer",
+  "Rapport",
+];
 
 interface OrgOption {
   id: string;
   slug: string;
   name: string;
 }
+
 interface EventOption {
   id: string;
   slug: string;
   name: string;
 }
 
-type ProfileKey =
-  | "referential"
-  | "planning"
-  | "accreditations"
-  | "zones"
-  | "vehicle-types"
-  | "capacities";
-
-interface ProfileConfig {
-  key: ProfileKey;
-  label: string;
-  description: string;
-  api: string;
-  templateProfile: string;
-  requiresEvent: boolean;
-  supportsFormat?: boolean; // referential/planning : format=canonical|rx
-  supportsImportMode?: boolean; // accreditations : importMode=PENDING|VALIDATED
-}
-
-const PROFILES: ProfileConfig[] = [
-  {
-    key: "referential",
-    label: "Référentiel exposants/emplacements",
-    description: "Catalogue des exposants et de leurs emplacements (Terre/Flot/Stand).",
-    api: "/api/admin/import/referential",
-    templateProfile: "referential",
-    requiresEvent: true,
-    supportsFormat: true,
-  },
-  {
-    key: "planning",
-    label: "Planning",
-    description: "Créneaux de montage/démontage par port, secteur ou zone.",
-    api: "/api/admin/import/planning",
-    templateProfile: "planning",
-    requiresEvent: true,
-    supportsFormat: true,
-  },
-  {
-    key: "accreditations",
-    label: "Accréditations",
-    description: "Accréditations pré-remplies, créées via le même moteur que le formulaire public.",
-    api: "/api/admin/import/accreditations",
-    templateProfile: "accreditations",
-    requiresEvent: true,
-    supportsImportMode: true,
-  },
-  {
-    key: "zones",
-    label: "Zones",
-    description: "Zones logistiques (ZoneConfig) : géolocalisation, couleur, lecteur de plaque.",
-    api: "/api/admin/import/zones",
-    templateProfile: "zones",
-    requiresEvent: false,
-  },
-  {
-    key: "vehicle-types",
-    label: "Types de véhicules / Gabarits",
-    description: "Gabarits véhicules (VehicleTypeConfig) : tonnages, CO2, famille LIGHT/HEAVY.",
-    api: "/api/admin/import/vehicle-types",
-    templateProfile: "vehicle-types",
-    requiresEvent: false,
-  },
-  {
-    key: "capacities",
-    label: "Capacités",
-    description: "Quotas de créneaux par zone/date/famille/phase (RxCapacity).",
-    api: "/api/admin/import/capacities",
-    templateProfile: "capacities",
-    requiresEvent: true,
-  },
-];
-
 interface RowIssue {
-  line: number;
+  line?: number;
   column?: string;
   value?: string;
   reason: string;
@@ -112,11 +135,10 @@ interface ImportApiResponse {
   code?: string;
   error?: string;
   errors?: RowIssue[];
-  warnings?: RowIssue[] | { fileWarnings: RowIssue[]; lineWarnings: unknown[] };
+  warnings?: RowIssue[] | { fileWarnings?: RowIssue[]; lineWarnings?: unknown[] };
   totalRows?: number;
   mode?: "dry-run" | "commit";
-  commit?: boolean;
-  preview?: Record<string, unknown> & { sample?: unknown[] };
+  preview?: Record<string, unknown>;
   imported?: { created: number; updated: number; unchanged: number };
   batchId?: string;
   created?: number | { accreditationId: string }[];
@@ -125,79 +147,193 @@ interface ImportApiResponse {
     total: number;
     sent: number;
     failed: number;
-    skippedNoRecipient: number;
-    skippedDisabled: number;
-    allSucceeded: boolean;
   };
-  batchCapacityErrors?: unknown[];
   previousBatchId?: string | null;
   duplicateRowsDetected?: boolean;
-  fileHashSha256?: string;
 }
 
 interface ImportBatchRow {
   id: string;
-  organization: { name: string } | null;
-  event: { name: string } | null;
+  event: { id: string; name: string } | null;
   sourceProfile: string;
   fileName: string;
   status: string;
   created: number;
   updated: number;
   unchanged: number;
-  deactivated: number;
   errorCount: number;
   startedAt: string;
 }
 
-const PROFILE_LABELS: Record<string, string> = Object.fromEntries(
-  PROFILES.map((p) => [p.key.toUpperCase().replace("-", "_"), p.label])
-);
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
 
-// ── Composant ─────────────────────────────────────────────────────────────
+function issueFrom(value: unknown, fallbackLine?: number): RowIssue | null {
+  if (typeof value === "string") return { line: fallbackLine, reason: value };
+  const issue = asRecord(value);
+  if (!issue) return null;
+  const reason = issue.reason ?? issue.message ?? issue.error;
+  if (typeof reason !== "string") return null;
+  return {
+    line: typeof issue.line === "number" ? issue.line : fallbackLine,
+    column: typeof issue.column === "string" ? issue.column : undefined,
+    value: typeof issue.value === "string" ? issue.value : undefined,
+    reason,
+  };
+}
+
+function collectIssues(response: ImportApiResponse | null, kind: "errors" | "warnings"): RowIssue[] {
+  if (!response) return [];
+  const result: RowIssue[] = [];
+  const add = (values: unknown, fallbackLine?: number) => {
+    if (!Array.isArray(values)) return;
+    values.forEach((value) => {
+      const issue = issueFrom(value, fallbackLine);
+      if (issue) result.push(issue);
+    });
+  };
+
+  const root = response[kind];
+  add(root);
+  const rootRecord = asRecord(root);
+  if (kind === "warnings" && rootRecord) {
+    add(rootRecord.fileWarnings);
+    add(rootRecord.lineWarnings);
+  }
+
+  const preview = response.preview;
+  add(preview?.[kind === "errors" ? "fileErrors" : "fileWarnings"]);
+  const lines = preview?.lines;
+  if (Array.isArray(lines)) {
+    lines.forEach((lineValue) => {
+      const line = asRecord(lineValue);
+      if (!line) return;
+      const lineNumber = typeof line.line === "number" ? line.line : undefined;
+      add(line[kind], lineNumber);
+      if (kind === "errors" && line.valid === false && !Array.isArray(line.errors)) {
+        result.push({ line: lineNumber, reason: "Cette ligne n’est pas valide." });
+      }
+    });
+  }
+  return result;
+}
+
+function findNumber(value: unknown, aliases: string[], depth = 0): number | null {
+  if (depth > 3) return null;
+  const record = asRecord(value);
+  if (!record) return null;
+  for (const alias of aliases) {
+    if (typeof record[alias] === "number") return record[alias] as number;
+  }
+  for (const nested of Object.values(record)) {
+    const found = findNumber(nested, aliases, depth + 1);
+    if (found !== null) return found;
+  }
+  return null;
+}
+
+function previewRows(preview?: Record<string, unknown>): Record<string, unknown>[] {
+  if (!preview) return [];
+  const candidate = Array.isArray(preview.sample)
+    ? preview.sample
+    : Array.isArray(preview.lines)
+      ? preview.lines
+      : [];
+  return candidate.map(asRecord).filter((row): row is Record<string, unknown> => !!row).slice(0, 10);
+}
+
+function displayValue(value: unknown): string {
+  if (value === null || value === undefined || value === "") return "—";
+  if (typeof value === "boolean") return value ? "Oui" : "Non";
+  if (typeof value === "object") return Array.isArray(value) ? `${value.length} élément(s)` : "Voir détails";
+  return String(value);
+}
+
+function statusLabel(status: string): string {
+  if (status === "COMPLETED") return "Terminé";
+  if (status === "FAILED") return "Échec";
+  if (status === "PROCESSING") return "En cours";
+  return status;
+}
 
 export default function AdminImportCenterPage() {
-  const { user } = usePermissions();
+  const { user, loading: permissionsLoading, hasPermission } = usePermissions();
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
   const inputRef = useRef<HTMLInputElement>(null);
+  const prefillApplied = useRef(false);
 
   const [orgs, setOrgs] = useState<OrgOption[]>([]);
   const [events, setEvents] = useState<EventOption[]>([]);
   const [orgId, setOrgId] = useState("");
   const [orgSlug, setOrgSlug] = useState("");
   const [eventId, setEventId] = useState("");
-  const [profileKey, setProfileKey] = useState<ProfileKey>("referential");
+  const [profileKey, setProfileKey] = useState<ProfileKey | null>(null);
   const [format, setFormat] = useState<"canonical" | "rx">("canonical");
   const [importMode, setImportMode] = useState<"PENDING" | "VALIDATED">("PENDING");
   const [confirmReimport, setConfirmReimport] = useState(false);
   const [confirmDuplicates, setConfirmDuplicates] = useState(false);
-
   const [file, setFile] = useState<File | null>(null);
   const [dryRun, setDryRun] = useState<ImportApiResponse | null>(null);
   const [commitResult, setCommitResult] = useState<ImportApiResponse | null>(null);
   const [uploading, setUploading] = useState(false);
   const [committing, setCommitting] = useState(false);
-
   const [history, setHistory] = useState<ImportBatchRow[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  const profile = PROFILES.find((p) => p.key === profileKey)!;
+  const visibleProfiles = useMemo(
+    () =>
+      PROFILES.filter(
+        (profile) =>
+          isSuperAdmin || profile.readFeatures.some((feature) => hasPermission(feature, "read"))
+      ),
+    [hasPermission, isSuperAdmin]
+  );
+  const profile = PROFILES.find((item) => item.key === profileKey) ?? null;
 
   useEffect(() => {
     fetch("/api/admin/organizations")
-      .then((r) => (r.ok ? r.json() : []))
+      .then((response) => (response.ok ? response.json() : []))
       .then((data) => setOrgs(Array.isArray(data) ? data : []))
       .catch(() => setOrgs([]));
   }, []);
 
   useEffect(() => {
+    if (prefillApplied.current || orgs.length === 0) return;
+    prefillApplied.current = true;
+    const params = new URLSearchParams(window.location.search);
+    const requestedProfile = params.get("profile") as ProfileKey | null;
+    if (requestedProfile && PROFILES.some((item) => item.key === requestedProfile)) {
+      setProfileKey(requestedProfile);
+    }
+    const requestedOrg = params.get("org");
+    const organization = orgs.find((item) => item.slug === requestedOrg);
+    if (organization) {
+      setOrgId(organization.id);
+      setOrgSlug(organization.slug);
+    }
+    const requestedEvent = params.get("event");
+    if (requestedEvent) setEventId(requestedEvent);
+    const requestedFormat = params.get("format");
+    if (requestedFormat === "rx" || requestedFormat === "canonical") {
+      setFormat(requestedFormat);
+    } else if (
+      requestedOrg === "rx" &&
+      (requestedProfile === "referential" || requestedProfile === "planning")
+    ) {
+      setFormat("rx");
+    }
+  }, [orgs]);
+
+  useEffect(() => {
     if (!orgSlug) {
       setEvents([]);
-      setEventId("");
       return;
     }
     fetch(`/api/events?espace=${encodeURIComponent(orgSlug)}`)
-      .then((r) => (r.ok ? r.json() : []))
+      .then((response) => (response.ok ? response.json() : []))
       .then((data) => setEvents(Array.isArray(data) ? data : []))
       .catch(() => setEvents([]));
   }, [orgSlug]);
@@ -209,10 +345,10 @@ export default function AdminImportCenterPage() {
     }
     setHistoryLoading(true);
     try {
-      const res = await fetch(
-        `/api/admin/import/batches?organizationId=${encodeURIComponent(orgId)}&limit=20`
+      const response = await fetch(
+        `/api/admin/import/batches?organizationId=${encodeURIComponent(orgId)}&limit=50`
       );
-      const data = res.ok ? await res.json() : { batches: [] };
+      const data = response.ok ? await response.json() : { batches: [] };
       setHistory(Array.isArray(data.batches) ? data.batches : []);
     } catch {
       setHistory([]);
@@ -225,7 +361,7 @@ export default function AdminImportCenterPage() {
     loadHistory();
   }, [loadHistory]);
 
-  function resetImportState() {
+  function resetAnalysis() {
     setFile(null);
     setDryRun(null);
     setCommitResult(null);
@@ -234,42 +370,54 @@ export default function AdminImportCenterPage() {
     if (inputRef.current) inputRef.current.value = "";
   }
 
-  function buildQuery(commit: boolean): string {
-    const params = new URLSearchParams();
-    if (commit) params.set("commit", "true");
-    if (profile.supportsFormat) params.set("format", format);
-    if (profile.supportsImportMode) params.set("importMode", importMode);
-    if (confirmReimport) params.set("confirmReimport", "true");
-    if (confirmDuplicates) params.set("confirmDuplicates", "true");
-    const qs = params.toString();
-    return qs ? `?${qs}` : "";
+  function chooseProfile(key: ProfileKey) {
+    setProfileKey(key);
+    resetAnalysis();
+    const selected = PROFILES.find((item) => item.key === key);
+    if (orgSlug === "rx" && selected?.supportsFormat) setFormat("rx");
+    window.setTimeout(() => document.getElementById("import-wizard")?.scrollIntoView({ behavior: "smooth" }), 0);
   }
 
+  const buildQuery = useCallback(
+    (commit: boolean): string => {
+      if (!profile) return "";
+      const params = new URLSearchParams();
+      if (commit) params.set("commit", "true");
+      if (profile.supportsFormat) params.set("format", format);
+      if (profile.supportsImportMode) params.set("importMode", importMode);
+      if (confirmReimport) params.set("confirmReimport", "true");
+      if (confirmDuplicates) params.set("confirmDuplicates", "true");
+      const query = params.toString();
+      return query ? `?${query}` : "";
+    },
+    [confirmDuplicates, confirmReimport, format, importMode, profile]
+  );
+
   const upload = useCallback(
-    async (f: File, commit: boolean): Promise<{ ok: boolean; data: ImportApiResponse }> => {
+    async (selectedFile: File, commit: boolean): Promise<ImportApiResponse> => {
+      if (!profile) return { ok: false, error: "Profil d’import manquant." };
       const formData = new FormData();
-      formData.append("file", f);
+      formData.append("file", selectedFile);
       formData.append("organizationId", orgId);
       if (profile.requiresEvent || eventId) formData.append("eventId", eventId);
-      const res = await fetch(`${profile.api}${buildQuery(commit)}`, {
+      const response = await fetch(`${profile.api}${buildQuery(commit)}`, {
         method: "POST",
         body: formData,
       });
-      const data: ImportApiResponse = await res.json().catch(() => ({ ok: false, error: "Réponse invalide" }));
-      return { ok: res.ok, data };
+      return response.json().catch(() => ({ ok: false, error: "Réponse serveur invalide." }));
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [orgId, eventId, profile, format, importMode, confirmReimport, confirmDuplicates]
+    [buildQuery, eventId, orgId, profile]
   );
 
-  async function handleFileSelected(f: File) {
-    setFile(f);
+  async function handleFileSelected(selectedFile: File) {
+    setFile(selectedFile);
     setCommitResult(null);
-    setUploading(true);
     setDryRun(null);
+    setUploading(true);
     try {
-      const { data } = await upload(f, false);
-      setDryRun(data);
+      setDryRun(await upload(selectedFile, false));
+    } catch {
+      setDryRun({ ok: false, error: "L’analyse du fichier a échoué." });
     } finally {
       setUploading(false);
     }
@@ -279,395 +427,626 @@ export default function AdminImportCenterPage() {
     if (!file) return;
     setCommitting(true);
     try {
-      const { data } = await upload(file, true);
-      if (data.ok) {
-        setCommitResult(data);
+      const result = await upload(file, true);
+      if (result.ok) {
+        setCommitResult(result);
         setDryRun(null);
         setFile(null);
         if (inputRef.current) inputRef.current.value = "";
         loadHistory();
       } else {
-        setDryRun(data);
+        setDryRun(result);
       }
+    } catch {
+      setDryRun({ ok: false, error: "L’import n’a pas pu être confirmé." });
     } finally {
       setCommitting(false);
     }
   }
 
-  const ready = orgId && (!profile.requiresEvent || eventId);
-
-  const dryRunErrors: RowIssue[] = Array.isArray(dryRun?.errors) ? dryRun.errors : [];
-  const dryRunWarnings: RowIssue[] = Array.isArray(dryRun?.warnings)
-    ? (dryRun!.warnings as RowIssue[])
-    : [];
-  const isAccreditations = profileKey === "accreditations";
-  const blockingCode = dryRun?.code;
+  const errors = collectIssues(dryRun, "errors");
+  const warnings = collectIssues(dryRun, "warnings");
+  const blockingCodes = ["PREVIEW_INVALID", "BATCH_CAPACITY_EXCEEDED", "VALIDATED_IMPORT_FORBIDDEN"];
   const canConfirm =
-    !!dryRun &&
-    dryRunErrors.length === 0 &&
-    !(isAccreditations && dryRun.preview && (dryRun.preview as { ok?: boolean }).ok === false) &&
-    blockingCode !== "PREVIEW_INVALID" &&
-    blockingCode !== "BATCH_CAPACITY_EXCEEDED" &&
-    blockingCode !== "VALIDATED_IMPORT_FORBIDDEN";
+    dryRun?.ok === true &&
+    errors.length === 0 &&
+    !blockingCodes.includes(dryRun.code ?? "") &&
+    !(dryRun.previousBatchId && !confirmReimport) &&
+    !(dryRun.duplicateRowsDetected && !confirmDuplicates);
+  const ready = !!profile && !!orgId && (!profile.requiresEvent || !!eventId);
+  const selectedHistory = history.filter((batch) => !eventId || batch.event?.id === eventId);
+  const hasCompletedProfile = (key: ProfileKey) =>
+    selectedHistory.some(
+      (batch) =>
+        batch.status === "COMPLETED" &&
+        batch.sourceProfile === key.toUpperCase().replace("-", "_")
+    );
+  const dependencyWarning =
+    profileKey === "accreditations" && orgId && !hasCompletedProfile("referential")
+      ? "Aucun import de référentiel terminé n’a été trouvé pour ce contexte. Les accréditations peuvent ne pas retrouver leurs exposants ou emplacements."
+      : profileKey === "capacities" && orgId && !hasCompletedProfile("planning")
+        ? "Aucun import de planning terminé n’a été trouvé pour ce contexte. Vérifiez que les dates et créneaux nécessaires existent."
+        : null;
+
+  const currentStep = commitResult
+    ? 7
+    : uploading
+      ? 4
+      : dryRun &&
+          (dryRun.ok !== true ||
+            errors.length > 0 ||
+            blockingCodes.includes(dryRun.code ?? ""))
+        ? 5
+        : dryRun
+          ? 6
+          : profile && (!orgId || (profile.requiresEvent && !eventId))
+            ? 2
+            : profile
+              ? 3
+              : 1;
+
+  const rows = previewRows(dryRun?.preview);
+  const columns = Array.from(new Set(rows.flatMap((row) => Object.keys(row))))
+    .filter((column) => !["errors", "warnings"].includes(column))
+    .slice(0, 6);
+  const previewCreated = findNumber(dryRun?.preview, ["created", "creations", "toCreate"]);
+  const previewUpdated = findNumber(dryRun?.preview, ["updated", "modifications", "toUpdate"]);
+  const previewUnchanged = findNumber(dryRun?.preview, ["unchanged", "unchangeds", "noChange"]);
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
-      <Link
-        href="/admin"
-        className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
-      >
-        <ArrowLeft size={16} /> Retour
+    <div className="mx-auto max-w-6xl space-y-7">
+      <Link href="/admin" className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900">
+        <ArrowLeft size={16} /> Retour à l’administration
       </Link>
-      <div>
-        <h1 className="text-2xl font-bold mb-1">Centre d&apos;import</h1>
-        <p className="text-sm text-gray-600">
-          Import unifié : référentiel, planning, accréditations, zones, gabarits et capacités.
-          Toute création passe par les mêmes moteurs métier que les back-offices existants.
-          Aucun import n&apos;est appliqué sans aperçu préalable.
+
+      <header className="space-y-2">
+        <p className="text-sm font-semibold uppercase tracking-wide text-primary">Centre d’import 2.0</p>
+        <h1 className="text-3xl font-bold text-gray-900">Importez vos données étape par étape</h1>
+        <p className="max-w-3xl text-sm text-gray-600">
+          Choisissez ce que vous souhaitez mettre à jour. Chaque fichier est d’abord analysé sans
+          aucune écriture : vous gardez la main avant la confirmation.
         </p>
-      </div>
+      </header>
 
-      {/* Étape 1-3 : organisation / événement / profil */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">1. Organisation</label>
-            <select
-              value={orgId}
-              onChange={(e) => {
-                const id = e.target.value;
-                setOrgId(id);
-                setOrgSlug(orgs.find((o) => o.id === id)?.slug ?? "");
-                setEventId("");
-                resetImportState();
-              }}
-              className="w-full border rounded-md px-3 py-2 text-sm"
-            >
-              <option value="">— Choisir —</option>
-              {orgs.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">
-              2. Événement {profile.requiresEvent ? "" : "(non requis pour ce profil)"}
-            </label>
-            <select
-              value={eventId}
-              onChange={(e) => {
-                setEventId(e.target.value);
-                resetImportState();
-              }}
-              disabled={!orgId || !profile.requiresEvent}
-              className="w-full border rounded-md px-3 py-2 text-sm disabled:bg-gray-100"
-            >
-              <option value="">— Choisir —</option>
-              {events.map((ev) => (
-                <option key={ev.id} value={ev.id}>
-                  {ev.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">3. Profil d&apos;import</label>
-            <select
-              value={profileKey}
-              onChange={(e) => {
-                setProfileKey(e.target.value as ProfileKey);
-                resetImportState();
-              }}
-              className="w-full border rounded-md px-3 py-2 text-sm"
-            >
-              {PROFILES.map((p) => (
-                <option key={p.key} value={p.key}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <p className="text-xs text-gray-500">{profile.description}</p>
-
-        {profile.supportsFormat && (
-          <div className="flex items-center gap-4 text-sm">
-            <span className="text-xs font-semibold text-gray-700">Format du fichier :</span>
-            <label className="inline-flex items-center gap-1">
-              <input
-                type="radio"
-                checked={format === "canonical"}
-                onChange={() => setFormat("canonical")}
-              />
-              Canonique (plat)
-            </label>
-            <label className="inline-flex items-center gap-1">
-              <input type="radio" checked={format === "rx"} onChange={() => setFormat("rx")} />
-              Classeur RX officiel
-            </label>
-          </div>
-        )}
-
-        {profile.supportsImportMode && (
-          <div className="flex items-center gap-4 text-sm">
-            <span className="text-xs font-semibold text-gray-700">Statut de création :</span>
-            <label className="inline-flex items-center gap-1">
-              <input
-                type="radio"
-                checked={importMode === "PENDING"}
-                onChange={() => setImportMode("PENDING")}
-              />
-              En attente de validation (NOUVEAU)
-            </label>
-            <label className={`inline-flex items-center gap-1 ${!isSuperAdmin ? "opacity-50" : ""}`}>
-              <input
-                type="radio"
-                checked={importMode === "VALIDATED"}
-                disabled={!isSuperAdmin}
-                onChange={() => setImportMode("VALIDATED")}
-              />
-              Créer directement validées (ATTENTE) — SUPER_ADMIN uniquement
-            </label>
-          </div>
-        )}
-
-        {/* Étape 4 : fichier */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-2 border-t min-w-0">
-          <a
-            href={`/api/admin/import/template?profile=${profile.templateProfile}&kind=empty`}
-            className="inline-flex items-center gap-2 text-sm text-primary hover:underline shrink-0"
-          >
-            <Download size={16} /> Modèle vide
-          </a>
-          <a
-            href={`/api/admin/import/template?profile=${profile.templateProfile}&kind=example`}
-            className="inline-flex items-center gap-2 text-sm text-primary hover:underline shrink-0"
-          >
-            <Download size={16} /> Exemple rempli
-          </a>
-          <div className="min-w-0 w-full sm:flex-1 overflow-hidden">
-            <input
-              type="file"
-              accept=".csv,.xlsx,.xlsm,.xls"
-              ref={inputRef}
-              disabled={!ready || uploading || committing}
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) handleFileSelected(f);
-              }}
-              className="text-sm w-full max-w-full"
-            />
-          </div>
-        </div>
-        {!ready && (
-          <p className="text-xs text-orange-600">
-            Choisissez une organisation{profile.requiresEvent ? " et un événement" : ""} avant de déposer un fichier.
-          </p>
-        )}
-      </div>
-
-      {uploading && (
-        <div className="flex items-center gap-2 text-sm text-gray-600">
-          <Loader2 size={18} className="animate-spin" /> Analyse du fichier (dry-run, aucune écriture)…
-        </div>
-      )}
-
-      {/* Étape 5-6 : aperçu + confirmation */}
-      {dryRun && (
-        <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-          <div className="flex items-center gap-2 font-semibold text-gray-800">
-            <FileUp size={18} /> Aperçu — {profile.label}
-            {typeof dryRun.totalRows === "number" && <span className="text-gray-500 font-normal">({dryRun.totalRows} ligne(s))</span>}
-          </div>
-
-          {dryRun.error && (
-            <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-              <XCircle size={16} className="shrink-0 mt-0.5" /> {dryRun.error}
+      <section className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+        <p className="mb-3 text-sm font-semibold text-blue-900">Ordre recommandé</p>
+        <div className="flex flex-wrap items-center gap-2 text-sm text-blue-800">
+          {["Référentiel", "Planning", "Capacités", "Accréditations"].map((label, index) => (
+            <div key={label} className="flex items-center gap-2">
+              <span className="rounded-full bg-white px-3 py-1 font-medium shadow-sm">{index + 1}. {label}</span>
+              {index < 3 && <ChevronRight size={16} aria-hidden />}
             </div>
-          )}
+          ))}
+        </div>
+      </section>
 
-          {dryRunErrors.length > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-red-700 font-semibold mb-2 text-sm">
-                <XCircle size={16} /> {dryRunErrors.length} erreur(s) bloquante(s)
-              </div>
-              <ul className="text-sm text-red-700 list-disc pl-5 space-y-1 max-h-64 overflow-y-auto">
-                {dryRunErrors.slice(0, 50).map((err, i) => (
-                  <li key={i}>
-                    Ligne {err.line}
-                    {err.column ? ` (${err.column})` : ""} — {err.reason}
+      <section className="rounded-xl border border-gray-200 bg-white p-5">
+        <label htmlFor="organization" className="mb-2 block text-sm font-semibold text-gray-800">
+          Organisation concernée
+        </label>
+        <select
+          id="organization"
+          value={orgId}
+          onChange={(event) => {
+            const id = event.target.value;
+            const organization = orgs.find((item) => item.id === id);
+            setOrgId(id);
+            setOrgSlug(organization?.slug ?? "");
+            setEventId("");
+            resetAnalysis();
+            if (organization?.slug === "rx" && profile?.supportsFormat) setFormat("rx");
+          }}
+          className="w-full max-w-md rounded-lg border border-gray-300 px-3 py-2 text-sm"
+        >
+          <option value="">— Choisir une organisation —</option>
+          {orgs.map((organization) => (
+            <option key={organization.id} value={organization.id}>{organization.name}</option>
+          ))}
+        </select>
+        <p className="mt-2 text-xs text-gray-500">
+          Ce choix permet d’afficher l’historique et de préremplir le contexte de l’import.
+        </p>
+      </section>
+
+      <section>
+        <div className="mb-4 flex items-end justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">1. Que voulez-vous importer ?</h2>
+            <p className="mt-1 text-sm text-gray-500">Formats acceptés pour tous les profils : CSV et XLSX.</p>
+          </div>
+          {permissionsLoading && <Loader2 className="animate-spin text-gray-400" size={18} />}
+        </div>
+
+        {!permissionsLoading && visibleProfiles.length === 0 ? (
+          <div className="rounded-xl border border-orange-200 bg-orange-50 p-4 text-sm text-orange-800">
+            Aucun profil d’import n’est disponible avec vos permissions actuelles.
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {visibleProfiles.map((item) => {
+              const lastBatch = history.find(
+                (batch) => batch.sourceProfile === item.key.toUpperCase().replace("-", "_")
+              );
+              const selected = profileKey === item.key;
+              return (
+                <article
+                  key={item.key}
+                  className={`flex min-h-72 flex-col rounded-xl border bg-white p-5 transition ${
+                    selected ? "border-primary ring-2 ring-primary/15" : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-primary">
+                    <FileSpreadsheet size={21} />
+                  </div>
+                  <h3 className="font-semibold text-gray-900">{item.label}</h3>
+                  <p className="mt-2 flex-1 text-sm leading-6 text-gray-600">{item.shortDescription}</p>
+                  {item.recommendation && (
+                    <p className="mt-3 text-xs font-medium text-blue-700">{item.recommendation}</p>
+                  )}
+                  <p className="mt-2 text-xs text-gray-500">
+                    {lastBatch
+                      ? `Dernier import : ${new Date(lastBatch.startedAt).toLocaleDateString("fr-FR")}`
+                      : orgId
+                        ? "Aucun import enregistré"
+                        : "Choisissez une organisation pour voir le dernier import"}
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 border-t pt-4 text-xs">
+                    <a
+                      href={`/api/admin/import/template?profile=${item.key}&kind=empty`}
+                      className="inline-flex items-center gap-1 text-primary hover:underline"
+                    >
+                      <Download size={14} /> Modèle vide
+                    </a>
+                    <a
+                      href={`/api/admin/import/template?profile=${item.key}&kind=example`}
+                      className="inline-flex items-center gap-1 text-primary hover:underline"
+                    >
+                      <Download size={14} /> Exemple
+                    </a>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => chooseProfile(item.key)}
+                    className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+                  >
+                    Importer ou mettre à jour
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {profile && visibleProfiles.some((item) => item.key === profile.key) && (
+        <section id="import-wizard" className="space-y-5 scroll-mt-6">
+          <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white p-4">
+            <ol className="flex min-w-[760px] items-center justify-between">
+              {STEPS.map((label, index) => {
+                const number = index + 1;
+                const complete = number < currentStep;
+                const active = number === currentStep;
+                return (
+                  <li key={label} className="flex flex-1 items-center last:flex-none">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
+                          complete
+                            ? "bg-green-600 text-white"
+                            : active
+                              ? "bg-primary text-white"
+                              : "bg-gray-100 text-gray-500"
+                        }`}
+                      >
+                        {complete ? <Check size={14} /> : number}
+                      </span>
+                      <span className={`text-xs ${active ? "font-semibold text-gray-900" : "text-gray-500"}`}>
+                        {label}{number === 2 && !profile.requiresEvent ? " (facultatif)" : ""}
+                      </span>
+                    </div>
+                    {number < STEPS.length && <div className="mx-3 h-px flex-1 bg-gray-200" />}
                   </li>
-                ))}
-              </ul>
-            </div>
-          )}
+                );
+              })}
+            </ol>
+          </div>
 
-          {dryRunWarnings.length > 0 && (
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-orange-700 font-semibold mb-2 text-sm">
-                <AlertTriangle size={16} /> {dryRunWarnings.length} avertissement(s) (non bloquant)
-              </div>
-              <ul className="text-sm text-orange-700 list-disc pl-5 space-y-1 max-h-48 overflow-y-auto">
-                {dryRunWarnings.slice(0, 30).map((w, i) => (
-                  <li key={i}>
-                    Ligne {w.line} — {w.reason}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {dryRun.previousBatchId && (
-            <div className="flex items-start gap-2 bg-orange-50 border border-orange-200 text-orange-700 px-4 py-3 rounded-lg text-sm">
-              <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+          <div className="rounded-xl border border-gray-200 bg-white p-5">
+            <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
               <div>
-                Ce fichier (empreinte identique) a déjà été importé (lot {dryRun.previousBatchId}).
-                {isSuperAdmin ? (
-                  <label className="flex items-center gap-2 mt-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-primary">Import sélectionné</p>
+                <h2 className="mt-1 text-xl font-bold text-gray-900">{profile.label}</h2>
+                <p className="mt-1 text-sm text-gray-600">{profile.shortDescription}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setProfileKey(null);
+                  resetAnalysis();
+                }}
+                className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900"
+              >
+                <RotateCcw size={15} /> Changer de type
+              </button>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label htmlFor="wizard-organization" className="mb-1 block text-sm font-medium text-gray-800">
+                  Organisation
+                </label>
+                <select
+                  id="wizard-organization"
+                  value={orgId}
+                  onChange={(event) => {
+                    const id = event.target.value;
+                    const organization = orgs.find((item) => item.id === id);
+                    setOrgId(id);
+                    setOrgSlug(organization?.slug ?? "");
+                    setEventId("");
+                    resetAnalysis();
+                    if (organization?.slug === "rx" && profile.supportsFormat) setFormat("rx");
+                  }}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                >
+                  <option value="">— Choisir —</option>
+                  {orgs.map((organization) => (
+                    <option key={organization.id} value={organization.id}>{organization.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="event" className="mb-1 block text-sm font-medium text-gray-800">
+                  Événement {profile.requiresEvent ? "" : "(facultatif)"}
+                </label>
+                <select
+                  id="event"
+                  value={eventId}
+                  onChange={(event) => {
+                    setEventId(event.target.value);
+                    resetAnalysis();
+                  }}
+                  disabled={!orgId}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100"
+                >
+                  <option value="">— {profile.requiresEvent ? "Choisir" : "Aucun"} —</option>
+                  {events.map((event) => (
+                    <option key={event.id} value={event.id}>{event.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {dependencyWarning && (
+              <div className="mt-4 flex items-start gap-2 rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm text-orange-800">
+                <AlertTriangle size={17} className="mt-0.5 shrink-0" />
+                <div><strong>Point de vigilance :</strong> {dependencyWarning}</div>
+              </div>
+            )}
+
+            {profile.supportsFormat && (
+              <fieldset className="mt-5">
+                <legend className="text-sm font-medium text-gray-800">Structure du fichier</legend>
+                <div className="mt-2 flex flex-wrap gap-4 text-sm">
+                  <label className="inline-flex items-center gap-2">
+                    <input type="radio" checked={format === "canonical"} onChange={() => setFormat("canonical")} />
+                    Format canonique
+                  </label>
+                  <label className="inline-flex items-center gap-2">
+                    <input type="radio" checked={format === "rx"} onChange={() => setFormat("rx")} />
+                    Classeur RX officiel
+                  </label>
+                </div>
+              </fieldset>
+            )}
+
+            {profile.supportsImportMode && (
+              <fieldset className="mt-5">
+                <legend className="text-sm font-medium text-gray-800">Statut des accréditations créées</legend>
+                <div className="mt-2 flex flex-wrap gap-4 text-sm">
+                  <label className="inline-flex items-center gap-2">
+                    <input
+                      type="radio"
+                      checked={importMode === "PENDING"}
+                      onChange={() => setImportMode("PENDING")}
+                    />
+                    En attente de validation
+                  </label>
+                  <label className={`inline-flex items-center gap-2 ${!isSuperAdmin ? "opacity-50" : ""}`}>
+                    <input
+                      type="radio"
+                      checked={importMode === "VALIDATED"}
+                      disabled={!isSuperAdmin}
+                      onChange={() => setImportMode("VALIDATED")}
+                    />
+                    Directement validées (SUPER_ADMIN)
+                  </label>
+                </div>
+              </fieldset>
+            )}
+
+            <div className="mt-6 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 p-6 text-center">
+              <FileUp className="mx-auto text-gray-400" size={28} />
+              <p className="mt-2 text-sm font-medium text-gray-800">
+                {file ? file.name : "Déposez un fichier CSV ou XLSX"}
+              </p>
+              <p className="mt-1 text-xs text-gray-500">L’analyse est un dry-run : aucune donnée n’est écrite.</p>
+              <input
+                ref={inputRef}
+                type="file"
+                accept=".csv,.xlsx,.xlsm,.xls"
+                disabled={!ready || uploading || committing}
+                onChange={(event) => {
+                  const selectedFile = event.target.files?.[0];
+                  if (selectedFile) handleFileSelected(selectedFile);
+                }}
+                className="mx-auto mt-4 block max-w-full text-sm"
+              />
+              {!ready && (
+                <p className="mt-3 text-xs text-orange-700">
+                  Choisissez une organisation{profile.requiresEvent ? " et un événement" : ""} avant le fichier.
+                </p>
+              )}
+            </div>
+          </div>
+
+          {uploading && (
+            <div className="flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 p-5 text-sm text-blue-800">
+              <Loader2 size={18} className="animate-spin" /> Analyse en cours, aucune écriture…
+            </div>
+          )}
+
+          {dryRun && (
+            <div className="space-y-5 rounded-xl border border-gray-200 bg-white p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Aperçu avant import</h2>
+                  <p className="text-sm text-gray-500">
+                    {typeof dryRun.totalRows === "number" ? `${dryRun.totalRows} ligne(s) analysée(s)` : file?.name}
+                  </p>
+                </div>
+                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                  canConfirm ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                }`}>
+                  {canConfirm ? "Prêt à confirmer" : "Correction nécessaire"}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+                {[
+                  ["Créations", previewCreated, "text-green-700"],
+                  ["Modifications", previewUpdated, "text-blue-700"],
+                  ["Inchangés", previewUnchanged, "text-gray-700"],
+                  ["Avertissements", warnings.length, "text-orange-700"],
+                  ["Erreurs", errors.length + (dryRun.error ? 1 : 0), "text-red-700"],
+                  ["Doublons", dryRun.duplicateRowsDetected ? "Détectés" : 0, "text-purple-700"],
+                ].map(([label, value, color]) => (
+                  <div key={String(label)} className="rounded-lg border border-gray-200 p-3">
+                    <p className="text-xs text-gray-500">{label}</p>
+                    <p className={`mt-1 text-xl font-bold ${color}`}>
+                      {value === null ? "—" : String(value)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              {(previewCreated === null || previewUpdated === null) && (
+                <p className="text-xs text-gray-500">
+                  « — » indique que ce profil ne calcule pas encore cette distinction pendant le dry-run.
+                </p>
+              )}
+
+              {dryRun.error && (
+                <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+                  <XCircle size={17} className="mt-0.5 shrink-0" /> {dryRun.error}
+                </div>
+              )}
+
+              {errors.length > 0 && (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+                  <h3 className="flex items-center gap-2 text-sm font-semibold text-red-800">
+                    <XCircle size={16} /> {errors.length} erreur(s) à corriger dans le fichier
+                  </h3>
+                  <div className="mt-3 max-h-64 overflow-auto rounded border border-red-100 bg-white">
+                    <table className="w-full text-left text-sm">
+                      <thead className="sticky top-0 bg-red-50 text-xs text-red-700">
+                        <tr><th className="p-2">Ligne</th><th className="p-2">Colonne</th><th className="p-2">Problème</th></tr>
+                      </thead>
+                      <tbody>
+                        {errors.slice(0, 100).map((issue, index) => (
+                          <tr key={`${issue.line}-${issue.column}-${index}`} className="border-t border-red-100">
+                            <td className="p-2">{issue.line ?? "Fichier"}</td>
+                            <td className="p-2">{issue.column ?? "—"}</td>
+                            <td className="p-2">{issue.reason}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {warnings.length > 0 && (
+                <details className="rounded-lg border border-orange-200 bg-orange-50 p-4">
+                  <summary className="cursor-pointer text-sm font-semibold text-orange-800">
+                    {warnings.length} avertissement(s) non bloquant(s)
+                  </summary>
+                  <ul className="mt-3 max-h-48 list-disc space-y-1 overflow-y-auto pl-5 text-sm text-orange-800">
+                    {warnings.slice(0, 100).map((issue, index) => (
+                      <li key={`${issue.line}-${index}`}>
+                        {issue.line ? `Ligne ${issue.line} — ` : ""}{issue.reason}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+
+              {dryRun.previousBatchId && (
+                <div className="rounded-lg border border-orange-200 bg-orange-50 p-4 text-sm text-orange-800">
+                  <p>Ce fichier a déjà été importé (lot {dryRun.previousBatchId}).</p>
+                  {isSuperAdmin ? (
+                    <label className="mt-2 flex items-center gap-2 font-medium">
+                      <input
+                        type="checkbox"
+                        checked={confirmReimport}
+                        onChange={(event) => setConfirmReimport(event.target.checked)}
+                      />
+                      Je confirme le réimport de ce fichier
+                    </label>
+                  ) : (
+                    <p className="mt-1">Le réimport est réservé aux SUPER_ADMIN.</p>
+                  )}
+                </div>
+              )}
+
+              {dryRun.duplicateRowsDetected && (
+                <div className="rounded-lg border border-orange-200 bg-orange-50 p-4 text-sm text-orange-800">
+                  <p>Le fichier contient des lignes strictement identiques.</p>
+                  <label className="mt-2 flex items-center gap-2 font-medium">
                     <input
                       type="checkbox"
-                      checked={confirmReimport}
-                      onChange={(e) => setConfirmReimport(e.target.checked)}
+                      checked={confirmDuplicates}
+                      onChange={(event) => setConfirmDuplicates(event.target.checked)}
                     />
-                    Confirmer le réimport malgré tout (SUPER_ADMIN)
+                    Je confirme l’import de toutes ces lignes
                   </label>
-                ) : (
-                  " Réimport réservé aux SUPER_ADMIN."
-                )}
-              </div>
-            </div>
-          )}
-
-          {dryRun.duplicateRowsDetected && (
-            <div className="flex items-start gap-2 bg-orange-50 border border-orange-200 text-orange-700 px-4 py-3 rounded-lg text-sm">
-              <AlertTriangle size={16} className="shrink-0 mt-0.5" />
-              <div>
-                Des lignes strictement identiques existent dans ce fichier.
-                <label className="flex items-center gap-2 mt-2">
-                  <input
-                    type="checkbox"
-                    checked={confirmDuplicates}
-                    onChange={(e) => setConfirmDuplicates(e.target.checked)}
-                  />
-                  Confirmer l&apos;import de toutes les lignes (aucune déduplication automatique)
-                </label>
-              </div>
-            </div>
-          )}
-
-          {dryRun.preview && (
-            <details className="text-sm" open={dryRunErrors.length === 0}>
-              <summary className="cursor-pointer font-medium text-gray-700">Détail de l&apos;aperçu</summary>
-              <pre className="mt-2 bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs overflow-x-auto max-h-96">
-                {JSON.stringify(dryRun.preview, null, 2)}
-              </pre>
-            </details>
-          )}
-
-          <div className="flex items-center justify-end gap-3 pt-3 border-t">
-            <button onClick={resetImportState} className="px-4 py-2 text-sm border rounded-md">
-              Annuler
-            </button>
-            <button
-              onClick={handleConfirm}
-              disabled={!canConfirm || committing}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm rounded-md bg-primary text-white disabled:opacity-50"
-            >
-              {committing ? <Loader2 size={16} className="animate-spin" /> : <FileUp size={16} />}
-              Confirmer l&apos;import
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Étape 7 : rapport final */}
-      {commitResult && (
-        <div className="bg-green-50 border border-green-200 rounded-xl p-5 space-y-2">
-          <div className="flex items-center gap-2 text-green-800 font-semibold">
-            <CheckCircle2 size={18} /> Import confirmé — lot {commitResult.batchId}
-          </div>
-          {commitResult.imported && (
-            <p className="text-sm text-green-800">
-              {commitResult.imported.created} créé(s), {commitResult.imported.updated} mis à jour,{" "}
-              {commitResult.imported.unchanged} inchangé(s).
-            </p>
-          )}
-          {typeof commitResult.created === "number" && (
-            <p className="text-sm text-green-800">{commitResult.created} accréditation(s) créée(s).</p>
-          )}
-          {commitResult.emailSummary && (
-            <p className="text-sm text-green-800">
-              E-mails : {commitResult.emailSummary.sent}/{commitResult.emailSummary.total} envoyé(s)
-              {commitResult.emailSummary.failed > 0 && (
-                <span className="text-orange-700"> — {commitResult.emailSummary.failed} échec(s)</span>
+                </div>
               )}
-              .
-            </p>
+
+              {rows.length > 0 && columns.length > 0 && (
+                <div>
+                  <h3 className="mb-2 text-sm font-semibold text-gray-800">Extrait du fichier</h3>
+                  <div className="overflow-x-auto rounded-lg border border-gray-200">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-gray-50 text-xs text-gray-600">
+                        <tr>{columns.map((column) => <th key={column} className="whitespace-nowrap p-2">{column}</th>)}</tr>
+                      </thead>
+                      <tbody>
+                        {rows.map((row, index) => (
+                          <tr key={index} className="border-t border-gray-100">
+                            {columns.map((column) => (
+                              <td key={column} className="max-w-64 truncate p-2" title={displayValue(row[column])}>
+                                {displayValue(row[column])}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {dryRun.preview && (
+                <details className="text-sm text-gray-600">
+                  <summary className="cursor-pointer">Données techniques</summary>
+                  <pre className="mt-2 max-h-72 overflow-auto rounded-lg bg-gray-950 p-3 text-xs text-gray-100">
+                    {JSON.stringify(dryRun.preview, null, 2)}
+                  </pre>
+                </details>
+              )}
+
+              <div className="flex flex-wrap justify-end gap-3 border-t pt-4">
+                <button type="button" onClick={resetAnalysis} className="rounded-lg border px-4 py-2 text-sm">
+                  Choisir un autre fichier
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirm}
+                  disabled={!canConfirm || committing}
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                >
+                  {committing ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                  Confirmer l’import
+                </button>
+              </div>
+              {!canConfirm && (
+                <p className="text-right text-xs text-gray-500">
+                  Corrigez les erreurs ou validez les avertissements requis avant de confirmer.
+                </p>
+              )}
+            </div>
           )}
-        </div>
+
+          {commitResult && (
+            <div className="rounded-xl border border-green-200 bg-green-50 p-5">
+              <h2 className="flex items-center gap-2 font-semibold text-green-900">
+                <CheckCircle2 size={19} /> Import terminé
+              </h2>
+              <p className="mt-1 text-sm text-green-800">Lot : {commitResult.batchId ?? "enregistré"}</p>
+              {commitResult.imported && (
+                <p className="mt-2 text-sm text-green-800">
+                  {commitResult.imported.created} création(s), {commitResult.imported.updated} modification(s),{" "}
+                  {commitResult.imported.unchanged} inchangé(s).
+                </p>
+              )}
+              {typeof commitResult.created === "number" && (
+                <p className="mt-2 text-sm text-green-800">{commitResult.created} accréditation(s) créée(s).</p>
+              )}
+              {commitResult.emailSummary && (
+                <p className="mt-2 text-sm text-green-800">
+                  E-mails envoyés : {commitResult.emailSummary.sent}/{commitResult.emailSummary.total}
+                  {commitResult.emailSummary.failed > 0 ? ` (${commitResult.emailSummary.failed} échec(s))` : ""}.
+                </p>
+              )}
+              <button type="button" onClick={resetAnalysis} className="mt-4 rounded-lg border border-green-300 px-4 py-2 text-sm text-green-900">
+                Importer un autre fichier
+              </button>
+            </div>
+          )}
+        </section>
       )}
 
-      {/* Historique ImportBatch */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <div className="flex items-center gap-2 font-semibold text-gray-800 mb-3">
-          <History size={18} /> Historique des imports
-          {historyLoading && <Loader2 size={14} className="animate-spin text-gray-400" />}
+      <section className="rounded-xl border border-gray-200 bg-white p-5">
+        <div className="mb-4 flex items-center gap-2">
+          <History size={19} />
+          <h2 className="text-lg font-bold text-gray-900">Historique des imports</h2>
+          {historyLoading && <Loader2 size={15} className="animate-spin text-gray-400" />}
         </div>
         {!orgId ? (
-          <p className="text-sm text-gray-500">Choisissez une organisation pour voir son historique.</p>
+          <p className="text-sm text-gray-500">Choisissez une organisation pour afficher son historique.</p>
         ) : history.length === 0 ? (
-          <p className="text-sm text-gray-500">Aucun import pour cette organisation.</p>
+          <p className="text-sm text-gray-500">Aucun import enregistré pour cette organisation.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="text-sm w-full">
-              <thead className="text-xs text-gray-500 border-b">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b bg-gray-50 text-xs text-gray-600">
                 <tr>
-                  <th className="text-left py-1 pr-3">Date</th>
-                  <th className="text-left py-1 pr-3">Profil</th>
-                  <th className="text-left py-1 pr-3">Événement</th>
-                  <th className="text-left py-1 pr-3">Fichier</th>
-                  <th className="text-left py-1 pr-3">Statut</th>
-                  <th className="text-right py-1 pr-3">Créés</th>
-                  <th className="text-right py-1 pr-3">MàJ</th>
-                  <th className="text-right py-1 pr-3">Inch.</th>
-                  <th className="text-right py-1 pr-3">Désact.</th>
-                  <th className="text-right py-1 pr-3">Erreurs</th>
+                  <th className="p-2">Type</th><th className="p-2">Événement</th><th className="p-2">Fichier</th>
+                  <th className="p-2">Date</th><th className="p-2 text-right">Créations</th>
+                  <th className="p-2 text-right">Modifications</th><th className="p-2 text-right">Erreurs</th>
+                  <th className="p-2">Statut</th>
                 </tr>
               </thead>
               <tbody>
-                {history.map((b) => (
-                  <tr key={b.id} className="border-b last:border-0">
-                    <td className="py-1 pr-3 whitespace-nowrap">{new Date(b.startedAt).toLocaleString("fr-FR")}</td>
-                    <td className="py-1 pr-3">{PROFILE_LABELS[b.sourceProfile] ?? b.sourceProfile}</td>
-                    <td className="py-1 pr-3">{b.event?.name ?? "—"}</td>
-                    <td className="py-1 pr-3 truncate max-w-[160px]" title={b.fileName}>{b.fileName}</td>
-                    <td className="py-1 pr-3">
-                      <span
-                        className={
-                          b.status === "COMPLETED"
-                            ? "text-green-700"
-                            : b.status === "FAILED"
-                              ? "text-red-700"
-                              : "text-gray-500"
-                        }
-                      >
-                        {b.status}
+                {history.map((batch) => (
+                  <tr key={batch.id} className="border-b last:border-0">
+                    <td className="p-2 font-medium">{PROFILE_LABELS[batch.sourceProfile] ?? batch.sourceProfile}</td>
+                    <td className="p-2">{batch.event?.name ?? "—"}</td>
+                    <td className="max-w-48 truncate p-2" title={batch.fileName}>{batch.fileName}</td>
+                    <td className="whitespace-nowrap p-2">{new Date(batch.startedAt).toLocaleString("fr-FR")}</td>
+                    <td className="p-2 text-right">{batch.created}</td>
+                    <td className="p-2 text-right">{batch.updated}</td>
+                    <td className={`p-2 text-right ${batch.errorCount ? "font-semibold text-red-700" : ""}`}>
+                      {batch.errorCount}
+                    </td>
+                    <td className="p-2">
+                      <span className={`rounded-full px-2 py-1 text-xs font-medium ${
+                        batch.status === "COMPLETED"
+                          ? "bg-green-100 text-green-800"
+                          : batch.status === "FAILED"
+                            ? "bg-red-100 text-red-800"
+                            : "bg-gray-100 text-gray-700"
+                      }`}>
+                        {statusLabel(batch.status)}
                       </span>
                     </td>
-                    <td className="py-1 pr-3 text-right">{b.created}</td>
-                    <td className="py-1 pr-3 text-right">{b.updated}</td>
-                    <td className="py-1 pr-3 text-right">{b.unchanged}</td>
-                    <td className="py-1 pr-3 text-right">{b.deactivated}</td>
-                    <td className="py-1 pr-3 text-right">{b.errorCount}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }

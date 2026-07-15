@@ -20,7 +20,12 @@ export type RxPhase = "MONTAGE" | "DEMONTAGE";
 export interface RxCapacityKey {
   organizationId: string;
   eventId: string;
-  /** Code ZoneConfig (ex : "LA_BOCCA", "PALM_BEACH"). */
+  /**
+   * Scope canonique (ZONE:…, LOCATION:…, SECTOR:…, etc.).
+   * Aligné sur `RxCapacity.scopeKey` / LogisticsPlanning.
+   */
+  scopeKey: string;
+  /** Code ZoneConfig (ex : "LA_BOCCA", "PALM_BEACH") — contexte logistique. */
   zone: string;
   /** Format YYYY-MM-DD — cohérent avec Vehicle.date. */
   date: string;

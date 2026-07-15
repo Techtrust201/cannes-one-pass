@@ -48,6 +48,7 @@ describe("buildCapacityQuotaCandidates", () => {
       key: {
         organizationId: ORG,
         eventId: EVENT,
+        scopeKey: "ZONE:LA_BOCCA",
         zone: "LA_BOCCA",
         date: "2026-05-13",
         startTime: "08:00",
@@ -179,6 +180,7 @@ describe("quotaCandidateKey", () => {
   const KEY: RxCapacityKey = {
     organizationId: ORG,
     eventId: EVENT,
+    scopeKey: "ZONE:LA_BOCCA",
     zone: "LA_BOCCA",
     date: "2026-05-13",
     startTime: "08:00",
@@ -226,6 +228,7 @@ describe("lockKeyForCandidate", () => {
   const KEY: RxCapacityKey = {
     organizationId: ORG,
     eventId: EVENT,
+    scopeKey: "ZONE:LA_BOCCA",
     zone: "LA_BOCCA",
     date: "2026-05-13",
     startTime: "08:00",
@@ -275,6 +278,7 @@ describe("enforceCapacityQuotas", () => {
   const KEY_A: RxCapacityKey = {
     organizationId: ORG,
     eventId: EVENT,
+    scopeKey: "ZONE:LA_BOCCA",
     zone: "LA_BOCCA",
     date: "2026-05-13",
     startTime: "08:00",

@@ -113,6 +113,7 @@ describe("parseCapacitiesTable", () => {
 describe("applyCapacitiesCommit — FUSION (transaction atomique)", () => {
   const baseRow: ParsedCapacityRow = {
     line: 2,
+    scopeKey: "ZONE:LA_BOCCA",
     zone: "LA_BOCCA",
     date: "2026-09-16",
     startTime: "08:00",

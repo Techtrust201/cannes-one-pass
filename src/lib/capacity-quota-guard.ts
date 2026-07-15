@@ -20,6 +20,7 @@
 import { prisma } from "@/lib/prisma";
 import { getRxAvailability } from "@/lib/rx-capacity-service";
 import type { RxCapacityKey } from "@/lib/rx-capacity";
+import { zoneScopeKey } from "@/lib/rx-capacity-scope";
 
 /** Client Prisma utilisable en dehors ou dans une transaction interactive. */
 type PrismaTx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
@@ -57,6 +58,11 @@ export interface BuildCandidatesParams {
   resolveZone: (vehicleTypeCode: string) => string | null;
   /** Résout la famille (LIGHT/HEAVY) pour un gabarit donné. */
   resolveFamily: (vehicleTypeCode: string) => RxCapacityKey["vehicleFamily"];
+  /**
+   * ScopeKeys additionnels à évaluer en plus de ZONE:<zone> (ex. LOCATION:id).
+   * Chaque scope avec hasQuota=true sera appliqué indépendamment.
+   */
+  extraScopeKeys?: string[];
 }
 
 function parseSlot(
@@ -78,6 +84,7 @@ function candidateKeyParts(key: RxCapacityKey): string[] {
   return [
     key.organizationId,
     key.eventId,
+    key.scopeKey,
     key.zone,
     key.date,
     key.startTime,
@@ -138,13 +145,29 @@ function makeCandidateCollector() {
   };
 }
 
+function addScopedCandidates(
+  collector: ReturnType<typeof makeCandidateCollector>,
+  base: Omit<RxCapacityKey, "scopeKey">,
+  extraScopeKeys: string[] | undefined
+) {
+  const scopes = new Set<string>([zoneScopeKey(base.zone), ...(extraScopeKeys ?? [])]);
+  for (const scopeKey of scopes) {
+    collector.add({ ...base, scopeKey });
+  }
+}
+
 export function buildCapacityQuotaCandidates(
   params: BuildCandidatesParams
 ): QuotaCandidate[] {
-  const { organizationId, eventId, vehicles, resolveZone, resolveFamily } =
-    params;
+  const {
+    organizationId,
+    eventId,
+    vehicles,
+    resolveZone,
+    resolveFamily,
+    extraScopeKeys,
+  } = params;
   const collector = makeCandidateCollector();
-  const addCandidate = collector.add;
 
   for (const v of vehicles) {
     // ── MONTAGE : standard, toutes organisations ────────────────────────
@@ -153,16 +176,20 @@ export function buildCapacityQuotaCandidates(
     if (montageVt && v.date && montageSlot) {
       const zone = resolveZone(montageVt);
       if (zone) {
-        addCandidate({
-          organizationId,
-          eventId,
-          zone,
-          date: v.date,
-          startTime: montageSlot.start,
-          endTime: montageSlot.end,
-          vehicleFamily: resolveFamily(montageVt),
-          phase: "MONTAGE",
-        });
+        addScopedCandidates(
+          collector,
+          {
+            organizationId,
+            eventId,
+            zone,
+            date: v.date,
+            startTime: montageSlot.start,
+            endTime: montageSlot.end,
+            vehicleFamily: resolveFamily(montageVt),
+            phase: "MONTAGE",
+          },
+          extraScopeKeys
+        );
       }
     }
 
@@ -172,16 +199,20 @@ export function buildCapacityQuotaCandidates(
     if (repVt && v.repDate && repSlot) {
       const zone = resolveZone(repVt);
       if (zone) {
-        addCandidate({
-          organizationId,
-          eventId,
-          zone,
-          date: v.repDate,
-          startTime: repSlot.start,
-          endTime: repSlot.end,
-          vehicleFamily: resolveFamily(repVt),
-          phase: "DEMONTAGE",
-        });
+        addScopedCandidates(
+          collector,
+          {
+            organizationId,
+            eventId,
+            zone,
+            date: v.repDate,
+            startTime: repSlot.start,
+            endTime: repSlot.end,
+            vehicleFamily: resolveFamily(repVt),
+            phase: "DEMONTAGE",
+          },
+          extraScopeKeys
+        );
       }
     }
   }
@@ -213,6 +244,7 @@ export interface BuildCandidatesFromPhaseEntriesParams {
   phaseEntries: PhaseEntryCandidateInput[];
   resolveZone: (vehicleTypeCode: string) => string | null;
   resolveFamily: (vehicleTypeCode: string) => RxCapacityKey["vehicleFamily"];
+  extraScopeKeys?: string[];
 }
 
 /**
@@ -228,8 +260,14 @@ export interface BuildCandidatesFromPhaseEntriesParams {
 export function buildCapacityQuotaCandidatesFromPhaseEntries(
   params: BuildCandidatesFromPhaseEntriesParams
 ): QuotaCandidate[] {
-  const { organizationId, eventId, phaseEntries, resolveZone, resolveFamily } =
-    params;
+  const {
+    organizationId,
+    eventId,
+    phaseEntries,
+    resolveZone,
+    resolveFamily,
+    extraScopeKeys,
+  } = params;
   const collector = makeCandidateCollector();
 
   for (const entry of phaseEntries) {
@@ -238,16 +276,20 @@ export function buildCapacityQuotaCandidatesFromPhaseEntries(
     if (!vt || !entry.date || !slot) continue;
     const zone = resolveZone(vt);
     if (!zone) continue;
-    collector.add({
-      organizationId,
-      eventId,
-      zone,
-      date: entry.date,
-      startTime: slot.start,
-      endTime: slot.end,
-      vehicleFamily: resolveFamily(vt),
-      phase: entry.phase,
-    });
+    addScopedCandidates(
+      collector,
+      {
+        organizationId,
+        eventId,
+        zone,
+        date: entry.date,
+        startTime: slot.start,
+        endTime: slot.end,
+        vehicleFamily: resolveFamily(vt),
+        phase: entry.phase,
+      },
+      extraScopeKeys
+    );
   }
 
   return collector.values();

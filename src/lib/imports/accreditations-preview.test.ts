@@ -414,7 +414,10 @@ describe("previewAccreditationsBatch — preview de lot (Phase 4B-2)", () => {
     const result = await previewAccreditationsBatch(db, parseResult, rxCtx(), noQuotaReader());
 
     expect(result.public.lines.every((l) => l.valid)).toBe(true);
-    const montageGroups = result.public.quotaGroups.filter((g) => g.key.phase === "MONTAGE");
+    // Agrégation sur le scope ZONE (LOCATION peut produire des groupes distincts).
+    const montageGroups = result.public.quotaGroups.filter(
+      (g) => g.key.phase === "MONTAGE" && g.key.scopeKey.startsWith("ZONE:")
+    );
     expect(montageGroups).toHaveLength(1);
     expect(montageGroups[0]!.requestedCount).toBe(2);
     expect(montageGroups[0]!.lines).toEqual([2, 3]);
@@ -471,7 +474,13 @@ describe("previewAccreditationsBatch — preview de lot (Phase 4B-2)", () => {
     const db = makeDb([exhibitor()], [location()]);
     const result = await previewAccreditationsBatch(db, parseResult, rxCtx(), noQuotaReader());
 
-    const phases = result.public.quotaGroups.map((g) => g.key.phase).sort();
+    const phases = [
+      ...new Set(
+        result.public.quotaGroups
+          .filter((g) => g.key.scopeKey.startsWith("ZONE:"))
+          .map((g) => g.key.phase)
+      ),
+    ].sort();
     expect(phases).toEqual(["DEMONTAGE", "MONTAGE"]);
   });
 
@@ -487,7 +496,9 @@ describe("previewAccreditationsBatch — preview de lot (Phase 4B-2)", () => {
     const db = makeDb([exhibitor()], [location()]);
     const result = await previewAccreditationsBatch(db, parseResult, rxCtx(), noQuotaReader());
 
-    const montageGroups = result.public.quotaGroups.filter((g) => g.key.phase === "MONTAGE");
+    const montageGroups = result.public.quotaGroups.filter(
+      (g) => g.key.phase === "MONTAGE" && g.key.scopeKey.startsWith("ZONE:")
+    );
     const families = montageGroups.map((g) => g.key.vehicleFamily).sort();
     expect(families).toEqual(["HEAVY", "LIGHT"]);
   });
@@ -503,7 +514,9 @@ describe("previewAccreditationsBatch — preview de lot (Phase 4B-2)", () => {
     const db = makeDb([exhibitor()], [location()]);
     const result = await previewAccreditationsBatch(db, parseResult, rxCtx(), noQuotaReader());
 
-    const montageGroups = result.public.quotaGroups.filter((g) => g.key.phase === "MONTAGE");
+    const montageGroups = result.public.quotaGroups.filter(
+      (g) => g.key.phase === "MONTAGE" && g.key.scopeKey.startsWith("ZONE:")
+    );
     expect(montageGroups).toHaveLength(2);
     expect(montageGroups.every((g) => g.requestedCount === 1)).toBe(true);
   });
@@ -541,7 +554,9 @@ describe("previewAccreditationsBatch — preview de lot (Phase 4B-2)", () => {
 
     const result = await previewAccreditationsBatch(db, parseResult, rxCtx(), getAvailability);
 
-    const montageGroups = result.public.quotaGroups.filter((g) => g.key.phase === "MONTAGE");
+    const montageGroups = result.public.quotaGroups.filter(
+      (g) => g.key.phase === "MONTAGE" && g.key.scopeKey.startsWith("ZONE:")
+    );
     expect(montageGroups).toHaveLength(2);
     expect(getAvailability).toHaveBeenCalledTimes(result.public.quotaGroups.length);
   });

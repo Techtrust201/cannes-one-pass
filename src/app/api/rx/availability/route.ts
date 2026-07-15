@@ -31,6 +31,7 @@ import { NextRequest } from "next/server";
 import { requirePermission } from "@/lib/auth-helpers";
 import { getRxAvailability } from "@/lib/rx-capacity-service";
 import type { RxCapacityKey, RxPhase } from "@/lib/rx-capacity";
+import { zoneScopeKey } from "@/lib/rx-capacity-scope";
 import type { VehicleFamily } from "@/lib/vehicle-family";
 
 export async function GET(request: NextRequest) {
@@ -88,6 +89,7 @@ export async function GET(request: NextRequest) {
   const key: RxCapacityKey = {
     organizationId,
     eventId,
+    scopeKey: zoneScopeKey(zone),
     zone,
     date,
     startTime,

@@ -43,6 +43,7 @@ const mockedPrisma = prisma as unknown as MockedPrisma;
 const BASE_KEY: RxCapacityKey = {
   organizationId: "org-1",
   eventId: "event-1",
+  scopeKey: "ZONE:LA_BOCCA",
   zone: "LA_BOCCA",
   date: "2026-05-12",
   startTime: "09:00",
@@ -353,6 +354,7 @@ describe("getRxAvailability — MONTAGE", () => {
 const DEMONTAGE_KEY: RxCapacityKey = {
   organizationId: "org-1",
   eventId: "event-1",
+  scopeKey: "ZONE:LA_BOCCA",
   zone: "LA_BOCCA",
   date: "2026-09-13",
   startTime: "20:00",

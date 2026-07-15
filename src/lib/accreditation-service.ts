@@ -39,6 +39,7 @@ import {
   type QuotaCandidate,
   type CandidateVehicleInput,
 } from "@/lib/capacity-quota-guard";
+import { locationScopeKey } from "@/lib/rx-capacity-scope";
 import { normalizePlate } from "@/lib/plate-utils";
 import { isValidEmail } from "@/lib/email-sender";
 import { deriveCategory, CSV_TO_ENUM } from "@/lib/category-rules";
@@ -740,6 +741,9 @@ export async function previewAccreditation(
   // RX TRANSITION/STRICT : depuis la projection canonique `phaseEntries`
   // (source de vérité `extension.categories[]`) — jamais `vehiclesArr`
   // racine. Palais et RX DISABLED : comportement historique inchangé.
+  const locationExtraScopes = rxReferential?.exhibitorLocationId
+    ? [locationScopeKey(rxReferential.exhibitorLocationId)]
+    : undefined;
   const quotaCandidates: QuotaCandidate[] =
     organizationId && eventRecord?.id
       ? isRxNonDisabled
@@ -749,6 +753,7 @@ export async function previewAccreditation(
             phaseEntries: rxPhaseEntries,
             resolveZone: resolveZoneForType,
             resolveFamily: resolveVehicleFamily,
+            extraScopeKeys: locationExtraScopes,
           })
         : buildCapacityQuotaCandidates({
             organizationId,
@@ -756,6 +761,7 @@ export async function previewAccreditation(
             vehicles: vehiclesArr as CandidateVehicleInput[],
             resolveZone: resolveZoneForType,
             resolveFamily: resolveVehicleFamily,
+            extraScopeKeys: locationExtraScopes,
           })
       : [];
 
@@ -902,6 +908,9 @@ export async function createAccreditationInTransaction(
     locationLabel = freshReferential?.locationLabel ?? null;
     locationSnapshot = freshReferential?.locationSnapshot ?? null;
 
+    const freshLocationScopes = exhibitorLocationId
+      ? [locationScopeKey(exhibitorLocationId)]
+      : undefined;
     quotaCandidates =
       logisticsPlanningMode !== "DISABLED"
         ? buildCapacityQuotaCandidatesFromPhaseEntries({
@@ -910,6 +919,7 @@ export async function createAccreditationInTransaction(
             phaseEntries: freshPhaseEntries,
             resolveZone: (code) => resolveVehicleZone({ vehicleType: code }),
             resolveFamily: resolveVehicleFamily,
+            extraScopeKeys: freshLocationScopes,
           })
         : buildCapacityQuotaCandidates({
             organizationId,
@@ -917,6 +927,7 @@ export async function createAccreditationInTransaction(
             vehicles: vehiclesArr as CandidateVehicleInput[],
             resolveZone: (code) => resolveVehicleZone({ vehicleType: code }),
             resolveFamily: resolveVehicleFamily,
+            extraScopeKeys: freshLocationScopes,
           });
   }
 

@@ -33,6 +33,7 @@ import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { getRxAvailability } from "@/lib/rx-capacity-service";
 import type { RxCapacityKey, RxPhase } from "@/lib/rx-capacity";
+import { zoneScopeKey } from "@/lib/rx-capacity-scope";
 import type { VehicleFamily } from "@/lib/vehicle-family";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -100,6 +101,7 @@ export async function GET(request: NextRequest) {
   const key: RxCapacityKey = {
     organizationId: org.id,
     eventId: event.id,
+    scopeKey: zoneScopeKey(zone),
     zone,
     date,
     startTime,

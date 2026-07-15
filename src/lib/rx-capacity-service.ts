@@ -24,6 +24,7 @@ import {
 } from "@/lib/rx-capacity";
 import { suggestZone, buildRxZoneRouting } from "@/lib/rx-zone-rules";
 import type { RxCapacityKey, RxCapacityStats } from "@/lib/rx-capacity";
+import { parseCapacityScopeKey } from "@/lib/rx-capacity-scope";
 import type { VehicleFamily } from "@/lib/vehicle-family";
 import type { AccreditationStatus, VehicleFamily as PrismaVehicleFamily, RxPhase as PrismaRxPhase } from "@prisma/client";
 
@@ -138,13 +139,13 @@ export async function getRxAvailability(
   key: RxCapacityKey,
   db: RxCapacityDb = prisma
 ): Promise<RxAvailabilityResult> {
-  // 1. Quota configuré pour ce créneau
+  // 1. Quota configuré pour ce créneau (clé = scopeKey + créneau + famille + phase)
   const quota = await db.rxCapacity.findUnique({
     where: {
-      organizationId_eventId_zone_date_startTime_endTime_vehicleFamily_phase: {
+      organizationId_eventId_scopeKey_date_startTime_endTime_vehicleFamily_phase: {
         organizationId: key.organizationId,
         eventId: key.eventId,
-        zone: key.zone,
+        scopeKey: key.scopeKey,
         date: key.date,
         startTime: key.startTime,
         endTime: key.endTime,
@@ -187,6 +188,7 @@ async function countMontageStatuses(
   db: RxCapacityDb
 ): Promise<string[]> {
   const accepted = acceptedSlotValues(key.startTime, key.endTime);
+  const scope = parseCapacityScopeKey(key.scopeKey);
 
   // Pré-filtre DB par date (le format d'heure varie → filtrage fin en JS).
   const accreditations = await db.accreditation.findMany({
@@ -198,11 +200,20 @@ async function countMontageStatuses(
         in: RX_CONSUMER_STATUSES as unknown as AccreditationStatus[],
       },
       vehicles: { some: { date: key.date } },
+      ...(scope.kind === "LOCATION" ? { exhibitorLocationId: scope.rest } : {}),
     },
     select: {
       status: true,
       currentZone: true,
       extension: true,
+      exhibitorLocationId: true,
+      exhibitorLocation: {
+        select: {
+          portCode: true,
+          sectorCode: true,
+          logisticSpace: true,
+        },
+      },
       vehicles: {
         where: { date: key.date },
         select: { vehicleType: true, size: true, time: true },
@@ -212,10 +223,7 @@ async function countMontageStatuses(
 
   const statuses: string[] = [];
   for (const acc of accreditations) {
-    // Zone effective : currentZone prioritaire, sinon suggestedZone (cas NOUVEAU)
-    const ext = acc.extension as RxExtensionShape | null;
-    const effectiveZone = acc.currentZone ?? ext?.suggestedZone ?? null;
-    if (effectiveZone !== key.zone) continue;
+    if (!matchesCapacityScope(key, scope.kind, acc)) continue;
 
     // Au moins un véhicule sur le bon créneau ET la bonne famille.
     const match = acc.vehicles.some(
@@ -227,6 +235,46 @@ async function countMontageStatuses(
     if (match) statuses.push(acc.status);
   }
   return statuses;
+}
+
+function matchesCapacityScope(
+  key: RxCapacityKey,
+  kind: ReturnType<typeof parseCapacityScopeKey>["kind"],
+  acc: {
+    currentZone: string | null;
+    extension: unknown;
+    exhibitorLocationId: string | null;
+    exhibitorLocation: {
+      portCode: string | null;
+      sectorCode: string | null;
+      logisticSpace: string | null;
+    } | null;
+  }
+): boolean {
+  const ext = acc.extension as RxExtensionShape | null;
+  const loc = acc.exhibitorLocation;
+
+  switch (kind) {
+    case "LOCATION":
+      return acc.exhibitorLocationId === parseCapacityScopeKey(key.scopeKey).rest;
+    case "SPACE":
+      return !!loc?.logisticSpace && `SPACE:${loc.logisticSpace}` === key.scopeKey;
+    case "SECTOR":
+      return (
+        !!loc?.portCode &&
+        !!loc?.sectorCode &&
+        `SECTOR:${loc.portCode}:${loc.sectorCode}` === key.scopeKey
+      );
+    case "PORT":
+      return !!loc?.portCode && `PORT:${loc.portCode}` === key.scopeKey;
+    case "EVENT":
+      return true;
+    case "ZONE":
+    default: {
+      const effectiveZone = acc.currentZone ?? ext?.suggestedZone ?? null;
+      return effectiveZone === key.zone;
+    }
+  }
 }
 
 // ── Comptage DEMONTAGE ────────────────────────────────────────────────────
@@ -259,6 +307,7 @@ async function countDemontageStatuses(
 
   // Le filtrage sur repDate/repTime porte sur un JSON (extension) → on charge
   // les accréditations consommatrices de l'event et on filtre en JS.
+  const scope = parseCapacityScopeKey(key.scopeKey);
   const accreditations = await db.accreditation.findMany({
     where: {
       organizationId: key.organizationId,
@@ -267,10 +316,20 @@ async function countDemontageStatuses(
       status: {
         in: RX_CONSUMER_STATUSES as unknown as AccreditationStatus[],
       },
+      ...(scope.kind === "LOCATION" ? { exhibitorLocationId: scope.rest } : {}),
     },
     select: {
       status: true,
       extension: true,
+      currentZone: true,
+      exhibitorLocationId: true,
+      exhibitorLocation: {
+        select: {
+          portCode: true,
+          sectorCode: true,
+          logisticSpace: true,
+        },
+      },
       vehicles: { select: { vehicleType: true, size: true } },
     },
   });
@@ -297,7 +356,21 @@ async function countDemontageStatuses(
 
     const sector = ext?.exhibitor?.sector ?? "";
     const zone = suggestZone(repType, sector, palmBeachCodes, routing);
-    if (zone !== key.zone) continue;
+
+    // Pour ZONE : conserver la résolution suggestZone historique.
+    // Pour les autres scopes : rattachement emplacement / planning.
+    if (scope.kind === "ZONE" || scope.kind === "UNKNOWN") {
+      if (zone !== key.zone) continue;
+    } else if (
+      !matchesCapacityScope(key, scope.kind, {
+        currentZone: zone,
+        extension: { suggestedZone: zone },
+        exhibitorLocationId: acc.exhibitorLocationId,
+        exhibitorLocation: acc.exhibitorLocation,
+      })
+    ) {
+      continue;
+    }
 
     statuses.push(acc.status);
   }

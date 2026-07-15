@@ -16,6 +16,10 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission, resolveEspaceOrgId } from "@/lib/auth-helpers";
 import { getRxAvailability } from "@/lib/rx-capacity-service";
 import type { RxCapacityKey } from "@/lib/rx-capacity";
+import {
+  formatCapacityScopeLabel,
+  resolveCapacityScopeKey,
+} from "@/lib/rx-capacity-scope";
 import type { VehicleFamily, RxPhase } from "@prisma/client";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -59,6 +63,7 @@ async function enrichQuota(
     id: number;
     organizationId: string;
     eventId: string;
+    scopeKey: string;
     zone: string;
     date: string;
     startTime: string;
@@ -73,6 +78,7 @@ async function enrichQuota(
   const key: RxCapacityKey = {
     organizationId: row.organizationId,
     eventId: row.eventId,
+    scopeKey: row.scopeKey,
     zone: row.zone as RxCapacityKey["zone"],
     date: row.date,
     startTime: row.startTime,
@@ -87,6 +93,8 @@ async function enrichQuota(
     eventId: row.eventId,
     eventName: row.event.name,
     eventSlug: row.event.slug,
+    scopeKey: row.scopeKey,
+    scopeLabel: formatCapacityScopeLabel(row.scopeKey),
     zone: row.zone,
     zoneLabel: zoneLabelByCode.get(row.zone) ?? row.zone,
     date: row.date,
@@ -97,6 +105,7 @@ async function enrichQuota(
     capacity: row.capacity,
     remaining: avail.remaining,
     isFull: avail.isFull,
+    hasQuota: avail.hasQuota,
   };
 }
 
@@ -186,7 +195,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { eventId, zone, date, startTime, endTime, vehicleFamily, phase, capacity } = body;
+    const { eventId, zone, date, startTime, endTime, vehicleFamily, phase, capacity, scopeKey: rawScopeKey } = body;
 
     // Validation stricte
     if (!eventId || typeof eventId !== "string")
@@ -210,6 +219,11 @@ export async function POST(req: NextRequest) {
     if (!Number.isInteger(cap) || cap < 1)
       return Response.json({ error: "capacity doit être un entier >= 1" }, { status: 400 });
 
+    const scopeKey = resolveCapacityScopeKey(
+      typeof rawScopeKey === "string" ? rawScopeKey : null,
+      zone
+    );
+
     // Vérifier que l'event appartient bien à l'org
     const event = await prisma.event.findUnique({
       where: { id: eventId },
@@ -228,10 +242,10 @@ export async function POST(req: NextRequest) {
 
     const row = await prisma.rxCapacity.upsert({
       where: {
-        organizationId_eventId_zone_date_startTime_endTime_vehicleFamily_phase: {
+        organizationId_eventId_scopeKey_date_startTime_endTime_vehicleFamily_phase: {
           organizationId: orgId,
           eventId,
-          zone,
+          scopeKey,
           date,
           startTime,
           endTime,
@@ -239,8 +253,19 @@ export async function POST(req: NextRequest) {
           phase,
         },
       },
-      create: { organizationId: orgId, eventId, zone, date, startTime, endTime, vehicleFamily, phase, capacity: cap },
-      update: { capacity: cap },
+      create: {
+        organizationId: orgId,
+        eventId,
+        scopeKey,
+        zone,
+        date,
+        startTime,
+        endTime,
+        vehicleFamily,
+        phase,
+        capacity: cap,
+      },
+      update: { capacity: cap, zone },
       include: { event: { select: { id: true, name: true, slug: true } } },
     });
 

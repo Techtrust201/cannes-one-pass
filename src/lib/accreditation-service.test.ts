@@ -448,7 +448,7 @@ describe("createAccreditationInTransaction (orchestration)", () => {
         ...preview,
         quotaCandidates: [
           {
-            key: { organizationId: "org-1", eventId: "event-1", zone: "LA_BOCCA", date: "2026-05-13", startTime: "08:00", endTime: "09:00", vehicleFamily: "LIGHT", phase: "MONTAGE" },
+            key: { organizationId: "org-1", eventId: "event-1", scopeKey: "ZONE:LA_BOCCA", zone: "LA_BOCCA", date: "2026-05-13", startTime: "08:00", endTime: "09:00", vehicleFamily: "LIGHT", phase: "MONTAGE" },
             requestedCount: 1,
           },
         ],
@@ -1179,9 +1179,11 @@ describe("Phase 6C-B-2 — quotas alignés sur extension.categories[] (RX non-DI
     if (result.ok) {
       expect(result.quotaCandidates.filter((c) => c.key.phase === "MONTAGE")).toHaveLength(0);
       const demontage = result.quotaCandidates.filter((c) => c.key.phase === "DEMONTAGE");
-      expect(demontage).toHaveLength(1);
-      expect(demontage[0]!.key.date).toBe("2026-09-14");
-      expect(demontage[0]!.key.date).not.toBe("2099-01-01");
+      // ZONE + LOCATION (scope emplacement) pour le même créneau.
+      expect(demontage.length).toBeGreaterThanOrEqual(1);
+      expect(demontage.every((c) => c.key.date === "2026-09-14")).toBe(true);
+      expect(demontage.every((c) => c.key.date !== "2099-01-01")).toBe(true);
+      expect(demontage.some((c) => c.key.scopeKey.startsWith("ZONE:"))).toBe(true);
     }
   });
 
@@ -1214,7 +1216,10 @@ describe("Phase 6C-B-2 — quotas alignés sur extension.categories[] (RX non-DI
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.quotaCandidates.filter((c) => c.key.phase === "DEMONTAGE")).toHaveLength(0);
-      expect(result.quotaCandidates.filter((c) => c.key.phase === "MONTAGE")).toHaveLength(1);
+      const montage = result.quotaCandidates.filter((c) => c.key.phase === "MONTAGE");
+      // ZONE + LOCATION pour le même créneau.
+      expect(montage.length).toBeGreaterThanOrEqual(1);
+      expect(montage.some((c) => c.key.scopeKey.startsWith("ZONE:"))).toBe(true);
     }
   });
 

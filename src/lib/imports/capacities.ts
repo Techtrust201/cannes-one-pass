@@ -18,12 +18,14 @@
 
 import { resolveHeader, type ImportRowIssue, type ParsedTable } from "./csv";
 import { EMPTY_COUNTERS, type ImportBatchCounters } from "./import-batch";
+import { resolveCapacityScopeKey } from "@/lib/rx-capacity-scope";
 
 export type VehicleFamilyValue = "LIGHT" | "HEAVY";
 export type PhaseValue = "MONTAGE" | "DEMONTAGE";
 
 export interface ParsedCapacityRow {
   line: number;
+  scopeKey: string;
   zone: string;
   date: string;
   startTime: string;
@@ -41,6 +43,7 @@ export interface CapacitiesParseResult {
 }
 
 const ALIASES = {
+  scopeKey: ["SCOPE KEY", "SCOPEKEY", "SCOPE", "PORTEE"],
   zone: ["ZONE", "CODE ZONE", "ZONE CODE"],
   date: ["DATE"],
   startTime: ["START TIME", "STARTTIME", "DEBUT", "HEURE DEBUT"],
@@ -107,6 +110,7 @@ export function parseCapacitiesTable(
   records.forEach((record, index) => {
     const line = index + 2;
 
+    const scopeRaw = str(record, h.scopeKey);
     const zoneRaw = str(record, h.zone);
     const dateRaw = str(record, h.date);
     const startTimeRaw = str(record, h.startTime);
@@ -155,7 +159,8 @@ export function parseCapacitiesTable(
       return;
     }
 
-    const key = [zoneRaw, dateRaw, startTimeRaw, endTimeRaw, familyToken, phaseToken].join("|");
+    const scopeKey = resolveCapacityScopeKey(scopeRaw, zoneRaw);
+    const key = [scopeKey, zoneRaw, dateRaw, startTimeRaw, endTimeRaw, familyToken, phaseToken].join("|");
     const firstSeen = seenKeys.get(key);
     if (firstSeen !== undefined) {
       warnings.push({
@@ -170,6 +175,7 @@ export function parseCapacitiesTable(
 
     rows.push({
       line,
+      scopeKey,
       zone: zoneRaw,
       date: dateRaw,
       startTime: startTimeRaw,
@@ -191,7 +197,7 @@ export interface CapacitiesCommitTx {
       where: {
         organizationId: string;
         eventId: string;
-        zone: string;
+        scopeKey: string;
         date: string;
         startTime: string;
         endTime: string;
@@ -229,7 +235,7 @@ export async function applyCapacitiesCommit(
       where: {
         organizationId: ctx.organizationId,
         eventId: ctx.eventId,
-        zone: row.zone,
+        scopeKey: row.scopeKey,
         date: row.date,
         startTime: row.startTime,
         endTime: row.endTime,
@@ -244,6 +250,7 @@ export async function applyCapacitiesCommit(
         data: {
           organizationId: ctx.organizationId,
           eventId: ctx.eventId,
+          scopeKey: row.scopeKey,
           zone: row.zone,
           date: row.date,
           startTime: row.startTime,

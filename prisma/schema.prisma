@@ -883,8 +883,13 @@ model RxCapacity {
   eventId String
   event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
-  // Clé logique du créneau (format texte pour rester cohérent avec
-  // Vehicle.date / Vehicle.time et le planning RX existant).
+  // Scope canonique aligné sur LogisticsPlanning (+ ZONE:… / LOCATION:…).
+  // Ex: "ZONE:LA_BOCCA", "SECTOR:PORT_CANTO:POWER", "LOCATION:<exhibitorLocationId>".
+  // Les lignes historiques sont backfillées en ZONE:<zone>.
+  scopeKey String
+
+  // Zone logistique (ZoneConfig) associée au créneau — affichage + consommation
+  // pour les quotas ZONE:… ; conservée aussi pour les scopes plus fins.
   zone      String // Code ZoneConfig (ex: "LA_BOCCA")
   date      String // YYYY-MM-DD
   startTime String // HH:MM
@@ -898,10 +903,9 @@ model RxCapacity {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Garantit l'unicité de la clé métier — un upsert suffit pour créer ou modifier.
-  @@unique([organizationId, eventId, zone, date, startTime, endTime, vehicleFamily, phase])
-  // Index composite pour les requêtes de comptage remaining (filtre fréquent :
-  // org + event + zone + date, puis family + phase discriminent le créneau).
+  // Clé métier : scope planning/zone/emplacement + créneau + famille + phase.
+  @@unique([organizationId, eventId, scopeKey, date, startTime, endTime, vehicleFamily, phase])
+  @@index([organizationId, eventId, scopeKey, date])
   @@index([organizationId, eventId, zone, date])
   @@map("rx_capacity")
 }

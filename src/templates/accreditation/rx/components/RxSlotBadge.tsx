@@ -24,6 +24,7 @@ import {
   type VehicleFamily,
 } from "@/lib/vehicle-family";
 import type { VehicleTypeData } from "@/lib/vehicle-utils";
+import { getRxVehicleProcessInstructions } from "@/lib/rx-vehicle-process";
 
 interface RxSlotParams {
   orgSlug: string;
@@ -34,12 +35,16 @@ interface RxSlotParams {
   endTime: string;
   vehicleFamily: VehicleFamily;
   phase: "MONTAGE" | "DEMONTAGE";
+  exhibitorLocationId?: string;
+  requestedCount?: number;
 }
 
 interface RxSlotState {
   hasQuota: boolean;
   remaining: number;
   isFull: boolean;
+  isUnavailable: boolean;
+  networkError?: boolean;
 }
 
 /** Clé logique (zone + famille) d'un véhicule pour un créneau donné. */
@@ -90,6 +95,8 @@ function buildUrl(p: RxSlotParams): string {
     endTime: p.endTime,
     vehicleFamily: p.vehicleFamily,
     phase: p.phase,
+    ...(p.exhibitorLocationId ? { exhibitorLocationId: p.exhibitorLocationId } : {}),
+    ...(p.requestedCount && p.requestedCount > 1 ? { requestedCount: String(p.requestedCount) } : {}),
   });
   return `/api/rx/availability/public?${q.toString()}`;
 }
@@ -134,10 +141,15 @@ export function useRxSlotAvailability(
           hasQuota: Boolean(data.hasQuota),
           remaining: Number(data.remaining ?? 0),
           isFull: Boolean(data.isFull),
+          isUnavailable: Boolean(data.isUnavailable),
         });
       })
       .catch(() => {
-        // réseau ou erreur — on n'affiche rien (badge simplement masqué)
+        if (!ctrl.signal.aborted) {
+          // La soumission sera toujours revalidée côté serveur : l'UI avertit
+          // sans bloquer le déposant sur une indisponibilité réseau.
+          setResult({ hasQuota: false, remaining: 0, isFull: false, isUnavailable: false, networkError: true });
+        }
       });
 
     return () => {
@@ -153,6 +165,8 @@ export function useRxSlotAvailability(
     params?.endTime,
     params?.vehicleFamily,
     params?.phase,
+    params?.exhibitorLocationId,
+    params?.requestedCount,
   ]);
 
   return result;
@@ -171,13 +185,17 @@ interface RxSlotBadgeProps {
 export function RxSlotBadge({ params, prefix }: RxSlotBadgeProps) {
   const availability = useRxSlotAvailability(params);
 
-  if (!availability || !availability.hasQuota) return null;
+  if (!availability) return null;
+  if (availability.networkError) {
+    return <span className="text-xs text-amber-700">Disponibilité non vérifiable — contrôle à l’envoi.</span>;
+  }
+  if (!availability.hasQuota) return null;
 
-  if (availability.isFull) {
+  if (availability.isUnavailable) {
     return (
       <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-700 bg-orange-50 border border-orange-200 rounded-full px-2 py-0.5">
         <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />
-        {prefix ? `${prefix} · ` : ""}Créneau complet
+        {prefix ? `${prefix} · ` : ""}{availability.isFull ? "Créneau complet" : "Places insuffisantes"}
       </span>
     );
   }
@@ -201,6 +219,7 @@ interface RxSlotBadgeGroupProps {
   phase: "MONTAGE" | "DEMONTAGE";
   /** Une entrée par véhicule concerné (zone + famille déjà résolues). */
   entries: RxSlotEntry[];
+  exhibitorLocationId?: string;
 }
 
 /**
@@ -216,6 +235,7 @@ export function RxSlotBadgeGroup({
   slot,
   phase,
   entries,
+  exhibitorLocationId,
 }: RxSlotBadgeGroupProps) {
   if (!orgSlug || !eventSlug || !date || !slot || !slot.includes("-")) return null;
   if (entries.length === 0) return null;
@@ -247,9 +267,140 @@ export function RxSlotBadgeGroup({
             endTime,
             vehicleFamily: e.vehicleFamily,
             phase,
+            exhibitorLocationId,
+            requestedCount: entries.filter(
+              (entry) => entry.zone === e.zone && entry.vehicleFamily === e.vehicleFamily
+            ).length,
           }}
         />
       ))}
+    </div>
+  );
+}
+
+type RxSlotSelectProps = {
+  value: string;
+  disabled: boolean;
+  slots: string[];
+  entries: RxSlotEntry[];
+  orgSlug: string;
+  eventSlug: string;
+  date: string;
+  phase: "MONTAGE" | "DEMONTAGE";
+  exhibitorLocationId?: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  className: string;
+  formatSlot: (slot: string) => string;
+};
+
+/** Sélecteur de créneau qui désactive les options sans capacité suffisante. */
+export function RxSlotSelect(props: RxSlotSelectProps) {
+  const groups = Array.from(
+    new Map(
+      props.entries.map((entry) => [`${entry.zone}|${entry.vehicleFamily}`, entry])
+    ).values()
+  );
+  const entriesKey = props.entries
+    .map((entry) => `${entry.zone}|${entry.vehicleFamily}`)
+    .sort()
+    .join(",");
+  const slotsKey = props.slots.join(",");
+  const [availability, setAvailability] = useState<Record<string, RxSlotState>>({});
+  const [networkError, setNetworkError] = useState(false);
+
+  useEffect(() => {
+    if (!props.date || groups.length === 0) {
+      setAvailability({});
+      return;
+    }
+    const ctrl = new AbortController();
+    setNetworkError(false);
+    void Promise.all(
+      props.slots.flatMap((slot) => {
+        const [startTime, endTime] = slot.split("-");
+        return groups.map((entry) => {
+          const requestedCount = props.entries.filter(
+            (candidate) =>
+              candidate.zone === entry.zone && candidate.vehicleFamily === entry.vehicleFamily
+          ).length;
+          const params: RxSlotParams = {
+            orgSlug: props.orgSlug,
+            eventSlug: props.eventSlug,
+            zone: entry.zone,
+            date: props.date,
+            startTime,
+            endTime,
+            vehicleFamily: entry.vehicleFamily,
+            phase: props.phase,
+            exhibitorLocationId: props.exhibitorLocationId,
+            requestedCount,
+          };
+          return fetch(buildUrl(params), { signal: ctrl.signal })
+            .then((response) => (response.ok ? response.json() : Promise.reject()))
+            .then((data) => ({
+              key: `${slot}|${entry.zone}|${entry.vehicleFamily}`,
+              value: {
+                hasQuota: Boolean(data.hasQuota),
+                remaining: Number(data.remaining ?? 0),
+                isFull: Boolean(data.isFull),
+                isUnavailable: Boolean(data.isUnavailable),
+              } satisfies RxSlotState,
+            }));
+        });
+      })
+    )
+      .then((items) => {
+        if (ctrl.signal.aborted) return;
+        setAvailability(Object.fromEntries(items.map((item) => [item.key, item.value])));
+      })
+      .catch(() => {
+        if (!ctrl.signal.aborted) setNetworkError(true);
+      });
+    return () => ctrl.abort();
+  }, [entriesKey, props.date, props.eventSlug, props.exhibitorLocationId, props.orgSlug, props.phase, slotsKey]);
+
+  const isBlocked = (slot: string) =>
+    groups.some((entry) => availability[`${slot}|${entry.zone}|${entry.vehicleFamily}`]?.isUnavailable);
+
+  useEffect(() => {
+    if (props.value && isBlocked(props.value)) props.onChange("");
+  }, [availability, props.value]); // le callback est fourni par le parent de formulaire
+
+  return (
+    <div>
+      <select
+        value={props.value}
+        disabled={props.disabled}
+        onChange={(event) => props.onChange(event.target.value)}
+        className={props.className}
+      >
+        <option value="">{props.placeholder}</option>
+        {props.slots.map((slot) => (
+          <option key={slot} value={slot} disabled={isBlocked(slot)}>
+            {props.formatSlot(slot)}{isBlocked(slot) ? " — complet" : ""}
+          </option>
+        ))}
+      </select>
+      {networkError && (
+        <p className="mt-1 text-xs text-amber-700">
+          Disponibilité non vérifiable — le serveur contrôlera votre demande à l’envoi.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Fallback local sûr ; les règles métier de création restent côté serveur. */
+export function RxVehicleProcessInstructions({ family }: { family: VehicleFamily | null }) {
+  if (!family) return null;
+  const process = getRxVehicleProcessInstructions(family);
+  return (
+    <div className="mt-1 rounded border border-sky-100 bg-sky-50 px-2 py-1.5 text-xs text-sky-900">
+      <strong>{process.title}</strong>
+      <ul className="mt-1 list-disc pl-4">
+        {process.instructions.map((instruction) => <li key={instruction}>{instruction}</li>)}
+      </ul>
     </div>
   );
 }

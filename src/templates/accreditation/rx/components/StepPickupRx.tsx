@@ -26,7 +26,7 @@ import {
   getSkipT,
   getPlanningErrorT,
 } from "../i18n";
-import { RxSlotBadgeGroup, computeRxSlotParts, type RxSlotEntry } from "./RxSlotBadge";
+import { RxSlotBadgeGroup, RxSlotSelect, RxVehicleProcessInstructions, computeRxSlotParts, type RxSlotEntry } from "./RxSlotBadge";
 import type { StepProps } from "../../types";
 import type { RxFormData, RxCategorySelection } from "../types";
 
@@ -452,23 +452,25 @@ export function StepPickupRx({
                         <label className="text-xs font-semibold text-gray-700 block mb-1">
                           {t.rx.pickup.slot} <span className="text-red-500">*</span>
                         </label>
-                        <select
+                        <RxSlotSelect
                           value={selected.repTime}
                           disabled={!selected.repDate}
-                          onChange={(e) => patchReturn(cat.id, { repTime: e.target.value })}
+                          onChange={(value) => patchReturn(cat.id, { repTime: value })}
                           className={formInputCompactClass(
                             Boolean(selected.repDate && !selected.repTime)
                           )}
-                        >
-                          <option value="">
-                            {selected.repDate ? t.rx.pickup.chooseSlot : t.rx.pickup.chooseDateFirst}
-                          </option>
-                          {slots.map((s) => (
-                            <option key={s} value={s}>
-                              {formatSlot(s)}
-                            </option>
-                          ))}
-                        </select>
+                          placeholder={selected.repDate ? t.rx.pickup.chooseSlot : t.rx.pickup.chooseDateFirst}
+                          slots={slots}
+                          formatSlot={formatSlot}
+                          orgSlug={orgSlug}
+                          eventSlug={stepOne.event}
+                          date={selected.repDate}
+                          phase="DEMONTAGE"
+                          exhibitorLocationId={stepOne.exhibitorLocationId}
+                          entries={selected.vehicles
+                            .map((v) => computeRxSlotParts(v.vehicleType ?? "", effectiveSector, vehicleTypes))
+                            .filter((e): e is RxSlotEntry => e !== null)}
+                        />
                         {selected.repTime && (
                           <RxSlotBadgeGroup
                             orgSlug={orgSlug}
@@ -476,6 +478,7 @@ export function StepPickupRx({
                             date={selected.repDate}
                             slot={selected.repTime}
                             phase="DEMONTAGE"
+                            exhibitorLocationId={stepOne.exhibitorLocationId}
                             entries={selected.vehicles
                               .map((v) =>
                                 computeRxSlotParts(
@@ -550,6 +553,9 @@ export function StepPickupRx({
                                 </option>
                               ))}
                             </select>
+                            <RxVehicleProcessInstructions
+                              family={computeRxSlotParts(v.vehicleType ?? "", effectiveSector, vehicleTypes)?.vehicleFamily ?? null}
+                            />
                           </div>
                           <div>
                             <label className="text-xs text-gray-600 block mb-0.5">
@@ -711,25 +717,30 @@ export function StepPickupRx({
                   <label className="text-xs font-semibold text-gray-700 block mb-1">
                     {t.rx.pickup.slot} <span className="text-red-500">*</span>
                   </label>
-                  <select
+                  <RxSlotSelect
                     value={cat.repTime}
                     disabled={!cat.repDate}
-                    onChange={(e) =>
-                      patchReturn(cat.categoryId, { repTime: e.target.value })
-                    }
+                    onChange={(value) => patchReturn(cat.categoryId, { repTime: value })}
                     className={formInputCompactClass(
                       Boolean(cat.repDate && !cat.repTime)
                     )}
-                  >
-                    <option value="">
-                      {cat.repDate ? t.rx.pickup.chooseSlot : t.rx.pickup.chooseDateFirst}
-                    </option>
-                    {slots.map((s) => (
-                      <option key={s} value={s}>
-                        {formatSlot(s)}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder={cat.repDate ? t.rx.pickup.chooseSlot : t.rx.pickup.chooseDateFirst}
+                    slots={slots}
+                    formatSlot={formatSlot}
+                    orgSlug={orgSlug}
+                    eventSlug={stepOne.event}
+                    date={cat.repDate}
+                    phase="DEMONTAGE"
+                    exhibitorLocationId={stepOne.exhibitorLocationId}
+                    entries={cat.vehicles
+                      .map((v) => {
+                        const repType = v.repSameAsDelivery === false
+                          ? v.repVehicleType ?? v.vehicleType ?? ""
+                          : v.vehicleType ?? "";
+                        return computeRxSlotParts(repType, effectiveSector, vehicleTypes);
+                      })
+                      .filter((e): e is RxSlotEntry => e !== null)}
+                  />
                   {cat.repTime && (
                     <RxSlotBadgeGroup
                       orgSlug={orgSlug}
@@ -737,6 +748,7 @@ export function StepPickupRx({
                       date={cat.repDate}
                       slot={cat.repTime}
                       phase="DEMONTAGE"
+                      exhibitorLocationId={stepOne.exhibitorLocationId}
                       entries={cat.vehicles
                         .map((v) => {
                           // Véhicule de reprise réel : repVehicleType si le
@@ -817,6 +829,9 @@ export function StepPickupRx({
                                 </option>
                               ))}
                             </select>
+                            <RxVehicleProcessInstructions
+                              family={computeRxSlotParts(v.repVehicleType ?? "", effectiveSector, vehicleTypes)?.vehicleFamily ?? null}
+                            />
                           </div>
                           <div>
                             <label className="text-xs text-gray-600 block mb-0.5">

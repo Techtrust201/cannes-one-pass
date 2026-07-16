@@ -75,13 +75,14 @@ type Anomaly = {
   quotaId?: number;
 };
 
-type TabId = "calendrier" | "horaires" | "quotas" | "anomalies";
+type TabId = "calendrier" | "horaires" | "quotas" | "anomalies" | "processus";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "calendrier", label: "Calendrier" },
   { id: "horaires", label: "Horaires" },
   { id: "quotas", label: "Quotas" },
   { id: "anomalies", label: "Anomalies" },
+  { id: "processus", label: "Processus véhicules" },
 ];
 
 const PHASES = ["MONTAGE", "DEMONTAGE"] as const;
@@ -954,7 +955,78 @@ export default function PlanningQuotasExplorer({
           )}
         </section>
       )}
+      {tab === "processus" && <VehicleProcessTab espace={espace} canWrite={canWriteQuotas} />}
     </div>
+  );
+}
+
+type ProcessConfig = {
+  family: "LIGHT" | "HEAVY";
+  title: string;
+  zoneCode: string | null;
+  maxParkingMinutes: number | null;
+  requiresReceiver: boolean;
+  requiresHeavyUnloadingDetails: boolean;
+  instructions: string[];
+};
+
+function VehicleProcessTab({ espace, canWrite }: { espace: string; canWrite: boolean }) {
+  const [items, setItems] = useState<ProcessConfig[]>([]);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState<"LIGHT" | "HEAVY" | null>(null);
+  const load = useCallback(async () => {
+    try {
+      const response = await fetch(withEspaceQuery("/api/admin/rx-vehicle-process", espace));
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "Chargement impossible");
+      setItems(body.items ?? []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur réseau");
+    }
+  }, [espace]);
+  useEffect(() => { void load(); }, [load]);
+  const patch = (family: ProcessConfig["family"], values: Partial<ProcessConfig>) =>
+    setItems((previous) =>
+      previous.map((item) => item.family === family ? { ...item, ...values } : item)
+    );
+  const save = async (item: ProcessConfig) => {
+    setSaving(item.family);
+    setError("");
+    try {
+      const response = await fetch(withEspaceQuery("/api/admin/rx-vehicle-process", espace), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(item),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "Enregistrement impossible");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur réseau");
+    } finally {
+      setSaving(null);
+    }
+  };
+  return (
+    <section className="space-y-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <p className="text-sm text-gray-600">Instructions affichées aux exposants selon la famille du véhicule.</p>
+      {error && <p className="text-sm text-red-700">{error}</p>}
+      {(["LIGHT", "HEAVY"] as const).map((family) => {
+        const item = items.find((value) => value.family === family);
+        if (!item) return <LoaderRow key={family} />;
+        return (
+          <article key={family} className="rounded-lg border border-gray-200 p-3">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className="text-sm">Titre<input disabled={!canWrite} value={item.title} onChange={(e) => patch(family, { title: e.target.value })} className={`${inputClass} mt-1 w-full`} /></label>
+              <label className="text-sm">Zone<input disabled={!canWrite} value={item.zoneCode ?? ""} onChange={(e) => patch(family, { zoneCode: e.target.value || null })} className={`${inputClass} mt-1 w-full`} /></label>
+              <label className="text-sm">Durée max. (min)<input disabled={!canWrite} type="number" value={item.maxParkingMinutes ?? ""} onChange={(e) => patch(family, { maxParkingMinutes: e.target.value ? Number(e.target.value) : null })} className={`${inputClass} mt-1 w-full`} /></label>
+              <label className="text-sm">Instructions (une par ligne)<textarea disabled={!canWrite} value={item.instructions.join("\n")} onChange={(e) => patch(family, { instructions: e.target.value.split("\n").filter(Boolean) })} className={`${inputClass} mt-1 min-h-24 w-full`} /></label>
+            </div>
+            {canWrite && <button type="button" disabled={saving === family} onClick={() => void save(item)} className="mt-3 rounded-lg bg-[#3F4660] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">Enregistrer {family === "LIGHT" ? "léger" : "lourd"}</button>}
+          </article>
+        );
+      })}
+    </section>
   );
 }
 

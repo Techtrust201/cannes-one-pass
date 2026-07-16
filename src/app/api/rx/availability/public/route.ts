@@ -33,7 +33,7 @@ import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { getRxAvailability } from "@/lib/rx-capacity-service";
 import type { RxCapacityKey, RxPhase } from "@/lib/rx-capacity";
-import { zoneScopeKey } from "@/lib/rx-capacity-scope";
+import { locationScopeKey, zoneScopeKey } from "@/lib/rx-capacity-scope";
 import type { VehicleFamily } from "@/lib/vehicle-family";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -52,6 +52,9 @@ export async function GET(request: NextRequest) {
   const endTime = searchParams.get("endTime")?.trim() ?? "";
   const vehicleFamilyRaw = searchParams.get("vehicleFamily")?.trim() ?? "";
   const phaseRaw = searchParams.get("phase")?.trim() ?? "";
+  const exhibitorLocationId = searchParams.get("exhibitorLocationId")?.trim() ?? "";
+  const requestedCountRaw = searchParams.get("requestedCount")?.trim() ?? "1";
+  const requestedCount = Number.parseInt(requestedCountRaw, 10);
 
   const missingParams = [
     !orgSlug && "orgSlug",
@@ -83,6 +86,9 @@ export async function GET(request: NextRequest) {
   if (phaseRaw !== "MONTAGE" && phaseRaw !== "DEMONTAGE") {
     return Response.json({ error: 'phase doit être "MONTAGE" ou "DEMONTAGE"' }, { status: 400 });
   }
+  if (!Number.isInteger(requestedCount) || requestedCount < 1 || requestedCount > 100) {
+    return Response.json({ error: "requestedCount invalide (entier entre 1 et 100)" }, { status: 400 });
+  }
 
   // Résolution org + event par slug (aucun id interne exposé côté client).
   // Org inconnue/inactive ou event non rattaché → résultat neutre (anti-énumération).
@@ -101,7 +107,9 @@ export async function GET(request: NextRequest) {
   const key: RxCapacityKey = {
     organizationId: org.id,
     eventId: event.id,
-    scopeKey: zoneScopeKey(zone),
+    // Un quota LOCATION est plus spécifique que la zone et doit donc être
+    // consulté dès que le référentiel exposant l'a fourni au formulaire.
+    scopeKey: exhibitorLocationId ? locationScopeKey(exhibitorLocationId) : zoneScopeKey(zone),
     zone,
     date,
     startTime,
@@ -118,5 +126,6 @@ export async function GET(request: NextRequest) {
     capacity: result.capacity,
     remaining: result.remaining,
     isFull: result.isFull,
+    isUnavailable: result.hasQuota && result.remaining < requestedCount,
   });
 }

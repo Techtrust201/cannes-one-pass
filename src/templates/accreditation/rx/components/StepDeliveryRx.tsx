@@ -28,7 +28,7 @@ import {
   getBateauTerreT,
   getPlanningErrorT,
 } from "../i18n";
-import { RxSlotBadgeGroup, computeRxSlotParts, type RxSlotEntry } from "./RxSlotBadge";
+import { RxSlotBadgeGroup, RxSlotSelect, RxVehicleProcessInstructions, computeRxSlotParts, type RxSlotEntry } from "./RxSlotBadge";
 import type { StepProps } from "../../types";
 import type { RxFormData } from "../types";
 
@@ -441,23 +441,25 @@ export function StepDeliveryRx({
                       <label className="text-xs font-semibold text-gray-700 block mb-1">
                         {t.rx.delivery.slot} <span className="text-red-500">*</span>
                       </label>
-                      <select
+                      <RxSlotSelect
                         value={selected.livTime}
                         disabled={!selected.livDate}
-                        onChange={(e) => patchCategory(cat.id, { livTime: e.target.value })}
+                        onChange={(value) => patchCategory(cat.id, { livTime: value })}
                         className={formInputCompactClass(
                           Boolean(selected.livDate && !selected.livTime)
                         )}
-                      >
-                        <option value="">
-                          {selected.livDate ? t.rx.delivery.chooseSlot : t.rx.delivery.chooseDateFirst}
-                        </option>
-                        {slots.map((s) => (
-                          <option key={s} value={s}>
-                            {formatSlot(s)}
-                          </option>
-                        ))}
-                      </select>
+                        placeholder={selected.livDate ? t.rx.delivery.chooseSlot : t.rx.delivery.chooseDateFirst}
+                        slots={slots}
+                        formatSlot={formatSlot}
+                        orgSlug={orgSlug}
+                        eventSlug={stepOne.event}
+                        date={selected.livDate}
+                        phase="MONTAGE"
+                        exhibitorLocationId={stepOne.exhibitorLocationId}
+                        entries={selected.vehicles
+                          .map((v) => computeRxSlotParts(v.vehicleType ?? "", effectiveSector, vehicleTypes))
+                          .filter((e): e is RxSlotEntry => e !== null)}
+                      />
                       {selected.livTime && (
                         <RxSlotBadgeGroup
                           orgSlug={orgSlug}
@@ -465,6 +467,7 @@ export function StepDeliveryRx({
                           date={selected.livDate}
                           slot={selected.livTime}
                           phase="MONTAGE"
+                          exhibitorLocationId={stepOne.exhibitorLocationId}
                           entries={selected.vehicles
                             .map((v) =>
                               computeRxSlotParts(
@@ -549,6 +552,9 @@ export function StepDeliveryRx({
                               </option>
                             ))}
                           </select>
+                          <RxVehicleProcessInstructions
+                            family={computeRxSlotParts(v.vehicleType ?? "", effectiveSector, vehicleTypes)?.vehicleFamily ?? null}
+                          />
                         </div>
                         <div>
                           <label className="text-xs text-gray-600 block mb-0.5">

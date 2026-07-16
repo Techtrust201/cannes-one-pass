@@ -6,6 +6,7 @@ import type { Event } from "@/types";
 import EventCalendar from "@/components/dates/EventCalendar";
 import EventSheet from "@/components/dates/EventSheet";
 import { Plus, RefreshCw } from "lucide-react";
+import PageHelp from "@/components/logisticien/help/PageHelp";
 
 export default function DatesPage() {
   const searchParams = useSearchParams();
@@ -107,9 +108,9 @@ export default function DatesPage() {
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-[1400px] mx-auto space-y-4">
+    <div className="p-3 sm:p-6 max-w-[1400px] mx-auto space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-bold text-gray-800">
             Gestion des événements
@@ -121,20 +122,30 @@ export default function DatesPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={fetchEvents}
-            className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-gray-500"
+            className="flex h-11 w-11 items-center justify-center rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-gray-500 sm:h-auto sm:w-auto sm:p-2"
             title="Rafraîchir"
           >
             <RefreshCw size={16} />
           </button>
           <button
             onClick={() => openCreate()}
-            className="flex items-center gap-2 bg-[#3F4660] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#2C2F3F] transition-colors"
+            className="flex min-h-11 flex-1 items-center justify-center gap-2 bg-[#3F4660] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#2C2F3F] transition-colors sm:min-h-0 sm:flex-none"
           >
             <Plus size={16} />
-            <span className="hidden sm:inline">Nouvel événement</span>
+            <span className="sm:inline">Nouvel événement</span>
           </button>
         </div>
       </div>
+
+      <PageHelp storageKey="logisticien-dates">
+        <p>
+          Calendrier des <strong>événements</strong> de l’espace (dates de début / fin).
+        </p>
+        <p>
+          Cliquez un jour pour créer, ou un événement existant pour le modifier. Pour RX, les
+          horaires de montage/démontage se gèrent dans <strong>Planning &amp; quotas</strong>.
+        </p>
+      </PageHelp>
 
       {/* Calendar */}
       <EventCalendar

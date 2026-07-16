@@ -15,6 +15,7 @@ import { pickPreferredEspaceSlug } from "@/lib/default-espace";
 import { ESPACE_COOKIE } from "@/lib/espace-cookie";
 import { withEspaceQuery } from "@/lib/url";
 import NoEspaceState from "@/components/logisticien/NoEspaceState";
+import PageHelp from "@/components/logisticien/help/PageHelp";
 
 export default async function StandsPage(props: {
   searchParams: Promise<Record<string, string>>;
@@ -93,6 +94,15 @@ export default async function StandsPage(props: {
           Point d&apos;entrée par stand : accédez aux accréditations rattachées.
         </p>
       </div>
+      <PageHelp storageKey="logisticien-stands">
+        <p>
+          Vue <strong>Palais</strong> : liste des stands avec le nombre de demandes liées.
+        </p>
+        <p>
+          Pour RX, utilisez plutôt <strong>Exposants &amp; emplacements</strong> dans Paramétrage RX
+          — cette page Stands reste le mode legacy Palais.
+        </p>
+      </PageHelp>
 
       {stands.length === 0 ? (
         <div className="text-center py-16 text-gray-400 text-sm">

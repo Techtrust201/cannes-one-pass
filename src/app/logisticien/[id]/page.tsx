@@ -6,6 +6,7 @@ import MobileAccreditationEditCard from "@/components/logisticien/MobileAccredit
 import { RxAssignPlatesPanel } from "@/components/logisticien/RxAssignPlatesPanel";
 import prisma, { withRetry } from "@/lib/prisma";
 import { Accreditation } from "@/types";
+import PageHelp from "@/components/logisticien/help/PageHelp";
 
 export default async function Page({
   params,
@@ -55,6 +56,16 @@ export default async function Page({
 
   return (
     <div className="max-w-2xl mx-auto p-2 sm:p-8 min-w-0 overflow-x-hidden">
+      <PageHelp storageKey="logisticien-detail">
+        <p>
+          Fiche d’une demande : vérifiez les infos, changez le statut, renvoyez le QR ou modifiez
+          le véhicule.
+        </p>
+        <p>
+          Sur mobile, utilisez les boutons d’action en bas de la carte. Sur RX, le panneau plaques
+          permet d’affecter les immatriculations.
+        </p>
+      </PageHelp>
       {showRxPanel && (
         <RxAssignPlatesPanel
           accreditationStand={acc.stand}

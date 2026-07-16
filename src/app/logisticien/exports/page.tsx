@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Download, FileSpreadsheet, Leaf, Mail } from "lucide-react";
+import PageHelp from "@/components/logisticien/help/PageHelp";
+import NumberedSteps from "@/components/logisticien/help/NumberedSteps";
 
 interface EventOption {
   slug: string;
@@ -56,14 +58,31 @@ export default function ExportsPage() {
   const providersExportUrl = `/api/exports/providers${espaceQs}`;
 
   return (
-    <div className="p-4 sm:p-6 max-w-3xl mx-auto">
+    <div className="p-3 sm:p-6 max-w-3xl mx-auto">
       <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2 mb-1">
         <Download size={20} /> Exports
       </h1>
-      <p className="text-sm text-gray-500 mb-6">
+      <p className="text-sm text-gray-500 mb-4">
         Téléchargez vos données au format CSV (compatible Excel).
         {espace ? ` Espace : ${espace}.` : ""}
       </p>
+
+      <PageHelp storageKey="logisticien-exports">
+        <p>
+          Téléchargez les listes (accréditations, etc.) filtrées sur l’espace courant.
+        </p>
+        <p>
+          Choisissez éventuellement un événement, puis cliquez sur le bouton d’export correspondant.
+        </p>
+      </PageHelp>
+
+      <NumberedSteps
+        steps={[
+          { title: "Choisir l’événement", description: "Ou laisser « Tous » si proposé." },
+          { title: "Cliquer Export", description: "Le fichier CSV se télécharge." },
+          { title: "Ouvrir dans Excel", description: "Compatible tableur." },
+        ]}
+      />
 
       <div className="space-y-4">
         {/* Accréditations */}

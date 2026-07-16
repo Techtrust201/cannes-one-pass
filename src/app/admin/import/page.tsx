@@ -18,6 +18,10 @@ import {
   XCircle,
 } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
+import PageHelp from "@/components/logisticien/help/PageHelp";
+import FieldHint from "@/components/logisticien/help/FieldHint";
+import NumberedSteps from "@/components/logisticien/help/NumberedSteps";
+import Glossary from "@/components/logisticien/help/Glossary";
 
 type ProfileKey =
   | "referential"
@@ -494,33 +498,75 @@ export default function AdminImportCenterPage() {
   const previewUnchanged = findNumber(dryRun?.preview, ["unchanged", "unchangeds", "noChange"]);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-7">
-      <Link href="/admin" className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900">
+    <div className="mx-auto max-w-6xl space-y-6 px-1 sm:space-y-7 sm:px-0">
+      <Link href="/admin" className="inline-flex min-h-11 items-center gap-2 text-sm text-gray-600 hover:text-gray-900 sm:min-h-0">
         <ArrowLeft size={16} /> Retour à l’administration
       </Link>
 
       <header className="space-y-2">
-        <p className="text-sm font-semibold uppercase tracking-wide text-primary">Centre d’import 2.0</p>
-        <h1 className="text-3xl font-bold text-gray-900">Importez vos données étape par étape</h1>
+        <p className="text-sm font-semibold uppercase tracking-wide text-primary">Centre d’import</p>
+        <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Importez vos données étape par étape</h1>
         <p className="max-w-3xl text-sm text-gray-600">
           Choisissez ce que vous souhaitez mettre à jour. Chaque fichier est d’abord analysé sans
           aucune écriture : vous gardez la main avant la confirmation.
         </p>
       </header>
 
-      <section className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+      <PageHelp storageKey="admin-import" glossaryHref="#lexique-import">
+        <p>
+          Ordre recommandé : <strong>Exposants → Planning → Capacités → Accréditations</strong>.
+        </p>
+        <p>
+          Toujours lancer l’analyse (aperçu) avant de confirmer. Tant que vous n’avez pas confirmé,
+          rien n’est écrit en base.
+        </p>
+      </PageHelp>
+
+      <NumberedSteps
+        steps={[
+          { title: "Choisir le type", description: "Exposants, planning, quotas…" },
+          { title: "Événement", description: "Sélectionnez l’événement concerné." },
+          { title: "Déposer le fichier", description: "CSV ou Excel." },
+          { title: "Vérifier puis confirmer", description: "Corrigez les erreurs avant l’écriture." },
+        ]}
+      />
+
+      <Glossary
+        id="lexique-import"
+        title="Lexique — Import"
+        terms={[
+          {
+            term: "Aperçu (dry-run)",
+            definition: "Simulation sans écriture : vous voyez créations, modifications et erreurs avant de confirmer.",
+          },
+          {
+            term: "Fusion",
+            definition: "Met à jour les lignes existantes et en crée de nouvelles, sans tout effacer.",
+          },
+          {
+            term: "Référentiel",
+            definition: "Fichier des exposants et de leurs emplacements.",
+          },
+          {
+            term: "Planning",
+            definition: "Fichier des créneaux de montage / démontage autorisés.",
+          },
+        ]}
+      />
+
+      <section className="rounded-xl border border-blue-200 bg-blue-50 p-3 sm:p-4">
         <p className="mb-3 text-sm font-semibold text-blue-900">Ordre recommandé</p>
-        <div className="flex flex-wrap items-center gap-2 text-sm text-blue-800">
-          {["Référentiel", "Planning", "Capacités", "Accréditations"].map((label, index) => (
+        <div className="flex flex-col gap-2 text-sm text-blue-800 sm:flex-row sm:flex-wrap sm:items-center">
+          {["Exposants", "Planning", "Capacités", "Accréditations"].map((label, index) => (
             <div key={label} className="flex items-center gap-2">
-              <span className="rounded-full bg-white px-3 py-1 font-medium shadow-sm">{index + 1}. {label}</span>
-              {index < 3 && <ChevronRight size={16} aria-hidden />}
+              <span className="rounded-full bg-white px-3 py-1.5 font-medium shadow-sm">{index + 1}. {label}</span>
+              {index < 3 && <ChevronRight size={16} className="hidden sm:block" aria-hidden />}
             </div>
           ))}
         </div>
       </section>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-5">
+      <section className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
         <label htmlFor="organization" className="mb-2 block text-sm font-semibold text-gray-800">
           Organisation concernée
         </label>
@@ -536,16 +582,16 @@ export default function AdminImportCenterPage() {
             resetAnalysis();
             if (organization?.slug === "rx" && profile?.supportsFormat) setFormat("rx");
           }}
-          className="w-full max-w-md rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          className="w-full max-w-md rounded-lg border border-gray-300 px-3 py-2.5 text-sm"
         >
           <option value="">— Choisir une organisation —</option>
           {orgs.map((organization) => (
             <option key={organization.id} value={organization.id}>{organization.name}</option>
           ))}
         </select>
-        <p className="mt-2 text-xs text-gray-500">
-          Ce choix permet d’afficher l’historique et de préremplir le contexte de l’import.
-        </p>
+        <FieldHint>
+          Ce choix filtre l’historique et préremplit le contexte (pour RX : format RX automatique).
+        </FieldHint>
       </section>
 
       <section>
@@ -562,7 +608,7 @@ export default function AdminImportCenterPage() {
             Aucun profil d’import n’est disponible avec vos permissions actuelles.
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
             {visibleProfiles.map((item) => {
               const lastBatch = history.find(
                 (batch) => batch.sourceProfile === item.key.toUpperCase().replace("-", "_")
@@ -571,7 +617,7 @@ export default function AdminImportCenterPage() {
               return (
                 <article
                   key={item.key}
-                  className={`flex min-h-72 flex-col rounded-xl border bg-white p-5 transition ${
+                  className={`flex flex-col rounded-xl border bg-white p-4 sm:min-h-72 sm:p-5 transition ${
                     selected ? "border-primary ring-2 ring-primary/15" : "border-gray-200 hover:border-gray-300"
                   }`}
                 >
@@ -607,7 +653,7 @@ export default function AdminImportCenterPage() {
                   <button
                     type="button"
                     onClick={() => chooseProfile(item.key)}
-                    className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+                    className="mt-4 min-h-11 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:opacity-90 sm:min-h-0"
                   >
                     Importer ou mettre à jour
                   </button>

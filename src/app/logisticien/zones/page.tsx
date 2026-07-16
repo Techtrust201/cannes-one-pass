@@ -19,6 +19,8 @@ import { invalidateZoneCache } from "@/lib/zone-utils";
 import { isSafeHttpUrl } from "@/lib/url-safety";
 import { useEspaceSlug } from "@/hooks/useEspaceSlug";
 import { withEspaceQuery } from "@/lib/url";
+import PageHelp from "@/components/logisticien/help/PageHelp";
+import Glossary from "@/components/logisticien/help/Glossary";
 
 interface ZoneData {
   id: number;
@@ -286,28 +288,48 @@ export default function ZonesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+    <div className="min-h-screen bg-gray-50 p-3 sm:p-4 md:p-8">
       {/* Header */}
-      <div className="max-w-6xl mx-auto mb-8">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-[#4F587E] rounded-xl text-white">
+      <div className="max-w-6xl mx-auto mb-6 sm:mb-8">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="p-2.5 bg-[#4F587E] rounded-xl text-white shrink-0">
               <MapPin size={24} />
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Gestion des zones</h1>
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Gestion des zones</h1>
               <p className="text-sm text-gray-500">
-                Configurez les adresses et coordonnées GPS des zones de stationnement
+                Adresses et GPS des zones de stationnement / contrôle
               </p>
             </div>
           </div>
           <button
             onClick={() => setShowCreateForm(!showCreateForm)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-[#4F587E] text-white rounded-xl text-sm font-semibold hover:bg-[#3B4252] transition shadow-md"
+            className="flex min-h-11 w-full items-center justify-center gap-2 px-4 py-2.5 bg-[#4F587E] text-white rounded-xl text-sm font-semibold hover:bg-[#3B4252] transition shadow-md sm:w-auto sm:min-h-0"
           >
             <PlusCircle size={16} />
             Nouvelle zone
           </button>
+        </div>
+        <div className="mt-4">
+          <PageHelp storageKey="logisticien-zones" glossaryHref="#lexique-zones">
+            <p>
+              Définissez les <strong>zones de contrôle</strong> (adresse, GPS, couleur) utilisées au
+              scan et dans les filtres.
+            </p>
+            <p>
+              Chaque zone peut avoir un lecteur QR associé. Désactivez une zone plutôt que de la
+              supprimer si elle a déjà servi.
+            </p>
+          </PageHelp>
+          <Glossary
+            id="lexique-zones"
+            title="Lexique — Zones"
+            terms={[
+              { term: "Zone finale", definition: "Destination finale du parcours véhicule (ex. stand)." },
+              { term: "Lecteur", definition: "Borne ou URL de scan liée à cette zone." },
+            ]}
+          />
         </div>
       </div>
 

@@ -48,7 +48,7 @@ export default function VehiclesTabs({ active }: VehiclesTabsProps) {
               key={t.id}
               type="button"
               onClick={() => switchTab(t.id)}
-              className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition min-w-[140px] whitespace-nowrap ${
+              className={`flex-1 sm:flex-none flex min-h-11 items-center justify-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition min-w-[140px] whitespace-nowrap sm:min-h-0 ${
                 isActive
                   ? "border-[#4F587E] text-[#4F587E] bg-[#4F587E]/5"
                   : "border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-50"

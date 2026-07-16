@@ -12,6 +12,7 @@ import {
   resolveEspaceOrgId,
 } from "@/lib/auth-helpers";
 import ExhibitorLocationsPanel from "@/components/logisticien/referentiel/ExhibitorLocationsPanel";
+import PageHelp from "@/components/logisticien/help/PageHelp";
 
 export default async function ExhibitorDetailPage({
   params,
@@ -67,23 +68,31 @@ export default async function ExhibitorDetailPage({
     <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col p-3 sm:p-6">
       <Link
         href="/logisticien/referentiel?espace=rx"
-        className="mb-4 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-[#3F4660]"
+        className="mb-4 inline-flex min-h-11 items-center gap-1 text-sm text-gray-500 hover:text-[#3F4660] sm:min-h-0"
       >
         <ChevronLeft size={16} /> Tous les exposants
       </Link>
-      <div className="mb-5 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h1 className="flex items-center gap-2 text-xl font-bold text-gray-900">
-              <Building2 size={21} className="text-[#3F4660]" />
-              {exhibitor.name}
+      <PageHelp storageKey="rx-exhibitor-detail">
+        <p>
+          Fiche de l’exposant : vérifiez le nom, puis gérez ses emplacements ci-dessous.
+        </p>
+        <p>
+          Les demandes d’accréditation RX s’appuient sur ces emplacements pour proposer les bons créneaux.
+        </p>
+      </PageHelp>
+      <div className="mb-5 rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="flex items-start gap-2 text-lg font-bold text-gray-900 sm:text-xl">
+              <Building2 size={21} className="mt-0.5 shrink-0 text-[#3F4660]" />
+              <span className="break-words">{exhibitor.name}</span>
             </h1>
             <p className="mt-1 text-sm text-gray-500">
               {exhibitor.eventRef.name}
               {exhibitor.externalReference ? ` · Réf. ${exhibitor.externalReference}` : ""}
             </p>
           </div>
-          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${exhibitor.isActive ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
+          <span className={`w-fit shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${exhibitor.isActive ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
             {exhibitor.isActive ? "Actif" : "Inactif"}
           </span>
         </div>

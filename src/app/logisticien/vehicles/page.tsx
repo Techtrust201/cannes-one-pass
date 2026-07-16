@@ -12,6 +12,8 @@ import UnloadingProvidersSection from "@/components/logisticien/vehicles/Unloadi
 import PermanentsPlaceholder from "@/components/logisticien/vehicles/PermanentsPlaceholder";
 import CountingSection from "@/components/logisticien/vehicles/CountingSection";
 import RxCapacitiesSection from "@/components/logisticien/vehicles/RxCapacitiesSection";
+import PageHelp from "@/components/logisticien/help/PageHelp";
+import Glossary from "@/components/logisticien/help/Glossary";
 
 const VALID_TABS = new Set<VehiclesTab>([
   "providers",
@@ -42,13 +44,13 @@ function FluxVehiculesPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+    <div className="min-h-screen bg-gray-50 p-3 sm:p-4 md:p-8">
       <div
         className={`mx-auto ${
           tab === "capacities" ? "max-w-7xl" : "max-w-4xl"
         }`}
       >
-        <header className="mb-6">
+        <header className="mb-4 sm:mb-6">
           <div className="flex items-center gap-3 min-w-0">
             <div className="p-2.5 bg-[#4F587E] rounded-xl text-white shrink-0">
               <Truck size={24} />
@@ -58,12 +60,32 @@ function FluxVehiculesPageContent() {
                 Flux véhicules
               </h1>
               <p className="text-sm text-gray-500">
-                Prestataires de déchargement, types de véhicule et
-                accréditations permanentes.
+                Prestataires, types de véhicule, comptages et quotas.
               </p>
             </div>
           </div>
         </header>
+
+        <PageHelp storageKey="logisticien-vehicles" glossaryHref="#lexique-vehicles">
+          <p>
+            Paramétrez les <strong>types de véhicules</strong>, les prestataires de déchargement
+            et consultez les comptages.
+          </p>
+          <p>
+            Pour RX, les quotas détaillés se gèrent aussi dans{" "}
+            <strong>Planning &amp; quotas</strong> (Paramétrage RX) — l’onglet Capacités ici reste
+            disponible en complément.
+          </p>
+        </PageHelp>
+        <Glossary
+          id="lexique-vehicles"
+          title="Lexique — Flux véhicules"
+          terms={[
+            { term: "Type de véhicule", definition: "Gabarit / famille utilisé dans le formulaire (léger, lourd, etc.)." },
+            { term: "Prestataire", definition: "Société de déchargement proposée lors de la création." },
+            { term: "Capacités", definition: "Plafonds de véhicules par créneau (quotas)." },
+          ]}
+        />
 
         <VehiclesTabs active={tab} />
 

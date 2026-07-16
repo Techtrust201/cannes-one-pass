@@ -13,6 +13,7 @@ import ListeTab from "@/components/logisticien/carbon/ListeTab";
 import EventDetailTab from "@/components/logisticien/carbon/EventDetailTab";
 import ScrollToTopButton from "@/components/logisticien/ScrollToTopButton";
 import { useCarbonData } from "@/hooks/useCarbonData";
+import PageHelp from "@/components/logisticien/help/PageHelp";
 
 export type DateRange = {
   start: string;
@@ -203,6 +204,17 @@ export default function CarbonPage() {
         isSearching={isSearching}
         onRefresh={refetch}
       />
+      <div className="px-3 pt-3 md:px-6">
+        <PageHelp storageKey="logisticien-carbon">
+          <p>
+            Bilan carbone estimé à partir des trajets déclarés (ville de départ → Cannes).
+          </p>
+          <p>
+            Filtrez par période et événement, puis explorez les onglets (tableau, camembert,
+            bâtons…). Exportez PDF ou CSV depuis l’en-tête.
+          </p>
+        </PageHelp>
+      </div>
       <CarbonStats data={data} loading={loading} />
       <CarbonTabs activeTab={activeTab} onTabChange={setActiveTab} />
       <div ref={setScrollEl} className="flex-1 overflow-y-auto">

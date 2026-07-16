@@ -11,6 +11,7 @@ import StepFourLog from "@/components/accreditation/StepFourLog";
 import type { Vehicle } from "@/types";
 import { useEspaceSlug } from "@/hooks/useEspaceSlug";
 import RxNouveauWizard from "./RxNouveauWizard";
+import PageHelp from "@/components/logisticien/help/PageHelp";
 
 type FormData = {
   stepOne: {
@@ -296,6 +297,19 @@ function LogisticienNewContent() {
         <h1 className="text-xl sm:text-2xl font-bold">Nouvelle accréditation</h1>
         <p className="text-xs sm:text-sm opacity-80">Espace logisticien</p>
       </header>
+
+      <div className="mx-auto w-full max-w-3xl px-3 sm:px-6">
+        <PageHelp storageKey="logisticien-nouveau">
+          <p>
+            Créez une demande d’accréditation véhicule en 4 étapes : société → véhicule → message →
+            confirmation.
+          </p>
+          <p>
+            Un brouillon peut être proposé si vous avez déjà commencé. L’e-mail et le téléphone ne
+            sont jamais restaurés automatiquement.
+          </p>
+        </PageHelp>
+      </div>
 
       <main className="flex-1 flex flex-col items-center px-3 sm:px-6 lg:px-8 mt-2 sm:mt-4 pb-6">
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden flex flex-col lg:flex-row w-full sm:w-11/12 lg:w-3/4 lg:max-h-[65vh]">

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Loader2, MessageSquare } from "lucide-react";
+import PageHelp from "@/components/logisticien/help/PageHelp";
 
 interface TicketRow {
   id: string;
@@ -90,26 +91,26 @@ export default function TicketsListPage() {
     : tickets;
 
   return (
-    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+    <div className="p-3 sm:p-6 max-w-5xl mx-auto">
+      <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between sm:flex-wrap">
         <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2 min-w-0">
           <MessageSquare size={20} className="shrink-0" />
           <span className="truncate">Tickets de support</span>
           {espace && (
-            <span className="text-xs font-normal text-gray-500 ml-1 shrink-0">— Espace : {espace}</span>
+            <span className="text-xs font-normal text-gray-500 ml-1 shrink-0">— {espace}</span>
           )}
         </h1>
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:flex-wrap">
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher (email, société, plaque, événement…)"
-            className="border rounded-md px-2 py-1 text-sm w-64 max-w-full"
+            placeholder="Email, société, plaque…"
+            className="min-h-11 w-full border rounded-lg px-3 py-2 text-sm sm:min-h-0 sm:w-64 sm:max-w-full"
           />
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="border rounded-md px-2 py-1 text-sm"
+            className="min-h-11 w-full border rounded-lg px-3 py-2 text-sm sm:min-h-0 sm:w-auto"
           >
             <option value="">Tous statuts</option>
             <option value="OPEN">Nouveaux</option>
@@ -119,6 +120,15 @@ export default function TicketsListPage() {
           </select>
         </div>
       </div>
+
+      <PageHelp storageKey="logisticien-tickets">
+        <p>
+          Messages envoyés par les exposants / transporteurs via le formulaire d’aide.
+        </p>
+        <p>
+          Ouvrez un ticket pour répondre, changer le statut (Nouveau → En cours → Répondu → Fermé).
+        </p>
+      </PageHelp>
 
       {visibleTickets.length === 0 ? (
         <p className="text-sm text-gray-500">Aucun ticket à afficher.</p>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { AccreditationWizard } from "@/components/accreditation/AccreditationWizard";
+import PageHelp from "@/components/logisticien/help/PageHelp";
 
 interface EspaceOption {
   id: string;
@@ -69,12 +70,26 @@ export default function RxNouveauWizard() {
   }
 
   return (
-    <AccreditationWizard
-      orgSlug="rx"
-      formTemplate="rx"
-      organizationId={orgId}
-      storageKey="log_formData:rx"
-      mode="logisticien"
-    />
+    <div className="min-h-screen">
+      <div className="mx-auto w-full max-w-3xl px-3 pt-3 sm:px-6">
+        <PageHelp storageKey="logisticien-nouveau-rx">
+          <p>
+            Création d’une demande RX : choisissez l’exposant et l’emplacement, puis les créneaux
+            de montage / démontage proposés par le planning.
+          </p>
+          <p>
+            Les horaires viennent du planning ; les quotas n’apparaissent que s’ils ont été
+            configurés (sinon : illimité).
+          </p>
+        </PageHelp>
+      </div>
+      <AccreditationWizard
+        orgSlug="rx"
+        formTemplate="rx"
+        organizationId={orgId}
+        storageKey="log_formData:rx"
+        mode="logisticien"
+      />
+    </div>
   );
 }

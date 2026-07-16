@@ -5,6 +5,7 @@ import { Archive, Search, RotateCcw, Loader2, ChevronLeft, ChevronRight } from "
 import { useRouter, useSearchParams } from "next/navigation";
 import StatusPill from "@/components/logisticien/StatusPill";
 import type { Accreditation } from "@/types";
+import PageHelp from "@/components/logisticien/help/PageHelp";
 
 export default function ArchivesPage() {
   const router = useRouter();
@@ -72,7 +73,7 @@ export default function ArchivesPage() {
   const pageData = filtered.slice((currentPage - 1) * perPage, currentPage * perPage);
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+    <div className="min-h-screen bg-gray-50 p-3 sm:p-4 md:p-8">
       {/* Header */}
       <div className="max-w-7xl mx-auto mb-6">
         <div className="flex items-center gap-3 mb-4">
@@ -80,12 +81,21 @@ export default function ArchivesPage() {
             <Archive size={24} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Archives</h1>
+            <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Archives</h1>
             <p className="text-sm text-gray-500">
               {filtered.length} accréditation{filtered.length !== 1 ? "s" : ""} archivée{filtered.length !== 1 ? "s" : ""}
             </p>
           </div>
         </div>
+
+        <PageHelp storageKey="logisticien-archives">
+          <p>
+            Demandes mises de côté. Elles ne figurent plus dans la liste principale.
+          </p>
+          <p>
+            Utilisez <strong>Désarchiver</strong> pour les ramener dans la liste active.
+          </p>
+        </PageHelp>
 
         {/* Search */}
         <div className="relative max-w-md">
@@ -94,7 +104,7 @@ export default function ArchivesPage() {
             type="text"
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            placeholder="Rechercher par entreprise, plaque, événement..."
+            placeholder="Entreprise, plaque, événement…"
             className="w-full pl-9 pr-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-[#4F587E] focus:border-transparent"
           />
         </div>

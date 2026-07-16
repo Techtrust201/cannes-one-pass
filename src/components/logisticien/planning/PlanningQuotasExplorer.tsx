@@ -9,12 +9,17 @@ import {
   Loader2,
   Plus,
   RefreshCw,
+  SlidersHorizontal,
   Trash2,
 } from "lucide-react";
 import { useEspaceSlug } from "@/hooks/useEspaceSlug";
 import { usePermissions } from "@/hooks/usePermissions";
 import { formatCapacityScopeLabel } from "@/lib/rx-capacity-scope";
 import { withEspaceQuery } from "@/lib/url";
+import PageHelp from "@/components/logisticien/help/PageHelp";
+import FieldHint from "@/components/logisticien/help/FieldHint";
+import NumberedSteps from "@/components/logisticien/help/NumberedSteps";
+import Glossary from "@/components/logisticien/help/Glossary";
 
 type EventOption = { id: string; name: string; startDate: string; endDate: string };
 type ZoneOption = { code: string; label: string };
@@ -81,7 +86,50 @@ const TABS: { id: TabId; label: string }[] = [
 
 const PHASES = ["MONTAGE", "DEMONTAGE"] as const;
 const SCOPES = ["EVENT", "PORT", "SECTOR", "SPACE"] as const;
+const SCOPE_LABELS: Record<(typeof SCOPES)[number], string> = {
+  EVENT: "Tout l’événement",
+  PORT: "Port",
+  SECTOR: "Secteur",
+  SPACE: "Espace logistique",
+};
 const SLICE_OPTIONS = [15, 30, 60, 120] as const;
+
+const PLANNING_GLOSSARY = [
+  {
+    term: "Horaire",
+    definition:
+      "Plage autorisée (date + heures) pendant laquelle les véhicules peuvent venir pour le montage ou le démontage.",
+  },
+  {
+    term: "Quota",
+    definition:
+      "Nombre maximum de véhicules autorisés sur un créneau. Sans quota, le créneau est « Illimité ».",
+  },
+  {
+    term: "Illimité",
+    definition:
+      "Aucun plafond de véhicules n’est défini. Les dates et horaires restent contrôlés par le planning.",
+  },
+  {
+    term: "Hors planning",
+    definition:
+      "Quota qui ne correspond plus à un horaire actif. À corriger : il n’est plus utilisable tant que le conflit n’est pas résolu.",
+  },
+  {
+    term: "Véhicule léger / lourd",
+    definition:
+      "Deux familles de véhicules (léger = utilitaires/voitures ; lourd = poids lourds). Chaque famille a sa propre capacité.",
+  },
+  {
+    term: "Périmètre",
+    definition:
+      "Niveau d’application de l’horaire ou du quota : événement, port, secteur, espace, ou un emplacement précis.",
+  },
+];
+
+function familyLabel(family: "LIGHT" | "HEAVY"): string {
+  return family === "LIGHT" ? "Léger" : "Lourd";
+}
 
 const inputClass =
   "rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#3F4660] focus:ring-1 focus:ring-[#3F4660]";
@@ -157,6 +205,7 @@ export default function PlanningQuotasExplorer({
   const [actionMsg, setActionMsg] = useState("");
 
   const [showCreateRule, setShowCreateRule] = useState(false);
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const loadRules = useCallback(async () => {
@@ -353,86 +402,150 @@ export default function PlanningQuotasExplorer({
   }
 
   return (
-    <div className="mx-auto w-full max-w-7xl">
-      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="flex items-center gap-2 text-xl font-bold text-gray-900">
-            <CalendarDays size={21} className="text-[#3F4660]" />
+    <div className="mx-auto w-full max-w-7xl px-0.5">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="flex items-center gap-2 text-lg font-bold text-gray-900 sm:text-xl">
+            <CalendarDays size={21} className="shrink-0 text-[#3F4660]" />
             Planning &amp; quotas
           </h1>
           <p className="mt-1 text-sm text-gray-500">
-            Horaires logistiques et capacités véhicule unifiés pour RX.
+            Définissez quand les véhicules peuvent venir, puis combien au maximum.
           </p>
         </div>
         <button
           type="button"
           onClick={() => setRefreshKey((k) => k + 1)}
-          className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 sm:min-h-0"
         >
           <RefreshCw size={14} /> Actualiser
         </button>
       </div>
 
+      <PageHelp storageKey="rx-planning" glossaryHref="#lexique-planning">
+        <p>
+          Cette page définit <strong>quand</strong> les véhicules peuvent venir (horaires) et{" "}
+          <strong>combien</strong> (quotas).
+        </p>
+        <p>
+          Sans quota → affichage « Illimité » : les dates restent contrôlées, pas le nombre de véhicules.
+        </p>
+        <p>
+          Parcours simple : choisir l’événement et le montage/démontage → consulter le calendrier →
+          ajuster les horaires → générer les quotas.
+        </p>
+      </PageHelp>
+
+      <Glossary id="lexique-planning" title="Lexique — Planning & quotas" terms={PLANNING_GLOSSARY} />
+
       <div className="mb-4 rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
-          <select value={eventId} onChange={(e) => setEventId(e.target.value)} className={inputClass}>
-            {events.length === 0 && <option value="">Aucun événement</option>}
-            {events.map((e) => (
-              <option key={e.id} value={e.id}>{e.name}</option>
-            ))}
-          </select>
-          <select
-            value={phase}
-            onChange={(e) => setPhase(e.target.value as "MONTAGE" | "DEMONTAGE")}
-            className={inputClass}
-          >
-            {PHASES.map((p) => (
-              <option key={p} value={p}>{p === "MONTAGE" ? "Montage" : "Démontage"}</option>
-            ))}
-          </select>
-          <select value={scopeFilter} onChange={(e) => setScopeFilter(e.target.value)} className={inputClass}>
-            <option value="">Tous scopes</option>
-            {SCOPES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-          <input placeholder="Port" value={port} onChange={(e) => setPort(e.target.value)} className={inputClass} />
-          <input placeholder="Secteur" value={sector} onChange={(e) => setSector(e.target.value)} className={inputClass} />
-          <input placeholder="Recherche…" value={q} onChange={(e) => setQ(e.target.value)} className={inputClass} />
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-gray-700">Événement</span>
+            <select value={eventId} onChange={(e) => setEventId(e.target.value)} className={`${inputClass} w-full`}>
+              {events.length === 0 && <option value="">Aucun événement</option>}
+              {events.map((e) => (
+                <option key={e.id} value={e.id}>{e.name}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-gray-700">Phase</span>
+            <select
+              value={phase}
+              onChange={(e) => setPhase(e.target.value as "MONTAGE" | "DEMONTAGE")}
+              className={`${inputClass} w-full`}
+            >
+              {PHASES.map((p) => (
+                <option key={p} value={p}>{p === "MONTAGE" ? "Montage" : "Démontage"}</option>
+              ))}
+            </select>
+            <FieldHint>Montage = installation ; Démontage = reprise / départ.</FieldHint>
+          </label>
         </div>
-        <div className="mt-2 grid gap-2 sm:grid-cols-2">
-          <select
-            value={selectedScopeKey}
-            onChange={(e) => setSelectedScopeKey(e.target.value)}
-            className={inputClass}
-          >
-            <option value="">Scope quotas…</option>
-            {scopeOptions.map((o) => (
-              <option key={o.value} value={o.value}>{o.label} ({o.value})</option>
-            ))}
-          </select>
-          <select value={zone} onChange={(e) => setZone(e.target.value)} className={inputClass}>
-            {zones.map((z) => (
-              <option key={z.code} value={z.code}>{z.label}</option>
-            ))}
-          </select>
+
+        <button
+          type="button"
+          onClick={() => setShowMoreFilters((v) => !v)}
+          className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 sm:w-auto sm:min-h-0"
+        >
+          <SlidersHorizontal size={15} />
+          {showMoreFilters ? "Masquer les filtres" : "Plus de filtres"}
+        </button>
+
+        {showMoreFilters && (
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium text-gray-700">Type de périmètre</span>
+              <select value={scopeFilter} onChange={(e) => setScopeFilter(e.target.value)} className={`${inputClass} w-full`}>
+                <option value="">Tous</option>
+                {SCOPES.map((s) => (
+                  <option key={s} value={s}>{SCOPE_LABELS[s]}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium text-gray-700">Port</span>
+              <input placeholder="ex. PORT_CANTO" value={port} onChange={(e) => setPort(e.target.value)} className={`${inputClass} w-full`} />
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium text-gray-700">Secteur</span>
+              <input placeholder="ex. POWER" value={sector} onChange={(e) => setSector(e.target.value)} className={`${inputClass} w-full`} />
+            </label>
+            <label className="block text-sm sm:col-span-2 lg:col-span-3">
+              <span className="mb-1 block font-medium text-gray-700">Recherche</span>
+              <input placeholder="Périmètre, catégorie…" value={q} onChange={(e) => setQ(e.target.value)} className={`${inputClass} w-full`} />
+            </label>
+          </div>
+        )}
+
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-gray-700">Périmètre des quotas</span>
+            <select
+              value={selectedScopeKey}
+              onChange={(e) => setSelectedScopeKey(e.target.value)}
+              className={`${inputClass} w-full`}
+            >
+              <option value="">Choisir un périmètre…</option>
+              {scopeOptions.map((o) => (
+                <option key={o.value} value={o.value} title={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            <FieldHint>Le périmètre indique où s’applique le plafond (port, secteur, etc.).</FieldHint>
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-gray-700">Zone logistique</span>
+            <select value={zone} onChange={(e) => setZone(e.target.value)} className={`${inputClass} w-full`}>
+              {zones.map((z) => (
+                <option key={z.code} value={z.code}>{z.label}</option>
+              ))}
+            </select>
+            <FieldHint>Zone de contrôle associée aux quotas (ex. La Bocca).</FieldHint>
+          </label>
         </div>
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-1 border-b border-gray-200">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTab(t.id)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
-              tab === t.id
-                ? "border-[#3F4660] text-[#3F4660]"
-                : "border-transparent text-gray-500 hover:text-gray-800"
-            }`}
-          >
-            {t.label}
-            {t.id === "anomalies" && anomalies.length > 0 ? ` (${anomalies.length})` : ""}
-          </button>
-        ))}
+      <div className="mb-4 -mx-0.5 overflow-x-auto border-b border-gray-200">
+        <div className="flex min-w-max gap-1 px-0.5">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTab(t.id)}
+              className={`min-h-11 shrink-0 px-4 py-2 text-sm font-medium border-b-2 -mb-px sm:min-h-0 ${
+                tab === t.id
+                  ? "border-[#3F4660] text-[#3F4660]"
+                  : "border-transparent text-gray-500 hover:text-gray-800"
+              }`}
+            >
+              {t.label}
+              {t.id === "anomalies" && anomalies.length > 0 ? ` (${anomalies.length})` : ""}
+            </button>
+          ))}
+        </div>
       </div>
 
       {rulesError && (
@@ -576,25 +689,38 @@ export default function PlanningQuotasExplorer({
 
       {tab === "quotas" && (
         <section className="space-y-4">
+          <NumberedSteps
+            steps={[
+              { title: "Choisir le périmètre", description: "Port, secteur ou espace ci-dessus." },
+              { title: "Découper", description: "Découpez la plage en créneaux (15 à 120 min)." },
+              { title: "Capacités", description: "Indiquez le max léger et lourd." },
+              { title: "Confirmer", description: "Aperçu puis confirmation — rien n’est créé sans ça." },
+            ]}
+          />
           {!selectedScopeKey ? (
-            <p className="text-sm text-gray-500">Sélectionnez un scope pour gérer les quotas.</p>
+            <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+              Choisissez d’abord un <strong>périmètre des quotas</strong> dans les filtres ci-dessus.
+            </p>
           ) : (
             <>
               <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
                 <h2 className="mb-1 flex items-center gap-2 font-semibold text-gray-900">
                   <Clock size={16} className="text-[#3F4660]" />
-                  Plages planning — {formatCapacityScopeLabel(selectedScopeKey)}
+                  Horaires du planning — {formatCapacityScopeLabel(selectedScopeKey)}
                 </h2>
+                <p className="mb-2 text-xs text-gray-500">
+                  Ces plages viennent de l’onglet Horaires. Les quotas se calquent dessus.
+                </p>
                 {gridLoading ? (
                   <LoaderRow />
                 ) : planningRanges.length === 0 ? (
-                  <p className="text-sm text-gray-500">Aucune plage pour ce scope / phase.</p>
+                  <p className="text-sm text-gray-500">Aucune plage pour ce périmètre / phase.</p>
                 ) : (
                   <ul className="mt-2 space-y-1 text-sm text-gray-700">
                     {planningRanges.map((r) => (
-                      <li key={r.ruleId} className="font-mono">
+                      <li key={r.ruleId} className="rounded-lg bg-gray-50 px-3 py-2 font-mono text-xs sm:text-sm">
                         {r.date} {r.startTime}–{r.endTime}
-                        {!r.isActive && <span className="ml-2 text-amber-600">inactif</span>}
+                        {!r.isActive && <span className="ml-2 font-sans text-amber-600">inactif</span>}
                       </li>
                     ))}
                   </ul>
@@ -607,55 +733,60 @@ export default function PlanningQuotasExplorer({
                     <Gauge size={16} className="text-[#3F4660]" />
                     Générer des quotas
                   </h2>
-                  <div className="grid gap-2 sm:grid-cols-4">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <label className="text-sm">
-                      Découpe
+                      <span className="font-medium text-gray-700">Découpe</span>
                       <select
                         value={sliceMin}
                         onChange={(e) => setSliceMin(Number(e.target.value) as (typeof SLICE_OPTIONS)[number])}
                         className={`${inputClass} mt-1 w-full`}
                       >
                         {SLICE_OPTIONS.map((m) => (
-                          <option key={m} value={m}>{m} min</option>
+                          <option key={m} value={m}>{m} minutes</option>
                         ))}
                       </select>
+                      <FieldHint>Ex. 60 min découpe 08:00–12:00 en 4 créneaux d’une heure.</FieldHint>
                     </label>
                     <label className="text-sm">
-                      Capacité LIGHT
+                      <span className="font-medium text-gray-700">Max. véhicules légers</span>
                       <input
                         value={lightCap}
                         onChange={(e) => setLightCap(e.target.value)}
+                        inputMode="numeric"
                         className={`${inputClass} mt-1 w-full`}
                       />
+                      <FieldHint>Laisser vide pour ne pas créer de quota léger.</FieldHint>
                     </label>
                     <label className="text-sm">
-                      Capacité HEAVY
+                      <span className="font-medium text-gray-700">Max. véhicules lourds</span>
                       <input
                         value={heavyCap}
                         onChange={(e) => setHeavyCap(e.target.value)}
+                        inputMode="numeric"
                         className={`${inputClass} mt-1 w-full`}
                       />
+                      <FieldHint>Laisser vide pour ne pas créer de quota lourd.</FieldHint>
                     </label>
-                    <div className="flex items-end gap-2">
+                    <div className="flex flex-col gap-2 sm:justify-end">
                       <button
                         type="button"
                         onClick={buildPreview}
-                        className="rounded-lg border border-gray-200 px-3 py-2 text-sm hover:bg-gray-50"
+                        className="min-h-11 rounded-lg border border-gray-200 px-3 py-2 text-sm hover:bg-gray-50 sm:min-h-0"
                       >
-                        Aperçu
+                        1. Voir l’aperçu
                       </button>
                       <button
                         type="button"
                         disabled={!previewSlots.length || generating}
                         onClick={() => void confirmGenerate()}
-                        className="rounded-lg bg-[#3F4660] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                        className="min-h-11 rounded-lg bg-[#3F4660] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50 sm:min-h-0"
                       >
-                        {generating ? "…" : "Confirmer"}
+                        {generating ? "…" : "2. Confirmer la création"}
                       </button>
                     </div>
                   </div>
                   {previewSlots.length > 0 && (
-                    <p className="mt-2 text-xs text-gray-500">
+                    <p className="mt-3 rounded-lg bg-[#3F4660]/5 px-3 py-2 text-xs text-[#3F4660]">
                       Aperçu : {previewSlots.slice(0, 5).map((s) => `${s.date} ${s.startTime}-${s.endTime}`).join(", ")}
                       {previewSlots.length > 5 ? ` … (+${previewSlots.length - 5})` : ""}
                     </p>
@@ -664,7 +795,67 @@ export default function PlanningQuotasExplorer({
                 </div>
               )}
 
-              <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm overflow-x-auto">
+              {/* Mobile cards */}
+              <div className="space-y-2 md:hidden">
+                {quotas.map((q) => (
+                  <article key={q.id} className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-semibold text-gray-900">{q.date}</p>
+                        <p className="font-mono text-xs text-gray-600">{q.startTime}–{q.endTime}</p>
+                      </div>
+                      <StatusBadge status={q.status} />
+                    </div>
+                    <p className="mt-2 text-sm text-gray-700">
+                      {familyLabel(q.vehicleFamily)} ·{" "}
+                      {q.hasQuota ? (
+                        <>
+                          {q.capacity} places · reste {q.remaining}
+                        </>
+                      ) : (
+                        <span className="text-gray-400">Illimité</span>
+                      )}
+                    </p>
+                    {canWriteQuotas && q.hasQuota && (
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          type="button"
+                          className="min-h-11 flex-1 rounded-lg border px-3 text-sm text-[#3F4660]"
+                          onClick={() => {
+                            const next = window.prompt("Nouvelle capacité", String(q.capacity));
+                            if (!next) return;
+                            const cap = Number(next);
+                            if (!Number.isInteger(cap) || cap < 1) return;
+                            void patchQuotaCapacity(q.id, cap).catch((err) =>
+                              setActionMsg(err instanceof Error ? err.message : "Erreur")
+                            );
+                          }}
+                        >
+                          Modifier
+                        </button>
+                        <button
+                          type="button"
+                          className="min-h-11 flex-1 rounded-lg border border-red-200 px-3 text-sm text-red-600"
+                          onClick={() => {
+                            void deleteQuota(q.id).catch((err) =>
+                              setActionMsg(err instanceof Error ? err.message : "Erreur")
+                            );
+                          }}
+                        >
+                          Supprimer
+                        </button>
+                      </div>
+                    )}
+                  </article>
+                ))}
+                {quotas.length === 0 && !gridLoading && (
+                  <p className="rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-500">
+                    Aucun quota — sans capacité le créneau reste <strong>Illimité</strong>.
+                  </p>
+                )}
+              </div>
+
+              <div className="hidden overflow-x-auto rounded-xl border border-gray-200 bg-white p-4 shadow-sm md:block">
                 <table className="min-w-full text-left text-sm">
                   <thead className="border-b text-xs uppercase text-gray-500">
                     <tr>
@@ -682,7 +873,7 @@ export default function PlanningQuotasExplorer({
                       <tr key={q.id} className="border-b border-gray-50">
                         <td className="px-2 py-2">{q.date}</td>
                         <td className="px-2 py-2 font-mono">{q.startTime}–{q.endTime}</td>
-                        <td className="px-2 py-2">{q.vehicleFamily}</td>
+                        <td className="px-2 py-2">{familyLabel(q.vehicleFamily)}</td>
                         <td className="px-2 py-2">
                           {q.hasQuota ? q.capacity : <span className="text-gray-400">Illimité</span>}
                         </td>
@@ -841,29 +1032,54 @@ function CreateRuleForm({
   };
 
   return (
-    <form onSubmit={onSubmit} className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">
-      <div className="grid gap-2 sm:grid-cols-3">
-        <select value={scope} onChange={(e) => setScope(e.target.value as (typeof SCOPES)[number])} className={inputClass}>
-          {SCOPES.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <input placeholder="Port" value={portCode} onChange={(e) => setPortCode(e.target.value)} className={inputClass} />
-        <input placeholder="Secteur" value={sectorCode} onChange={(e) => setSectorCode(e.target.value)} className={inputClass} />
-        <input placeholder="Espace" value={spaceCode} onChange={(e) => setSpaceCode(e.target.value)} className={inputClass} />
-        <input placeholder="Catégorie" value={categoryCode} onChange={(e) => setCategoryCode(e.target.value)} className={inputClass} />
-        <input type="date" required value={date} onChange={(e) => setDate(e.target.value)} className={inputClass} />
-        <input type="time" required value={startTime} onChange={(e) => setStartTime(e.target.value)} className={inputClass} />
-        <input type="time" required value={endTime} onChange={(e) => setEndTime(e.target.value)} className={inputClass} />
+    <form onSubmit={onSubmit} className="mt-4 space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-3 sm:p-4">
+      <p className="text-sm font-semibold text-gray-900">Nouvelle plage horaire</p>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <label className="text-sm">
+          <span className="font-medium text-gray-700">Périmètre</span>
+          <select value={scope} onChange={(e) => setScope(e.target.value as (typeof SCOPES)[number])} className={`${inputClass} mt-1 w-full`}>
+            {SCOPES.map((s) => <option key={s} value={s}>{SCOPE_LABELS[s]}</option>)}
+          </select>
+        </label>
+        <label className="text-sm">
+          <span className="font-medium text-gray-700">Port</span>
+          <input placeholder="si périmètre Port / Secteur" value={portCode} onChange={(e) => setPortCode(e.target.value)} className={`${inputClass} mt-1 w-full`} />
+        </label>
+        <label className="text-sm">
+          <span className="font-medium text-gray-700">Secteur</span>
+          <input placeholder="si périmètre Secteur" value={sectorCode} onChange={(e) => setSectorCode(e.target.value)} className={`${inputClass} mt-1 w-full`} />
+        </label>
+        <label className="text-sm">
+          <span className="font-medium text-gray-700">Espace logistique</span>
+          <input placeholder="si périmètre Espace" value={spaceCode} onChange={(e) => setSpaceCode(e.target.value)} className={`${inputClass} mt-1 w-full`} />
+        </label>
+        <label className="text-sm">
+          <span className="font-medium text-gray-700">Catégorie</span>
+          <input placeholder="ALL, TERRE…" value={categoryCode} onChange={(e) => setCategoryCode(e.target.value)} className={`${inputClass} mt-1 w-full`} />
+        </label>
+        <label className="text-sm">
+          <span className="font-medium text-gray-700">Date</span>
+          <input type="date" required value={date} onChange={(e) => setDate(e.target.value)} className={`${inputClass} mt-1 w-full`} />
+        </label>
+        <label className="text-sm">
+          <span className="font-medium text-gray-700">Début</span>
+          <input type="time" required value={startTime} onChange={(e) => setStartTime(e.target.value)} className={`${inputClass} mt-1 w-full`} />
+        </label>
+        <label className="text-sm">
+          <span className="font-medium text-gray-700">Fin</span>
+          <input type="time" required value={endTime} onChange={(e) => setEndTime(e.target.value)} className={`${inputClass} mt-1 w-full`} />
+        </label>
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row">
         <button
           type="submit"
           disabled={saving}
-          className="rounded-lg bg-[#3F4660] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          className="min-h-11 rounded-lg bg-[#3F4660] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 sm:min-h-0"
         >
-          {saving ? "…" : "Créer"}
+          {saving ? "…" : "Créer la plage"}
         </button>
-        <button type="button" onClick={onClose} className="rounded-lg border px-3 py-2 text-sm">
+        <button type="button" onClick={onClose} className="min-h-11 rounded-lg border px-4 py-2 text-sm sm:min-h-0">
           Annuler
         </button>
       </div>

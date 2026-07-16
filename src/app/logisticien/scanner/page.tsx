@@ -38,6 +38,8 @@ import AccreditationScanModal, {
   type ScanActionResult,
 } from "@/components/logisticien/AccreditationScanModal";
 import type { AccreditationScanSummary, ScanType } from "@/lib/scan-types";
+import PageHelp from "@/components/logisticien/help/PageHelp";
+import NumberedSteps from "@/components/logisticien/help/NumberedSteps";
 import { parseQrPayload } from "@/lib/qr-scan-parse";
 
 const READER_ID = "qr-reader";
@@ -768,7 +770,7 @@ function ScannerInner() {
       : null;
 
   return (
-    <div className="max-w-md mx-auto p-4 sm:p-6 space-y-4">
+    <div className="max-w-md mx-auto p-3 sm:p-6 space-y-4">
       <ToastStack toasts={toasts} />
 
       <div className="text-center">
@@ -780,6 +782,24 @@ function ScannerInner() {
           Sélectionnez votre zone, scannez, puis validez l&apos;action.
         </p>
       </div>
+
+      <PageHelp storageKey="logisticien-scanner">
+        <p>
+          Outil terrain : scannez un <strong>QR code</strong> ou une <strong>plaque</strong> pour
+          retrouver la demande et enregistrer entrée / sortie.
+        </p>
+        <p>
+          Choisissez d’abord votre <strong>zone de poste</strong> — sans zone, le scan est bloqué.
+        </p>
+      </PageHelp>
+
+      <NumberedSteps
+        steps={[
+          { title: "Zone", description: "Indiquez où vous êtes posté." },
+          { title: "QR ou plaque", description: "Choisissez l’onglet adapté." },
+          { title: "Valider", description: "Confirmez l’action proposée." },
+        ]}
+      />
 
       {/* Zone de poste */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">

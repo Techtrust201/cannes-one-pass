@@ -21,7 +21,6 @@ import AccreditationFormCard from "@/components/logisticien/AccreditationFormCar
 import AutoRefreshOnSSE from "@/components/logisticien/AutoRefreshOnSSE";
 import NoEspaceState from "@/components/logisticien/NoEspaceState";
 import type { SortDirection } from "@/components/ui/table";
-import { DEFAULT_VEHICLE_TYPES } from "@/lib/vehicle-type-defaults";
 import {
   mapDbVehicleType,
   mapDefaultVehicleTypes,
@@ -32,6 +31,8 @@ import {
   paginate,
   type DashboardSortKey,
 } from "@/lib/accreditations-dashboard";
+import PageHelp from "@/components/logisticien/help/PageHelp";
+import Glossary from "@/components/logisticien/help/Glossary";
 
 /* ---------- Page Dashboard ---------- */
 export default async function LogisticienDashboard(props: {
@@ -213,6 +214,25 @@ export default async function LogisticienDashboard(props: {
       <AutoRefreshOnSSE />
 
       <div className="flex-1 px-2 sm:px-4 md:px-3 pb-4 pt-2 md:pt-1 min-h-0 flex flex-col">
+        <PageHelp storageKey="logisticien-liste" glossaryHref="#lexique-liste">
+          <p>
+            Liste des <strong>demandes d’accréditation</strong> de l’espace sélectionné.
+          </p>
+          <p>
+            Utilisez la recherche et les filtres pour retrouver une demande, puis ouvrez-la pour
+            valider, modifier ou envoyer le QR code.
+          </p>
+        </PageHelp>
+        <Glossary
+          id="lexique-liste"
+          title="Lexique — Statuts"
+          terms={[
+            { term: "Nouveau", definition: "Demande reçue, pas encore traitée." },
+            { term: "Validée", definition: "Demande acceptée, en attente d’entrée sur site." },
+            { term: "Entrée / Sortie", definition: "Véhicule entré ou sorti de la zone." },
+            { term: "Refusé / Absent", definition: "Demande refusée, ou véhicule marqué absent." },
+          ]}
+        />
         <FilterBar searchParams={paramsObj} statusOptions={statusOptions} zoneOptions={zoneOptions} vehicleTypeOptions={vehicleTypeOptions} />
         <div className="grid md:grid-cols-[1fr_minmax(300px,380px)] md:gap-3 gap-4 flex-1 min-h-0 [&>*]:min-h-0">
           <AccreditationTable

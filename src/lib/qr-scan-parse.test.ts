@@ -16,11 +16,20 @@ describe("parseQrPayload", () => {
     expect(parseQrPayload(JSON.stringify({ reference: TOKEN }))).toEqual({ token: TOKEN });
   });
 
-  it("reconnaît l'URL officielle /logisticien/{id} (PDF validé)", () => {
+  it("reconnaît l'URL officielle /logisticien/{id} (PDF validé) + phase/vehicleId", () => {
     expect(
       parseQrPayload(`https://cannes-one-pass.app/logisticien/${ID}?phase=livraison`)
-    ).toEqual({ id: ID });
+    ).toEqual({ id: ID, phase: "livraison" });
+    expect(
+      parseQrPayload(`https://x.app/logisticien/${ID}?phase=reprise&vehicleId=12`)
+    ).toEqual({ id: ID, phase: "reprise", vehicleId: 12 });
     expect(parseQrPayload(`https://x.app/logisticien/${ID}`)).toEqual({ id: ID });
+  });
+
+  it("reconnaît le JSON { id, vehicleId, phase }", () => {
+    expect(
+      parseQrPayload(JSON.stringify({ id: ID, vehicleId: 5, phase: "DEMONTAGE" }))
+    ).toEqual({ id: ID, vehicleId: 5, phase: "reprise" });
   });
 
   it("reconnaît l'URL publique /suivi/{token} (PDF demande non validée)", () => {

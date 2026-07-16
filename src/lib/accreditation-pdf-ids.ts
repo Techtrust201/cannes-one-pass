@@ -130,6 +130,7 @@ async function renderAccreditationPage(
     standId: string | null;
     zone: { label: string; address: string; latitude: number; longitude: number } | null;
     vehicles: Array<{
+      id: number;
       plate: string | null;
       size: string;
       phoneCode: string;
@@ -139,6 +140,7 @@ async function renderAccreditationPage(
       city: string;
       vehicleType: string | null;
       trailerPlate: string | null;
+      logisticsRole?: "MONTAGE" | "DEMONTAGE" | "BOTH" | null;
     }>;
   },
   vehicleTypes: VehicleTypeData[],
@@ -489,23 +491,44 @@ async function renderAccreditationPage(
 
   // Mode officiel : QR Montage / Démontage (URL de contrôle d'accès), libellés
   // explicites + créneau, conditionnés par les éventuels skip.
+  // Si des Vehicle physiques existent avec logisticsRole, rattacher vehicleId.
   const livLabel = ctx.livDate ? ` ${formatDateTime(ctx.livDate, lang)}` : "";
   const repLabel = ctx.repDate ? ` ${formatDateTime(ctx.repDate, lang)}` : "";
+  const vehicles = acc.vehicles ?? [];
+  const montageVehicle = vehicles.find(
+    (veh) => veh.logisticsRole === "MONTAGE" || veh.logisticsRole === "BOTH"
+  );
+  const demontageVehicle = vehicles.find(
+    (veh) => veh.logisticsRole === "DEMONTAGE" || veh.logisticsRole === "BOTH"
+  );
   const qrDefs: { label: string; url: string }[] = [];
   if (!skipMontage) {
     qrDefs.push({
       label: `${pdfT.qrSetup}${livLabel}`,
-      url: accessQrPayload(baseUrl, acc.id, "livraison"),
+      url: accessQrPayload(
+        baseUrl,
+        acc.id,
+        "livraison",
+        montageVehicle?.id ?? null
+      ),
     });
   }
   if (!skipDemontage) {
     qrDefs.push({
       label: `${pdfT.qrTeardown}${repLabel}`,
-      url: accessQrPayload(baseUrl, acc.id, "reprise"),
+      url: accessQrPayload(
+        baseUrl,
+        acc.id,
+        "reprise",
+        demontageVehicle?.id ?? null
+      ),
     });
   }
   if (qrDefs.length === 0) {
-    qrDefs.push({ label: pdfT.qrVehicle, url: accessQrPayload(baseUrl, acc.id) });
+    qrDefs.push({
+      label: pdfT.qrVehicle,
+      url: accessQrPayload(baseUrl, acc.id, undefined, vehicles[0]?.id ?? null),
+    });
   }
 
   let qrX = width - 50 - QR_SIZE;

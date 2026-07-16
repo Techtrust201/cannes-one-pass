@@ -63,6 +63,7 @@ async function traceInfo(accreditationId: string, description: string): Promise<
 }
 
 interface MinimalVehicle {
+  id?: number;
   plate: string | null;
   trailerPlate: string | null;
   vehicleType: string | null;
@@ -72,6 +73,7 @@ interface MinimalVehicle {
   date: string;
   time: string;
   city: string;
+  logisticsRole?: "MONTAGE" | "DEMONTAGE" | "BOTH" | null;
 }
 
 function buildHtml(
@@ -246,7 +248,8 @@ export async function sendAccreditationCreationEmail(params: {
       return "failed";
     }
 
-    const vehicle = acc.vehicles[0] as MinimalVehicle | undefined;
+    const vehicles = (acc.vehicles ?? []) as MinimalVehicle[];
+    const vehicle = vehicles[0];
     const lang: LangCode = isValidLang(acc.language ?? "")
       ? (acc.language as LangCode)
       : "fr";
@@ -273,19 +276,31 @@ export async function sendAccreditationCreationEmail(params: {
 
     // Identité véhicule pour le sujet (évite la confusion si plusieurs e-mails).
     const vehicleIdentity =
-      vehicle?.plate?.trim() ||
-      vehicle?.vehicleType?.trim() ||
-      vehicle?.size?.trim() ||
-      "Véhicule";
+      vehicles.length > 1
+        ? `${vehicles.length} véhicules`
+        : vehicle?.plate?.trim() ||
+          vehicle?.vehicleType?.trim() ||
+          vehicle?.size?.trim() ||
+          "Véhicule";
 
-    // QR strictement compatible avec le scanner Lot 1 (resolveAccreditationId
-    // lit JSON.parse(text).id) et avec les QR PDF existants.
-    const qrPng = await QRCode.toBuffer(idQrPayload(acc.id), {
-      errorCorrectionLevel: "M",
-      width: 320,
-      margin: 2,
-      type: "png",
-    });
+    // QR principal : premier véhicule (compatibilité scanner) + vehicleId si dispo.
+    const qrPng = await QRCode.toBuffer(
+      idQrPayload(acc.id, {
+        vehicleId: vehicle?.id ?? null,
+        phase:
+          vehicle?.logisticsRole === "DEMONTAGE"
+            ? "DEMONTAGE"
+            : vehicle?.logisticsRole === "MONTAGE"
+              ? "MONTAGE"
+              : undefined,
+      }),
+      {
+        errorCorrectionLevel: "M",
+        width: 320,
+        margin: 2,
+        type: "png",
+      }
+    );
 
     // « validée » = accréditation créée par un agent habilité (espace
     // logisticien) -> tout statut autre que NOUVEAU. NOUVEAU = demande publique

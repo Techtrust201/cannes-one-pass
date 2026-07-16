@@ -19,17 +19,40 @@ export function trackingQrPayload(baseUrl: string, token: string): string {
   return `${stripTrailingSlash(baseUrl)}/suivi/${token}`;
 }
 
-/** QR d'une accréditation officielle → URL /logisticien/{id}[?phase=...]. */
+/** QR d'une accréditation officielle → URL /logisticien/{id}[?phase=&vehicleId=]. */
 export function accessQrPayload(
   baseUrl: string,
   id: string,
-  phase?: "livraison" | "reprise"
+  phase?: "livraison" | "reprise",
+  vehicleId?: number | null
 ): string {
   const base = `${stripTrailingSlash(baseUrl)}/logisticien/${id}`;
-  return phase ? `${base}?phase=${phase}` : base;
+  const params = new URLSearchParams();
+  if (phase) params.set("phase", phase);
+  if (vehicleId != null && Number.isFinite(vehicleId)) {
+    params.set("vehicleId", String(vehicleId));
+  }
+  const qs = params.toString();
+  return qs ? `${base}?${qs}` : base;
 }
 
-/** QR « identifiant » compact (JSON {id}) — utilisé pour le QR inline e-mail. */
-export function idQrPayload(id: string): string {
-  return JSON.stringify({ id });
+/** QR « identifiant » compact (JSON) — e-mail / scanner. */
+export function idQrPayload(
+  id: string,
+  opts?: { vehicleId?: number | null; phase?: "livraison" | "reprise" | "MONTAGE" | "DEMONTAGE" }
+): string {
+  const payload: Record<string, string | number> = { id };
+  if (opts?.vehicleId != null && Number.isFinite(opts.vehicleId)) {
+    payload.vehicleId = opts.vehicleId;
+  }
+  if (opts?.phase) {
+    const p = opts.phase;
+    payload.phase =
+      p === "MONTAGE" || p === "livraison"
+        ? "livraison"
+        : p === "DEMONTAGE" || p === "reprise"
+          ? "reprise"
+          : p;
+  }
+  return JSON.stringify(payload);
 }

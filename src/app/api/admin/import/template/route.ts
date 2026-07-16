@@ -10,6 +10,7 @@ import {
 const VALID_PROFILES: TemplateProfile[] = [
   "referential",
   "planning",
+  "access-rules",
   "accreditations",
   "zones",
   "vehicle-types",
@@ -20,6 +21,7 @@ const VALID_PROFILES: TemplateProfile[] = [
 const FEATURE_BY_PROFILE: Record<TemplateProfile, "GESTION_ESPACES" | "GESTION_DATES" | "CREER" | "GESTION_ZONES" | "FLUX_VEHICULES"> = {
   referential: "GESTION_ESPACES",
   planning: "GESTION_DATES",
+  "access-rules": "GESTION_DATES",
   accreditations: "CREER",
   zones: "GESTION_ZONES",
   "vehicle-types": "FLUX_VEHICULES",

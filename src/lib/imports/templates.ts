@@ -11,6 +11,7 @@
 export type TemplateProfile =
   | "referential"
   | "planning"
+  | "access-rules"
   | "accreditations"
   | "zones"
   | "vehicle-types"
@@ -99,6 +100,68 @@ const CAPACITIES_EXAMPLE_ROWS: string[][] = [
   ["LA_BOCCA", "2026-09-16", "12:00", "23:00", "HEAVY", "MONTAGE", "4"],
 ];
 
+const ACCESS_RULES_HEADERS = [
+  "EVENT",
+  "COMPANY",
+  "LOCATION TYPE",
+  "LOCATION CODE",
+  "PORT",
+  "SECTOR",
+  "LOGISTIC SPACE",
+  "WAITING ZONE",
+  "PHASE",
+  "DATE START",
+  "DATE END",
+  "START TIME",
+  "END TIME",
+  "VEHICLE FAMILY",
+  "ALLOWED VEHICLE TYPES",
+  "CAPACITY",
+  "COMMENT",
+];
+
+/** Exemple structurel uniquement — aucune capacité de production inventée. */
+const ACCESS_RULES_EXAMPLE_ROWS: string[][] = [
+  [
+    "CYF26",
+    "Sunseeker",
+    "TERRE",
+    "POWER 209",
+    "PORT CANTO",
+    "POWER",
+    "POWER",
+    "LA_BOCCA",
+    "MONTAGE",
+    "2026-09-10",
+    "2026-09-11",
+    "08:00",
+    "18:00",
+    "LIGHT",
+    "VL",
+    "",
+    "Exemple planning seul (CAPACITY vide)",
+  ],
+  [
+    "CYF26",
+    "Ferretti Group",
+    "FLOT",
+    "JETEE 012",
+    "VIEUX PORT",
+    "JETEE",
+    "",
+    "LA_BOCCA",
+    "DEMONTAGE",
+    "2026-09-16",
+    "2026-09-16",
+    "12:00",
+    "17:00",
+    "HEAVY",
+    "PORTEUR",
+    "2",
+    "Exemple avec capacité illustrative (non production)",
+  ],
+];
+
 function toCsv(headers: string[], rows: string[][]): string {
   const escape = (v: string) => (/[",;\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
   const lines = [headers.map(escape).join(",")];
@@ -130,10 +193,16 @@ export function buildCapacitiesTemplate(kind: TemplateKind): string {
   return toCsv(CAPACITIES_HEADERS, kind === "example" ? CAPACITIES_EXAMPLE_ROWS : []);
 }
 
+export function buildAccessRulesTemplate(kind: TemplateKind): string {
+  return toCsv(ACCESS_RULES_HEADERS, kind === "example" ? ACCESS_RULES_EXAMPLE_ROWS : []);
+}
+
 export function buildTemplate(profile: TemplateProfile, kind: TemplateKind): string {
   switch (profile) {
     case "planning":
       return buildPlanningTemplate(kind);
+    case "access-rules":
+      return buildAccessRulesTemplate(kind);
     case "accreditations":
       return buildAccreditationsTemplate(kind);
     case "zones":
@@ -149,5 +218,10 @@ export function buildTemplate(profile: TemplateProfile, kind: TemplateKind): str
 }
 
 export function templateFileName(profile: TemplateProfile, kind: TemplateKind): string {
+  if (profile === "capacities") {
+    return kind === "example"
+      ? "rx-capacites-example.csv"
+      : "rx-capacites-template.csv";
+  }
   return `import-${profile}-${kind}.csv`;
 }

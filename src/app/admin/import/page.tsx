@@ -26,6 +26,7 @@ import Glossary from "@/components/logisticien/help/Glossary";
 type ProfileKey =
   | "referential"
   | "planning"
+  | "access-rules"
   | "capacities"
   | "accreditations"
   | "zones"
@@ -65,10 +66,20 @@ const PROFILES: ProfileConfig[] = [
     readFeatures: ["GESTION_DATES"],
   },
   {
+    key: "access-rules",
+    label: "Règles par stand / emplacement",
+    shortDescription:
+      "Importe les règles unifiées de planning (et capacités optionnelles) par exposant et emplacement.",
+    recommendation: "3. Après le planning général",
+    api: "/api/admin/import/access-rules",
+    requiresEvent: true,
+    readFeatures: ["GESTION_DATES"],
+  },
+  {
     key: "capacities",
     label: "Capacités et quotas",
     shortDescription: "Configure les quotas disponibles par zone, date, famille et phase.",
-    recommendation: "3. Après le planning",
+    recommendation: "4. Après le planning",
     api: "/api/admin/import/capacities",
     requiresEvent: true,
     readFeatures: ["FLUX_VEHICULES"],
@@ -77,7 +88,7 @@ const PROFILES: ProfileConfig[] = [
     key: "accreditations",
     label: "Accréditations",
     shortDescription: "Crée des demandes préremplies en appliquant les contrôles métier habituels.",
-    recommendation: "4. Après le référentiel et les quotas",
+    recommendation: "5. Après le référentiel et les quotas",
     api: "/api/admin/import/accreditations",
     requiresEvent: true,
     supportsImportMode: true,
@@ -514,7 +525,8 @@ export default function AdminImportCenterPage() {
 
       <PageHelp storageKey="admin-import" glossaryHref="#lexique-import">
         <p>
-          Ordre recommandé : <strong>Exposants → Planning → Capacités → Accréditations</strong>.
+          Ordre recommandé :{" "}
+          <strong>Exposants → Planning → Règles stands → Capacités → Accréditations</strong>.
         </p>
         <p>
           Toujours lancer l’analyse (aperçu) avant de confirmer. Tant que vous n’avez pas confirmé,
@@ -557,10 +569,10 @@ export default function AdminImportCenterPage() {
       <section className="rounded-xl border border-blue-200 bg-blue-50 p-3 sm:p-4">
         <p className="mb-3 text-sm font-semibold text-blue-900">Ordre recommandé</p>
         <div className="flex flex-col gap-2 text-sm text-blue-800 sm:flex-row sm:flex-wrap sm:items-center">
-          {["Exposants", "Planning", "Capacités", "Accréditations"].map((label, index) => (
+          {["Exposants", "Planning", "Règles stands", "Capacités", "Accréditations"].map((label, index) => (
             <div key={label} className="flex items-center gap-2">
               <span className="rounded-full bg-white px-3 py-1.5 font-medium shadow-sm">{index + 1}. {label}</span>
-              {index < 3 && <ChevronRight size={16} className="hidden sm:block" aria-hidden />}
+              {index < 4 && <ChevronRight size={16} className="hidden sm:block" aria-hidden />}
             </div>
           ))}
         </div>

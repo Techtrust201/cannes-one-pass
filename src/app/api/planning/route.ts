@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
     // Résolution + vérification stricte de l'emplacement : le client peut
     // suggérer un exhibitorId/exhibitorLocationId, mais l'appartenance à
     // l'organisation + l'événement + l'exposant est toujours revérifiée ici.
-    let location: { portCode: string | null; sectorCode: string | null; logisticSpace: string | null } | null =
+    let location: { exhibitorLocationId?: string | null; portCode: string | null; sectorCode: string | null; logisticSpace: string | null } | null =
       null;
 
     if (exhibitorLocationId) {
@@ -111,6 +111,7 @@ export async function GET(req: NextRequest) {
         );
       }
       location = {
+        exhibitorLocationId: exhibitorLocation.id,
         portCode: exhibitorLocation.portCode,
         sectorCode: exhibitorLocation.sectorCode,
         logisticSpace: exhibitorLocation.logisticSpace,

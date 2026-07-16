@@ -222,6 +222,7 @@ describe("GET /api/planning — résolution", () => {
     expect(callArgs.where.organizationId).toBe("org-1");
     expect(callArgs.where.eventId).toBe("evt-1");
     expect(callArgs.where.scopeKey.in).toEqual([
+      "LOCATION:loc-1",
       "SPACE:POWER",
       "SECTOR:PORT_CANTO:POWER",
       "PORT:PORT_CANTO",

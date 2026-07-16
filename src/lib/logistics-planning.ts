@@ -6,10 +6,11 @@
  * par l'appelant, et résout la règle applicable pour un contexte donné
  * (emplacement résolu + catégorie + phase), selon la priorité :
  *
- *   1. SPACE  (le plus spécifique)
- *   2. SECTOR
- *   3. PORT
- *   4. EVENT  (le plus générique — typique Palais : règle globale)
+ *   1. LOCATION (le plus spécifique — emplacement précis)
+ *   2. SPACE
+ *   3. SECTOR
+ *   4. PORT
+ *   5. EVENT  (le plus générique — typique Palais : règle globale)
  *
  * À niveau de portée égal, une règle avec `categoryCode` exact est
  * toujours préférée à une règle générique (`categoryCode = "ALL"`).
@@ -33,7 +34,7 @@
 
 export type PlanningPhase = "MONTAGE" | "DEMONTAGE";
 export type PlanningMode = "DISABLED" | "TRANSITION" | "STRICT";
-export type PlanningScope = "EVENT" | "PORT" | "SECTOR" | "SPACE";
+export type PlanningScope = "EVENT" | "PORT" | "SECTOR" | "SPACE" | "LOCATION";
 
 export const DEFAULT_PLANNING_CATEGORY_CODE = "ALL";
 
@@ -46,10 +47,17 @@ export interface PlanningRuleRow {
   date: string; // YYYY-MM-DD
   startTime: string; // HH:MM
   endTime: string; // HH:MM
+  zoneCode?: string | null;
+  /** JSON Prisma ou tableau déjà normalisé selon l'appelant. */
+  allowedVehicleTypeCodes?: unknown;
+  comment?: string | null;
+  exhibitorLocationId?: string | null;
 }
 
 /** Emplacement résolu (ExhibitorLocation) utilisé pour construire la portée candidate. */
 export interface PlanningLocationContext {
+  /** Id validé côté serveur (jamais un UUID client non contrôlé). */
+  exhibitorLocationId?: string | null;
   portCode: string | null;
   sectorCode: string | null;
   logisticSpace: string | null;
@@ -79,6 +87,9 @@ export interface PlanningResolutionRule {
   scopeKey: string;
   categoryCode: string;
   dates: string[];
+  zoneCode?: string | null;
+  allowedVehicleTypeCodes?: unknown;
+  comment?: string | null;
 }
 
 /** Une plage `"HH:MM-HH:MM"` en conflit, pour un jour donné (F7). */
@@ -116,8 +127,8 @@ interface ScopeCandidate {
 
 /**
  * Construit les clés de portée candidates, dans l'ordre de priorité
- * SPACE > SECTOR > PORT > EVENT, à partir d'un emplacement résolu (ou
- * `null` pour une règle purement événementielle, typique Palais).
+ * LOCATION > SPACE > SECTOR > PORT > EVENT, à partir d'un emplacement
+ * résolu (ou `null` pour une règle purement événementielle, typique Palais).
  * Exportée pour permettre à l'appelant (route API) de restreindre sa
  * requête Prisma aux `scopeKey` réellement pertinents.
  */
@@ -125,6 +136,12 @@ export function buildScopeCandidates(
   location: PlanningLocationContext | null
 ): ScopeCandidate[] {
   const candidates: ScopeCandidate[] = [];
+  if (location?.exhibitorLocationId) {
+    candidates.push({
+      scope: "LOCATION",
+      scopeKey: `LOCATION:${location.exhibitorLocationId}`,
+    });
+  }
   if (location?.logisticSpace) {
     candidates.push({ scope: "SPACE", scopeKey: `SPACE:${location.logisticSpace}` });
   }
@@ -139,6 +156,11 @@ export function buildScopeCandidates(
   }
   candidates.push({ scope: "EVENT", scopeKey: "EVENT" });
   return candidates;
+}
+
+/** Clé canonique LOCATION:<exhibitorLocationId> (id déjà validé serveur). */
+export function locationPlanningScopeKey(exhibitorLocationId: string): string {
+  return `LOCATION:${exhibitorLocationId}`;
 }
 
 export type DailyRangeMergeResult =
@@ -320,6 +342,9 @@ export function resolvePlanning(params: ResolvePlanningParams): PlanningResoluti
         scopeKey: candidate.scopeKey,
         categoryCode: resolvedCategoryCode,
         dates,
+        zoneCode: chosen[0]!.zoneCode ?? null,
+        allowedVehicleTypeCodes: chosen[0]!.allowedVehicleTypeCodes ?? null,
+        comment: chosen[0]!.comment ?? null,
       },
       error: null,
     };

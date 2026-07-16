@@ -110,6 +110,7 @@ export type PlanningValidationErrorCode =
   | "PLANNING_SKIP_INVALID"
   | "PLANNING_NOT_FOUND"
   | "PLANNING_DISJOINT_RANGES"
+  | "VEHICLE_TYPE_NOT_ALLOWED"
   | "PLANNING_VALIDATION_UNAVAILABLE";
 
 export interface PlanningValidationErrorDetails {
@@ -268,6 +269,9 @@ async function loadRowsForPhase(
       date: true,
       startTime: true,
       endTime: true,
+      zoneCode: true,
+      allowedVehicleTypeCodes: true,
+      comment: true,
     },
   });
   cache.set(phase, rows);
@@ -324,6 +328,26 @@ async function validateCategoryPhase(
       status: 409,
       code: "PLANNING_NOT_FOUND",
       message: resolution.error.message,
+      details: { categoryId: entry.categoryId, phase: entry.phase },
+    };
+  }
+
+  const allowedVehicleTypeCodes = Array.isArray(resolution.rule?.allowedVehicleTypeCodes)
+    ? resolution.rule.allowedVehicleTypeCodes
+        .filter((code): code is string => typeof code === "string")
+        .map((code) => code.trim().toUpperCase())
+        .filter(Boolean)
+    : [];
+  if (
+    allowedVehicleTypeCodes &&
+    allowedVehicleTypeCodes.length > 0 &&
+    (!entry.vehicleType || !allowedVehicleTypeCodes.includes(entry.vehicleType.trim().toUpperCase()))
+  ) {
+    return {
+      ok: false,
+      status: 400,
+      code: "VEHICLE_TYPE_NOT_ALLOWED",
+      message: `Le type de véhicule "${entry.vehicleType ?? "(absent)"}" n’est pas autorisé pour cette règle de planning.`,
       details: { categoryId: entry.categoryId, phase: entry.phase },
     };
   }

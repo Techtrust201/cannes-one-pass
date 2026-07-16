@@ -31,7 +31,13 @@ export type PlanningAdminContext = {
   espace: string;
 };
 
-const VALID_SCOPES = new Set<PlanningScopeCode>(["EVENT", "PORT", "SECTOR", "SPACE"]);
+const VALID_SCOPES = new Set<PlanningScopeCode>([
+  "EVENT",
+  "PORT",
+  "SECTOR",
+  "SPACE",
+  "LOCATION",
+]);
 const VALID_PHASES = new Set<PhaseCode>(["MONTAGE", "DEMONTAGE"]);
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -102,19 +108,32 @@ export function resolveManualScopeKey(params: {
   portCode?: string | null;
   sectorCode?: string | null;
   spaceCode?: string | null;
-}): { ok: true; scope: PlanningScopeCode; scopeKey: string; portCode: string | null; sectorCode: string | null; spaceCode: string | null } | { ok: false; error: string } {
+  exhibitorLocationId?: string | null;
+}): {
+  ok: true;
+  scope: PlanningScopeCode;
+  scopeKey: string;
+  portCode: string | null;
+  sectorCode: string | null;
+  spaceCode: string | null;
+  exhibitorLocationId: string | null;
+} | { ok: false; error: string } {
   const scope = parsePlanningScope(params.scope);
   if (!scope) {
-    return { ok: false, error: "scope invalide (EVENT|PORT|SECTOR|SPACE)" };
+    return { ok: false, error: "scope invalide (EVENT|PORT|SECTOR|SPACE|LOCATION)" };
   }
   const portCode = canonicalPortCode(params.portCode);
   const sectorCode = canonicalSectorCode(params.sectorCode);
   const spaceCode = normalizeOptionalCode(params.spaceCode);
-  const scopeKey = buildScopeKey(scope, portCode, sectorCode, spaceCode);
+  const exhibitorLocationId = params.exhibitorLocationId?.trim() || null;
+  const scopeKey = buildScopeKey(scope, portCode, sectorCode, spaceCode, exhibitorLocationId);
   if (!scopeKey) {
     return {
       ok: false,
-      error: `Codes manquants pour le scope ${scope} (PORT/SECTOR/SPACE requis selon le scope)`,
+      error:
+        scope === "LOCATION"
+          ? "exhibitorLocationId requis pour le scope LOCATION"
+          : `Codes manquants pour le scope ${scope} (PORT/SECTOR/SPACE requis selon le scope)`,
     };
   }
   return {
@@ -124,6 +143,7 @@ export function resolveManualScopeKey(params: {
     portCode: scope === "PORT" || scope === "SECTOR" ? portCode : null,
     sectorCode: scope === "SECTOR" ? sectorCode : null,
     spaceCode: scope === "SPACE" ? spaceCode : null,
+    exhibitorLocationId: scope === "LOCATION" ? exhibitorLocationId : null,
   };
 }
 

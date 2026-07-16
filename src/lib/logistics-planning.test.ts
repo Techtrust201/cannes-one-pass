@@ -19,13 +19,15 @@ function row(overrides: Partial<PlanningRuleRow>): PlanningRuleRow {
 }
 
 describe("buildScopeCandidates", () => {
-  it("ordonne SPACE > SECTOR > PORT > EVENT quand tout est renseigné", () => {
+  it("ordonne LOCATION > SPACE > SECTOR > PORT > EVENT quand tout est renseigné", () => {
     const candidates = buildScopeCandidates({
+      exhibitorLocationId: "loc-power-215",
       portCode: "PORT_CANTO",
       sectorCode: "POWER",
       logisticSpace: "POWER",
     });
     expect(candidates.map((c) => c.scopeKey)).toEqual([
+      "LOCATION:loc-power-215",
       "SPACE:POWER",
       "SECTOR:PORT_CANTO:POWER",
       "PORT:PORT_CANTO",
@@ -48,7 +50,29 @@ describe("buildScopeCandidates", () => {
 });
 
 describe("resolvePlanning — priorité de portée", () => {
-  const location = { portCode: "PORT_CANTO", sectorCode: "POWER", logisticSpace: "POWER" };
+  const location = {
+    exhibitorLocationId: "loc-power-215",
+    portCode: "PORT_CANTO",
+    sectorCode: "POWER",
+    logisticSpace: "POWER",
+  };
+
+  it("choisit LOCATION avant SPACE si une règle LOCATION existe", () => {
+    const rows = [
+      row({
+        scope: "LOCATION",
+        scopeKey: "LOCATION:loc-power-215",
+        startTime: "08:00",
+        endTime: "10:00",
+      }),
+      row({ scope: "SPACE", scopeKey: "SPACE:POWER", startTime: "07:00", endTime: "09:00" }),
+      row({ scope: "SECTOR", scopeKey: "SECTOR:PORT_CANTO:POWER", startTime: "08:00", endTime: "10:00" }),
+    ];
+    const res = resolvePlanning({ mode: "STRICT", phase: "MONTAGE", location, rows });
+    expect(res.source).toBe("DB");
+    expect(res.scope).toBe("LOCATION");
+    expect(res.slots).toEqual({ "2026-09-13": "08:00-10:00" });
+  });
 
   it("choisit SPACE si une règle SPACE existe, même si SECTOR/PORT/EVENT existent aussi", () => {
     const rows = [
@@ -57,7 +81,12 @@ describe("resolvePlanning — priorité de portée", () => {
       row({ scope: "PORT", scopeKey: "PORT:PORT_CANTO", startTime: "09:00", endTime: "11:00" }),
       row({ scope: "EVENT", scopeKey: "EVENT", startTime: "06:00", endTime: "23:00" }),
     ];
-    const res = resolvePlanning({ mode: "STRICT", phase: "MONTAGE", location, rows });
+    const res = resolvePlanning({
+      mode: "STRICT",
+      phase: "MONTAGE",
+      location: { portCode: "PORT_CANTO", sectorCode: "POWER", logisticSpace: "POWER" },
+      rows,
+    });
     expect(res.source).toBe("DB");
     expect(res.scope).toBe("SPACE");
     expect(res.slots).toEqual({ "2026-09-13": "07:00-09:00" });

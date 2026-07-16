@@ -77,6 +77,14 @@ enum ActorSource {
   SUPER_ADMIN // Action d'un super-admin
   MIGRATION // Script de migration (ex: fix-phone-split)
   SYSTEM // Autres actions système
+  DEROGATION // Création en mode dérogation logisticien (audit)
+}
+
+// Rôle logistique d'un véhicule physique rattaché à une accréditation.
+enum VehicleLogisticsRole {
+  MONTAGE // Véhicule de montage uniquement
+  DEMONTAGE // Véhicule de reprise / démontage uniquement
+  BOTH // Même véhicule pour montage et démontage
 }
 
 enum EmplacementCategory {
@@ -160,12 +168,14 @@ enum LogisticsPlanningScope {
   PORT
   SECTOR
   SPACE
+  LOCATION // Emplacement précis (ExhibitorLocation)
 }
 
 // Profil d'import du Centre d'import generalise.
 enum ImportProfile {
   REFERENTIAL
   PLANNING
+  ACCESS_RULES // Règles unifiées par stand / emplacement
   ACCREDITATIONS
   ZONES
   VEHICLE_TYPES
@@ -214,6 +224,9 @@ model User {
 
   // Lots d'import declenches par cet utilisateur (SetNull si l'utilisateur est supprime)
   importBatches ImportBatch[]
+
+  // Accréditations créées en mode dérogation par cet utilisateur
+  derogationAccreditations Accreditation[] @relation("DerogationByUser")
 
   @@map("user")
 }
@@ -321,9 +334,10 @@ model Organization {
   exhibitors         Exhibitor[]
   supportTickets     SupportTicket[]
   stands             Stand[]
-  rxCapacities       RxCapacity[]
-  logisticsPlannings LogisticsPlanning[]
-  importBatches      ImportBatch[]
+  rxCapacities           RxCapacity[]
+  logisticsPlannings     LogisticsPlanning[]
+  importBatches          ImportBatch[]
+  rxVehicleProcessConfigs RxVehicleProcessConfig[]
 
   @@index([isActive])
 }
@@ -485,6 +499,14 @@ model Accreditation {
   locationLabel       String? // Libelle d'emplacement fige pour affichage rapide
   locationSnapshot    Json? // Snapshot historique complet de l'emplacement
 
+  // Mode Dérogation logisticien (bypass planning / capacité tracé).
+  isDerogation       Boolean @default(false)
+  derogationReason   String? @db.Text
+  derogationByUserId String?
+  derogationByUser   User?   @relation("DerogationByUser", fields: [derogationByUserId], references: [id], onDelete: SetNull)
+  capacityBypass     Boolean @default(false)
+  planningBypass     Boolean @default(false)
+
   vehicles      Vehicle[]
   emailHistory  AccreditationEmailHistory[]
   history       AccreditationHistory[]
@@ -497,6 +519,8 @@ model Accreditation {
   @@index([standId])
   @@index([exhibitorId])
   @@index([exhibitorLocationId])
+  @@index([isDerogation])
+  @@index([derogationByUserId])
   // Accélère le chargement back-office (liste filtrée par espace/statut, tri
   // par date) — requêtes les plus fréquentes du dashboard logisticien.
   @@index([organizationId, isArchived, status])
@@ -540,12 +564,20 @@ model Vehicle {
   maxWeight     Int?
   currentWeight Int?
 
+  // Rôle logistique du véhicule physique (montage / démontage / les deux).
+  // Backfill : BOTH pour les lignes historiques (comportement avant séparation).
+  logisticsRole VehicleLogisticsRole @default(BOTH)
+
+  // Société intervenante (transporteur / prestataire) — optionnel.
+  interveningCompany String?
+
   accreditation   Accreditation @relation(fields: [accreditationId], references: [id], onDelete: Cascade)
   accreditationId String
 
   timeSlots VehicleTimeSlot[]
 
   @@index([accreditationId])
+  @@index([accreditationId, logisticsRole])
   @@index([plateNormalized])
   @@index([trailerPlateNormalized])
 }
@@ -812,7 +844,8 @@ model ExhibitorLocation {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  accreditations Accreditation[]
+  accreditations     Accreditation[]
+  logisticsPlannings LogisticsPlanning[]
 
   @@unique([exhibitorId, type, codeNormalized])
   @@index([exhibitorId])
@@ -927,12 +960,21 @@ model LogisticsPlanning {
   event          Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   scope    LogisticsPlanningScope
-  scopeKey String // Cle canonique : "EVENT", "PORT:PORT_CANTO", "SECTOR:PORT_CANTO:POWER", "SPACE:POWER"
+  scopeKey String // Cle canonique : "EVENT", "PORT:…", "SECTOR:…", "SPACE:…", "LOCATION:<exhibitorLocationId>"
 
   portCode     String? // Nullable : absent pour une regle EVENT (Palais)
   sectorCode   String? // Nullable : absent pour une regle EVENT ou PORT
   spaceCode    String? // Nullable : absent pour une regle EVENT
   categoryCode String  @default("ALL") // "ALL" = toutes categories ; ex RX: "BATEAU_TERRE"
+
+  // Emplacement précis (scope LOCATION uniquement). Nullable pour EVENT/PORT/SECTOR/SPACE.
+  exhibitorLocationId String?
+  exhibitorLocation   ExhibitorLocation? @relation(fields: [exhibitorLocationId], references: [id], onDelete: Cascade)
+
+  // Métadonnées optionnelles de la règle (gabarits, zone d'attente, commentaire).
+  zoneCode                String? // Code ZoneConfig de la même organisation
+  allowedVehicleTypeCodes Json? // string[] de codes VehicleTypeConfig ; null/[] = tous autorisés
+  comment                 String? @db.Text
 
   phase RxPhase // MONTAGE | DEMONTAGE
 
@@ -952,7 +994,30 @@ model LogisticsPlanning {
   @@unique([organizationId, eventId, scopeKey, categoryCode, phase, date, startTime, endTime])
   @@index([organizationId, eventId, scope, scopeKey])
   @@index([organizationId, eventId, phase, date])
+  @@index([exhibitorLocationId])
   @@index([importBatchId])
+}
+
+/// Instructions process LIGHT / HEAVY par organisation (source de vérité UX/PDF/email).
+model RxVehicleProcessConfig {
+  id             String         @id @default(uuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  vehicleFamily  VehicleFamily
+  zoneCode       String?
+  maxParkingMinutes Int?
+  requiresReceiver Boolean      @default(false)
+  requiresHeavyUnloadingDetails Boolean @default(false)
+  title          String
+  /// Liste de chaînes d'instructions (JSON array).
+  instructions   Json
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([organizationId, vehicleFamily])
+  @@index([organizationId, isActive])
+  @@map("rx_vehicle_process_config")
 }
 
 // ============================================================

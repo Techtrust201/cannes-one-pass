@@ -33,7 +33,7 @@ import { normalizeOptionalCode } from "./normalization";
 import { normalizeLegacyPortCode, normalizeLegacySectorCode } from "./legacy-sector";
 import { mergeDailyRanges } from "@/lib/logistics-planning";
 
-export type PlanningScopeCode = "EVENT" | "PORT" | "SECTOR" | "SPACE";
+export type PlanningScopeCode = "EVENT" | "PORT" | "SECTOR" | "SPACE" | "LOCATION";
 export type PhaseCode = "MONTAGE" | "DEMONTAGE";
 
 export const DEFAULT_CATEGORY_CODE = "ALL";
@@ -95,7 +95,13 @@ const END_TIME_ALIASES = [
   "FIN HEURE",
 ];
 
-const VALID_SCOPES = new Set<PlanningScopeCode>(["EVENT", "PORT", "SECTOR", "SPACE"]);
+const VALID_SCOPES = new Set<PlanningScopeCode>([
+  "EVENT",
+  "PORT",
+  "SECTOR",
+  "SPACE",
+  "LOCATION",
+]);
 const VALID_PHASES = new Set<PhaseCode>(["MONTAGE", "DEMONTAGE"]);
 
 /** Canonicalise un port (RX -> code canonique ; sinon normalise tel quel). */
@@ -115,12 +121,14 @@ export function canonicalSectorCode(raw: string | null | undefined): string | nu
 /**
  * Construit la cle canonique `scopeKey` a partir du scope et des codes.
  * Retourne null si un code obligatoire pour ce scope est absent.
+ * Pour LOCATION, passer `exhibitorLocationId` (id déjà validé serveur).
  */
 export function buildScopeKey(
   scope: PlanningScopeCode,
   portCode: string | null,
   sectorCode: string | null,
-  spaceCode: string | null
+  spaceCode: string | null,
+  exhibitorLocationId?: string | null
 ): string | null {
   switch (scope) {
     case "EVENT":
@@ -131,6 +139,10 @@ export function buildScopeKey(
       return portCode && sectorCode ? `SECTOR:${portCode}:${sectorCode}` : null;
     case "SPACE":
       return spaceCode ? `SPACE:${spaceCode}` : null;
+    case "LOCATION": {
+      const id = exhibitorLocationId?.trim();
+      return id ? `LOCATION:${id}` : null;
+    }
   }
 }
 

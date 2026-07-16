@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { AccreditationWizard } from "@/components/accreditation/AccreditationWizard";
 import PageHelp from "@/components/logisticien/help/PageHelp";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface EspaceOption {
   id: string;
@@ -24,6 +25,11 @@ interface EspaceOption {
 export default function RxNouveauWizard() {
   const searchParams = useSearchParams();
   const derogation = searchParams.get("mode") === "derogation";
+  const { hasPermission, isSuperAdmin } = usePermissions();
+  const canDerogation =
+    hasPermission("CREER", "write") ||
+    hasPermission("GESTION_DATES", "write") ||
+    isSuperAdmin;
   const [orgId, setOrgId] = useState<string | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
 
@@ -74,7 +80,7 @@ export default function RxNouveauWizard() {
 
   return (
     <div className="min-h-screen">
-      <div className="mx-auto w-full max-w-3xl px-3 pt-3 sm:px-6">
+      <div className="mx-auto w-full max-w-3xl px-3 pt-3 sm:px-6 space-y-3">
         <PageHelp storageKey="logisticien-nouveau-rx">
           <p>
             Création d’une demande RX : choisissez l’exposant et l’emplacement, puis les créneaux
@@ -86,6 +92,20 @@ export default function RxNouveauWizard() {
           </p>
           {derogation && <p>Vous créez une dérogation RX : un motif détaillé est obligatoire.</p>}
         </PageHelp>
+        {!derogation && canDerogation && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <p>
+              Besoin de créer hors planning ou hors capacité ? Utilisez le mode dérogation
+              (motif obligatoire, action tracée).
+            </p>
+            <Link
+              href="/logisticien/nouveau?espace=rx&mode=derogation"
+              className="shrink-0 inline-flex items-center justify-center rounded-lg bg-amber-700 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-800"
+            >
+              Créer une dérogation
+            </Link>
+          </div>
+        )}
       </div>
       <AccreditationWizard
         orgSlug="rx"

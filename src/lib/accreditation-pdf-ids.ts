@@ -23,6 +23,13 @@ import {
 import { trackingQrPayload, accessQrPayload } from "@/lib/qr-payloads";
 import { getBaseUrl } from "@/lib/base-url";
 import { getOrgFieldLabel, resolveUnloadingLabel } from "@/lib/org-form-config";
+import {
+  planRxPdfPages,
+  type RxPdfPagePlan,
+} from "@/lib/accreditation-pdf-vehicle-pages";
+import type { RxVehicleProcessInstructions } from "@/lib/rx-vehicle-process";
+import { getRxVehicleProcessInstructions } from "@/lib/rx-vehicle-process";
+import type { VehicleFamily } from "@prisma/client";
 
 // Ré-export pour compatibilité des imports existants (la logique pure vit
 // désormais dans accreditation-pdf-modes, testable sans Prisma).
@@ -141,6 +148,7 @@ async function renderAccreditationPage(
       vehicleType: string | null;
       trailerPlate: string | null;
       logisticsRole?: "MONTAGE" | "DEMONTAGE" | "BOTH" | null;
+      interveningCompany?: string | null;
     }>;
   },
   vehicleTypes: VehicleTypeData[],
@@ -152,7 +160,11 @@ async function renderAccreditationPage(
    *  'request' = demande non validée (QR de suivi, pas d'accès). */
   mode: "request" | "official",
   pdfT: PdfT,
-  lang: LangCode
+  lang: LangCode,
+  /** Plan de page (RX multi-véhicules). Absent = comportement legacy une page. */
+  pagePlan?: RxPdfPagePlan,
+  /** Consignes LIGHT/HEAVY pour le véhicule de la page (RX uniquement). */
+  processInstructions?: RxVehicleProcessInstructions | null
 ): Promise<void> {
   const page = pdfDoc.addPage();
   const { width, height, MIN_Y, drawText, drawWrapped, font } = helpers;
@@ -234,7 +246,16 @@ async function renderAccreditationPage(
   y = height - 130 - bannerOffset;
   const ext = parseExtension(acc.extension);
   const ctx = ext.vehicleContext ?? {};
-  const v = acc.vehicles[0];
+  const plan: RxPdfPagePlan =
+    pagePlan ??
+    ({
+      kind: "legacy",
+      vehicle: acc.vehicles[0] ?? null,
+      includeMontage: true,
+      includeDemontage: true,
+      qrPhases: ["livraison", "reprise"],
+    } satisfies RxPdfPagePlan);
+  const v = plan.vehicle;
 
   const LABEL_X = 60;
   const LABEL_WIDTH = 150;
@@ -327,7 +348,88 @@ async function renderAccreditationPage(
   // non validé est porté uniquement par le bandeau d'en-tête (« DEMANDE
   // VALIDÉE » vs « DEMANDE NON VALIDÉE »), plus clair et non contradictoire.
 
-  if (v) {
+  const drawPhysicalVehicleBlock = (
+    title: string,
+    vehicle: NonNullable<typeof v>,
+    slotDate: string | null | undefined,
+    slotTime: string | null | undefined
+  ) => {
+    y -= 10;
+    drawText(page, title, 50, y, 14);
+    y -= 25;
+    const gabarit = resolveVehicleTypeLabelFromList(
+      vehicleTypes,
+      vehicle.vehicleType,
+      vehicle.size,
+      lang
+    );
+    addLabelVal(pdfT.template, gabarit);
+    addLabelVal(pdfT.plate, vehicle.plate || pdfT.platePending);
+    if (vehicle.trailerPlate) addLabelVal(pdfT.trailerPlate, vehicle.trailerPlate);
+    addLabelVal(
+      pdfT.driverPhone,
+      formatPhoneNumber(vehicle.phoneCode ?? "", vehicle.phoneNumber ?? "")
+    );
+    addLabelVal(
+      title === pdfT.returnVehicle ? pdfT.returnSlot : pdfT.deliverySlot,
+      `${formatDateTime(slotDate ?? undefined, lang)} — ${formatTimeSlot(slotTime ?? undefined)}`
+    );
+    if (vehicle.interveningCompany) {
+      addLabelVal(
+        title === pdfT.returnVehicle
+          ? pdfT.interveningCompanyReturn
+          : pdfT.interveningCompanyDelivery,
+        vehicle.interveningCompany
+      );
+    } else if (ctx.interveningCompany && plan.kind === "legacy") {
+      addLabelVal(pdfT.interveningCompanyDelivery, ctx.interveningCompany);
+    }
+    if (vehicle.city) {
+      addLabelVal(
+        title === pdfT.returnVehicle
+          ? pdfT.departureCityReturn
+          : pdfT.departureCityDelivery,
+        vehicle.city
+      );
+    }
+  };
+
+  if (v && plan.kind !== "legacy") {
+    // Source de vérité : Vehicle physique (plus de vehicleContext pour les plaques).
+    if (plan.includeMontage && (plan.kind === "both" || plan.kind === "montage")) {
+      drawPhysicalVehicleBlock(
+        pdfT.deliveryVehicle,
+        v,
+        v.date || ctx.livDate,
+        v.time || ctx.livTime
+      );
+    }
+    if (plan.includeDemontage && (plan.kind === "both" || plan.kind === "demontage")) {
+      if (plan.kind === "both") {
+        // BOTH : reprise = mêmes données physiques, créneau reprise si connu.
+        y -= 10;
+        drawText(page, pdfT.returnVehicle, 50, y, 14);
+        y -= 25;
+        addLabelVal(pdfT.returnVehicle, pdfT.sameAsDelivery);
+        const repDate = ctx.repDate;
+        const repTime = ctx.repTime;
+        if (repDate || repTime) {
+          addLabelVal(
+            pdfT.returnSlot,
+            `${formatDateTime(repDate ?? undefined, lang)} — ${formatTimeSlot(repTime ?? undefined)}`
+          );
+        }
+      } else {
+        drawPhysicalVehicleBlock(
+          pdfT.returnVehicle,
+          v,
+          v.date || ctx.repDate,
+          v.time || ctx.repTime
+        );
+      }
+    }
+  } else if (v) {
+    // Legacy / Palais : vehicles[0] + vehicleContext (compatibilité historique).
     y -= 10;
     drawText(page, pdfT.deliveryVehicle, 50, y, 14);
     y -= 25;
@@ -343,7 +445,7 @@ async function renderAccreditationPage(
     if (v.trailerPlate) addLabelVal(pdfT.trailerPlate, v.trailerPlate);
     addLabelVal(
       pdfT.driverPhone,
-      formatPhoneNumber(v.phoneCode, v.phoneNumber)
+      formatPhoneNumber(v.phoneCode ?? "", v.phoneNumber ?? "")
     );
     const livDate = ctx.livDate ?? v.date;
     const livTime = ctx.livTime ?? v.time;
@@ -395,6 +497,32 @@ async function renderAccreditationPage(
           formatPhoneNumber(ctx.repPhoneCode ?? "", ctx.repPhoneNumber)
         );
       }
+    }
+  }
+
+  // Consignes LIGHT/HEAVY (RX uniquement) — source unique getRxVehicleProcessInstructions.
+  if (isRx && processInstructions) {
+    y -= 10;
+    drawText(page, processInstructions.title, 50, y, 12);
+    y -= 18;
+    addLabelVal("Famille", processInstructions.family);
+    if (processInstructions.zoneLabel) {
+      addLabelVal(pdfT.unloadingZone, processInstructions.zoneLabel);
+    }
+    if (processInstructions.maxParkingMinutes != null) {
+      addLabelVal(
+        "Durée max.",
+        `${processInstructions.maxParkingMinutes} min`
+      );
+    }
+    if (processInstructions.requiresReceiver) {
+      addLabelVal("Réceptionnaire", "Requis");
+    }
+    for (const line of processInstructions.instructions) {
+      if (y < MIN_Y + LINE_HEIGHT * 2) break;
+      y = drawWrapped(page, `• ${line}`, LABEL_X, y, width - 120, 10, {
+        color: [0.2, 0.2, 0.2],
+      });
     }
   }
 
@@ -489,45 +617,29 @@ async function renderAccreditationPage(
     return;
   }
 
-  // Mode officiel : QR Montage / Démontage (URL de contrôle d'accès), libellés
-  // explicites + créneau, conditionnés par les éventuels skip.
-  // Si des Vehicle physiques existent avec logisticsRole, rattacher vehicleId.
+  // Mode officiel : QR de la page (phase + vehicleId du véhicule de la page).
   const livLabel = ctx.livDate ? ` ${formatDateTime(ctx.livDate, lang)}` : "";
   const repLabel = ctx.repDate ? ` ${formatDateTime(ctx.repDate, lang)}` : "";
-  const vehicles = acc.vehicles ?? [];
-  const montageVehicle = vehicles.find(
-    (veh) => veh.logisticsRole === "MONTAGE" || veh.logisticsRole === "BOTH"
-  );
-  const demontageVehicle = vehicles.find(
-    (veh) => veh.logisticsRole === "DEMONTAGE" || veh.logisticsRole === "BOTH"
-  );
+  const pageVehicleId = plan.vehicle?.id ?? null;
   const qrDefs: { label: string; url: string }[] = [];
-  if (!skipMontage) {
-    qrDefs.push({
-      label: `${pdfT.qrSetup}${livLabel}`,
-      url: accessQrPayload(
-        baseUrl,
-        acc.id,
-        "livraison",
-        montageVehicle?.id ?? null
-      ),
-    });
-  }
-  if (!skipDemontage) {
-    qrDefs.push({
-      label: `${pdfT.qrTeardown}${repLabel}`,
-      url: accessQrPayload(
-        baseUrl,
-        acc.id,
-        "reprise",
-        demontageVehicle?.id ?? null
-      ),
-    });
+  for (const phase of plan.qrPhases) {
+    if (phase === "livraison" && !skipMontage) {
+      qrDefs.push({
+        label: `${pdfT.qrSetup}${livLabel}`,
+        url: accessQrPayload(baseUrl, acc.id, "livraison", pageVehicleId),
+      });
+    }
+    if (phase === "reprise" && !skipDemontage) {
+      qrDefs.push({
+        label: `${pdfT.qrTeardown}${repLabel}`,
+        url: accessQrPayload(baseUrl, acc.id, "reprise", pageVehicleId),
+      });
+    }
   }
   if (qrDefs.length === 0) {
     qrDefs.push({
       label: pdfT.qrVehicle,
-      url: accessQrPayload(baseUrl, acc.id, undefined, vehicles[0]?.id ?? null),
+      url: accessQrPayload(baseUrl, acc.id, undefined, pageVehicleId),
     });
   }
 
@@ -584,6 +696,35 @@ export async function generatePdfFromIds(
       })
     : [];
   const zoneByCode = new Map(zoneRows.map((z) => [z.zone, z]));
+
+  // Config process LIGHT/HEAVY (RX) — une lecture par organisation.
+  const processConfigs = orgId
+    ? await prisma.rxVehicleProcessConfig.findMany({
+        where: { organizationId: orgId, isActive: true },
+      })
+    : [];
+  const processByFamily = new Map(
+    processConfigs.map((c) => [c.vehicleFamily as VehicleFamily, c])
+  );
+
+  const resolveProcessForVehicle = (
+    isRxAcc: boolean,
+    vehicleType: string | null | undefined,
+    size: string | null | undefined
+  ): RxVehicleProcessInstructions | null => {
+    if (!isRxAcc) return null;
+    const code = (vehicleType || size || "").trim().toUpperCase();
+    const vt = vehicleTypes.find(
+      (t) => t.code.toUpperCase() === code || t.label.toUpperCase() === code
+    );
+    const family = (vt?.vehicleFamily as VehicleFamily | null | undefined) ?? null;
+    if (!family) return null;
+    const cfg = processByFamily.get(family) ?? null;
+    const zoneLabel = cfg?.zoneCode
+      ? zoneByCode.get(cfg.zoneCode)?.label ?? null
+      : null;
+    return getRxVehicleProcessInstructions(family, cfg, zoneLabel);
+  };
 
   const pdfDoc = await PDFDocument.create();
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -682,18 +823,47 @@ export async function generatePdfFromIds(
       opts.lang && isValidLang(opts.lang) ? opts.lang : accLang;
     const pdfT = getPdfTranslations(pdfLang);
 
-    await renderAccreditationPage(
-      pdfDoc,
-      helpers,
-      accForRender,
-      vehicleTypes,
-      isRx,
-      acc.organization?.slug ?? orgSlug,
-      baseUrl,
-      mode,
-      pdfT,
-      pdfLang
-    );
+    const skipMontage =
+      (parseExtension(acc.extension) as { skipMontage?: boolean }).skipMontage ===
+      true;
+    const skipDemontage =
+      (parseExtension(acc.extension) as { skipDemontage?: boolean })
+        .skipDemontage === true;
+
+    // RX : une page par véhicule physique. Palais : une page legacy unique.
+    const pages: RxPdfPagePlan[] = isRx
+      ? planRxPdfPages(acc.vehicles, { skipMontage, skipDemontage })
+      : [
+          {
+            kind: "legacy",
+            vehicle: acc.vehicles[0] ?? null,
+            includeMontage: true,
+            includeDemontage: true,
+            qrPhases: ["livraison", "reprise"],
+          },
+        ];
+
+    for (const plan of pages) {
+      const processInstructions = resolveProcessForVehicle(
+        isRx,
+        plan.vehicle?.vehicleType,
+        plan.vehicle?.size
+      );
+      await renderAccreditationPage(
+        pdfDoc,
+        helpers,
+        accForRender,
+        vehicleTypes,
+        isRx,
+        acc.organization?.slug ?? orgSlug,
+        baseUrl,
+        mode,
+        pdfT,
+        pdfLang,
+        plan,
+        processInstructions
+      );
+    }
   }
 
   return pdfDoc.save();

@@ -69,7 +69,32 @@ export async function buildScanSummaries(
           v.phoneCode || v.phoneNumber
             ? `${v.phoneCode ?? ""} ${v.phoneNumber ?? ""}`.trim()
             : null,
+        logisticsRole: v.logisticsRole ?? null,
+        date: v.date ?? null,
+        time: v.time ?? null,
       })),
     };
   });
+}
+
+/** Enrichit un résumé avec le véhicule / phase ciblés par le QR. */
+export function attachScanTarget(
+  summary: AccreditationScanSummary,
+  opts: {
+    targetVehicleId?: number | null;
+    targetPhase?: "livraison" | "reprise" | null;
+  }
+): AccreditationScanSummary {
+  const targetVehicleId = opts.targetVehicleId ?? null;
+  const targetPhase = opts.targetPhase ?? null;
+  const targetVehicle =
+    targetVehicleId != null
+      ? summary.vehicles.find((v) => v.id === targetVehicleId) ?? null
+      : null;
+  return {
+    ...summary,
+    targetVehicleId,
+    targetPhase,
+    targetVehicle,
+  };
 }

@@ -15,6 +15,9 @@ export interface ScanVehicle {
   vehicleLabel: string;
   /** Téléphone affichable (indicatif + numéro). */
   phone: string | null;
+  logisticsRole?: "MONTAGE" | "DEMONTAGE" | "BOTH" | null;
+  date?: string | null;
+  time?: string | null;
 }
 
 /**
@@ -33,4 +36,10 @@ export interface AccreditationScanSummary {
   entryAt: string | null;
   exitAt: string | null;
   vehicles: ScanVehicle[];
+  /** Véhicule ciblé par le QR (null = ancien QR / plaque). */
+  targetVehicleId?: number | null;
+  /** Phase du QR (livraison = montage, reprise = démontage). */
+  targetPhase?: "livraison" | "reprise" | null;
+  /** Résumé du véhicule ciblé (rôle, plaque, gabarit, créneau). */
+  targetVehicle?: ScanVehicle | null;
 }

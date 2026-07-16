@@ -29,6 +29,12 @@ import {
   resolveVehicleTypeLabelFromList,
 } from "@/lib/vehicle-type-server";
 import { getOrgFieldLabel } from "@/lib/org-form-config";
+import { logisticsRoleLabel } from "@/lib/scan-vehicle-target";
+import {
+  getRxVehicleProcessInstructions,
+  type RxVehicleProcessInstructions,
+} from "@/lib/rx-vehicle-process";
+import type { VehicleFamily } from "@prisma/client";
 
 export type CreationEmailOutcome =
   | "sent"
@@ -62,7 +68,7 @@ async function traceInfo(accreditationId: string, description: string): Promise<
   }
 }
 
-interface MinimalVehicle {
+export interface MinimalVehicle {
   id?: number;
   plate: string | null;
   trailerPlate: string | null;
@@ -74,38 +80,38 @@ interface MinimalVehicle {
   time: string;
   city: string;
   logisticsRole?: "MONTAGE" | "DEMONTAGE" | "BOTH" | null;
+  interveningCompany?: string | null;
 }
 
-function buildHtml(
-  acc: { company: string; stand: string; event: string },
-  vehicle: MinimalVehicle | undefined,
-  vehicleIdentity: string,
-  gabarit: string,
-  /**
-   * `true` = accréditation déjà validée administrativement (créée depuis
-   * l'espace logisticien) -> message « validée ». `false` = demande publique
-   * encore à valider par un agent (statut NOUVEAU).
-   */
-  validated: boolean,
-  /**
-   * Slug d'organisation : scope les libellés (Palais → « Société » /
-   * « Stand | Client »). Les autres organisations conservent les libellés
-   * historiques de l'e-mail (« Société » / « Stand »).
-   */
-  orgSlug: string | null,
-  /** Langue du corps de l'e-mail (Lot 8) : suit la langue de l'accréditation. */
-  lang: LangCode
-): string {
-  // Lot 8 : corps d'e-mail multilingue (auparavant figé en FR).
+export type EmailVehicleBlock = {
+  vehicle: MinimalVehicle;
+  gabarit: string;
+  process: RxVehicleProcessInstructions | null;
+  /** cid de l'image QR inline (null = pas de QR pour ce bloc, ex. demande NOUVEAU). */
+  qrCid: string | null;
+  qrCaption: string;
+};
+
+/**
+ * Corps HTML de l'e-mail de création — exporté pour tests (multi-véhicules).
+ */
+export function buildCreationEmailHtml(opts: {
+  acc: { company: string; stand: string; event: string };
+  vehicles: EmailVehicleBlock[];
+  vehicleIdentity: string;
+  validated: boolean;
+  orgSlug: string | null;
+  lang: LangCode;
+  /** QR unique de suivi (demande NOUVEAU) — cid fixe `qraccreditation`. */
+  trackingQr?: boolean;
+}): string {
+  const { acc, vehicles, vehicleIdentity, validated, orgSlug, lang } = opts;
   const et = getEmailTranslations(lang);
   const pdfT = getPdfTranslations(lang);
-  // Libellés société/stand : Palais → libellé dédié dans la langue ; autres
-  // organisations (RX inclus) → fallback PDF traduit.
   const companyLabel = getOrgFieldLabel(orgSlug, "decoratorName", lang, pdfT.exhibitor);
   const standLabel = getOrgFieldLabel(orgSlug, "standServed", lang, pdfT.stand);
-  const phone = vehicle
-    ? `${vehicle.phoneCode ?? ""} ${vehicle.phoneNumber ?? ""}`.trim()
-    : "";
+  const isRx = (orgSlug ?? "").toLowerCase() === "rx";
+
   const row = (label: string, value: string) =>
     value
       ? `<tr><td style="padding:6px 12px;color:#6b7280;font-size:13px;">${escapeHtml(
@@ -131,6 +137,58 @@ function buildHtml(
       </div>
     </div>`;
 
+  const vehicleBlocksHtml = vehicles
+    .map((block) => {
+      const v = block.vehicle;
+      const phone = `${v.phoneCode ?? ""} ${v.phoneNumber ?? ""}`.trim();
+      const role = logisticsRoleLabel(v.logisticsRole);
+      const processHtml =
+        isRx && block.process
+          ? `<div style="margin-top:8px;padding:8px 10px;background:#EFF6FF;border-radius:6px;font-size:12px;color:#1E3A8A;">
+              <strong>${escapeHtml(block.process.title)}</strong>
+              <div style="margin-top:4px;">Zone : ${escapeHtml(block.process.zoneLabel)}${
+                block.process.maxParkingMinutes != null
+                  ? ` · max ${block.process.maxParkingMinutes} min`
+                  : ""
+              }</div>
+              <ul style="margin:6px 0 0 16px;padding:0;">
+                ${block.process.instructions
+                  .map((i) => `<li>${escapeHtml(i)}</li>`)
+                  .join("")}
+              </ul>
+            </div>`
+          : "";
+      const qrHtml = block.qrCid
+        ? `<div style="text-align:center;margin-top:10px;">
+            <img src="cid:${escapeHtml(block.qrCid)}" alt="${escapeHtml(et.qrAlt)}" width="180" height="180" style="border:1px solid #E5E7EB;border-radius:12px;background:#fff;" />
+            <div style="font-size:12px;color:#6b7280;margin-top:4px;">${escapeHtml(block.qrCaption)}</div>
+          </div>`
+        : "";
+      return `
+      <div style="border:1px solid #E5E7EB;border-radius:8px;padding:12px;margin-bottom:12px;background:#fff;">
+        <div style="font-size:13px;font-weight:700;color:#4F587E;margin-bottom:6px;">${escapeHtml(role)}</div>
+        <table style="width:100%;border-collapse:collapse;">
+          ${v.plate ? row(et.vehicle, v.plate) : row(et.vehicle, "Plaque à l'arrivée")}
+          ${block.gabarit ? row(et.vehicleTemplate, block.gabarit) : ""}
+          ${v.trailerPlate ? row(et.trailer, v.trailerPlate) : ""}
+          ${v.date ? row(et.plannedDate, `${v.date}${v.time ? " " + v.time : ""}`) : ""}
+          ${v.city ? row(et.departureCity, v.city) : ""}
+          ${phone ? row(et.driverPhone, phone) : ""}
+          ${v.interveningCompany ? row("Société intervenante", v.interveningCompany) : ""}
+        </table>
+        ${processHtml}
+        ${qrHtml}
+      </div>`;
+    })
+    .join("");
+
+  const trackingQrHtml = opts.trackingQr
+    ? `<div style="text-align:center;margin-bottom:8px;">
+        <img src="cid:qraccreditation" alt="${escapeHtml(et.qrAlt)}" width="220" height="220" style="border:1px solid #E5E7EB;border-radius:12px;background:#fff;" />
+        <div style="font-size:12px;color:#6b7280;margin-top:6px;">${escapeHtml(et.qrCaption)}</div>
+      </div>`
+    : "";
+
   return `
   <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#111827;">
     <h2 style="color:#4F587E;margin:0 0 4px;">${escapeHtml(
@@ -144,22 +202,15 @@ function buildHtml(
 
     ${banner}
 
-    <table style="width:100%;border-collapse:collapse;background:#F9FAFB;border-radius:8px;overflow:hidden;margin-bottom:20px;">
+    <table style="width:100%;border-collapse:collapse;background:#F9FAFB;border-radius:8px;overflow:hidden;margin-bottom:16px;">
       ${row(companyLabel, acc.company)}
       ${row(standLabel, acc.stand)}
       ${row(et.event, acc.event)}
       ${row(et.vehicle, vehicleIdentity)}
-      ${gabarit ? row(et.vehicleTemplate, gabarit) : ""}
-      ${vehicle?.trailerPlate ? row(et.trailer, vehicle.trailerPlate) : ""}
-      ${vehicle?.date ? row(et.plannedDate, `${vehicle.date}${vehicle.time ? " " + vehicle.time : ""}`) : ""}
-      ${vehicle?.city ? row(et.departureCity, vehicle.city) : ""}
-      ${phone ? row(et.driverPhone, phone) : ""}
     </table>
 
-    <div style="text-align:center;margin-bottom:8px;">
-      <img src="cid:qraccreditation" alt="${escapeHtml(et.qrAlt)}" width="220" height="220" style="border:1px solid #E5E7EB;border-radius:12px;background:#fff;" />
-      <div style="font-size:12px;color:#6b7280;margin-top:6px;">${escapeHtml(et.qrCaption)}</div>
-    </div>
+    ${vehicleBlocksHtml}
+    ${trackingQrHtml}
 
     <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;padding:12px 16px;margin-top:20px;">
       <div style="font-size:13px;color:#1E3A8A;font-weight:600;">
@@ -249,10 +300,11 @@ export async function sendAccreditationCreationEmail(params: {
     }
 
     const vehicles = (acc.vehicles ?? []) as MinimalVehicle[];
-    const vehicle = vehicles[0];
     const lang: LangCode = isValidLang(acc.language ?? "")
       ? (acc.language as LangCode)
       : "fr";
+    const orgSlug = acc.organization?.slug ?? null;
+    const isRx = (orgSlug ?? "").toLowerCase() === "rx";
 
     let vehicleTypes = mapDefaultVehicleTypes(null);
     if (acc.organizationId) {
@@ -265,42 +317,40 @@ export async function sendAccreditationCreationEmail(params: {
       }
     }
 
-    const gabarit = vehicle
-      ? resolveVehicleTypeLabelFromList(
-          vehicleTypes,
-          vehicle.vehicleType,
-          vehicle.size,
-          lang
-        )
-      : "";
+    const processConfigs = isRx && acc.organizationId
+      ? await prisma.rxVehicleProcessConfig.findMany({
+          where: { organizationId: acc.organizationId, isActive: true },
+        })
+      : [];
+    const processByFamily = new Map(
+      processConfigs.map((c) => [c.vehicleFamily as VehicleFamily, c])
+    );
+
+    const resolveProcess = (
+      vehicleType: string | null,
+      size: string
+    ): RxVehicleProcessInstructions | null => {
+      if (!isRx) return null;
+      const code = (vehicleType || size || "").trim().toUpperCase();
+      const vt = vehicleTypes.find(
+        (t) => t.code.toUpperCase() === code || t.label.toUpperCase() === code
+      );
+      const family = (vt?.vehicleFamily as VehicleFamily | null | undefined) ?? null;
+      if (!family) return null;
+      return getRxVehicleProcessInstructions(
+        family,
+        processByFamily.get(family) ?? null
+      );
+    };
 
     // Identité véhicule pour le sujet (évite la confusion si plusieurs e-mails).
     const vehicleIdentity =
       vehicles.length > 1
         ? `${vehicles.length} véhicules`
-        : vehicle?.plate?.trim() ||
-          vehicle?.vehicleType?.trim() ||
-          vehicle?.size?.trim() ||
+        : vehicles[0]?.plate?.trim() ||
+          vehicles[0]?.vehicleType?.trim() ||
+          vehicles[0]?.size?.trim() ||
           "Véhicule";
-
-    // QR principal : premier véhicule (compatibilité scanner) + vehicleId si dispo.
-    const qrPng = await QRCode.toBuffer(
-      idQrPayload(acc.id, {
-        vehicleId: vehicle?.id ?? null,
-        phase:
-          vehicle?.logisticsRole === "DEMONTAGE"
-            ? "DEMONTAGE"
-            : vehicle?.logisticsRole === "MONTAGE"
-              ? "MONTAGE"
-              : undefined,
-      }),
-      {
-        errorCorrectionLevel: "M",
-        width: 320,
-        margin: 2,
-        type: "png",
-      }
-    );
 
     // « validée » = accréditation créée par un agent habilité (espace
     // logisticien) -> tout statut autre que NOUVEAU. NOUVEAU = demande publique
@@ -308,18 +358,94 @@ export async function sendAccreditationCreationEmail(params: {
     // pour le renvoi d'e-mail (resend-creation-email).
     const validated = acc.status !== "NOUVEAU";
     const et = getEmailTranslations(lang);
+
+    type QrAttachment = {
+      filename: string;
+      content: Buffer;
+      inlineContentId: string;
+    };
+    const qrAttachments: QrAttachment[] = [];
+
+    const vehicleBlocks: EmailVehicleBlock[] = [];
+    for (let i = 0; i < vehicles.length; i += 1) {
+      const vehicle = vehicles[i];
+      const gabarit = resolveVehicleTypeLabelFromList(
+        vehicleTypes,
+        vehicle.vehicleType,
+        vehicle.size,
+        lang
+      );
+      const process = resolveProcess(vehicle.vehicleType, vehicle.size);
+      let qrCid: string | null = null;
+      let qrCaption = et.qrCaption;
+      if (validated) {
+        qrCid = `qrvehicle${vehicle.id ?? i}`;
+        const phase =
+          vehicle.logisticsRole === "DEMONTAGE"
+            ? ("DEMONTAGE" as const)
+            : vehicle.logisticsRole === "MONTAGE"
+              ? ("MONTAGE" as const)
+              : undefined;
+        const png = await QRCode.toBuffer(
+          idQrPayload(acc.id, {
+            vehicleId: vehicle.id ?? null,
+            phase,
+          }),
+          {
+            errorCorrectionLevel: "M",
+            width: 280,
+            margin: 2,
+            type: "png",
+          }
+        );
+        qrAttachments.push({
+          filename: `qr-vehicle-${vehicle.id ?? i}.png`,
+          content: png,
+          inlineContentId: qrCid,
+        });
+        qrCaption = logisticsRoleLabel(vehicle.logisticsRole);
+      }
+      vehicleBlocks.push({
+        vehicle,
+        gabarit,
+        process,
+        qrCid,
+        qrCaption,
+      });
+    }
+
+    // Demande NOUVEAU : un seul QR de suivi (sécurité) + récap de tous les véhicules.
+    if (!validated) {
+      const trackingPng = await QRCode.toBuffer(
+        idQrPayload(acc.id, {
+          vehicleId: vehicles[0]?.id ?? null,
+        }),
+        {
+          errorCorrectionLevel: "M",
+          width: 320,
+          margin: 2,
+          type: "png",
+        }
+      );
+      qrAttachments.push({
+        filename: "qr-accreditation.png",
+        content: trackingPng,
+        inlineContentId: "qraccreditation",
+      });
+    }
+
     const subject = validated
       ? `${et.subjectValidated} — ${vehicleIdentity} (${acc.company})`
       : `${et.subjectRequest} — ${vehicleIdentity} (${acc.company})`;
-    const html = buildHtml(
+    const html = buildCreationEmailHtml({
       acc,
-      vehicle,
+      vehicles: vehicleBlocks,
       vehicleIdentity,
-      gabarit,
       validated,
-      acc.organization?.slug ?? null,
-      lang
-    );
+      orgSlug,
+      lang,
+      trackingQr: !validated,
+    });
 
     // Source unique de vérité du document : on attache à l'e-mail le MÊME PDF
     // propre que celui téléchargé depuis l'interface (générateur structuré
@@ -335,7 +461,7 @@ export async function sendAccreditationCreationEmail(params: {
       pdfAttachment = {
         filename: buildAccreditationPdfFilename({
           stand: acc.stand,
-          plate: vehicle?.plate,
+          plate: vehicles[0]?.plate,
           validated,
         }),
         content: pdfBuffer,
@@ -361,11 +487,11 @@ export async function sendAccreditationCreationEmail(params: {
       subject,
       html,
       attachments: [
-        {
-          filename: "qr-accreditation.png",
-          content: qrPng,
-          inlineContentId: "qraccreditation",
-        },
+        ...qrAttachments.map((q) => ({
+          filename: q.filename,
+          content: q.content,
+          inlineContentId: q.inlineContentId,
+        })),
         ...(pdfAttachment
           ? [{ filename: pdfAttachment.filename, content: pdfAttachment.content }]
           : []),

@@ -330,6 +330,20 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
                       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   </Link>
+                  {(hasPermission("CREER", "write") ||
+                    hasPermission("GESTION_DATES", "write") ||
+                    isSuperAdmin) && (
+                    <Link
+                      href="/logisticien/nouveau?espace=rx&mode=derogation"
+                      className="flex items-center justify-center p-2.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors"
+                      title="Créer une dérogation"
+                      onClick={() => setSidebarOpen(false)}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-white">
+                        <path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </Link>
+                  )}
                 </div>
               ) : (
                 <details open className="group">
@@ -386,6 +400,22 @@ function LogisticienLayoutContent({ children }: { children: ReactNode }) {
                         Centre d&apos;import
                       </Link>
                     </li>
+                    {(hasPermission("CREER", "write") ||
+                      hasPermission("GESTION_DATES", "write") ||
+                      isSuperAdmin) && (
+                      <li>
+                        <Link
+                          href="/logisticien/nouveau?espace=rx&mode=derogation"
+                          className="flex items-center gap-2.5 px-3 py-2.5 sm:py-2 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors"
+                          onClick={() => setSidebarOpen(false)}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-white shrink-0">
+                            <path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                          Créer une dérogation
+                        </Link>
+                      </li>
+                    )}
                   </ul>
                 </details>
               )

@@ -22,6 +22,7 @@ import type {
   ScanAction,
   ScanType,
 } from "@/lib/scan-types";
+import { logisticsRoleLabel } from "@/lib/scan-vehicle-target";
 
 export interface ScanActionResult {
   type: "success" | "error" | "info";
@@ -74,7 +75,12 @@ export default function AccreditationScanModal({
   const [confirmingRefuse, setConfirmingRefuse] = useState(false);
   const zoneLabel = getZoneLabel(zone);
 
-  const phone = summary.vehicles.find((v) => v.phone)?.phone ?? null;
+  const target = summary.targetVehicle ?? null;
+  const phone =
+    target?.phone ??
+    summary.vehicles.find((v) => v.phone)?.phone ??
+    null;
+  const displayVehicles = target ? [target] : summary.vehicles;
 
   const isNew = summary.status === "NOUVEAU";
   const isValidated =
@@ -112,6 +118,10 @@ export default function AccreditationScanModal({
             scanType,
             scannedValue,
             version: summary.version,
+            ...(summary.targetVehicleId != null
+              ? { vehicleId: summary.targetVehicleId }
+              : {}),
+            ...(summary.targetPhase ? { phase: summary.targetPhase } : {}),
           }),
         }
       );
@@ -221,22 +231,42 @@ export default function AccreditationScanModal({
               )}
             </div>
 
-            {/* Véhicule(s) */}
-            {summary.vehicles.length > 0 && (
+            {/* Véhicule ciblé (QR vehicleId) ou liste complète */}
+            {displayVehicles.length > 0 && (
               <div className="rounded-xl bg-gray-50 border border-gray-100 p-3 space-y-2">
-                {summary.vehicles.map((v) => (
-                  <div key={v.id} className="flex items-center gap-2 text-sm flex-wrap">
-                    <span className="font-mono font-bold text-gray-900 bg-white px-2 py-0.5 rounded border border-gray-200">
-                      {v.plate || "Plaque à l'arrivée"}
-                    </span>
-                    <span className="inline-flex items-center gap-1 text-xs text-[#4F587E] font-medium">
-                      <Truck size={12} />
-                      {v.vehicleLabel}
-                    </span>
-                    {v.trailerPlate && (
-                      <span className="text-xs text-gray-500">
-                        Rem. <span className="font-mono">{v.trailerPlate}</span>
+                {target && (
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-700">
+                    Véhicule scanné
+                    {summary.targetPhase
+                      ? ` · ${summary.targetPhase === "livraison" ? "Montage" : "Démontage"}`
+                      : ""}
+                  </p>
+                )}
+                {displayVehicles.map((v) => (
+                  <div key={v.id} className="space-y-1">
+                    <div className="flex items-center gap-2 text-sm flex-wrap">
+                      <span className="font-mono font-bold text-gray-900 bg-white px-2 py-0.5 rounded border border-gray-200">
+                        {v.plate || "Plaque à l'arrivée"}
                       </span>
+                      <span className="inline-flex items-center gap-1 text-xs text-[#4F587E] font-medium">
+                        <Truck size={12} />
+                        {v.vehicleLabel}
+                      </span>
+                      {v.logisticsRole && (
+                        <span className="text-xs font-semibold text-gray-700 bg-white px-2 py-0.5 rounded border border-gray-200">
+                          {logisticsRoleLabel(v.logisticsRole)}
+                        </span>
+                      )}
+                      {v.trailerPlate && (
+                        <span className="text-xs text-gray-500">
+                          Rem. <span className="font-mono">{v.trailerPlate}</span>
+                        </span>
+                      )}
+                    </div>
+                    {(v.date || v.time) && (
+                      <p className="text-xs text-gray-600">
+                        Créneau : {[v.date, v.time].filter(Boolean).join(" · ") || "—"}
+                      </p>
                     )}
                   </div>
                 ))}

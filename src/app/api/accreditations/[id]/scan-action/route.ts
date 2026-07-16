@@ -5,6 +5,11 @@ import { requirePermission } from "@/lib/auth-helpers";
 import { assertAccreditationAccess } from "@/lib/rbac";
 import { getZoneLabel } from "@/lib/zone-utils";
 import type { ScanAction, ScanType } from "@/lib/scan-types";
+import {
+  logisticsRoleLabel,
+  resolveScanTargetVehicle,
+  type ScanPhase,
+} from "@/lib/scan-vehicle-target";
 
 /**
  * `POST /api/accreditations/[id]/scan-action` — Endpoint TRANSACTIONNEL du
@@ -15,10 +20,31 @@ import type { ScanAction, ScanType } from "@/lib/scan-types";
  *                      le véhicule était encore ENTREE ailleurs ; jamais ATTENTE)
  *   - EXIT           : sortie de la zone (currentZone conservée = dernière zone)
  *
+ * Avec `vehicleId` (QR véhicule physique) : les créneaux VehicleTimeSlot sont
+ * ouverts/fermés uniquement pour ce véhicule — l'autre véhicule de la même
+ * demande n'est pas impacté.
+ *
  * Sécurité : `GESTION_ZONES write` (agents terrain, sans `LISTE`) +
  * `assertAccreditationAccess` + validation de la zone scopée à l'organisation
  * de l'accréditation. Verrou optimiste via `version`.
  */
+
+function parseBodyPhase(raw: unknown): ScanPhase | null {
+  if (typeof raw !== "string") return null;
+  const v = raw.trim().toLowerCase();
+  if (v === "livraison" || v === "montage") return "livraison";
+  if (v === "reprise" || v === "demontage" || v === "démontage") return "reprise";
+  return null;
+}
+
+function parseBodyVehicleId(raw: unknown): number | null {
+  if (typeof raw === "number" && Number.isInteger(raw) && raw > 0) return raw;
+  if (typeof raw === "string" && /^\d+$/.test(raw.trim())) {
+    const n = Number(raw.trim());
+    if (Number.isInteger(n) && n > 0) return n;
+  }
+  return null;
+}
 
 const VALID_ACTIONS: ScanAction[] = ["VALIDATE_ENTRY", "REFUSE", "ENTRY", "EXIT"];
 
@@ -52,6 +78,8 @@ export async function POST(
   const scanType = (body.scanType as ScanType | undefined) ?? null;
   const scannedValue = (body.scannedValue as string | undefined) ?? null;
   const version = body.version;
+  const bodyVehicleId = parseBodyVehicleId(body.vehicleId);
+  const bodyPhase = parseBodyPhase(body.phase);
 
   if (!action || !VALID_ACTIONS.includes(action)) {
     return new Response("Action invalide", { status: 400 });
@@ -92,24 +120,43 @@ export async function POST(
       const prevStatus = acc.status;
       const prevZone = acc.currentZone;
 
-      /* ---------- helpers de mouvement / créneaux ---------- */
+      // Véhicule ciblé : QR nouveau (vehicleId) ou premier véhicule (legacy).
+      const targetResolved = resolveScanTargetVehicle(acc.vehicles, {
+        vehicleId: bodyVehicleId,
+        phase: bodyPhase,
+      });
+      if (!targetResolved.ok) {
+        if (targetResolved.code === "VEHICLE_WRONG_ACCREDITATION") {
+          throw new Error("VEHICLE_WRONG_ACCREDITATION");
+        }
+        if (targetResolved.code === "PHASE_INCOMPATIBLE") {
+          throw new Error("PHASE_INCOMPATIBLE");
+        }
+        throw new Error("VEHICLE_NOT_FOUND");
+      }
+      const targetVehicle = targetResolved.vehicle;
+      const targetVehicleLabel = [
+        logisticsRoleLabel(targetVehicle.logisticsRole),
+        targetVehicle.plate || "sans plaque",
+      ].join(" · ");
+
+      /* ---------- helpers de mouvement / créneaux (véhicule ciblé) ---------- */
       const openTimeSlot = async (toZone: string) => {
-        if (acc.vehicles.length === 0) return;
-        const vehicle = acc.vehicles[0];
+        const vehicleId = targetVehicle.id;
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const openSlot = await tx.vehicleTimeSlot.findFirst({
-          where: { accreditationId: id, vehicleId: vehicle.id, date: today, exitAt: null },
+          where: { accreditationId: id, vehicleId, date: today, exitAt: null },
         });
         if (openSlot) return;
         const lastSlot = await tx.vehicleTimeSlot.findFirst({
-          where: { accreditationId: id, vehicleId: vehicle.id, date: today },
+          where: { accreditationId: id, vehicleId, date: today },
           orderBy: { stepNumber: "desc" },
         });
         await tx.vehicleTimeSlot.create({
           data: {
             accreditationId: id,
-            vehicleId: vehicle.id,
+            vehicleId,
             date: today,
             stepNumber: lastSlot ? lastSlot.stepNumber + 1 : 1,
             zone: toZone,
@@ -118,10 +165,9 @@ export async function POST(
         });
       };
       const closeTimeSlot = async () => {
-        if (acc.vehicles.length === 0) return;
-        const vehicle = acc.vehicles[0];
+        const vehicleId = targetVehicle.id;
         const openSlot = await tx.vehicleTimeSlot.findFirst({
-          where: { accreditationId: id, vehicleId: vehicle.id, exitAt: null },
+          where: { accreditationId: id, vehicleId, exitAt: null },
           orderBy: { stepNumber: "desc" },
         });
         if (openSlot) {
@@ -130,6 +176,31 @@ export async function POST(
             data: { exitAt: new Date() },
           });
         }
+      };
+      /** Autres véhicules encore présents (créneau ouvert) — pour ne pas forcer SORTIE. */
+      const otherVehicleStillOnSite = async () => {
+        const open = await tx.vehicleTimeSlot.findFirst({
+          where: {
+            accreditationId: id,
+            vehicleId: { not: targetVehicle.id },
+            exitAt: null,
+          },
+          select: { id: true },
+        });
+        return Boolean(open);
+      };
+      /** Ce véhicule a déjà un créneau ouvert dans la zone de poste. */
+      const targetAlreadyInZone = async (toZone: string) => {
+        const open = await tx.vehicleTimeSlot.findFirst({
+          where: {
+            accreditationId: id,
+            vehicleId: targetVehicle.id,
+            zone: toZone,
+            exitAt: null,
+          },
+          select: { id: true },
+        });
+        return Boolean(open);
       };
       const createMovement = (data: {
         fromZone: string | null;
@@ -199,10 +270,15 @@ export async function POST(
             field: "status",
             oldValue: "NOUVEAU",
             newValue: "ENTREE",
-            description: `Validation terrain depuis le scan : entrée en zone ${zoneLabel}`,
+            description: `Validation terrain depuis le scan : entrée en zone ${zoneLabel} (${targetVehicleLabel})`,
             changeReason: "field_validate_entry",
           });
-          return { ok: true, status: "ENTREE", currentZone: zone };
+          return {
+            ok: true,
+            status: "ENTREE",
+            currentZone: zone,
+            vehicleId: targetVehicle.id,
+          };
         }
 
         case "REFUSE": {
@@ -227,14 +303,16 @@ export async function POST(
           if (prevStatus === "REFUS" || prevStatus === "ABSENT")
             throw new Error("BAD_STATUS");
 
-          // Déjà entré dans CETTE zone -> no-op informatif (pas de doublon).
-          if (prevStatus === "ENTREE" && prevZone === zone) {
+          // No-op si CE véhicule a déjà un créneau ouvert dans la zone de poste
+          // (indépendamment du statut global — un autre véhicule peut être présent).
+          if (await targetAlreadyInZone(zone!)) {
             return {
               ok: true,
               noop: true,
               reason: "already_in_zone",
               status: prevStatus,
               currentZone: prevZone,
+              vehicleId: targetVehicle.id,
             };
           }
 
@@ -261,7 +339,7 @@ export async function POST(
               field: "currentZone",
               oldValue: prevZone,
               newValue: prevZone,
-              description: `Sortie automatique de ${getZoneLabel(prevZone!)} (oubli de scan sortie, corrigé par le système)`,
+              description: `Sortie automatique de ${getZoneLabel(prevZone!)} (oubli de scan sortie, corrigé par le système) — ${targetVehicleLabel}`,
               actorSource: "SYSTEM",
               changeReason: "auto_exit_previous_zone_on_new_entry",
             });
@@ -288,13 +366,14 @@ export async function POST(
             field: "currentZone",
             oldValue: prevZone,
             newValue: zone,
-            description: `Entrée en zone ${zoneLabel}`,
+            description: `Entrée en zone ${zoneLabel} (${targetVehicleLabel})`,
           });
           return {
             ok: true,
             status: "ENTREE",
             currentZone: zone,
             autoExit: needsAutoExit,
+            vehicleId: targetVehicle.id,
           };
         }
 
@@ -305,7 +384,32 @@ export async function POST(
             prevStatus === "ABSENT"
           )
             throw new Error("BAD_STATUS");
-          // Déjà sorti -> no-op informatif.
+
+          const zoneLabel = getZoneLabel(zone!);
+          // Ferme uniquement le créneau du véhicule ciblé.
+          await closeTimeSlot();
+
+          // Si un autre véhicule de la même demande est encore sur site :
+          // on ne passe PAS l'accréditation en SORTIE (indépendance des véhicules).
+          if (await otherVehicleStillOnSite()) {
+            await writeHistory({
+              action: "ZONE_CHANGED",
+              field: "currentZone",
+              oldValue: prevZone,
+              newValue: prevZone,
+              description: `Sortie véhicule ${targetVehicleLabel} de la zone ${zoneLabel} (autre véhicule encore présent)`,
+              changeReason: "vehicle_exit_sibling_still_on_site",
+            });
+            return {
+              ok: true,
+              status: prevStatus,
+              currentZone: prevZone,
+              vehicleId: targetVehicle.id,
+              siblingStillOnSite: true,
+            };
+          }
+
+          // Déjà sorti (plus aucun créneau ouvert) -> no-op informatif.
           if (prevStatus === "SORTIE") {
             return {
               ok: true,
@@ -313,9 +417,10 @@ export async function POST(
               reason: "already_out",
               status: prevStatus,
               currentZone: prevZone,
+              vehicleId: targetVehicle.id,
             };
           }
-          const zoneLabel = getZoneLabel(zone!);
+
           // Tolère une sortie sans entrée préalable (statut autre que ENTREE) :
           // on la trace explicitement via reason.
           const reason = prevStatus !== "ENTREE" ? "exit_without_prior_entry" : null;
@@ -335,16 +440,20 @@ export async function POST(
             action: "EXIT",
             reason,
           });
-          await closeTimeSlot();
           await writeHistory({
             action: "ZONE_CHANGED",
             field: "currentZone",
             oldValue: prevZone,
             newValue: zone,
-            description: `Sortie de la zone ${zoneLabel}`,
+            description: `Sortie de la zone ${zoneLabel} (${targetVehicleLabel})`,
             changeReason: reason,
           });
-          return { ok: true, status: "SORTIE", currentZone: zone };
+          return {
+            ok: true,
+            status: "SORTIE",
+            currentZone: zone,
+            vehicleId: targetVehicle.id,
+          };
         }
 
         default:
@@ -395,6 +504,19 @@ export async function POST(
         NEEDS_VALIDATION: {
           status: 409,
           message: "Cette accréditation doit d'abord être validée (Valider l'entrée).",
+        },
+        VEHICLE_WRONG_ACCREDITATION: {
+          status: 409,
+          message: "Ce véhicule n'appartient pas à cette accréditation.",
+        },
+        PHASE_INCOMPATIBLE: {
+          status: 409,
+          message:
+            "La phase du QR ne correspond pas au rôle logistique de ce véhicule.",
+        },
+        VEHICLE_NOT_FOUND: {
+          status: 409,
+          message: "Aucun véhicule ciblé pour cette action de scan.",
         },
       };
       const mapped = map[error.message];

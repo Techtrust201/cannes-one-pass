@@ -28,6 +28,11 @@ import { getSkipT, getOtherProviderT, getRxFlowT } from "../i18n";
 import type { ZodIssue } from "zod";
 import type { StepProps } from "../../types";
 import type { RxFormData } from "../types";
+import {
+  computeRxSlotParts,
+  RxVehicleProcessInstructions,
+} from "./RxSlotBadge";
+import type { VehicleFamily } from "@prisma/client";
 
 const OTHER_PROVIDER = "Autre" as const;
 
@@ -414,6 +419,39 @@ export function StepManutentionRx({
   // Si une seule phase est concernée, le sous-titrage par phase n'apporte rien.
   const showPhaseLabels = montageZones.length > 0 && demontageZones.length > 0;
 
+  // Familles LIGHT/HEAVY présentes dans la demande (consignes récap).
+  const processFamilies = useMemo(() => {
+    const set = new Set<VehicleFamily>();
+    for (const cat of stepTwo.categories) {
+      for (const v of cat.vehicles) {
+        const codes = [
+          !stepTwo.skipMontage ? v.vehicleType : null,
+          !stepTwo.skipDemontage
+            ? v.repSameAsDelivery === false
+              ? v.repVehicleType
+              : v.vehicleType
+            : null,
+        ];
+        for (const code of codes) {
+          if (!code) continue;
+          const family = computeRxSlotParts(
+            code,
+            effectiveSector,
+            vehicleTypes
+          )?.vehicleFamily;
+          if (family) set.add(family);
+        }
+      }
+    }
+    return Array.from(set);
+  }, [
+    stepTwo.categories,
+    stepTwo.skipMontage,
+    stepTwo.skipDemontage,
+    effectiveSector,
+    vehicleTypes,
+  ]);
+
   // Écran de succès — wording et PDF distincts : public (demande) vs logisticien (officiel).
   if (hasSaved) {
     return (
@@ -630,6 +668,14 @@ export function StepManutentionRx({
                 </div>
               ) : null
             )}
+          </div>
+        )}
+        {processFamilies.length > 0 && (
+          <div className="pt-2 mt-2 border-t border-gray-200 space-y-2">
+            <span className="font-semibold">Consignes logistiques</span>
+            {processFamilies.map((family) => (
+              <RxVehicleProcessInstructions key={family} family={family} />
+            ))}
           </div>
         )}
       </div>

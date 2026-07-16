@@ -238,7 +238,13 @@ function ScannerInner() {
   /* ---------- résolution / lookup ---------- */
   const runLookup = useCallback(
     async (
-      params: { id?: string; token?: string; plate?: string },
+      params: {
+        id?: string;
+        token?: string;
+        plate?: string;
+        vehicleId?: number;
+        phase?: "livraison" | "reprise";
+      },
       scanType: ScanType,
       scannedValue: string
     ) => {
@@ -252,13 +258,21 @@ function ScannerInner() {
         if (params.id) qs.set("id", params.id);
         if (params.token) qs.set("token", params.token);
         if (params.plate) qs.set("plate", params.plate);
+        if (params.vehicleId != null) qs.set("vehicleId", String(params.vehicleId));
+        if (params.phase) qs.set("phase", params.phase);
         if (espace) qs.set("espace", espace);
         const res = await fetch(`/api/accreditations/lookup?${qs.toString()}`);
+        const data = (await res.json().catch(() => ({}))) as {
+          matches?: AccreditationScanSummary[];
+          error?: string;
+        };
         if (!res.ok) {
-          pushToast("error", "Recherche impossible. Réessayez.");
+          pushToast(
+            "error",
+            data.error || "Recherche impossible. Réessayez."
+          );
           return;
         }
-        const data = (await res.json()) as { matches: AccreditationScanSummary[] };
         const found = data.matches ?? [];
         if (found.length === 0) {
           pushToast(

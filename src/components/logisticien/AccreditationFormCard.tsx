@@ -9,6 +9,7 @@ import DailyTimeSlotHistory from "./DailyTimeSlotHistory";
 import AccreditationChat from "./AccreditationChat";
 import VehicleCard from "./VehicleCard";
 import RxServiceDetails from "./RxServiceDetails";
+import RxVehicleProcessPanel from "./RxVehicleProcessPanel";
 import QrCodeBlock from "./QrCodeBlock";
 import VehicleEditDialog from "./VehicleEditDialog";
 import ActionButtons from "./ActionButtons";
@@ -16,11 +17,13 @@ import { PortalOverlay } from "@/components/ui/PortalOverlay";
 
 import { useEventOptions } from "@/hooks/useEventOptions";
 import { useUnloadingProviders } from "@/hooks/useUnloadingProviders";
+import { useVehicleTypesContext } from "@/contexts/VehicleTypesContext";
 import {
   buildUnloadingOptions,
   getOrgFieldLabel,
   resolveUnloadingLabel,
 } from "@/lib/org-form-config";
+import type { VehicleFamily } from "@prisma/client";
 
 interface Props {
   acc: Accreditation;
@@ -36,6 +39,7 @@ export default function AccreditationFormCard({ acc, orgSlug = null }: Props) {
   const router = useRouter();
   const EVENT_OPTIONS = useEventOptions();
   const { providers: unloadingProviders } = useUnloadingProviders();
+  const { types: vehicleTypeConfigs } = useVehicleTypesContext();
   const [company, setCompany] = useState(acc.company ?? "");
   const [stand, setStand] = useState(acc.stand ?? "");
   const [unloading, setUnloading] = useState(acc.unloading ?? "");
@@ -271,6 +275,20 @@ export default function AccreditationFormCard({ acc, orgSlug = null }: Props) {
 
         {/* Détail des services RX (créneaux liv/rep, manutention, société intervenante) */}
         <RxServiceDetails extension={acc.extension} />
+
+        {(orgSlug ?? "").toLowerCase() === "rx" && (
+          <RxVehicleProcessPanel
+            families={(acc.vehicles ?? []).map((v) => {
+              const code = (v.vehicleType || v.size || "").trim().toUpperCase();
+              const vt = vehicleTypeConfigs.find(
+                (t) =>
+                  t.code.toUpperCase() === code ||
+                  t.label.toUpperCase() === code
+              );
+              return (vt?.vehicleFamily as VehicleFamily | null | undefined) ?? null;
+            })}
+          />
+        )}
 
         {/* QR Véhicule : ouvre directement cette accréditation */}
         <div className="mb-6 flex justify-center">

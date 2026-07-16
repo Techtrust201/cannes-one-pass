@@ -291,6 +291,57 @@ export function createDuplicatedEntry(
   };
 }
 
+/** Trace atomiquement une création en dérogation et les contournements accordés. */
+export function createDerogationEntry(
+  accreditationId: string,
+  derogation: {
+    reason: string;
+    byUserId: string;
+    capacityBypass: boolean;
+    planningBypass: boolean;
+  }
+): HistoryEntryData {
+  const bypasses = [
+    derogation.planningBypass ? "planning et type de véhicule" : null,
+    derogation.capacityBypass ? "capacité" : null,
+  ].filter(Boolean);
+  return {
+    accreditationId,
+    action: "INFO_UPDATED",
+    field: "derogation",
+    newValue: "true",
+    description: `Dérogation créée${bypasses.length ? ` — contournement ${bypasses.join(", ")}` : ""}`,
+    userId: derogation.byUserId,
+    actorSource: "DEROGATION",
+    changeReason: derogation.reason.trim(),
+    diff: {
+      derogation: true,
+      capacityBypass: derogation.capacityBypass,
+      planningBypass: derogation.planningBypass,
+    },
+  };
+}
+
+export function createDerogationBypassEntry(
+  accreditationId: string,
+  bypass: "capacity" | "planning",
+  userId: string,
+  reason: string
+): HistoryEntryData {
+  const label = bypass === "capacity" ? "capacité" : "planning et type de véhicule";
+  return {
+    accreditationId,
+    action: "INFO_UPDATED",
+    field: `${bypass}Bypass`,
+    newValue: "true",
+    description: `Contournement ${label} accordé par dérogation`,
+    userId,
+    actorSource: "DEROGATION",
+    changeReason: reason.trim(),
+    diff: { bypass, granted: true },
+  };
+}
+
 export function createVehicleReturnEntry(
   accreditationId: string,
   zone: string,

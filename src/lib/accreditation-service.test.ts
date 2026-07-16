@@ -23,6 +23,45 @@ vi.mock("@/lib/prisma", () => {
   return { prisma: prismaMock, default: prismaMock };
 });
 
+describe("dérogation", () => {
+  it("ne force pas la capacité et trace les bypass accordés", async () => {
+    const preview = await previewAccreditation(baseCommand(), {
+      currentUserId: "user-1",
+      currentUserRole: "ADMIN",
+      derogation: {
+        reason: "Créneau exceptionnel validé par l'organisation.",
+        byUserId: "user-1",
+        capacityBypass: true,
+        planningBypass: true,
+      },
+    });
+    expect(preview.ok).toBe(true);
+    if (!preview.ok) return;
+
+    const tx = makeFakeTx();
+    await createAccreditationInTransaction(tx as never, preview, {
+      currentUserId: "user-1",
+      currentUserRole: "ADMIN",
+      derogation: {
+        reason: "Créneau exceptionnel validé par l'organisation.",
+        byUserId: "user-1",
+        capacityBypass: true,
+        planningBypass: true,
+      },
+    });
+
+    expect(enforceCapacityQuotas).not.toHaveBeenCalled();
+    expect(writeHistoryDirect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorSource: "DEROGATION",
+        changeReason: "Créneau exceptionnel validé par l'organisation.",
+        diff: expect.objectContaining({ capacityBypass: true, planningBypass: true }),
+      }),
+      tx
+    );
+  });
+});
+
 // auth-helpers est mocké intégralement : `getSession` (route publique par
 // défaut) et `assertEventBelongsToOrg` (dynamiquement importé par le moteur).
 // Les messages exacts de `assertEventBelongsToOrg` sont définis côté HEAD et

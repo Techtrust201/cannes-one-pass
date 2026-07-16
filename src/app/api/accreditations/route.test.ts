@@ -13,6 +13,10 @@ vi.mock("@/lib/prisma", () => {
 
 vi.mock("@/lib/auth-helpers", () => ({
   getSession: vi.fn(async () => null),
+  requireAuth: vi.fn(),
+  hasPermission: vi.fn(),
+  getAccessibleEventIdsForEspace: vi.fn(),
+  resolveEspaceOrgId: vi.fn(),
 }));
 
 const createAccreditation = vi.fn<
@@ -35,6 +39,7 @@ vi.mock("@/lib/accreditation-service", () => ({
 }));
 
 import prisma from "@/lib/prisma";
+import { getAccessibleEventIdsForEspace, hasPermission, requireAuth, resolveEspaceOrgId } from "@/lib/auth-helpers";
 import { POST } from "./route";
 import { NextRequest } from "next/server";
 
@@ -46,8 +51,8 @@ type MockedPrisma = {
 };
 const mockedPrisma = prisma as unknown as MockedPrisma;
 
-function makeReq(body: Record<string, unknown>): NextRequest {
-  return new NextRequest("http://localhost/api/accreditations", {
+function makeReq(body: Record<string, unknown>, suffix = ""): NextRequest {
+  return new NextRequest(`http://localhost/api/accreditations${suffix}`, {
     method: "POST",
     body: JSON.stringify(body),
     headers: { "content-type": "application/json" },
@@ -68,6 +73,51 @@ const RX_COMMAND = {
 beforeEach(() => {
   vi.clearAllMocks();
   createAccreditation.mockResolvedValue({ ok: true, body: { id: "acc-1" } });
+  (requireAuth as Mock).mockResolvedValue({ session: { user: { id: "user-1" } }, role: "ADMIN" });
+  (hasPermission as Mock).mockResolvedValue(false);
+  (getAccessibleEventIdsForEspace as Mock).mockResolvedValue(["event-rx"]);
+  (resolveEspaceOrgId as Mock).mockResolvedValue("org-rx");
+  mockedPrisma.event.findUnique.mockResolvedValue({ id: "event-rx", organizationId: "org-rx" });
+});
+
+describe("POST /api/accreditations — dérogation RX", () => {
+  const derogationCommand = { ...RX_COMMAND, derogationReason: "Créneau exceptionnel validé par l'organisation." };
+
+  it("refuse sans permission de base", async () => {
+    const res = await POST(makeReq(derogationCommand, "?espace=rx&mode=derogation"));
+    expect(res.status).toBe(403);
+    expect(createAccreditation).not.toHaveBeenCalled();
+  });
+
+  it("construit le contexte serveur et n'accorde la capacité qu'avec FLUX_VEHICULES", async () => {
+    (hasPermission as Mock).mockImplementation(async (_id, feature) => feature === "CREER");
+    await POST(makeReq({ ...derogationCommand, capacityBypass: true, isDerogation: true }, "?espace=rx&mode=derogation"));
+    expect(createAccreditation).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        derogation: expect.objectContaining({
+          byUserId: "user-1",
+          planningBypass: true,
+          capacityBypass: false,
+        }),
+      })
+    );
+  });
+
+  it("refuse un événement RX hors périmètre, même avec une permission de création", async () => {
+    (hasPermission as Mock).mockImplementation(async (_id, feature) => feature === "CREER");
+    (getAccessibleEventIdsForEspace as Mock).mockResolvedValue([]);
+    const res = await POST(makeReq(derogationCommand, "?espace=rx&mode=derogation"));
+    expect(res.status).toBe(403);
+    expect(createAccreditation).not.toHaveBeenCalled();
+  });
+
+  it("refuse un motif de moins de dix caractères", async () => {
+    (hasPermission as Mock).mockImplementation(async (_id, feature) => feature === "GESTION_DATES");
+    const res = await POST(makeReq({ ...derogationCommand, derogationReason: "Court" }, "?espace=rx&mode=derogation"));
+    expect(res.status).toBe(400);
+    expect(createAccreditation).not.toHaveBeenCalled();
+  });
 });
 
 describe("POST /api/accreditations — indications référentielles NON FIABLES (Phase 6C-B-2)", () => {

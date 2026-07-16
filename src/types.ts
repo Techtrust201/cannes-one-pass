@@ -100,6 +100,10 @@ export interface Accreditation {
   standId?: string | null;
   /** Payload spécifique au template (ex: RX → contact, catégories, vehicleContext…). */
   extension?: Record<string, unknown> | null;
+  isDerogation?: boolean;
+  derogationReason?: string | null;
+  capacityBypass?: boolean;
+  planningBypass?: boolean;
   /** Heure d'entrée au Palais (time slot le plus récent) — legacy */
   palaisEntryAt?: Date | null;
   /** Heure de sortie du Palais (time slot le plus récent) — legacy */

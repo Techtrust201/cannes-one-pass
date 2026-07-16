@@ -55,6 +55,11 @@ export function StepManutentionRx({
 }: StepProps<RxFormData>) {
   const { t, lang } = useTranslation();
   const { stepOne, stepTwo, stepThree } = data;
+  const isDerogation =
+    mode === "logisticien" &&
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("mode") === "derogation";
+  const derogationReason = (data as RxFormData & { derogationReason?: string }).derogationReason?.trim();
 
   // Prestataires de manutention chargés depuis la BDD pour l'organisation
   // courante (scoping multi-tenant). On conserve l'option sentinelle "Aucun"
@@ -225,6 +230,10 @@ export function StepManutentionRx({
 
   function handleValidateClick() {
     setError("");
+    if (isDerogation && (!derogationReason || derogationReason.length < 10)) {
+      setError("Le motif de dérogation est requis et doit contenir au moins 10 caractères.");
+      return;
+    }
     const validationError = validateBeforeSubmit();
     if (validationError) {
       setError(validationError);
@@ -246,6 +255,11 @@ export function StepManutentionRx({
       setShowModal(false);
       return;
     }
+    if (isDerogation && (!derogationReason || derogationReason.length < 10)) {
+      setError("Le motif de dérogation est requis et doit contenir au moins 10 caractères.");
+      setShowModal(false);
+      return;
+    }
 
     try {
       setLoading(true);
@@ -257,13 +271,19 @@ export function StepManutentionRx({
       palmBeachAtCantoCodes,
       zoneRouting,
     });
+      if (isDerogation) {
+        (payload as unknown as Record<string, unknown>).derogationReason = derogationReason;
+      }
       const vehicleCount = stepTwo.categories.reduce((s, c) => s + c.vehicles.length, 0);
 
-      const res = await fetch("/api/accreditations", {
+      const res = await fetch(
+        isDerogation ? "/api/accreditations?espace=rx&mode=derogation" : "/api/accreditations",
+        {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      });
+        }
+      );
       if (!res.ok) {
         const body = await res.json().catch(() => null);
         const quotaMsg = extractCapacityQuotaFullMessage(

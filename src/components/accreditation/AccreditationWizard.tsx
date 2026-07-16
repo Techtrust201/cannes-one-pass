@@ -53,6 +53,8 @@ interface AccreditationWizardProps {
   storageKey: string;
   /** Contexte d'usage : formulaire public (défaut) ou back-office logisticien. */
   mode?: "public" | "logisticien";
+  /** Mode réservé RX, revalidé côté API. */
+  derogation?: boolean;
 }
 
 function LanguageSelectionStep({ orgSlug }: { orgSlug: string }) {
@@ -95,6 +97,7 @@ interface WizardContentProps {
   organizationId: string;
   storageKey: string;
   mode: "public" | "logisticien";
+  derogation: boolean;
 }
 
 function WizardContent({
@@ -103,6 +106,7 @@ function WizardContent({
   organizationId,
   storageKey,
   mode,
+  derogation,
 }: WizardContentProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -111,7 +115,7 @@ function WizardContent({
   const isLogisticien = mode === "logisticien";
   const rxFlowT =
     isLogisticien && orgSlug === "rx" ? getRxFlowT(t, "logisticien") : null;
-  const pageTitle = rxFlowT?.pageTitle ?? t.pageTitle;
+  const pageTitle = derogation ? "Créer une dérogation" : (rxFlowT?.pageTitle ?? t.pageTitle);
   const pageSubtitle = rxFlowT?.pageSubtitle ?? t.pageSubtitle;
   const urlLang = searchParams.get("lang");
   const rawStep = searchParams.get("step");
@@ -131,7 +135,7 @@ function WizardContent({
   const buildStepUrl = useCallback(
     (n: number) =>
       isLogisticien
-        ? `/logisticien/nouveau?step=${n}&espace=${encodeURIComponent(orgSlug)}`
+        ? `/logisticien/nouveau?step=${n}&espace=${encodeURIComponent(orgSlug)}${derogation ? "&mode=derogation" : ""}`
         : `/accreditation/${orgSlug}?step=${n}&lang=${lang}`,
     [isLogisticien, orgSlug, lang]
   );
@@ -306,6 +310,11 @@ function WizardContent({
           )}
           <h1 className="text-4xl font-bold">{pageTitle}</h1>
           <p className="text-lg opacity-80">{pageSubtitle}</p>
+          {derogation && (
+            <span className="mt-2 rounded-full bg-amber-400 px-3 py-1 text-xs font-bold text-amber-950">
+              DÉROGATION RX
+            </span>
+          )}
         </div>
 
         <div className="bg-white rounded-2xl shadow-lg overflow-visible flex flex-col lg:flex-row w-11/12 lg:w-3/4">
@@ -330,6 +339,24 @@ function WizardContent({
               <LanguageSelectionStep orgSlug={orgSlug} />
             ) : (
               <>
+                {derogation && (
+                  <div className="mb-5 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+                    <p className="font-semibold">Mode dérogation</p>
+                    <p className="mt-1">Le planning et les types de véhicule sont contournés. La capacité ne l’est que si votre autorisation le permet.</p>
+                    <label className="mt-3 block font-semibold" htmlFor="derogation-reason">
+                      Motif de dérogation *
+                    </label>
+                    <textarea
+                      id="derogation-reason"
+                      required
+                      minLength={10}
+                      value={String((formData as { derogationReason?: string }).derogationReason ?? "")}
+                      onChange={(event) => updateForm({ derogationReason: event.target.value })}
+                      className="mt-1 min-h-20 w-full rounded-lg border border-amber-300 bg-white p-2 text-gray-900"
+                      placeholder="Expliquez le motif (10 caractères minimum)"
+                    />
+                  </div>
+                )}
                 <div
                   className="flex items-center mb-6 w-full max-w-md mx-auto"
                   role="navigation"
@@ -485,6 +512,7 @@ function WizardInner({
   organizationId,
   storageKey,
   mode = "public",
+  derogation = false,
 }: AccreditationWizardProps) {
   const searchParams = useSearchParams();
   const urlLang = searchParams.get("lang");
@@ -504,6 +532,7 @@ function WizardInner({
         organizationId={organizationId}
         storageKey={storageKey}
         mode={mode}
+        derogation={derogation}
       />
     </TranslationProvider>
   );

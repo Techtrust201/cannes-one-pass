@@ -4,6 +4,8 @@ import prisma, { withRetry } from "@/lib/prisma";
 import {
   requirePermission,
   getSession,
+  requireAuth,
+  hasPermission,
   getAccessibleEventIdsForEspace,
   resolveEspaceOrgId,
 } from "@/lib/auth-helpers";
@@ -12,6 +14,7 @@ import {
   CapacityQuotaError,
   RxServerValidationError,
   type AccreditationCommand,
+  type DerogationContext,
 } from "@/lib/accreditation-service";
 import type { TrustedReferentialInput } from "@/lib/accreditation-referential";
 import type { LocationTypeCode } from "@/lib/imports/referential";
@@ -163,6 +166,62 @@ function buildRxReferentialInput(
   };
 }
 
+/**
+ * Établit le contexte de dérogation depuis la session et la route HTTP.
+ * Les indicateurs `isDerogation` / `capacityBypass` envoyés par le navigateur
+ * sont volontairement ignorés : seul ce contexte serveur est transmis au moteur.
+ */
+async function buildDerogationContext(
+  req: NextRequest,
+  command: AccreditationCommand
+): Promise<DerogationContext | undefined> {
+  const searchParams = new URL(req.url || "http://localhost").searchParams;
+  if (searchParams.get("mode") !== "derogation") return undefined;
+  if (searchParams.get("espace") !== "rx") {
+    throw new Response("La dérogation est réservée à l'espace RX", { status: 400 });
+  }
+
+  const { session, role } = await requireAuth(req);
+  const userId = session.user.id;
+  const baseAllowed =
+    role === "SUPER_ADMIN" ||
+    (await hasPermission(userId, "CREER", "write")) ||
+    (await hasPermission(userId, "GESTION_DATES", "write"));
+  if (!baseAllowed) {
+    throw new Response("Accès refusé à la création de dérogation", { status: 403 });
+  }
+
+  const eventSlug = typeof command.event === "string" ? command.event.trim() : "";
+  const rxOrgId = await resolveEspaceOrgId("rx");
+  const event = eventSlug
+    ? await prisma.event.findUnique({ where: { slug: eventSlug }, select: { id: true, organizationId: true } })
+    : null;
+  const accessibleEvents = await getAccessibleEventIdsForEspace(userId, "rx");
+  if (
+    !rxOrgId ||
+    !event ||
+    event.organizationId !== rxOrgId ||
+    (accessibleEvents !== "ALL" && !accessibleEvents.includes(event.id))
+  ) {
+    throw new Response("Événement RX inaccessible", { status: 403 });
+  }
+
+  const reason = typeof command.derogationReason === "string" ? command.derogationReason.trim() : "";
+  if (reason.length < 10) {
+    throw new Response("Le motif de dérogation est requis et doit contenir au moins 10 caractères.", {
+      status: 400,
+    });
+  }
+
+  return {
+    reason,
+    byUserId: userId,
+    planningBypass: true,
+    capacityBypass:
+      role === "SUPER_ADMIN" || (await hasPermission(userId, "FLUX_VEHICULES", "write")),
+  };
+}
+
 export async function POST(req: NextRequest) {
   try {
     // Tenter de récupérer la session (optionnel, le formulaire public n'est pas authentifié)
@@ -183,6 +242,7 @@ export async function POST(req: NextRequest) {
     }
 
     const command = (await req.json()) as AccreditationCommand;
+    const derogation = await buildDerogationContext(req, command);
 
     // Phase 6C-B-2 : indications référentielles NON FIABLES (RX uniquement)
     // — la résolution/revalidation fiable vit désormais dans le moteur
@@ -199,6 +259,7 @@ export async function POST(req: NextRequest) {
       currentUserId,
       currentUserRole,
       referentialInput,
+      derogation,
     });
 
     if (!result.ok) {

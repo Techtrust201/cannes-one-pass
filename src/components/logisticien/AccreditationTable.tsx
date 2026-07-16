@@ -502,6 +502,11 @@ export default function AccreditationTable({
                         zone={acc.currentZone || undefined}
                         compact
                       />
+                      {acc.isDerogation && (
+                        <span className="mt-1 inline-flex rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-800">
+                          DÉROGATION
+                        </span>
+                      )}
                     </td>
 
                     {/* Plaque */}

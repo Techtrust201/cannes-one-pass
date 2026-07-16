@@ -81,6 +81,8 @@ export interface DashboardQuery {
   company?: string;
   /** Filtre stand exact */
   stand?: string;
+  /** true/false : limite aux créations en dérogation ou standard. */
+  derogation?: string;
 }
 
 /**
@@ -153,7 +155,7 @@ export function filterAccreditations(
   query: DashboardQuery,
   vehicleTypes: VehicleTypeData[]
 ): Accreditation[] {
-  const { q, status, zone, vehicleType, vehicleFamily, from, to, event, company, stand } = query;
+  const { q, status, zone, vehicleType, vehicleFamily, from, to, event, company, stand, derogation } = query;
   let filtered = data;
 
   if (q && q.trim()) {
@@ -201,6 +203,12 @@ export function filterAccreditations(
 
   if (zone && zone !== "all") {
     filtered = filtered.filter((acc) => acc.currentZone === zone);
+  }
+
+  if (derogation === "true") {
+    filtered = filtered.filter((acc) => acc.isDerogation === true);
+  } else if (derogation === "false") {
+    filtered = filtered.filter((acc) => acc.isDerogation !== true);
   }
 
   if (vehicleType && vehicleType !== "all") {

@@ -19,10 +19,16 @@
  *    transaction.
  */
 import { randomBytes } from "crypto";
-import type { ActorSource, EmplacementCategory } from "@prisma/client";
+import type { ActorSource, EmplacementCategory, VehicleLogisticsRole } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { writeHistoryDirect } from "@/lib/history-server";
-import { createCreatedEntry, createDuplicatedEntry, type HistoryEntryData } from "@/lib/history";
+import {
+  createCreatedEntry,
+  createDerogationBypassEntry,
+  createDerogationEntry,
+  createDuplicatedEntry,
+  type HistoryEntryData,
+} from "@/lib/history";
 import { getTemplate } from "@/templates/accreditation/registry";
 import { suggestZone, buildRxZoneRouting, type RxZoneRouting } from "@/lib/rx-zone-rules";
 import {
@@ -140,6 +146,18 @@ interface AccreditationServiceContextBase {
    * mécanisme dans ce sous-lot.
    */
   referentialInput?: TrustedReferentialInput;
+  /**
+   * Contexte de dérogation construit exclusivement par la route authentifiée.
+   * Il ne doit jamais être dérivé des booléens du payload HTTP.
+   */
+  derogation?: DerogationContext;
+}
+
+export interface DerogationContext {
+  reason: string;
+  byUserId: string;
+  capacityBypass: boolean;
+  planningBypass: boolean;
 }
 
 /** Contexte standard (formulaire public, back-office, duplication) — comportement inchangé. */
@@ -250,6 +268,10 @@ type PreviewFailure = AccreditationServiceError & { ok: false };
 export type PreviewAccreditationResult = PreviewSuccess | PreviewFailure;
 
 function buildVehicleCreate(v: Record<string, unknown>) {
+  const logisticsRole: VehicleLogisticsRole =
+    v.logisticsRole === "MONTAGE" || v.logisticsRole === "DEMONTAGE" || v.logisticsRole === "BOTH"
+      ? v.logisticsRole
+      : "BOTH";
   return {
     // `plate` est nullable côté DB (workflow RX : plaque saisie au scan).
     plate: (v.plate as string | null | undefined) ?? null,
@@ -281,7 +303,65 @@ function buildVehicleCreate(v: Record<string, unknown>) {
     emptyWeight: v.emptyWeight != null ? Number(v.emptyWeight) : null,
     maxWeight: v.maxWeight != null ? Number(v.maxWeight) : null,
     currentWeight: v.currentWeight != null ? Number(v.currentWeight) : null,
+    logisticsRole,
+    interveningCompany:
+      (v.interveningCompany as string | null | undefined) ??
+      (v.repInterveningCompany as string | null | undefined) ??
+      null,
   };
+}
+
+/**
+ * Étend un véhicule payload RX en 1–2 véhicules physiques (BOTH / MONTAGE+DEMONTAGE).
+ * Conserve vehicleContext JSON pour compatibilité lecture historique.
+ */
+function expandPhysicalVehicles(v: Record<string, unknown>): Array<Record<string, unknown>> {
+  const skipMontage = v.skipMontage === true;
+  const skipDemontage = v.skipDemontage === true;
+  const same = v.repSameAsDelivery !== false;
+
+  if (skipMontage && !skipDemontage) {
+    return [
+      {
+        ...v,
+        size: (v.repVehicleType as string) || (v.size as string) || "",
+        vehicleType: (v.repVehicleType as string) || (v.vehicleType as string) || null,
+        plate: (v.repPlate as string | null | undefined) ?? null,
+        phoneCode: (v.repPhoneCode as string) || (v.phoneCode as string),
+        phoneNumber: (v.repPhoneNumber as string) || (v.phoneNumber as string),
+        date: (v.repDate as string) || (v.date as string),
+        time: (v.repTime as string) || (v.time as string),
+        city: (v.repCity as string) || (v.city as string),
+        interveningCompany: (v.repInterveningCompany as string) || null,
+        logisticsRole: "DEMONTAGE",
+      },
+    ];
+  }
+  if (skipDemontage && !skipMontage) {
+    return [{ ...v, logisticsRole: "MONTAGE" }];
+  }
+  if (same) {
+    return [{ ...v, logisticsRole: "BOTH" }];
+  }
+  return [
+    { ...v, logisticsRole: "MONTAGE" },
+    {
+      ...v,
+      size: (v.repVehicleType as string) || (v.size as string) || "",
+      vehicleType: (v.repVehicleType as string) || (v.vehicleType as string) || null,
+      plate: (v.repPlate as string | null | undefined) ?? null,
+      trailerPlate: (v.repTrailerPlate as string | null | undefined) ?? null,
+      phoneCode: (v.repPhoneCode as string) || (v.phoneCode as string),
+      phoneNumber: (v.repPhoneNumber as string) || (v.phoneNumber as string),
+      date: (v.repDate as string) || (v.date as string),
+      time: (v.repTime as string) || (v.time as string),
+      city: (v.repCity as string) || (v.city as string),
+      country: (v.repCountry as string) || (v.country as string) || null,
+      estimatedKms: v.repEstimatedKms != null ? Number(v.repEstimatedKms) : v.estimatedKms,
+      interveningCompany: (v.repInterveningCompany as string) || null,
+      logisticsRole: "DEMONTAGE",
+    },
+  ];
 }
 
 function genPublicToken(): string {
@@ -341,6 +421,26 @@ function validateCreationContext(
   return null;
 }
 
+function validateDerogationContext(
+  context: AccreditationServiceContext
+): AccreditationServiceError | null {
+  const derogation = context.derogation;
+  if (!derogation) return null;
+  if (
+    !derogation.byUserId ||
+    typeof derogation.reason !== "string" ||
+    derogation.reason.trim().length < 10
+  ) {
+    return {
+      ok: false,
+      status: 400,
+      error: "Le motif de dérogation est requis et doit contenir au moins 10 caractères.",
+      code: "DEROGATION_REASON_REQUIRED",
+    };
+  }
+  return null;
+}
+
 /**
  * Déduit la politique de création (statut + actorSource) EXCLUSIVEMENT
  * depuis le contexte serveur — jamais depuis le payload client `command`.
@@ -351,6 +451,9 @@ function validateCreationContext(
 function resolveCreationPolicy(
   context: AccreditationServiceContext
 ): { status: "NOUVEAU" | "ATTENTE"; actorSource: ActorSource } {
+  if (context.derogation) {
+    return { status: "ATTENTE", actorSource: "DEROGATION" };
+  }
   if (context.channel === "CSV_IMPORT") {
     return {
       status: context.importMode === "VALIDATED" ? "ATTENTE" : "NOUVEAU",
@@ -456,6 +559,7 @@ async function resolveRxServerContext(
     extensionPayload: Record<string, unknown> | null;
     referentialInput?: TrustedReferentialInput;
     legacyReferential?: AccreditationServiceContextBase["referential"];
+    planningBypass?: boolean;
   }
 ): Promise<{ ok: true; result: RxServerContext } | AccreditationServiceError> {
   const {
@@ -466,6 +570,7 @@ async function resolveRxServerContext(
     extensionPayload,
     referentialInput,
     legacyReferential,
+    planningBypass = false,
   } = params;
 
   let referential: ResolvedReferential | null = null;
@@ -495,12 +600,17 @@ async function resolveRxServerContext(
     };
   }
 
+  if (planningBypass) {
+    return { ok: true, result: { referential, phaseEntries: [] } };
+  }
+
   const snapshot = referential?.locationSnapshot;
   const planningResult = await validateAccreditationPlanning(db, {
     context: { organizationId, eventId, organizationSlug, logisticsPlanningMode: mode },
     referential: {
       location: snapshot
         ? {
+            exhibitorLocationId: referential?.exhibitorLocationId ?? null,
             portCode: snapshot.portCode ?? null,
             sectorCode: snapshot.sectorCode ?? null,
             logisticSpace: snapshot.logisticSpace ?? null,
@@ -526,6 +636,8 @@ export async function previewAccreditation(
 ): Promise<PreviewAccreditationResult> {
   const contextError = validateCreationContext(context);
   if (contextError) return contextError;
+  const derogationError = validateDerogationContext(context);
+  if (derogationError) return derogationError;
 
   const { referential, duplicateSourceAccreditationId } = context;
   const raw = command;
@@ -730,6 +842,7 @@ export async function previewAccreditation(
       extensionPayload,
       referentialInput: context.referentialInput,
       legacyReferential: referential,
+      planningBypass: context.derogation?.planningBypass,
     });
     if (!ctxResult.ok) return ctxResult;
     rxReferential = ctxResult.result.referential;
@@ -866,6 +979,7 @@ export async function createAccreditationInTransaction(
     resolveVehicleFamily,
     duplicateSourceAccreditationId,
   } = plan;
+  const derogation = context.derogation;
 
   // Phase 6C-B-2 — DOUBLE VALIDATION, source de vérité finale : ne JAMAIS
   // réutiliser aveuglément `plan.exhibitorId`/`plan.quotaCandidates` (calculés
@@ -897,6 +1011,7 @@ export async function createAccreditationInTransaction(
       extensionPayload,
       referentialInput: context.referentialInput,
       legacyReferential: context.referential,
+      planningBypass: derogation?.planningBypass,
     });
     if (!ctxResult.ok) {
       throw new RxServerValidationError(ctxResult.status, ctxResult.error, ctxResult.code, ctxResult.details);
@@ -954,7 +1069,7 @@ export async function createAccreditationInTransaction(
     }
   }
 
-  if (quotaCandidates.length > 0) {
+  if (!derogation?.capacityBypass && quotaCandidates.length > 0) {
     await enforceCapacityQuotas(tx, quotaCandidates);
   }
 
@@ -1008,7 +1123,12 @@ export async function createAccreditationInTransaction(
           exhibitorLocationId,
           locationLabel,
           locationSnapshot: locationSnapshot === null ? undefined : (locationSnapshot as object),
-          vehicles: { create: [buildVehicleCreate(v)] },
+          isDerogation: Boolean(derogation),
+          derogationReason: derogation?.reason.trim(),
+          derogationByUserId: derogation?.byUserId,
+          capacityBypass: derogation?.capacityBypass ?? false,
+          planningBypass: derogation?.planningBypass ?? false,
+          vehicles: { create: expandPhysicalVehicles(v).map(buildVehicleCreate) },
           ...zoneMovementCreate,
         },
         select: { id: true },
@@ -1018,6 +1138,21 @@ export async function createAccreditationInTransaction(
         buildCreatedHistoryEntry(c.id, actorSource, currentUserId, duplicateSourceAccreditationId),
         tx
       );
+      if (derogation) {
+        await writeHistoryDirect(createDerogationEntry(c.id, derogation), tx);
+        if (derogation.planningBypass) {
+          await writeHistoryDirect(
+            createDerogationBypassEntry(c.id, "planning", derogation.byUserId, derogation.reason),
+            tx
+          );
+        }
+        if (derogation.capacityBypass) {
+          await writeHistoryDirect(
+            createDerogationBypassEntry(c.id, "capacity", derogation.byUserId, derogation.reason),
+            tx
+          );
+        }
+      }
     }
     return { kind: "split", created: createdList };
   }
@@ -1045,6 +1180,11 @@ export async function createAccreditationInTransaction(
       exhibitorLocationId,
       locationLabel,
       locationSnapshot: locationSnapshot === null ? undefined : (locationSnapshot as object),
+      isDerogation: Boolean(derogation),
+      derogationReason: derogation?.reason.trim(),
+      derogationByUserId: derogation?.byUserId,
+      capacityBypass: derogation?.capacityBypass ?? false,
+      planningBypass: derogation?.planningBypass ?? false,
       vehicles: { create: vehiclesArr.map(buildVehicleCreate) },
       ...zoneMovementCreate,
     },
@@ -1054,6 +1194,21 @@ export async function createAccreditationInTransaction(
     buildCreatedHistoryEntry(created.id, actorSource, currentUserId, duplicateSourceAccreditationId),
     tx
   );
+  if (derogation) {
+    await writeHistoryDirect(createDerogationEntry(created.id, derogation), tx);
+    if (derogation.planningBypass) {
+      await writeHistoryDirect(
+        createDerogationBypassEntry(created.id, "planning", derogation.byUserId, derogation.reason),
+        tx
+      );
+    }
+    if (derogation.capacityBypass) {
+      await writeHistoryDirect(
+        createDerogationBypassEntry(created.id, "capacity", derogation.byUserId, derogation.reason),
+        tx
+      );
+    }
+  }
 
   return {
     kind: "single",

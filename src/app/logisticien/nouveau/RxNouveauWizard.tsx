@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { AccreditationWizard } from "@/components/accreditation/AccreditationWizard";
 import PageHelp from "@/components/logisticien/help/PageHelp";
 
@@ -21,6 +22,8 @@ interface EspaceOption {
  * des espaces accessibles, sans dupliquer aucune logique métier.
  */
 export default function RxNouveauWizard() {
+  const searchParams = useSearchParams();
+  const derogation = searchParams.get("mode") === "derogation";
   const [orgId, setOrgId] = useState<string | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
 
@@ -81,6 +84,7 @@ export default function RxNouveauWizard() {
             Les horaires viennent du planning ; les quotas n’apparaissent que s’ils ont été
             configurés (sinon : illimité).
           </p>
+          {derogation && <p>Vous créez une dérogation RX : un motif détaillé est obligatoire.</p>}
         </PageHelp>
       </div>
       <AccreditationWizard
@@ -89,6 +93,7 @@ export default function RxNouveauWizard() {
         organizationId={orgId}
         storageKey="log_formData:rx"
         mode="logisticien"
+        derogation={derogation}
       />
     </div>
   );

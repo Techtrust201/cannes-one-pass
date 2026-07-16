@@ -101,6 +101,11 @@ export default function MobileAccreditationList({
             {/* Row 1: Status + Zone + Date */}
             <div className="flex items-center gap-2 flex-wrap">
               <StatusPill status={acc.status as string} zone={zone} compact />
+              {acc.isDerogation && (
+                <span className="inline-flex rounded bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                  DÉROGATION
+                </span>
+              )}
 
               {zone && (
                 <span

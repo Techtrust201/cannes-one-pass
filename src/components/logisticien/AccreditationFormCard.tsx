@@ -245,6 +245,16 @@ export default function AccreditationFormCard({ acc, orgSlug = null }: Props) {
 
       {/* Contenu scrollable */}
       <div className="flex-1 overflow-y-auto min-h-0 overflow-x-hidden p-5 md:p-4">
+        {acc.isDerogation && (
+          <div className="mb-6 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+            <div className="font-bold">DÉROGATION</div>
+            <p className="mt-1">{acc.derogationReason || "Motif non renseigné"}</p>
+            <p className="mt-2 text-xs">
+              {acc.planningBypass ? "Planning/type véhicule contournés. " : ""}
+              {acc.capacityBypass ? "Capacité contournée." : "Capacité conservée."}
+            </p>
+          </div>
+        )}
 
         {/* ── WORKFLOW : Statut + Actions ── */}
         <div className="mb-6 bg-white rounded-xl border border-gray-200 p-4 shadow-sm">

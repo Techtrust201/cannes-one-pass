@@ -65,6 +65,7 @@ export async function GET(request: NextRequest) {
       status: searchParams.get("status") ?? "",
       zone: searchParams.get("zone") ?? "",
       vehicleType: searchParams.get("vehicleType") ?? "",
+      derogation: searchParams.get("derogation") ?? "",
       from: searchParams.get("from") ?? "",
       to: searchParams.get("to") ?? "",
       sort: searchParams.get("sort") ?? "vehicleDate",

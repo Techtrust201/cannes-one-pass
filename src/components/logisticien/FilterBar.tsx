@@ -14,7 +14,7 @@ export interface FilterBarProps {
 }
 
 export function FilterBar({ searchParams, statusOptions, zoneOptions, vehicleTypeOptions }: FilterBarProps) {
-  const { q = "", status = "", from = "", to = "", zone = "", vehicleType = "" } = searchParams;
+  const { q = "", status = "", from = "", to = "", zone = "", vehicleType = "", derogation = "" } = searchParams;
   const router = useRouter();
   const pathname = usePathname();
   const currentSearchParams = useSearchParams();
@@ -23,7 +23,7 @@ export function FilterBar({ searchParams, statusOptions, zoneOptions, vehicleTyp
   const [mobileSearch, setMobileSearch] = useState(q as string);
   const popoverRef = useRef<HTMLDivElement>(null);
 
-  const activeFiltersCountExcludingSearch = [status, zone, from, to, vehicleType].filter(Boolean).length;
+  const activeFiltersCountExcludingSearch = [status, zone, from, to, vehicleType, derogation].filter(Boolean).length;
 
   useEffect(() => {
     setMobileSearch(q as string);
@@ -101,6 +101,7 @@ export function FilterBar({ searchParams, statusOptions, zoneOptions, vehicleTyp
     if (key === "status") return statusOptions.find((o) => o.value === value)?.label ?? value;
     if (key === "zone") return zoneOptions?.find((o) => o.value === value)?.label ?? value;
     if (key === "vehicleType") return vehicleTypeOptions?.find((o) => o.value === value)?.label ?? value;
+    if (key === "derogation") return value === "true" ? "Dérogations" : "Hors dérogation";
     if (key === "from") return `Depuis ${value}`;
     if (key === "to") return `Jusqu'au ${value}`;
     return value;
@@ -110,6 +111,7 @@ export function FilterBar({ searchParams, statusOptions, zoneOptions, vehicleTyp
     { key: "status", value: status },
     { key: "zone", value: zone },
     { key: "vehicleType", value: vehicleType },
+    { key: "derogation", value: derogation },
     { key: "from", value: from },
     { key: "to", value: to },
   ].filter((c) => Boolean(c.value));
@@ -321,6 +323,16 @@ export function FilterBar({ searchParams, statusOptions, zoneOptions, vehicleTyp
                       </select>
                     </div>
                   )}
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="derogation-mobile" className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      Dérogation
+                    </label>
+                    <select id="derogation-mobile" name="derogation" defaultValue={derogation} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F587E] text-sm bg-gray-50">
+                      <option value="">Toutes</option>
+                      <option value="true">Dérogations</option>
+                      <option value="false">Hors dérogation</option>
+                    </select>
+                  </div>
 
                   {/* Dates */}
                   <div className="grid grid-cols-2 gap-3">
@@ -468,6 +480,16 @@ export function FilterBar({ searchParams, statusOptions, zoneOptions, vehicleTyp
                     </select>
                   </div>
                 )}
+                <div>
+                  <label className="text-base font-semibold text-gray-800 mb-2 block" htmlFor="derogation-desktop">
+                    Dérogation
+                  </label>
+                  <select id="derogation-desktop" name="derogation" defaultValue={derogation} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 bg-gray-50">
+                    <option value="">Toutes</option>
+                    <option value="true">Dérogations</option>
+                    <option value="false">Hors dérogation</option>
+                  </select>
+                </div>
                 <div>
                   <label
                     className="text-base font-semibold text-gray-800 mb-2 block flex items-center gap-2"

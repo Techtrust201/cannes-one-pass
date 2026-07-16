@@ -123,6 +123,7 @@ export default async function LogisticienDashboard(props: {
     to = "",
     zone = "",
     vehicleType = "",
+    derogation = "",
     page = "1",
     sort = "vehicleDate",
     dir = "desc",
@@ -145,7 +146,7 @@ export default async function LogisticienDashboard(props: {
   // --- Filtrage + tri (logique partagée avec l'API défilement infini) ---
   const filtered = filterAndSortAccreditations(
     data,
-    { q, status, zone, vehicleType, from, to, sort, dir },
+    { q, status, zone, vehicleType, derogation, from, to, sort, dir },
     vehicleTypesData
   );
 

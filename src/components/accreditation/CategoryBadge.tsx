@@ -13,6 +13,7 @@ const SOURCE_META: Record<
   CSV_IMPORT: { label: "Import CSV", Icon: FileSpreadsheet },
   AUTO_DEDUCTION: { label: "Déduit automatiquement", Icon: Sparkles },
   SUPER_ADMIN: { label: "Super-admin", Icon: ShieldCheck },
+  DEROGATION: { label: "Dérogation", Icon: ShieldCheck },
   MIGRATION: { label: "Migration", Icon: FileSpreadsheet },
   SYSTEM: { label: "Système", Icon: Sparkles },
 };

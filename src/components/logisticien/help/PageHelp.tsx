@@ -2,13 +2,16 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { Info, X } from "lucide-react";
+import { GlossaryLink } from "./Glossary";
 
 type PageHelpProps = {
   /** Clé localStorage unique par page (ex. "rx-planning"). */
   storageKey: string;
   title?: string;
   children: ReactNode;
-  /** Ancre optionnelle vers un glossaire sur la page. */
+  /** Id du composant Glossary ciblé (ex. "lexique-planning"). */
+  glossaryId?: string;
+  /** @deprecated Utiliser glossaryId */
   glossaryHref?: string;
 };
 
@@ -20,10 +23,13 @@ export default function PageHelp({
   storageKey,
   title = "À quoi sert cette page ?",
   children,
+  glossaryId,
   glossaryHref,
 }: PageHelpProps) {
   const key = `page-help:${storageKey}`;
   const [visible, setVisible] = useState(false);
+  const targetGlossaryId =
+    glossaryId ?? glossaryHref?.replace(/^#/, "") ?? undefined;
 
   useEffect(() => {
     try {
@@ -60,14 +66,7 @@ export default function PageHelp({
           <div className="mt-1 space-y-1.5 text-[13px] leading-relaxed text-[#3F4660]/90">
             {children}
           </div>
-          {glossaryHref && (
-            <a
-              href={glossaryHref}
-              className="mt-2 inline-flex min-h-11 items-center text-xs font-semibold underline underline-offset-2 sm:min-h-0"
-            >
-              Voir le lexique
-            </a>
-          )}
+          {targetGlossaryId && <GlossaryLink glossaryId={targetGlossaryId} />}
         </div>
       </div>
     </div>

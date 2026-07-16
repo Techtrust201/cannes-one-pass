@@ -215,7 +215,7 @@ export default async function LogisticienDashboard(props: {
       <AutoRefreshOnSSE />
 
       <div className="flex-1 px-2 sm:px-4 md:px-3 pb-4 pt-2 md:pt-1 min-h-0 flex flex-col">
-        <PageHelp storageKey="logisticien-liste" glossaryHref="#lexique-liste">
+        <PageHelp storageKey="logisticien-liste" glossaryId="lexique-liste">
           <p>
             Liste des <strong>demandes d’accréditation</strong> de l’espace sélectionné.
           </p>

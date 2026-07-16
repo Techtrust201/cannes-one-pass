@@ -317,21 +317,34 @@ function WizardContent({
           )}
         </div>
 
-        <div className="bg-white rounded-2xl shadow-lg overflow-visible flex flex-col lg:flex-row w-11/12 lg:w-3/4">
+        <div className="bg-white rounded-2xl shadow-lg overflow-hidden flex flex-col md:flex-row w-11/12 lg:w-3/4">
           {step > 0 && template.meta.sideImage && (
-            <div
-              className={`relative lg:w-[35%] h-80 ${
-                step === 2 ? "lg:h-full" : "lg:h-auto"
-              } p-6 hidden lg:block`}
-            >
-              <Image
-                src={template.meta.sideImage}
-                alt={t.sideImageAlt ?? "Illustration"}
-                width={1000}
-                height={100}
-                className="object-cover grayscale contrast-125 rounded-lg w-full h-full"
-              />
-            </div>
+            <>
+              <div className="relative h-44 w-full shrink-0 md:hidden">
+                <Image
+                  src={template.meta.sideImage}
+                  alt={t.sideImageAlt ?? ""}
+                  fill
+                  sizes="100vw"
+                  priority
+                  className="object-cover object-center"
+                />
+              </div>
+              <div className="relative hidden md:block md:w-[34%] lg:w-[36%] shrink-0 self-stretch min-h-[28rem]">
+                <div className="sticky top-4 p-4 md:p-5 h-full">
+                  <div className="relative h-full min-h-[24rem] w-full overflow-hidden rounded-xl">
+                    <Image
+                      src={template.meta.sideImage}
+                      alt={t.sideImageAlt ?? ""}
+                      fill
+                      sizes="(min-width: 1024px) 36vw, 34vw"
+                      priority
+                      className="object-cover object-center"
+                    />
+                  </div>
+                </div>
+              </div>
+            </>
           )}
 
           <div className="flex-1 p-8 sm:p-7 flex flex-col">

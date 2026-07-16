@@ -17,6 +17,7 @@ import QRCode from "qrcode";
 import { writeHistoryDirect } from "@/lib/history-server";
 import { createEmailSentEntry } from "@/lib/history";
 import { resolveAccreditationSender } from "@/lib/email-sender";
+import { formatResendFailureTrace } from "@/lib/resend-error-message";
 import { generateAccreditationPdfBuffer } from "@/lib/accreditation-pdf-ids";
 import { buildAccreditationPdfFilename } from "@/lib/accreditation-pdf-filename";
 import { getEmailTranslations } from "@/lib/email-translations";
@@ -501,7 +502,7 @@ export async function sendAccreditationCreationEmail(params: {
     if (error) {
       await traceInfo(
         accreditationId,
-        `Échec de l'envoi de l'e-mail de création : ${error.message ?? "erreur Resend"}.`
+        formatResendFailureTrace(error.message ?? "erreur Resend")
       );
       return "failed";
     }
@@ -516,9 +517,9 @@ export async function sendAccreditationCreationEmail(params: {
     console.error("sendAccreditationCreationEmail failed:", e);
     await traceInfo(
       accreditationId,
-      `Échec de l'envoi de l'e-mail de création : ${
+      formatResendFailureTrace(
         e instanceof Error ? e.message : "erreur inconnue"
-      }.`
+      )
     );
     return "failed";
   }

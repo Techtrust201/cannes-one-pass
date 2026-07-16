@@ -85,14 +85,69 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "processus", label: "Processus véhicules" },
 ];
 
+const TAB_INTRO: Record<
+  TabId,
+  { title: string; description: string; help: string }
+> = {
+  calendrier: {
+    title: "Voir les jours et horaires autorisés",
+    description:
+      "Cet écran vous montre rapidement quand les véhicules peuvent venir pour le montage ou le démontage.",
+    help: "Consultez le calendrier avant de modifier les horaires ou les quotas.",
+  },
+  horaires: {
+    title: "Autoriser les arrivées et les départs",
+    description:
+      "Créez ou modifiez les jours et plages horaires pendant lesquels les véhicules peuvent venir.",
+    help: "Une règle = une date + une plage horaire + un lieu d’application.",
+  },
+  quotas: {
+    title: "Limiter le nombre de véhicules",
+    description:
+      "Découpez les horaires en créneaux et choisissez combien de véhicules légers et lourds peuvent venir en même temps. Sans quota, le nombre reste illimité.",
+    help: "Commencez par choisir où appliquer le quota, puis découpez les créneaux.",
+  },
+  anomalies: {
+    title: "Problèmes à corriger",
+    description: "Retrouvez les horaires, quotas ou emplacements qui ne correspondent plus.",
+    help: "Corrigez ici les incohérences avant d’ouvrir le formulaire public.",
+  },
+  processus: {
+    title: "Consignes envoyées aux chauffeurs",
+    description:
+      "Configurez les instructions affichées pour les véhicules légers et les poids lourds.",
+    help: "Ces textes apparaissent dans le formulaire, l’e-mail et le PDF.",
+  },
+};
+
+const ACTION_CARDS: Array<{ tab: TabId; label: string; hint: string }> = [
+  { tab: "calendrier", label: "Voir les jours autorisés", hint: "Calendrier" },
+  { tab: "horaires", label: "Modifier les heures d’arrivée", hint: "Horaires" },
+  { tab: "quotas", label: "Limiter le nombre de véhicules", hint: "Quotas" },
+  { tab: "anomalies", label: "Voir les problèmes à corriger", hint: "Anomalies" },
+  { tab: "processus", label: "Modifier les consignes chauffeurs", hint: "Processus" },
+];
+
 const PHASES = ["MONTAGE", "DEMONTAGE"] as const;
-const SCOPES = ["EVENT", "PORT", "SECTOR", "SPACE"] as const;
+const SCOPES = ["EVENT", "PORT", "SECTOR", "SPACE", "LOCATION"] as const;
 const SCOPE_LABELS: Record<(typeof SCOPES)[number], string> = {
   EVENT: "Tout l’événement",
-  PORT: "Port",
-  SECTOR: "Secteur",
-  SPACE: "Espace logistique",
+  PORT: "Un port",
+  SECTOR: "Un secteur",
+  SPACE: "Un espace logistique",
+  LOCATION: "Un emplacement précis",
 };
+
+const CATEGORY_LABELS: Record<string, string> = {
+  ALL: "Toutes les catégories",
+  PONTON_PRIVATIF: "Ponton privé",
+  TERRE: "Stand à terre",
+  BATEAUX_A_TERRE: "Bateau exposé à terre",
+};
+
+function categoryLabel(code: string): string {
+  return CATEGORY_LABELS[code] ?? code;
+}
 const SLICE_OPTIONS = [15, 30, 60, 120] as const;
 
 const PLANNING_GLOSSARY = [
@@ -122,9 +177,9 @@ const PLANNING_GLOSSARY = [
       "Deux familles de véhicules (léger = utilitaires/voitures ; lourd = poids lourds). Chaque famille a sa propre capacité.",
   },
   {
-    term: "Périmètre",
+    term: "Où appliquer la règle ?",
     definition:
-      "Niveau d’application de l’horaire ou du quota : événement, port, secteur, espace, ou un emplacement précis.",
+      "Niveau d’application : tout l’événement, un port, un secteur, un espace logistique ou un emplacement précis.",
   },
 ];
 
@@ -282,6 +337,16 @@ export default function PlanningQuotasExplorer({
     return [...map.entries()].map(([value, label]) => ({ value, label }));
   }, [rules]);
 
+  const selectedEventName = events.find((e) => e.id === eventId)?.name ?? "—";
+  const summaryLocation =
+    selectedScopeKey && tab === "quotas"
+      ? scopeOptions.find((o) => o.value === selectedScopeKey)?.label ??
+        formatCapacityScopeLabel(selectedScopeKey)
+      : port || sector
+        ? [port, sector].filter(Boolean).join(" · ")
+        : "Tout l’événement";
+  const quotaCount = quotas.filter((q) => q.hasQuota).length;
+
   const calendarDays = useMemo(() => {
     const byDate = new Map<
       string,
@@ -411,7 +476,7 @@ export default function PlanningQuotasExplorer({
             Planning &amp; quotas
           </h1>
           <p className="mt-1 text-sm text-gray-500">
-            Définissez quand les véhicules peuvent venir, puis combien au maximum.
+            Choisissez les jours et les heures autorisés, puis indiquez combien de véhicules peuvent venir.
           </p>
         </div>
         <button
@@ -423,7 +488,7 @@ export default function PlanningQuotasExplorer({
         </button>
       </div>
 
-      <PageHelp storageKey="rx-planning" glossaryHref="#lexique-planning">
+      <PageHelp storageKey="rx-planning" glossaryId="lexique-planning">
         <p>
           Cette page définit <strong>quand</strong> les véhicules peuvent venir (horaires) et{" "}
           <strong>combien</strong> (quotas).
@@ -438,6 +503,29 @@ export default function PlanningQuotasExplorer({
       </PageHelp>
 
       <Glossary id="lexique-planning" title="Lexique — Planning & quotas" terms={PLANNING_GLOSSARY} />
+
+      <section className="mb-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm" aria-labelledby="planning-actions-heading">
+        <h2 id="planning-actions-heading" className="text-sm font-semibold text-gray-900">
+          Que souhaitez-vous faire ?
+        </h2>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          {ACTION_CARDS.map((card) => (
+            <button
+              key={card.tab}
+              type="button"
+              onClick={() => setTab(card.tab)}
+              className={`min-h-11 rounded-xl border px-3 py-3 text-left text-sm transition-colors sm:min-h-0 ${
+                tab === card.tab
+                  ? "border-[#3F4660] bg-[#3F4660]/5 text-[#3F4660]"
+                  : "border-gray-200 bg-gray-50 text-gray-800 hover:border-gray-300 hover:bg-white"
+              }`}
+            >
+              <span className="block font-semibold">{card.label}</span>
+              <span className="mt-0.5 block text-xs text-gray-500">{card.hint}</span>
+            </button>
+          ))}
+        </div>
+      </section>
 
       <div className="mb-4 rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
         <div className="grid gap-2 sm:grid-cols-2">
@@ -465,68 +553,67 @@ export default function PlanningQuotasExplorer({
           </label>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setShowMoreFilters((v) => !v)}
-          className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 sm:w-auto sm:min-h-0"
-        >
-          <SlidersHorizontal size={15} />
-          {showMoreFilters ? "Masquer les filtres" : "Plus de filtres"}
-        </button>
-
-        {showMoreFilters && (
-          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            <label className="block text-sm">
-              <span className="mb-1 block font-medium text-gray-700">Type de périmètre</span>
-              <select value={scopeFilter} onChange={(e) => setScopeFilter(e.target.value)} className={`${inputClass} w-full`}>
-                <option value="">Tous</option>
-                {SCOPES.map((s) => (
-                  <option key={s} value={s}>{SCOPE_LABELS[s]}</option>
-                ))}
-              </select>
-            </label>
-            <label className="block text-sm">
-              <span className="mb-1 block font-medium text-gray-700">Port</span>
-              <input placeholder="ex. PORT_CANTO" value={port} onChange={(e) => setPort(e.target.value)} className={`${inputClass} w-full`} />
-            </label>
-            <label className="block text-sm">
-              <span className="mb-1 block font-medium text-gray-700">Secteur</span>
-              <input placeholder="ex. POWER" value={sector} onChange={(e) => setSector(e.target.value)} className={`${inputClass} w-full`} />
-            </label>
-            <label className="block text-sm sm:col-span-2 lg:col-span-3">
-              <span className="mb-1 block font-medium text-gray-700">Recherche</span>
-              <input placeholder="Périmètre, catégorie…" value={q} onChange={(e) => setQ(e.target.value)} className={`${inputClass} w-full`} />
-            </label>
+        <dl className="mt-3 grid gap-2 rounded-lg bg-gray-50 p-3 text-sm sm:grid-cols-2 lg:grid-cols-5">
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Événement</dt>
+            <dd className="font-medium text-gray-900">{selectedEventName}</dd>
           </div>
-        )}
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Phase</dt>
+            <dd className="font-medium text-gray-900">{phase === "MONTAGE" ? "Montage" : "Démontage"}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Lieu concerné</dt>
+            <dd className="font-medium text-gray-900">{summaryLocation}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Règles d’horaires</dt>
+            <dd className="font-medium text-gray-900">{rulesTotal}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Quotas actifs</dt>
+            <dd className="font-medium text-gray-900">{quotaCount}</dd>
+          </div>
+        </dl>
 
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          <label className="block text-sm">
-            <span className="mb-1 block font-medium text-gray-700">Périmètre des quotas</span>
-            <select
-              value={selectedScopeKey}
-              onChange={(e) => setSelectedScopeKey(e.target.value)}
-              className={`${inputClass} w-full`}
+        {(tab === "calendrier" || tab === "horaires" || tab === "anomalies") && (
+          <>
+            <button
+              type="button"
+              onClick={() => setShowMoreFilters((v) => !v)}
+              className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 sm:w-auto sm:min-h-0"
             >
-              <option value="">Choisir un périmètre…</option>
-              {scopeOptions.map((o) => (
-                <option key={o.value} value={o.value} title={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-            <FieldHint>Le périmètre indique où s’applique le plafond (port, secteur, etc.).</FieldHint>
-          </label>
-          <label className="block text-sm">
-            <span className="mb-1 block font-medium text-gray-700">Zone logistique</span>
-            <select value={zone} onChange={(e) => setZone(e.target.value)} className={`${inputClass} w-full`}>
-              {zones.map((z) => (
-                <option key={z.code} value={z.code}>{z.label}</option>
-              ))}
-            </select>
-            <FieldHint>Zone de contrôle associée aux quotas (ex. La Bocca).</FieldHint>
-          </label>
-        </div>
+              <SlidersHorizontal size={15} />
+              {showMoreFilters ? "Masquer les filtres avancés" : "Filtres avancés"}
+            </button>
+
+            {showMoreFilters && (
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                <label className="block text-sm">
+                  <span className="mb-1 block font-medium text-gray-700">Où filtrer ?</span>
+                  <select value={scopeFilter} onChange={(e) => setScopeFilter(e.target.value)} className={`${inputClass} w-full`}>
+                    <option value="">Tous les niveaux</option>
+                    {SCOPES.map((s) => (
+                      <option key={s} value={s}>{SCOPE_LABELS[s]}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-sm">
+                  <span className="mb-1 block font-medium text-gray-700">Port</span>
+                  <input placeholder="ex. PORT_CANTO" value={port} onChange={(e) => setPort(e.target.value)} className={`${inputClass} w-full`} />
+                </label>
+                <label className="block text-sm">
+                  <span className="mb-1 block font-medium text-gray-700">Secteur</span>
+                  <input placeholder="ex. POWER" value={sector} onChange={(e) => setSector(e.target.value)} className={`${inputClass} w-full`} />
+                </label>
+                <label className="block text-sm sm:col-span-2 lg:col-span-3">
+                  <span className="mb-1 block font-medium text-gray-700">Recherche</span>
+                  <input placeholder="Lieu, catégorie…" value={q} onChange={(e) => setQ(e.target.value)} className={`${inputClass} w-full`} />
+                </label>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       <div className="mb-4 -mx-0.5 overflow-x-auto border-b border-gray-200">
@@ -556,12 +643,32 @@ export default function PlanningQuotasExplorer({
         <p className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{gridError}</p>
       )}
 
+      <div className="mb-4 rounded-lg border border-[#3F4660]/15 bg-[#3F4660]/5 px-4 py-3">
+        <h2 className="text-sm font-semibold text-[#3F4660]">{TAB_INTRO[tab].title}</h2>
+        <p className="mt-1 text-sm text-gray-700">{TAB_INTRO[tab].description}</p>
+        <p className="mt-1 text-xs text-gray-500">{TAB_INTRO[tab].help}</p>
+      </div>
+
       {tab === "calendrier" && (
         <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           {rulesLoading ? (
             <LoaderRow />
           ) : calendarDays.length === 0 ? (
-            <p className="text-sm text-gray-500">Aucune plage pour ces filtres.</p>
+            <div className="space-y-3">
+              <p className="text-sm text-gray-600">Aucun horaire n’est encore défini pour cette sélection.</p>
+              {canWriteDates && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTab("horaires");
+                    setShowCreateRule(true);
+                  }}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#3F4660] px-3 py-2 text-sm font-semibold text-white hover:bg-[#343a52] sm:min-h-0"
+                >
+                  <Plus size={14} /> Créer le premier horaire
+                </button>
+              )}
+            </div>
           ) : (
             <ul className="space-y-3">
               {calendarDays.map((day) => (
@@ -604,6 +711,19 @@ export default function PlanningQuotasExplorer({
           </div>
           {rulesLoading ? (
             <LoaderRow />
+          ) : rules.length === 0 ? (
+            <div className="space-y-3">
+              <p className="text-sm text-gray-600">Aucun horaire n’est encore défini pour cette sélection.</p>
+              {canWriteDates && (
+                <button
+                  type="button"
+                  onClick={() => setShowCreateRule(true)}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#3F4660] px-3 py-2 text-sm font-semibold text-white hover:bg-[#343a52] sm:min-h-0"
+                >
+                  <Plus size={14} /> Créer le premier horaire
+                </button>
+              )}
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full text-left text-sm">
@@ -611,7 +731,7 @@ export default function PlanningQuotasExplorer({
                   <tr>
                     <th className="px-2 py-2">Date</th>
                     <th className="px-2 py-2">Horaires</th>
-                    <th className="px-2 py-2">Portée</th>
+                    <th className="px-2 py-2">Lieu</th>
                     <th className="px-2 py-2">Catégorie</th>
                     <th className="px-2 py-2">Actif</th>
                     <th className="px-2 py-2">Source</th>
@@ -637,7 +757,7 @@ export default function PlanningQuotasExplorer({
                           {r.scopeLabel || formatCapacityScopeLabel(r.scopeKey)}
                         </button>
                       </td>
-                      <td className="px-2 py-2">{r.categoryCode}</td>
+                      <td className="px-2 py-2">{categoryLabel(r.categoryCode)}</td>
                       <td className="px-2 py-2">
                         <input
                           type="checkbox"
@@ -690,9 +810,37 @@ export default function PlanningQuotasExplorer({
 
       {tab === "quotas" && (
         <section className="space-y-4">
+          <div className="grid gap-2 rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:grid-cols-2">
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium text-gray-700">Où appliquer le quota ?</span>
+              <select
+                value={selectedScopeKey}
+                onChange={(e) => setSelectedScopeKey(e.target.value)}
+                className={`${inputClass} w-full`}
+              >
+                <option value="">Choisir un lieu…</option>
+                {scopeOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              <FieldHint>Choisissez le port, secteur, espace ou emplacement concerné.</FieldHint>
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium text-gray-700">Zone logistique</span>
+              <select value={zone} onChange={(e) => setZone(e.target.value)} className={`${inputClass} w-full`}>
+                {zones.map((z) => (
+                  <option key={z.code} value={z.code}>{z.label}</option>
+                ))}
+              </select>
+              <FieldHint>Zone de contrôle associée aux quotas (ex. La Bocca).</FieldHint>
+            </label>
+          </div>
+
           <NumberedSteps
             steps={[
-              { title: "Choisir le périmètre", description: "Port, secteur ou espace ci-dessus." },
+              { title: "Choisir le lieu", description: "Indiquez où le plafond s’applique." },
               { title: "Découper", description: "Découpez la plage en créneaux (15 à 120 min)." },
               { title: "Capacités", description: "Indiquez le max léger et lourd." },
               { title: "Confirmer", description: "Aperçu puis confirmation — rien n’est créé sans ça." },
@@ -700,14 +848,14 @@ export default function PlanningQuotasExplorer({
           />
           {!selectedScopeKey ? (
             <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-              Choisissez d’abord un <strong>périmètre des quotas</strong> dans les filtres ci-dessus.
+              Choisissez d’abord <strong>où appliquer le quota</strong> dans le menu ci-dessus.
             </p>
           ) : (
             <>
               <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
                 <h2 className="mb-1 flex items-center gap-2 font-semibold text-gray-900">
                   <Clock size={16} className="text-[#3F4660]" />
-                  Horaires du planning — {formatCapacityScopeLabel(selectedScopeKey)}
+                  Horaires associés — {scopeOptions.find((o) => o.value === selectedScopeKey)?.label ?? formatCapacityScopeLabel(selectedScopeKey)}
                 </h2>
                 <p className="mb-2 text-xs text-gray-500">
                   Ces plages viennent de l’onglet Horaires. Les quotas se calquent dessus.
@@ -715,7 +863,23 @@ export default function PlanningQuotasExplorer({
                 {gridLoading ? (
                   <LoaderRow />
                 ) : planningRanges.length === 0 ? (
-                  <p className="text-sm text-gray-500">Aucune plage pour ce périmètre / phase.</p>
+                  <div className="space-y-3">
+                    <p className="text-sm text-gray-600">
+                      Commencez par créer un horaire. Les quotas seront ensuite construits à partir de cet horaire.
+                    </p>
+                    {canWriteDates && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTab("horaires");
+                          setShowCreateRule(true);
+                        }}
+                        className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#3F4660] px-3 py-2 text-sm font-semibold text-white hover:bg-[#343a52] sm:min-h-0"
+                      >
+                        <Plus size={14} /> Créer le premier horaire
+                      </button>
+                    )}
+                  </div>
                 ) : (
                   <ul className="mt-2 space-y-1 text-sm text-gray-700">
                     {planningRanges.map((r) => (
@@ -936,7 +1100,7 @@ export default function PlanningQuotasExplorer({
           {gridLoading ? (
             <LoaderRow />
           ) : anomalies.length === 0 ? (
-            <p className="text-sm text-gray-500">Aucune anomalie détectée pour ce scope.</p>
+            <p className="text-sm text-gray-600">Tout est cohérent. Aucun problème détecté.</p>
           ) : (
             <ul className="space-y-2">
               {anomalies.map((a, i) => (
@@ -1108,7 +1272,7 @@ function CreateRuleForm({
       <p className="text-sm font-semibold text-gray-900">Nouvelle plage horaire</p>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <label className="text-sm">
-          <span className="font-medium text-gray-700">Périmètre</span>
+          <span className="font-medium text-gray-700">Où cette règle doit-elle s’appliquer ?</span>
           <select value={scope} onChange={(e) => setScope(e.target.value as (typeof SCOPES)[number])} className={`${inputClass} mt-1 w-full`}>
             {SCOPES.map((s) => <option key={s} value={s}>{SCOPE_LABELS[s]}</option>)}
           </select>
@@ -1127,7 +1291,11 @@ function CreateRuleForm({
         </label>
         <label className="text-sm">
           <span className="font-medium text-gray-700">Catégorie</span>
-          <input placeholder="ALL, TERRE…" value={categoryCode} onChange={(e) => setCategoryCode(e.target.value)} className={`${inputClass} mt-1 w-full`} />
+          <select value={categoryCode} onChange={(e) => setCategoryCode(e.target.value)} className={`${inputClass} mt-1 w-full`}>
+            {Object.entries(CATEGORY_LABELS).map(([code, label]) => (
+              <option key={code} value={code}>{label}</option>
+            ))}
+          </select>
         </label>
         <label className="text-sm">
           <span className="font-medium text-gray-700">Date</span>

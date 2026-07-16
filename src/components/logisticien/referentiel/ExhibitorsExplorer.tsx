@@ -141,7 +141,7 @@ export default function ExhibitorsExplorer({ events }: { events: EventOption[] }
         </button>
       </div>
 
-      <PageHelp storageKey="rx-referentiel" glossaryHref="#lexique-referentiel">
+      <PageHelp storageKey="rx-referentiel" glossaryId="lexique-referentiel">
         <p>
           Ici vous gérez les <strong>sociétés exposantes</strong> et leurs{" "}
           <strong>emplacements</strong> (terre, flot, stand).

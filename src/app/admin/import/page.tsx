@@ -35,7 +35,9 @@ type ProfileKey =
 interface ProfileConfig {
   key: ProfileKey;
   label: string;
+  question: string;
   shortDescription: string;
+  example?: string;
   recommendation?: string;
   api: string;
   requiresEvent: boolean;
@@ -48,7 +50,10 @@ const PROFILES: ProfileConfig[] = [
   {
     key: "referential",
     label: "Exposants & emplacements",
-    shortDescription: "Crée ou met à jour les exposants, stands et emplacements de l’événement.",
+    question: "Qui expose et où ?",
+    shortDescription:
+      "Liste les sociétés et leurs stands ou emplacements. Cet import ne crée aucune demande d’accréditation.",
+    example: "HONDA MARINE → POWER 215",
     recommendation: "1. À importer en premier",
     api: "/api/admin/import/referential",
     requiresEvent: true,
@@ -57,8 +62,10 @@ const PROFILES: ProfileConfig[] = [
   },
   {
     key: "planning",
-    label: "Planning",
-    shortDescription: "Ajoute les créneaux de montage et démontage par port, secteur ou zone.",
+    label: "Planning général",
+    question: "Quand les véhicules peuvent-ils venir ?",
+    shortDescription:
+      "Définit les jours et heures généraux de montage et de démontage par port, secteur ou espace.",
     recommendation: "2. Après le référentiel",
     api: "/api/admin/import/planning",
     requiresEvent: true,
@@ -68,8 +75,9 @@ const PROFILES: ProfileConfig[] = [
   {
     key: "access-rules",
     label: "Règles par stand / emplacement",
+    question: "Un stand possède-t-il une règle particulière ?",
     shortDescription:
-      "Importe les règles unifiées de planning (et capacités optionnelles) par exposant et emplacement.",
+      "Utilisez cette carte lorsqu’un exposant ou un emplacement possède ses propres horaires, sa propre zone, ses gabarits ou ses capacités.",
     recommendation: "3. Après le planning général",
     api: "/api/admin/import/access-rules",
     requiresEvent: true,
@@ -78,7 +86,8 @@ const PROFILES: ProfileConfig[] = [
   {
     key: "capacities",
     label: "Capacités et quotas",
-    shortDescription: "Configure les quotas disponibles par zone, date, famille et phase.",
+    question: "Combien de véhicules sont autorisés ?",
+    shortDescription: "Définit le nombre maximal de véhicules légers et lourds par créneau.",
     recommendation: "4. Après le planning",
     api: "/api/admin/import/capacities",
     requiresEvent: true,
@@ -87,7 +96,9 @@ const PROFILES: ProfileConfig[] = [
   {
     key: "accreditations",
     label: "Accréditations",
-    shortDescription: "Crée des demandes préremplies en appliquant les contrôles métier habituels.",
+    question: "Ai-je un fichier contenant de vraies demandes ?",
+    shortDescription:
+      "Crée des demandes réelles. Le fichier doit contenir au minimum les informations du chauffeur, du véhicule, de la plaque et du créneau.",
     recommendation: "5. Après le référentiel et les quotas",
     api: "/api/admin/import/accreditations",
     requiresEvent: true,
@@ -97,6 +108,7 @@ const PROFILES: ProfileConfig[] = [
   {
     key: "zones",
     label: "Zones",
+    question: "Où les véhicules doivent-ils attendre ou être scannés ?",
     shortDescription: "Met à jour les zones logistiques, leurs couleurs et paramètres de contrôle.",
     api: "/api/admin/import/zones",
     requiresEvent: false,
@@ -105,6 +117,7 @@ const PROFILES: ProfileConfig[] = [
   {
     key: "vehicle-types",
     label: "Types de véhicules",
+    question: "Quels gabarits peut-on sélectionner ?",
     shortDescription: "Gère les gabarits, tonnages, familles et données environnementales.",
     api: "/api/admin/import/vehicle-types",
     requiresEvent: false,
@@ -117,13 +130,10 @@ const PROFILE_LABELS: Record<string, string> = Object.fromEntries(
 );
 
 const STEPS = [
-  "Choisir le type",
-  "Événement",
-  "Déposer le fichier",
-  "Aperçu dry-run",
-  "Corriger les erreurs",
-  "Confirmer",
-  "Rapport",
+  "Choisir les données",
+  "Choisir l’événement",
+  "Vérifier le fichier",
+  "Confirmer l’enregistrement",
 ];
 
 interface OrgOption {
@@ -272,6 +282,29 @@ function statusLabel(status: string): string {
   if (status === "FAILED") return "Échec";
   if (status === "PROCESSING") return "En cours";
   return status;
+}
+
+function downloadErrorReport(issues: RowIssue[], baseName: string) {
+  const escape = (value: string) => `"${value.replace(/"/g, '""')}"`;
+  const lines = [
+    "ligne,colonne,valeur,explication",
+    ...issues.map(
+      (issue) =>
+        [
+          issue.line ?? "",
+          escape(issue.column ?? ""),
+          escape(issue.value ?? ""),
+          escape(issue.reason),
+        ].join(",")
+    ),
+  ];
+  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `${baseName.replace(/\.[^.]+$/, "")}-erreurs.csv`;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }
 
 export default function AdminImportCenterPage() {
@@ -484,21 +517,14 @@ export default function AdminImportCenterPage() {
         : null;
 
   const currentStep = commitResult
-    ? 7
-    : uploading
+    ? 4
+    : dryRun && canConfirm
       ? 4
-      : dryRun &&
-          (dryRun.ok !== true ||
-            errors.length > 0 ||
-            blockingCodes.includes(dryRun.code ?? ""))
-        ? 5
-        : dryRun
-          ? 6
-          : profile && (!orgId || (profile.requiresEvent && !eventId))
-            ? 2
-            : profile
-              ? 3
-              : 1;
+      : profile && ready
+        ? 3
+        : profile
+          ? 2
+          : 1;
 
   const rows = previewRows(dryRun?.preview);
   const columns = Array.from(new Set(rows.flatMap((row) => Object.keys(row))))
@@ -523,7 +549,7 @@ export default function AdminImportCenterPage() {
         </p>
       </header>
 
-      <PageHelp storageKey="admin-import" glossaryHref="#lexique-import">
+      <PageHelp storageKey="admin-import" glossaryId="lexique-import">
         <p>
           Ordre recommandé :{" "}
           <strong>Exposants → Planning → Règles stands → Capacités → Accréditations</strong>.
@@ -536,23 +562,32 @@ export default function AdminImportCenterPage() {
 
       <NumberedSteps
         steps={[
-          { title: "Choisir le type", description: "Exposants, planning, quotas…" },
-          { title: "Événement", description: "Sélectionnez l’événement concerné." },
-          { title: "Déposer le fichier", description: "CSV ou Excel." },
-          { title: "Vérifier puis confirmer", description: "Corrigez les erreurs avant l’écriture." },
+          { title: "Choisir les données", description: "Exposants, planning, quotas…" },
+          { title: "Choisir l’événement", description: "Sélectionnez l’événement concerné." },
+          { title: "Vérifier le fichier", description: "Aperçu sans enregistrement." },
+          { title: "Confirmer", description: "Corrigez les erreurs avant l’écriture." },
         ]}
       />
+
+      <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+        <p className="font-semibold">Important — fichiers Référentiel et Planning</p>
+        <p className="mt-1">
+          Les fichiers <strong>Référentiel</strong> et <strong>Planning</strong> de Mathieu ne créent pas
+          d’accréditations. Ils servent uniquement à préparer le formulaire public.
+        </p>
+      </div>
 
       <Glossary
         id="lexique-import"
         title="Lexique — Import"
         terms={[
           {
-            term: "Aperçu (dry-run)",
-            definition: "Simulation sans écriture : vous voyez créations, modifications et erreurs avant de confirmer.",
+            term: "Aperçu sans enregistrement (dry-run)",
+            definition:
+              "Simulation sans écriture : vous voyez créations, modifications et erreurs avant de confirmer.",
           },
           {
-            term: "Fusion",
+            term: "Mettre à jour sans supprimer les autres données (fusion)",
             definition: "Met à jour les lignes existantes et en crée de nouvelles, sans tout effacer.",
           },
           {
@@ -636,8 +671,14 @@ export default function AdminImportCenterPage() {
                   <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-primary">
                     <FileSpreadsheet size={21} />
                   </div>
-                  <h3 className="font-semibold text-gray-900">{item.label}</h3>
+                  <p className="text-sm font-semibold text-primary">{item.question}</p>
+                  <h3 className="mt-1 font-semibold text-gray-900">{item.label}</h3>
                   <p className="mt-2 flex-1 text-sm leading-6 text-gray-600">{item.shortDescription}</p>
+                  {item.example && (
+                    <p className="mt-2 rounded-lg bg-gray-50 px-2 py-1.5 font-mono text-xs text-gray-600">
+                      Ex. {item.example}
+                    </p>
+                  )}
                   {item.recommendation && (
                     <p className="mt-3 text-xs font-medium text-blue-700">{item.recommendation}</p>
                   )}
@@ -679,7 +720,7 @@ export default function AdminImportCenterPage() {
       {profile && visibleProfiles.some((item) => item.key === profile.key) && (
         <section id="import-wizard" className="space-y-5 scroll-mt-6">
           <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white p-4">
-            <ol className="flex min-w-[760px] items-center justify-between">
+            <ol className="flex min-w-[520px] items-center justify-between">
               {STEPS.map((label, index) => {
                 const number = index + 1;
                 const complete = number < currentStep;
@@ -828,7 +869,9 @@ export default function AdminImportCenterPage() {
               <p className="mt-2 text-sm font-medium text-gray-800">
                 {file ? file.name : "Déposez un fichier CSV ou XLSX"}
               </p>
-              <p className="mt-1 text-xs text-gray-500">L’analyse est un dry-run : aucune donnée n’est écrite.</p>
+              <p className="mt-1 text-xs text-gray-500">
+                L’analyse est un aperçu sans enregistrement : aucune donnée n’est écrite tant que vous n’avez pas confirmé.
+              </p>
               <input
                 ref={inputRef}
                 type="file"
@@ -858,9 +901,11 @@ export default function AdminImportCenterPage() {
             <div className="space-y-5 rounded-xl border border-gray-200 bg-white p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900">Aperçu avant import</h2>
+                  <h2 className="text-lg font-bold text-gray-900">Aperçu sans enregistrement</h2>
                   <p className="text-sm text-gray-500">
                     {typeof dryRun.totalRows === "number" ? `${dryRun.totalRows} ligne(s) analysée(s)` : file?.name}
+                    {" · "}
+                    Aucune donnée enregistrée avant confirmation.
                   </p>
                 </div>
                 <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
@@ -889,7 +934,7 @@ export default function AdminImportCenterPage() {
               </div>
               {(previewCreated === null || previewUpdated === null) && (
                 <p className="text-xs text-gray-500">
-                  « — » indique que ce profil ne calcule pas encore cette distinction pendant le dry-run.
+                  « — » indique que ce profil ne calcule pas encore cette distinction pendant l’aperçu.
                 </p>
               )}
 
@@ -901,9 +946,18 @@ export default function AdminImportCenterPage() {
 
               {errors.length > 0 && (
                 <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-                  <h3 className="flex items-center gap-2 text-sm font-semibold text-red-800">
-                    <XCircle size={16} /> {errors.length} erreur(s) à corriger dans le fichier
-                  </h3>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="flex items-center gap-2 text-sm font-semibold text-red-800">
+                      <XCircle size={16} /> {errors.length} erreur(s) à corriger dans le fichier
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => downloadErrorReport(errors, file?.name ?? "import")}
+                      className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-800 hover:bg-red-50 sm:min-h-0"
+                    >
+                      <Download size={14} /> Télécharger le rapport d’erreurs
+                    </button>
+                  </div>
                   <div className="mt-3 max-h-64 overflow-auto rounded border border-red-100 bg-white">
                     <table className="w-full text-left text-sm">
                       <thead className="sticky top-0 bg-red-50 text-xs text-red-700">

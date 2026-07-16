@@ -312,7 +312,7 @@ export default function ZonesPage() {
           </button>
         </div>
         <div className="mt-4">
-          <PageHelp storageKey="logisticien-zones" glossaryHref="#lexique-zones">
+          <PageHelp storageKey="logisticien-zones" glossaryId="lexique-zones">
             <p>
               Définissez les <strong>zones de contrôle</strong> (adresse, GPS, couleur) utilisées au
               scan et dans les filtres.
